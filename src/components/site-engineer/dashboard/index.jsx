@@ -101,7 +101,7 @@ export default function Dashboard() {
       </div>
 
       {/* 2. SUMMARY STRIP CARDS */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs">
           <span className="text-[9px] font-bold text-slate-400 block uppercase">Active Sites</span>

@@ -24,7 +24,7 @@ export default function DashboardLayout({ role, onChangeRole, title, children })
       <div className={`fixed inset-y-0 left-0 z-50 md:relative md:translate-x-0 transition-transform duration-300 ease-out transform ${
         isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
       } md:flex flex-shrink-0`}>
-        <Sidebar role={role} />
+        <Sidebar role={role} onClose={() => setIsMobileSidebarOpen(false)} />
       </div>
 
       {/* Main Content viewport container */}

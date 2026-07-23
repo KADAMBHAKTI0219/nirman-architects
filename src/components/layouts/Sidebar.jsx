@@ -109,7 +109,7 @@ const getProfileDetails = (role) => {
   }
 };
 
-export default function Sidebar({ role }) {
+export default function Sidebar({ role, onClose }) {
   const items = SIDEBAR_ITEMS[role] || [];
   const location = useLocation();
   const { initials, name, roleLabel } = getProfileDetails(role);
@@ -122,12 +122,21 @@ export default function Sidebar({ role }) {
   return (
     <aside className="w-64 bg-white text-slate-650 h-screen flex flex-col flex-shrink-0 shadow-sm border-r border-slate-100 sticky top-0">
       {/* Brand Profile */}
-      <div className="p-6 border-b border-slate-100 flex items-center justify-start bg-slate-50/40">
+      <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/40">
         <img 
           src={logoImg} 
           alt="Nex Alliance Logo" 
           className="h-9 w-auto object-contain"
         />
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="md:hidden p-1.5 hover:bg-slate-150 text-slate-500 hover:text-slate-700 rounded-lg transition-colors"
+            title="Close Menu"
+          >
+            <Icons.X className="w-4.5 h-4.5" />
+          </button>
+        )}
       </div>
 
       {/* Navigation List - Clean, Flat List with Category Headings */}
@@ -149,6 +158,9 @@ export default function Sidebar({ role }) {
             <Link
               key={idx}
               to={item.path}
+              onClick={() => {
+                if (onClose) onClose();
+              }}
               className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 isActive
                   ? 'bg-brand-tint text-slate-900 font-extrabold border-l-4 border-brand-primary shadow-xs'

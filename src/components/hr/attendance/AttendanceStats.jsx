@@ -10,7 +10,7 @@ export default function AttendanceStats({ widgets }) {
   };
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
       <div className="bg-blue-50/30 p-4 rounded-2xl border border-blue-100 shadow-3xs text-center">
         <span className="text-[9px] font-bold text-slate-400 uppercase block">Total Staff</span>
         <strong className="text-base font-black text-slate-800 block mt-0.5">{totalUsers} Staff</strong>
