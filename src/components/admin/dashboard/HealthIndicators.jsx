@@ -1,0 +1,32 @@
+import React from 'react';
+import Card from '../../common/Card';
+
+const projectHealth = [
+  { name: "Central Office Tower", score: 94, status: "Healthy", color: "bg-emerald-500" },
+  { name: "Oceanic Luxury Villas", score: 87, status: "Healthy", color: "bg-emerald-500" },
+  { name: "Smart City Mall", score: 62, status: "Delayed / At Risk", color: "bg-rose-500" },
+  { name: "Metro Station Phase 3", score: 79, status: "Warning", color: "bg-amber-500" },
+];
+
+export default function HealthIndicators() {
+  return (
+    <Card title="Project Health Metrics" subtitle="Status calculations derived from schedule, budget & approvals">
+      <div className="space-y-4">
+        {projectHealth.map((proj, idx) => (
+          <div key={idx} className="flex items-center justify-between border-b border-slate-50 pb-3 last:border-0 last:pb-0">
+            <div className="space-y-1">
+              <span className="text-xs font-bold text-slate-800 block">{proj.name}</span>
+              <span className="text-[10px] font-semibold text-slate-400 block">{proj.status}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-32 bg-slate-100 h-2 rounded-full overflow-hidden">
+                <div className={`h-full ${proj.color}`} style={{ width: `${proj.score}%` }}></div>
+              </div>
+              <span className="text-xs font-bold text-slate-700">{proj.score}%</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
