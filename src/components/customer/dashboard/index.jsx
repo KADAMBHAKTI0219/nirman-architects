@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   CheckCircle, Clock, AlertTriangle, Send, FileText, 
-  Image as ImageIcon, HelpCircle, ChevronRight, ChevronDown, Check, X 
+  Image as ImageIcon, HelpCircle, ChevronRight, ChevronDown, Check, X, MessageSquare
 } from 'lucide-react';
 import Card from '../../common/Card';
 

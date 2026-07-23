@@ -15,9 +15,9 @@ function App() {
       const r = rawRole.toLowerCase().trim();
       if (r.includes('admin') || r.includes('super admin')) return 'Admin';
       if (r.includes('hr')) return 'HR';
-      if (r.includes('manager') && !r.includes('site')) return 'ProjectManager';
+      if (r.includes('site') || r.includes('engineer')) return 'SiteEngineer';
+      if (r.includes('manager')) return 'ProjectManager';
       if (r.includes('architect')) return 'Architect';
-      if (r.includes('engineer') || r.includes('site manager')) return 'SiteEngineer';
       if (r.includes('customer')) return 'Customer';
       return 'Employee';
     } catch {
