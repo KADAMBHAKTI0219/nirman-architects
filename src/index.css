@@ -1,0 +1,152 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-primary: #8FC9FF;
+  --color-brand-secondary: #A2D2FF;
+  --color-brand-soft: #B0E0FE;
+  --color-brand-light: #D1E8FC;
+  --color-brand-tint: #E5F0FA;
+  --color-brand-dark: #1E293B;
+  --color-brand-text: #0F172A;
+  
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+body {
+  background-color: #F8FAFC;
+  color: var(--color-brand-text);
+  font-family: var(--font-sans);
+  margin: 0;
+  padding: 0;
+}
+
+/* Custom scrollbars for a modern feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Glassmorphism utility */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(229, 240, 250, 0.8);
+}
+
+/* Hide Microsoft Edge / IE default password reveal and clear buttons */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none !important;
+}
+
+/* Premium Borderless UI Overrides */
+.border,
+.border-r,
+.border-b,
+.border-t,
+.border-l,
+.border-slate-50,
+.border-slate-100,
+.border-slate-105,
+.border-slate-150,
+.border-slate-200,
+.border-slate-205,
+.border-blue-100,
+.border-blue-150,
+.border-emerald-100,
+.border-emerald-200,
+.border-rose-100,
+.border-rose-200,
+.border-amber-100,
+.border-amber-200,
+.border-indigo-100,
+.border-indigo-200 {
+  border-color: transparent !important;
+}
+
+/* Stylized Form Inputs & Controls */
+input, select, textarea {
+  border: 1.5px solid rgba(229, 240, 250, 0.85) !important;
+  background-color: #FCFDFE !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02) !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  border-radius: 0.75rem !important;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none !important;
+  border-color: #8FC9FF !important;
+  box-shadow: 0 0 0 4px rgba(143, 201, 255, 0.2) !important;
+  background-color: #FFFFFF !important;
+}
+
+/* Faint Table Dividers */
+tr, th, td {
+  border-color: rgba(241, 245, 249, 0.6) !important;
+}
+
+/* Premium Stat Card Box & Shadow Styling */
+.premium-stat-box {
+  background: #ffffff !important;
+  border-radius: 1.25rem !important;
+  box-shadow: 0 10px 25px -5px rgba(143, 201, 255, 0.2), 0 4px 12px -2px rgba(0, 0, 0, 0.03) !important;
+  border: 1.5px solid rgba(229, 240, 250, 0.6) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.premium-stat-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 35px -8px rgba(143, 201, 255, 0.35), 0 8px 20px -4px rgba(0, 0, 0, 0.05) !important;
+  border-color: #8FC9FF !important;
+}
+
+/* Fluid Responsive Typography Scaling (sm, md, lg, xl, xxl) */
+
+/* Fluid Responsive Typography Scaling (sm, md, lg, xl, xxl) */
+html {
+  font-size: 13.5px; /* Default for mobile/portrait */
+}
+
+@media (min-width: 640px) { /* sm */
+  html {
+    font-size: 14px;
+  }
+}
+
+@media (min-width: 768px) { /* md */
+  html {
+    font-size: 14.5px;
+  }
+}
+
+@media (min-width: 1024px) { /* lg */
+  html {
+    font-size: 15px;
+  }
+}
+
+@media (min-width: 1280px) { /* xl */
+  html {
+    font-size: 15.5px;
+  }
+}
+
+@media (min-width: 1536px) { /* xxl */
+  html {
+    font-size: 16.5px;
+  }
+}
+
