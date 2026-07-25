@@ -8,6 +8,7 @@ import SiteAttendance from '../components/site-engineer/attendance/index';
 import SitePhotosIssues from '../components/site-engineer/photos-issues/index';
 import SiteUpdates from '../components/site-engineer/client-updates/index';
 import SiteNotifications from '../components/site-engineer/notifications/index';
+import LeavesPortal from '../components/common/LeavesPortal';
 
 export default function getSiteEngineerRoutes(handleRoleChange) {
   return (
@@ -15,6 +16,11 @@ export default function getSiteEngineerRoutes(handleRoleChange) {
       <Route path="/site-engineer" element={
         <DashboardLayout role="SiteEngineer" onChangeRole={handleRoleChange} title="Site Engineer">
           <SiteDashboard />
+        </DashboardLayout>
+      } />
+      <Route path="/site-engineer/leaves" element={
+        <DashboardLayout role="SiteEngineer" onChangeRole={handleRoleChange} title="Leaves Portal">
+          <LeavesPortal />
         </DashboardLayout>
       } />
       <Route path="/site-engineer/sites" element={

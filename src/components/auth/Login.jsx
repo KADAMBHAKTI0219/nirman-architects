@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import loginHero from '../../assets/images/login/loginpage.png';
 import { Ruler, ArrowRight, Eye, EyeOff } from 'lucide-react';
-import { login } from '../../services/auth.api';
+import { loginUser } from '../../service/auth';
 
 const EMAIL_ROLE_MAP = {
   'admin@nirman.com': 'Admin',
+  'kadambhakti@gmail.com': 'Admin',
   'hr@nirman.com': 'HR',
   'pm@nirman.com': 'ProjectManager',
   'architect@nirman.com': 'Architect',
@@ -23,11 +24,12 @@ export default function Login({ onLogin }) {
 
   const normalizeRole = (role) => {
     if (!role) return 'Employee';
-    const r = role.toLowerCase().trim();
-    if (r.includes('admin') || r.includes('super admin')) return 'Admin';
+    const rawVal = typeof role === 'object' ? (role.roleCode || role.role || 'Employee') : role;
+    const r = String(rawVal).toLowerCase().trim();
+    if (r.includes('admin') || r.includes('super')) return 'Admin';
     if (r.includes('hr')) return 'HR';
     if (r.includes('site') || r.includes('engineer')) return 'SiteEngineer';
-    if (r.includes('manager')) return 'ProjectManager';
+    if (r.includes('manager') || r.includes('pm')) return 'ProjectManager';
     if (r.includes('architect')) return 'Architect';
     if (r.includes('customer')) return 'Customer';
     return 'Employee';
@@ -39,12 +41,35 @@ export default function Login({ onLogin }) {
     
     try {
       setError('');
-      const response = await login(cleanEmail, password);
-      if (response.success && response.user?.role) {
-        const normRole = normalizeRole(response.user.role);
+      const response = await loginUser(cleanEmail, password);
+      
+      const token = response.token || response.data?.token;
+      // Extremely robust success flag resolution: checks explicit flag, presence of token, or success message.
+      const success = response.success === true || !!token || response.data?.success === true || String(response.message).toLowerCase().includes('success');
+      
+      if (success) {
+        // Extract user data from response or nested data object
+        const userObj = response.user || response.data?.user || response.data || response;
+        const user = {
+          id: userObj.id || userObj._id || cleanEmail.split('@')[0],
+          name: userObj.name || cleanEmail.split('@')[0].toUpperCase(),
+          email: userObj.email || cleanEmail,
+          role: userObj.role,
+          roleCode: userObj.roleCode,
+          roleId: userObj.roleId,
+          deviceId: userObj.deviceId
+        };
         
-        // Save normalized role inside localStorage user metadata for route checks
-        const updatedUser = { ...response.user, role: normRole };
+        if (token) {
+          localStorage.setItem('token', token);
+        }
+        
+        // Prioritize roleCode for normalisation
+        const roleToNormalize = user.roleCode || user.role || 'SUPER_ADMIN';
+        const normRole = normalizeRole(roleToNormalize);
+        
+        // Save details inside localStorage user metadata for route checks
+        const updatedUser = { ...user, role: normRole };
         localStorage.setItem('user', JSON.stringify(updatedUser));
         
         onLogin(normRole);
@@ -52,68 +77,62 @@ export default function Login({ onLogin }) {
         setError(response.message || 'Invalid login credentials.');
       }
     } catch (err) {
-      setError(err.message || 'Login failed. Please check your credentials or network.');
+      setError(
+        err.response?.data?.message || 
+        err.message || 
+        'Login failed. Please check your credentials or network.'
+      );
     }
   };
 
+
   const fillQuickCredentials = (demoEmail) => {
     setEmail(demoEmail);
-    setPassword('password123');
+    if (demoEmail === 'admin@nirman.com') {
+      setPassword('Admin123!');
+    } else if (demoEmail === 'kadambhakti@gmail.com') {
+      setPassword('Password123!');
+    } else {
+      setPassword('Password123!');
+    }
   };
 
   return (
-    <div className="w-screen h-screen overflow-hidden grid grid-cols-1 md:grid-cols-2 relative text-left bg-white">
+    <div className="w-full min-h-screen flex flex-col md:flex-row bg-white text-left">
       
       {/* Left Column: Graphic & Centered Branding - Clean Solid Gradient Background */}
-      <div className="relative p-8 flex flex-col justify-between items-center text-brand-dark overflow-hidden h-1/2 md:h-full bg-gradient-to-tr from-brand-light via-brand-soft to-brand-secondary">
-     
-
+      <div className="w-full md:w-1/2 bg-gradient-to-tr from-brand-light via-brand-soft to-brand-secondary p-8 flex flex-col justify-between items-center text-brand-dark min-h-[300px] md:min-h-screen">
+        
         {/* Centered Graphic & Brand Package */}
-        <div className="my-auto flex flex-col items-center z-10 space-y-8">
+        <div className="my-auto flex flex-col items-center space-y-4 md:space-y-8">
           
           {/* Logo & Typography Group (Centered) */}
           <div className="text-center space-y-2">
-
-            <h1 className="text-2xl font-black tracking-widest text-slate-900 uppercase">
+            <h1 className="text-xl md:text-2xl font-black tracking-widest text-slate-900 uppercase">
               NIRMAN <span className="font-light text-slate-600">ARCHITECTS</span>
             </h1>
             <div className="w-10 h-0.5 bg-brand-primary mx-auto rounded-full mt-2"></div>
           </div>
 
           {/* Graphic Frame */}
-          <div className="relative">
-            <div className="w-94 h-94 overflow-hidden  relative">
-              <img 
-                src={loginHero} 
-                alt="Architect Graphic illustration" 
-                className="w-full h-full object-cover"
-              />
-            </div>
+          <div className="w-32 h-32 md:w-80 md:h-80 overflow-hidden rounded-2xl">
+            <img 
+              src={loginHero} 
+              alt="Architect Graphic illustration" 
+              className="w-full h-full object-cover"
+            />
           </div>
 
         </div>
 
         {/* Footer branding */}
-        <div className="text-[10px] tracking-widest font-black text-slate-500 uppercase z-10">
+        <div className="text-[10px] tracking-widest font-black text-slate-500 uppercase mt-4 md:mt-0">
           powered by Nex Alliance
-        </div>
-
-        {/* Decorative background blobs */}
-        <div className="absolute -top-10 -left-10 w-48 h-48 bg-brand-primary/10 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-10 -right-10 w-64 h-64 bg-brand-soft/20 rounded-full blur-3xl"></div>
-      </div>
-
-      {/* Center Split Button decoration */}
-      <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
-        <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md border border-slate-100 hover:scale-105 transition-transform duration-200 cursor-pointer">
-          <div className="w-9 h-9 bg-brand-primary rounded-full flex items-center justify-center text-slate-805">
-            <ArrowRight className="w-4 h-4" />
-          </div>
         </div>
       </div>
 
       {/* Right Column: Form Panel */}
-      <div className="p-8 md:p-16 flex flex-col justify-center bg-white h-1/2 md:h-full overflow-y-auto">
+      <div className="w-full md:w-1/2 p-6 md:p-16 flex flex-col justify-center bg-white min-h-[450px] md:min-h-screen">
         <div className="max-w-md w-full mx-auto space-y-6">
           <div className="space-y-1">
             <h2 className="text-3xl font-black text-slate-900 tracking-tight">Welcome Back!</h2>

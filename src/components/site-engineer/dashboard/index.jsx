@@ -8,7 +8,7 @@ import {
   CheckSquare, ArrowRight, Eye, Image as ImageIcon 
 } from 'lucide-react';
 import Card from '../../common/Card';
-import { siteCheckin, siteCheckout } from '../../../services/attendance.api';
+import { siteCheckin, siteCheckout } from '../../../mockApi';
 
 const SITE_PROGRESS_DATA = [
   { week: 'Wk 1', 'Smart City Mall': 10, 'Metro Tunnel': 40 },

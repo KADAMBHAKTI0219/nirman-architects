@@ -9,6 +9,7 @@ import EmployeeDrawings from '../components/employee/drawings/index';
 import EmployeeDocs from '../components/employee/documents/index';
 import EmployeeChat from '../components/employee/chat/index';
 import EmployeeNotifications from '../components/employee/notifications/index';
+import LeavesPortal from '../components/common/LeavesPortal';
 
 export default function getEmployeeRoutes(handleRoleChange) {
   return (
@@ -21,6 +22,11 @@ export default function getEmployeeRoutes(handleRoleChange) {
       <Route path="/employee/attendance" element={
         <DashboardLayout role="Employee" onChangeRole={handleRoleChange} title="Attendance">
           <EmployeeAttendance />
+        </DashboardLayout>
+      } />
+      <Route path="/employee/leaves" element={
+        <DashboardLayout role="Employee" onChangeRole={handleRoleChange} title="Leaves Portal">
+          <LeavesPortal />
         </DashboardLayout>
       } />
       <Route path="/employee/tasks" element={

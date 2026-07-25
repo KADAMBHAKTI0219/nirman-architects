@@ -45,20 +45,20 @@ export default function Reviews() {
 
       {/* 2. SUMMARY STRIP */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-blue-50/30 p-4 rounded-2xl border border-blue-100 shadow-3xs text-center">
-          <span className="text-[9px] font-bold text-slate-400 uppercase block">Due Reviews</span>
+        <div className="premium-stat-box p-4 text-center">
+          <span className="text-[9px] font-bold text-slate-405 uppercase block">Due Reviews</span>
           <strong className="text-base font-black text-amber-500 block mt-0.5">2 Reviews</strong>
         </div>
-        <div className="bg-blue-50/30 p-4 rounded-2xl border border-blue-100 shadow-3xs text-center">
-          <span className="text-[9px] font-bold text-slate-400 uppercase block">Completed Reviews</span>
+        <div className="premium-stat-box p-4 text-center">
+          <span className="text-[9px] font-bold text-slate-405 uppercase block">Completed Reviews</span>
           <strong className="text-base font-black text-emerald-600 block mt-0.5">3 Done</strong>
         </div>
-        <div className="bg-blue-50/30 p-4 rounded-2xl border border-blue-100 shadow-3xs text-center">
-          <span className="text-[9px] font-bold text-slate-400 uppercase block">High Performers</span>
-          <strong className="text-base font-black text-indigo-505 block mt-0.5">2 Staff</strong>
+        <div className="premium-stat-box p-4 text-center">
+          <span className="text-[9px] font-bold text-slate-405 uppercase block">High Performers</span>
+          <strong className="text-base font-black text-slate-800 block mt-0.5">2 Staff</strong>
         </div>
-        <div className="bg-blue-50/30 p-4 rounded-2xl border border-blue-100 shadow-3xs text-center">
-          <span className="text-[9px] font-bold text-slate-400 uppercase block">Needs Attention</span>
+        <div className="premium-stat-box p-4 text-center">
+          <span className="text-[9px] font-bold text-slate-405 uppercase block">Needs Attention</span>
           <strong className="text-base font-black text-rose-500 block mt-0.5">1 Alert</strong>
         </div>
       </div>

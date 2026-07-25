@@ -5,7 +5,7 @@ export default function MetricCard({ title, value, iconName, change, isPositive,
   const Icon = Icons[iconName] || Icons.HelpCircle;
 
   return (
-    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm transition-all duration-300 hover:shadow-md hover:border-brand-primary/30 flex justify-between items-start">
+    <div className="premium-stat-box p-5 flex justify-between items-start">
       <div className="space-y-2">
         <span className="text-sm font-medium text-slate-500">{title}</span>
         <h3 className="text-2xl font-bold text-slate-900 tracking-tight">{value}</h3>

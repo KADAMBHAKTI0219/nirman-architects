@@ -1,22 +1,47 @@
 import React, { useState, useEffect } from 'react';
 import { Laptop, Clock, ArrowRight, ShieldCheck, Power, RefreshCw, AlertCircle } from 'lucide-react';
 import Card from '../../common/Card';
-import { getMyAttendance, clockOfficeEvent } from '../../../services/attendance.api';
+import { registerDevice, getDeviceStatus } from '../../../service/auth';
+import { getMyAttendance, postAttendanceEvent } from '../../../service/attendance';
 
 export default function AttendanceOffice() {
   const [sessionLogs, setSessionLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
+  const [inputDeviceId, setInputDeviceId] = useState('');
+  const [deviceStatusInfo, setDeviceStatusInfo] = useState(null);
 
   const fetchOfficeLogs = async () => {
     setLoading(true);
     try {
       const response = await getMyAttendance();
-      if (response.success && response.logs) {
-        // Filter for OFFICE_AUTO logs
-        const officeLogs = response.logs.filter(l => l.mode === 'OFFICE_AUTO');
-        setSessionLogs(officeLogs);
+      const rawLogs = response.logs || response.data || (Array.isArray(response) ? response : []);
+      if (rawLogs) {
+        const mappedLogs = [];
+        rawLogs.forEach(log => {
+          // Add CLOCK_IN event
+          mappedLogs.push({
+            id: (log._id || log.id) + '_in',
+            time: log.clockInTime,
+            type: 'CLOCK_IN',
+            deviceId: log.deviceId || 'N/A',
+            source: log.isOfflineEntry ? 'OFFLINE_SYNC' : 'SYSTEM_BOOT'
+          });
+          // Add CLOCK_OUT event if present
+          if (log.clockOutTime) {
+            mappedLogs.push({
+              id: (log._id || log.id) + '_out',
+              time: log.clockOutTime,
+              type: 'CLOCK_OUT',
+              deviceId: log.deviceId || 'N/A',
+              source: log.autoClosed ? 'HEARTBEAT_TIMEOUT' : 'SYSTEM_SHUTDOWN'
+            });
+          }
+        });
+        // Sort by time descending
+        mappedLogs.sort((a, b) => new Date(b.time) - new Date(a.time));
+        setSessionLogs(mappedLogs);
       }
     } catch (err) {
       console.error("Failed to load personal office logs:", err);
@@ -26,16 +51,68 @@ export default function AttendanceOffice() {
     }
   };
 
+  const fetchDeviceStatus = async () => {
+    const savedUser = localStorage.getItem('user');
+    const user = savedUser ? JSON.parse(savedUser) : null;
+    const userId = user ? user.id : null;
+    if (!userId) return;
+
+    try {
+      const res = await getDeviceStatus(userId);
+      if (res.success && res.data) {
+        setDeviceStatusInfo(res.data);
+        setInputDeviceId(res.data.deviceId || '');
+        
+        // Update user metadata in localStorage to keep it sync'd
+        const updated = { 
+          ...user, 
+          deviceId: res.data.deviceId, 
+          registeredDeviceId: res.data.deviceId,
+          deviceStatus: res.data.deviceStatus
+        };
+        localStorage.setItem('user', JSON.stringify(updated));
+      }
+    } catch (err) {
+      console.error("Failed to fetch device status:", err);
+    }
+  };
+
   useEffect(() => {
     fetchOfficeLogs();
+    fetchDeviceStatus();
   }, []);
+
+  const handleRegisterDevice = async (e) => {
+    e.preventDefault();
+    if (!inputDeviceId.trim()) return;
+    
+    const savedUser = localStorage.getItem('user');
+    const user = savedUser ? JSON.parse(savedUser) : null;
+    const userId = user ? user.id : null;
+
+    setActionLoading(true);
+    setError('');
+    try {
+      const res = await registerDevice(userId, inputDeviceId.trim());
+      if (res.success) {
+        alert(res.message || 'Device registration details submitted.');
+        fetchDeviceStatus();
+      } else {
+        setError(res.message || 'Failed to register device.');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Failed to register device.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   // Simulate Windows OS Login/Boot or Logoff/Shutdown event pings
   const handleSimulateWindowsEvent = async (type, source) => {
     const savedUser = localStorage.getItem('user');
     const user = savedUser ? JSON.parse(savedUser) : null;
     const userId = user ? user.id : null;
-    const deviceId = user ? user.registeredDeviceId || 'c5dbdd5f-e416-479b-aa77-12c661c48bcb' : 'c5dbdd5f-e416-479b-aa77-12c661c48bcb';
+    const deviceId = user ? user.registeredDeviceId || user.deviceId || 'c5dbdd5f-e416-479b-aa77-12c661c48bcb' : 'c5dbdd5f-e416-479b-aa77-12c661c48bcb';
 
     if (!userId) {
       alert("Session expired. Please log in again.");
@@ -45,12 +122,18 @@ export default function AttendanceOffice() {
     setActionLoading(true);
     setError('');
     try {
-      const response = await clockOfficeEvent(userId, deviceId, type, source, new Date().toISOString());
+      const response = await postAttendanceEvent({
+        type: type.toLowerCase(),
+        deviceId,
+        clientTime: new Date().toISOString()
+      });
       alert(response.message || `Windows simulated ${type} logged successfully via ${source}.`);
       fetchOfficeLogs();
+      // Fetch device status and attendance status again to update UI
+      fetchDeviceStatus();
     } catch (err) {
       console.error("Simulation event failed:", err);
-      setError(err.message || "Simulation request failed.");
+      setError(err.response?.data?.message || err.message || "Simulation request failed.");
     } finally {
       setActionLoading(false);
     }
@@ -60,7 +143,7 @@ export default function AttendanceOffice() {
     <div className="space-y-6">
       
       {/* Laptop connection details */}
-      <div className="bg-white p-5 rounded-3xl border border-slate-105 shadow-2xs grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="bg-white p-5 rounded-3xl border border-slate-105 shadow-2xs grid grid-cols-1 md:grid-cols-4 gap-6">
         
         {/* Device Sync card */}
         <div className="space-y-3.5">
@@ -108,6 +191,51 @@ export default function AttendanceOffice() {
               Simulate PC Shutdown (Clock-Out)
             </button>
           </div>
+        </div>
+
+        {/* Device Registration & Sync Form */}
+        <div className="space-y-2.5">
+          <span className="text-[10px] font-black text-slate-450 uppercase tracking-widest block border-b border-slate-55 pb-2">Device Binding Request</span>
+          <form onSubmit={handleRegisterDevice} className="space-y-2">
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Target Machine GUID / Device ID</label>
+              <div className="flex gap-1.5">
+                <input 
+                  type="text" 
+                  required
+                  value={inputDeviceId}
+                  onChange={(e) => setInputDeviceId(e.target.value)}
+                  placeholder="e.g. 7FA24F44-8F0B-42F8-AD82-F482E1BC6D37"
+                  className="flex-1 px-2.5 py-1.5 text-[10px] border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary font-semibold text-slate-755 min-w-0"
+                />
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-2.5 py-1.5 bg-brand-primary hover:bg-brand-secondary disabled:opacity-50 text-slate-905 text-[10px] font-black uppercase rounded-xl transition-all shadow-3xs flex-shrink-0"
+                >
+                  {actionLoading ? 'Sync...' : 'Bind'}
+                </button>
+              </div>
+            </div>
+            
+            {deviceStatusInfo && (
+              <div className="flex flex-col gap-1 text-[9px] pt-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-slate-400">Status:</span>
+                  <span className={`font-black uppercase px-1.5 py-0.5 rounded text-[8px] tracking-wider border ${
+                    deviceStatusInfo.deviceStatus === 'APPROVED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'
+                  }`}>
+                    {deviceStatusInfo.deviceStatus || 'APPROVED'}
+                  </span>
+                </div>
+                {deviceStatusInfo.pendingRequests && deviceStatusInfo.pendingRequests.length > 0 && (
+                  <span className="text-amber-600 font-bold animate-pulse text-[8px]">
+                    &#9888; Change Request Pending Approval
+                  </span>
+                )}
+              </div>
+            )}
+          </form>
         </div>
 
       </div>

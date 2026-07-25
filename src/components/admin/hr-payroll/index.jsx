@@ -1,9 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import HROverview from './HROverview';
 import HRLeaves from './HRLeaves';
 import HRShifts from './HRShifts';
 import HRPayrollOps from './HRPayrollOps';
 import HRPerformance from './HRPerformance';
+import LeaveMaster from './LeaveMaster';
+import {
+  getPendingLeaveRequests,
+  approveLeaveRequest,
+  rejectLeaveRequest,
+  createLeaveType,
+  getAllLeaveTypes,
+  deactivateLeaveType,
+  getCompanyLeaves,
+  adjustLeaveBalance,
+  parseIndexedObjectToArray
+} from '../../../service/leave';
+import { getUsersList } from '../../../service/auth';
 
 // Mock DB Initial Data
 const MOCK_STATS = {
@@ -73,7 +86,12 @@ export default function HRPayroll() {
   const [activeTab, setActiveTab] = useState('overview'); // overview, leaves, shifts, payroll, performance
 
   // Leaves state
-  const [leaveRequests, setLeaveRequests] = useState(INITIAL_LEAVE_REQUESTS);
+  const [leaveRequests, setLeaveRequests] = useState([]);
+  const [companyLeaves, setCompanyLeaves] = useState([]);
+  const [usersList, setUsersList] = useState([]);
+  const [leaveTypes, setLeaveTypes] = useState([]);
+  const [loadingLeaves, setLoadingLeaves] = useState(false);
+  const [loadingTypes, setLoadingTypes] = useState(false);
   
   // Shift swap requests state
   const [swapRequests, setSwapRequests] = useState(INITIAL_SWAP_REQUESTS);
@@ -85,18 +103,197 @@ export default function HRPayroll() {
   // Performance state
   const [performanceRecords, setPerformanceRecords] = useState(INITIAL_PERFORMANCE);
 
-  const handleApproveLeave = (reqId) => {
-    setLeaveRequests(prev => prev.map(req => 
-      req.id === reqId ? { ...req, status: 'Approved' } : req
-    ));
-    alert("Leave request approved successfully!");
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => {
+      setToast(prev => ({ ...prev, show: false }));
+    }, 4500);
   };
 
-  const handleRejectLeave = (reqId) => {
-    setLeaveRequests(prev => prev.map(req => 
-      req.id === reqId ? { ...req, status: 'Rejected' } : req
-    ));
-    alert("Leave request rejected successfully.");
+  const fetchPendingLeaves = async () => {
+    try {
+      setLoadingLeaves(true);
+      const res = await getPendingLeaveRequests();
+      const list = parseIndexedObjectToArray(res);
+      if (list) {
+        const mapped = list.map(req => {
+          const fromDateStr = req.fromDate ? new Date(req.fromDate).toLocaleDateString() : '';
+          const toDateStr = req.toDate ? new Date(req.toDate).toLocaleDateString() : '';
+          const diffTime = req.toDate && req.fromDate ? Math.abs(new Date(req.toDate) - new Date(req.fromDate)) : 0;
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+          return {
+            id: req._id || req.id,
+            name: req.userId?.name || req.user?.name || req.employeeName || "Nirman Staff",
+            department: req.userId?.department || req.department || "Staff",
+            type: req.leaveTypeId?.name || req.leaveType?.name || req.leaveTypeName || "Leave",
+            reason: req.reason || "N/A",
+            startDate: fromDateStr || req.fromDate,
+            endDate: toDateStr || req.toDate,
+            days: req.totalDays || diffDays || 1,
+            status: req.status ? (req.status.charAt(0) + req.status.slice(1).toLowerCase()) : "Pending"
+          };
+        });
+        setLeaveRequests(mapped);
+      }
+    } catch (err) {
+      console.error("Failed to load pending leaves from backend", err);
+    } finally {
+      setLoadingLeaves(false);
+    }
+  };
+
+  const fetchCompanyLeaves = async () => {
+    try {
+      const res = await getCompanyLeaves();
+      const list = parseIndexedObjectToArray(res);
+      if (list) {
+        const mapped = list.map(req => {
+          const fromDateStr = req.fromDate ? new Date(req.fromDate).toLocaleDateString() : '';
+          const toDateStr = req.toDate ? new Date(req.toDate).toLocaleDateString() : '';
+          const diffTime = req.toDate && req.fromDate ? Math.abs(new Date(req.toDate) - new Date(req.fromDate)) : 0;
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+          return {
+            id: req._id || req.id,
+            name: req.userId?.name || req.user?.name || req.employeeName || "Nirman Staff",
+            department: req.userId?.department || req.department || "Staff",
+            type: req.leaveTypeId?.name || req.leaveType?.name || req.leaveTypeName || "Leave",
+            reason: req.reason || "N/A",
+            startDate: fromDateStr || req.fromDate,
+            endDate: toDateStr || req.toDate,
+            days: req.totalDays || diffDays || 1,
+            status: req.status ? (req.status.charAt(0) + req.status.slice(1).toLowerCase()) : "Pending"
+          };
+        });
+        setCompanyLeaves(mapped);
+      }
+    } catch (err) {
+      console.error("Failed to load company-wide leaves", err);
+    }
+  };
+
+  const fetchUsersList = async () => {
+    try {
+      const res = await getUsersList();
+      const list = parseIndexedObjectToArray(res);
+      if (list) {
+        setUsersList(list);
+      }
+    } catch (err) {
+      console.error("Failed to fetch users list", err);
+    }
+  };
+
+  const fetchLeaveTypes = async () => {
+    try {
+      setLoadingTypes(true);
+      const res = await getAllLeaveTypes();
+      const list = parseIndexedObjectToArray(res);
+      if (list) {
+        setLeaveTypes(list);
+      }
+    } catch (err) {
+      console.error("Failed to load leave types", err);
+    } finally {
+      setLoadingTypes(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'leaves') {
+      fetchPendingLeaves();
+      fetchCompanyLeaves();
+      fetchUsersList();
+      fetchLeaveTypes();
+    } else if (activeTab === 'leave-master') {
+      fetchLeaveTypes();
+    }
+  }, [activeTab]);
+
+  const handleApproveLeave = async (reqId) => {
+    try {
+      const res = await approveLeaveRequest(reqId);
+      if (res.success || res._id) {
+        showToast("Leave request approved successfully!");
+        fetchPendingLeaves();
+        fetchCompanyLeaves();
+      } else {
+        showToast("Failed to approve leave request.", "error");
+      }
+    } catch (err) {
+      console.error("Backend approval error", err);
+      showToast(err.response?.data?.message || err.message || "Approval action denied.", "error");
+    }
+  };
+
+  const handleRejectLeave = async (reqId, reason = "Scheduling conflict") => {
+    try {
+      const res = await rejectLeaveRequest(reqId, reason);
+      if (res.success || res._id) {
+        showToast("Leave request rejected successfully.");
+        fetchPendingLeaves();
+        fetchCompanyLeaves();
+      } else {
+        showToast("Failed to reject leave request.", "error");
+      }
+    } catch (err) {
+      console.error("Backend rejection error", err);
+      showToast(err.response?.data?.message || err.message || "Rejection action denied.", "error");
+    }
+  };
+
+  const handleRejectLeavePrompt = (reqId) => {
+    const reason = prompt("Enter rejection reason for this leave request:", "Scheduling conflict / staffing shortage");
+    if (reason === null) return;
+    handleRejectLeave(reqId, reason);
+  };
+
+  const handleCreateLeaveType = async (typeData) => {
+    try {
+      const res = await createLeaveType(typeData);
+      if (res.success || res._id) {
+        showToast("Leave type created successfully!");
+        fetchLeaveTypes();
+      } else {
+        showToast("Failed to create leave type.", "error");
+      }
+    } catch (err) {
+      console.error("Backend leave type creation error", err);
+      showToast(err.response?.data?.message || err.message || "Error creating leave type.", "error");
+    }
+  };
+
+  const handleDeactivateLeaveType = async (id) => {
+    try {
+      const res = await deactivateLeaveType(id);
+      if (res.success || res._id) {
+        showToast("Leave type deactivated successfully.");
+        fetchLeaveTypes();
+      } else {
+        showToast("Failed to deactivate leave type.", "error");
+      }
+    } catch (err) {
+      console.error("Backend leave type deactivation error", err);
+      showToast(err.response?.data?.message || err.message || "Error deactivating leave type.", "error");
+    }
+  };
+
+  const handleAdjustLeaveBalance = async (adjustmentData) => {
+    try {
+      const res = await adjustLeaveBalance(adjustmentData);
+      if (res.success || res._id) {
+        showToast("Employee leave balance adjusted successfully!");
+        fetchCompanyLeaves();
+      } else {
+        showToast("Failed to adjust leave balance.", "error");
+      }
+    } catch (err) {
+      console.error("Backend adjust balance error", err);
+      showToast(err.response?.data?.message || err.message || "Error adjusting leave balance.", "error");
+    }
   };
 
   const handleApproveSwap = (reqId) => {
@@ -127,6 +324,7 @@ export default function HRPayroll() {
   const tabs = [
     { id: 'overview', label: 'HR Overview' },
     { id: 'leaves', label: 'Leave Management' },
+    { id: 'leave-master', label: 'Leave Master' },
     { id: 'shifts', label: 'Shift planner' },
     { id: 'payroll', label: 'Payroll Center' },
     { id: 'performance', label: 'Performance score' }
@@ -172,10 +370,21 @@ export default function HRPayroll() {
         {activeTab === 'leaves' && (
           <HRLeaves 
             leaveRequests={leaveRequests}
-            leaveBalances={LEAVE_BALANCES}
+            companyLeaves={companyLeaves}
+            usersList={usersList}
+            leaveTypes={leaveTypes}
             holidaysList={HOLIDAYS}
             onApproveLeave={handleApproveLeave}
-            onRejectLeave={handleRejectLeave}
+            onRejectLeave={handleRejectLeavePrompt}
+            onAdjustBalance={handleAdjustLeaveBalance}
+          />
+        )}
+
+        {activeTab === 'leave-master' && (
+          <LeaveMaster 
+            leaveTypes={leaveTypes}
+            onDeactivate={handleDeactivateLeaveType}
+            onCreate={handleCreateLeaveType}
           />
         )}
 
@@ -189,12 +398,7 @@ export default function HRPayroll() {
         )}
 
         {activeTab === 'payroll' && (
-          <HRPayrollOps 
-            payrollRecords={payrollRecords}
-            onCalculatePayroll={handleCalculatePayroll}
-            payrollApproved={payrollApproved}
-            onApprovePayroll={handleApprovePayroll}
-          />
+          <HRPayrollOps />
         )}
 
         {activeTab === 'performance' && (
@@ -205,6 +409,14 @@ export default function HRPayroll() {
         )}
       </div>
 
+      {toast.show && (
+        <div className={`fixed top-5 right-5 px-4 py-3 rounded-2xl shadow-lg border text-xs font-bold z-50 animate-in slide-in-from-top duration-300 flex items-center gap-2 ${
+          toast.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-705' : 'bg-rose-50 border-rose-100 text-rose-705'
+        }`}>
+          <div className={`w-2 h-2 rounded-full ${toast.type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+          <span>{toast.message}</span>
+        </div>
+      )}
     </div>
   );
 }

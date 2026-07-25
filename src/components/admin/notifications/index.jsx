@@ -1,57 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Bell, ShieldAlert, Award, FileText, CheckCircle2, MessageSquare, 
-  Trash2, Mail, Smartphone, RefreshCw, Pin, Eye, Settings, Clock 
+  Trash2, Mail, Smartphone, RefreshCw, Pin, Eye, Settings, Clock, X
 } from 'lucide-react';
 import Card from '../../common/Card';
-
-const INITIAL_NOTIFICATIONS = [
-  { 
-    id: 1, 
-    category: "Approval Alerts", 
-    text: "GFC sign-off required: Plumbing Riser Diagram V1.2 uploaded by Sarah Connor.", 
-    time: "1 hour ago", 
-    pinned: true, 
-    read: false,
-    detail: "Sarah Connor has uploaded version V1.2 of the Plumbing Riser Diagram for the Oceanic Luxury Villas project. Approval is required before GFC release lock can be applied.",
-    projectName: "Oceanic Luxury Villas"
-  },
-  { 
-    id: 2, 
-    category: "Work Alerts", 
-    text: "Timesheet discrepancy detected on Smart City Mall concrete pouring team.", 
-    time: "3 hours ago", 
-    pinned: false, 
-    read: false,
-    detail: "Three site team members logged 10 hours on Wednesday while their GPS location logs registered departures 2 hours early. Roster check required.",
-    projectName: "Smart City Mall"
-  },
-  { 
-    id: 3, 
-    category: "HR Alerts", 
-    text: "Annual appraisal review calendar has been published to all HR portals.", 
-    time: "Yesterday", 
-    pinned: false, 
-    read: true,
-    detail: "The 2026 performance appraisal cycles guidelines have been pushed to employee dashboards. Roster updates must be configured by Friday.",
-    projectName: "System-wide"
-  },
-  { 
-    id: 4, 
-    category: "Client Messages", 
-    text: "Mr. Bruce Wayne posted query: 'Cave concrete loading calculations checking status'.", 
-    time: "2 days ago", 
-    pinned: false, 
-    read: true,
-    detail: "Bruce Wayne is requesting concrete load bearing specs for the Oceanic Villas garage blueprints.",
-    projectName: "Oceanic Luxury Villas"
-  }
-];
+import { getMyNotifications, markNotificationAsRead } from '../../../service/notification';
 
 export default function Notifications() {
-  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
-  const [selectedNotification, setSelectedNotification] = useState(INITIAL_NOTIFICATIONS[0]);
+  const [notifications, setNotifications] = useState([]);
+  const [selectedNotification, setSelectedNotification] = useState(null);
   const [activeCategory, setActiveCategory] = useState('All');
+  const [loading, setLoading] = useState(false);
   
   // Channels Configs state
   const [channels, setChannels] = useState({
@@ -61,19 +20,63 @@ export default function Notifications() {
     whatsapp: true
   });
 
-  const categories = ['All', 'Approval Alerts', 'Work Alerts', 'HR Alerts', 'Client Messages'];
+  const categories = ['All', 'Approval Alerts', 'Work Alerts', 'HR Alerts', 'System Messages'];
+
+  const getCategoryLabel = (type) => {
+    if (!type) return 'System Messages';
+    const t = type.toUpperCase();
+    if (t.includes('APPROVAL') || t.includes('DRAWING')) return 'Approval Alerts';
+    if (t.includes('TASK') || t.includes('WORK')) return 'Work Alerts';
+    if (t.includes('LEAVE') || t.includes('HR') || t.includes('OFFER')) return 'HR Alerts';
+    return 'System Messages';
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const res = await getMyNotifications();
+      const list = res && res.success && res.data ? (res.data.notifications || []) : (res ? (res.notifications || []) : []);
+      const mapped = list.map(n => ({
+        id: n._id || n.id,
+        category: getCategoryLabel(n.type),
+        text: n.message,
+        time: new Date(n.createdAt).toLocaleDateString() + ' ' + new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        pinned: false,
+        read: n.isRead,
+        detail: n.message,
+        projectName: n.type || "System"
+      }));
+      setNotifications(mapped);
+      if (mapped.length > 0) {
+        setSelectedNotification(mapped[0]);
+      } else {
+        setSelectedNotification(null);
+      }
+    } catch (err) {
+      console.error("Failed to load admin notifications:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
 
   // Filtered notifications
   const filteredNotifications = notifications.filter(n => {
     return activeCategory === 'All' || n.category === activeCategory;
   });
 
-  const handleMarkRead = (id) => {
-    setNotifications(prev => prev.map(n => 
-      n.id === id ? { ...n, read: true } : n
-    ));
-    if (selectedNotification?.id === id) {
-      setSelectedNotification(prev => ({ ...prev, read: true }));
+  const handleMarkRead = async (id) => {
+    try {
+      await markNotificationAsRead(id);
+      fetchNotifications();
+      if (selectedNotification?.id === id) {
+        setSelectedNotification(prev => ({ ...prev, read: true }));
+      }
+    } catch (err) {
+      console.error("Failed to mark read:", err);
     }
   };
 

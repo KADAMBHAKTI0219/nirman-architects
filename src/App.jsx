@@ -1,22 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import AppRoutes from './routes/AppRoutes';
-import { getAttendanceStatus, siteCheckin, clockOfficeEvent } from './services/attendance.api';
+import { getAttendanceStatus, siteCheckin, clockOfficeEvent } from './mockApi';
+import { ToastProvider } from './context/ToastContext';
 import './App.css';
 
 function App() {
   const [role, setRole] = useState(() => {
     try {
       const savedUser = localStorage.getItem('user');
-      const rawRole = savedUser ? JSON.parse(savedUser).role : 'Admin';
+      if (!savedUser) return 'Admin';
+      
+      const parsedUser = JSON.parse(savedUser);
+      const rawRole = parsedUser.roleCode || parsedUser.role || 'Employee';
       
       // Normalize role to match React router definitions
-      if (!rawRole) return 'Employee';
       const r = rawRole.toLowerCase().trim();
-      if (r.includes('admin') || r.includes('super admin')) return 'Admin';
-      if (r.includes('hr')) return 'HR';
-      if (r.includes('site') || r.includes('engineer')) return 'SiteEngineer';
-      if (r.includes('manager')) return 'ProjectManager';
+      if (r.includes('admin') || r.includes('super_admin') || r.includes('super admin')) return 'Admin';
+      if (r === 'hr') return 'HR';
+      if (r.includes('site') || r.includes('engineer') || r === 'site_engineer') return 'SiteEngineer';
+      if (r.includes('manager') || r === 'project_manager') return 'ProjectManager';
       if (r.includes('architect')) return 'Architect';
       if (r.includes('customer')) return 'Customer';
       return 'Employee';
@@ -106,37 +109,25 @@ function App() {
 
       const user = JSON.parse(savedUser);
       const isSiteEngineer = user.role?.toLowerCase().includes('site');
-      const baseUrl = 'https://nirman-architects.onrender.com/api';
       
-      const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      };
-
-      if (isSiteEngineer) {
-        fetch(`${baseUrl}/attendance/site/checkout`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            projectId: '6a607dae7f99c70902371c1d',
-            lat: coordsRef.current.lat,
-            lng: coordsRef.current.lng
-          }),
-          keepalive: true
-        });
-      } else {
-        fetch(`${baseUrl}/attendance/office/event`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            userId: user.id,
-            deviceId: user.registeredDeviceId || 'c5dbdd5f-e416-479b-aa77-12c661c48bcb',
-            type: 'CLOCK_OUT',
-            source: 'SYSTEM_SHUTDOWN',
-            time: new Date().toISOString()
-          }),
-          keepalive: true
-        });
+      try {
+        const logs = JSON.parse(localStorage.getItem('nirman_attendance_logs') || '[]');
+        const newLog = {
+          id: 'att_' + Math.random().toString(36).substr(2, 9),
+          userId: user.id,
+          employeeName: user.name || 'User',
+          userEmail: user.email,
+          type: 'CLOCK_OUT',
+          time: new Date().toISOString(),
+          source: 'SYSTEM_SHUTDOWN',
+          mode: isSiteEngineer ? 'SITE_GPS' : 'OFFICE_AUTO',
+          deviceId: user.registeredDeviceId || 'web-browser',
+          isOffline: false
+        };
+        logs.push(newLog);
+        localStorage.setItem('nirman_attendance_logs', JSON.stringify(logs));
+      } catch (err) {
+        console.error("Failed to save offline unload clockout log:", err);
       }
     };
 
@@ -147,15 +138,18 @@ function App() {
   }, [isAuthenticated]);
 
   return (
-    <BrowserRouter>
-      <AppRoutes 
-        role={role} 
-        setRole={setRole} 
-        isAuthenticated={isAuthenticated} 
-        setIsAuthenticated={setIsAuthenticated} 
-      />
-    </BrowserRouter>
+    <ToastProvider>
+      <BrowserRouter>
+        <AppRoutes 
+          role={role} 
+          setRole={setRole} 
+          isAuthenticated={isAuthenticated} 
+          setIsAuthenticated={setIsAuthenticated} 
+        />
+      </BrowserRouter>
+    </ToastProvider>
   );
 }
 
 export default App;
+

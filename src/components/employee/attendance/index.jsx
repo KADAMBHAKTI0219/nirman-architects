@@ -3,7 +3,7 @@ import AttendanceCheckIn from './AttendanceCheckIn';
 import AttendanceOffice from './AttendanceOffice';
 import AttendanceSite from './AttendanceSite';
 import AttendanceReports from './AttendanceReports';
-import { clockOfficeEvent, getAttendanceStatus, sendHeartbeat, siteCheckin, getMyAttendance } from '../../../services/attendance.api';
+import { getMyAttendance, postAttendanceEvent } from '../../../service/attendance';
 import { ShieldCheck, Info, MapPin } from 'lucide-react';
 
 export default function Attendance() {
@@ -23,27 +23,21 @@ export default function Attendance() {
     const fetchSessionStatus = async () => {
       try {
         const savedUser = localStorage.getItem('user');
-        const userId = savedUser ? JSON.parse(savedUser).id : null;
-        if (userId) {
-          const response = await getAttendanceStatus(userId);
-          if (response.success && response.data) {
-            const online = response.data.isOnline || false;
-            setIsCheckedIn(online);
-            localStorage.setItem('isCheckedIn', online ? 'true' : 'false');
+        if (!savedUser) return;
 
-            // Fetch logs to calculate time worked today
-            const myLogsRes = await getMyAttendance();
-            if (myLogsRes.success && myLogsRes.logs) {
-              const logs = myLogsRes.logs;
-              const todayStr = new Date().toDateString();
-              const todayInLogs = logs.filter(l => l.type === 'CLOCK_IN' && new Date(l.time).toDateString() === todayStr);
-              
-              if (todayInLogs.length > 0 && online) {
-                const latestCheckIn = todayInLogs[0];
-                const elapsed = Math.floor((Date.now() - new Date(latestCheckIn.time).getTime()) / 1000);
-                setSecondsWorked(elapsed > 0 ? elapsed : 0);
-              }
-            }
+        const myLogsRes = await getMyAttendance();
+        const rawLogs = myLogsRes.logs || myLogsRes.data || (Array.isArray(myLogsRes) ? myLogsRes : []);
+        if (rawLogs && rawLogs.length > 0) {
+          const latest = rawLogs[0];
+          const online = !latest.clockOutTime; // Open session has no clockOutTime
+          setIsCheckedIn(online);
+          localStorage.setItem('isCheckedIn', online ? 'true' : 'false');
+          
+          if (online) {
+            const elapsed = Math.floor((Date.now() - new Date(latest.clockInTime).getTime()) / 1000);
+            setSecondsWorked(elapsed > 0 ? elapsed : 0);
+          } else {
+            setSecondsWorked(0);
           }
         }
       } catch (err) {
@@ -85,7 +79,7 @@ export default function Attendance() {
 
     const savedUser = localStorage.getItem('user');
     const user = savedUser ? JSON.parse(savedUser) : null;
-    const deviceId = user ? user.registeredDeviceId || 'c5dbdd5f-e416-479b-aa77-12c661c48bcb' : 'c5dbdd5f-e416-479b-aa77-12c661c48bcb';
+    const deviceId = user ? user.registeredDeviceId || user.deviceId || 'c5dbdd5f-e416-479b-aa77-12c661c48bcb' : 'c5dbdd5f-e416-479b-aa77-12c661c48bcb';
 
     let lastActivity = Date.now();
     const handleActivity = () => {
@@ -105,7 +99,11 @@ export default function Attendance() {
         setIsOnBreak(true);
       } else {
         try {
-          await sendHeartbeat(deviceId);
+          await postAttendanceEvent({
+            type: 'heartbeat',
+            deviceId,
+            clientTime: new Date().toISOString()
+          });
         } catch (err) {
           console.warn("Heartbeat failed:", err.message);
         }

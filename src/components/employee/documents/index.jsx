@@ -1,13 +1,71 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Search, FileText, Download, Eye, File, Folder, Layers, X, Calendar, Database
 } from 'lucide-react';
 import Card from '../../common/Card';
+import { getOfferLetterMetadata, downloadOfferLetterPDF } from '../../../service/offerLetter';
 
 export default function EmployeeDocs() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFolder, setSelectedFolder] = useState('All');
   const [inspectingDoc, setInspectingDoc] = useState(null);
+
+  // Offer Letter Integration
+  const [offerMetadata, setOfferMetadata] = useState(null);
+  const [loadingOffer, setLoadingOffer] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  const savedUserStr = localStorage.getItem('user');
+  let loggedInUser = null;
+  if (savedUserStr) {
+    try {
+      loggedInUser = JSON.parse(savedUserStr);
+    } catch(e) {
+      console.error("Error reading logged-in user:", e);
+    }
+  }
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => {
+      setToast(prev => ({ ...prev, show: false }));
+    }, 4500);
+  };
+
+  useEffect(() => {
+    const fetchMyOfferLetter = async () => {
+      if (!loggedInUser) return;
+      const uId = loggedInUser.id || loggedInUser._id;
+      if (!uId) return;
+      try {
+        setLoadingOffer(true);
+        const res = await getOfferLetterMetadata(uId);
+        if (res && res.success && res.data) {
+          setOfferMetadata(res.data.latest || null);
+        } else if (res && res.latest) {
+          setOfferMetadata(res.latest || null);
+        }
+      } catch (err) {
+        console.error("Failed to load personal offer letter metadata:", err);
+      } finally {
+        setLoadingOffer(false);
+      }
+    };
+    fetchMyOfferLetter();
+  }, []);
+
+  const handleDownloadOfferLetter = async () => {
+    if (!loggedInUser) return;
+    const uId = loggedInUser.id || loggedInUser._id;
+    try {
+      showToast("Downloading your official Offer Letter PDF...");
+      await downloadOfferLetterPDF(uId, loggedInUser.name || "Employee");
+      showToast("Offer Letter downloaded successfully!");
+    } catch (err) {
+      console.error("Failed to download offer letter:", err);
+      showToast("Error downloading Offer Letter PDF.", "error");
+    }
+  };
 
   const folders = ['All', 'Guidelines', 'Drawings', 'Reports', 'Site Photos'];
 
@@ -39,7 +97,7 @@ export default function EmployeeDocs() {
         );
       case 'XLSX':
         return (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-slate-350 font-mono text-[9px] h-64 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-slate-355 font-mono text-[9px] h-64 overflow-y-auto">
             <div className="border-b border-slate-700 pb-2 text-center text-xs font-bold text-emerald-400 mb-2">
               SHEET VIEWER: {doc.name.toUpperCase()}
             </div>
@@ -77,6 +135,30 @@ export default function EmployeeDocs() {
   return (
     <div className="space-y-6">
       
+      {/* Official Offer Letter Section */}
+      {offerMetadata && (
+        <div className="bg-gradient-to-r from-blue-50/50 to-[#E5F0FA]/30 p-5 rounded-3xl border border-blue-105 shadow-3xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-in fade-in duration-200">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-white border border-blue-150 text-[#2484C6] rounded-2xl">
+              <FileText className="w-6 h-6" />
+            </div>
+            <div>
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Official Document</span>
+              <strong className="text-slate-805 block text-xs mt-1">Official Employment Offer Letter</strong>
+              <span className="text-[9px] text-slate-400 block mt-0.5 font-bold uppercase">
+                Issued for {offerMetadata.designationSnapshot} &bull; Joined {new Date(offerMetadata.joiningDateSnapshot).toLocaleDateString()}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={handleDownloadOfferLetter}
+            className="flex items-center gap-1.5 px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-905 rounded-xl text-xs font-black uppercase transition-all shadow-xs"
+          >
+            <Download className="w-4 h-4" />
+            Download PDF
+          </button>
+        </div>
+      )}
       {/* Search and folders control row */}
       <div className="flex flex-wrap gap-4 items-center justify-between bg-white p-4 rounded-3xl border border-slate-100 shadow-2xs">
         <div className="flex items-center gap-2 overflow-x-auto scrollbar-none flex-1">
@@ -186,6 +268,15 @@ export default function EmployeeDocs() {
         </div>
       )}
 
+
+      {toast.show && (
+        <div className={`fixed top-5 right-5 px-4 py-3 rounded-2xl shadow-lg border text-xs font-bold z-50 flex items-center gap-2 ${
+          toast.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-705' : 'bg-rose-50 border-rose-100 text-rose-705'
+        }`}>
+          <div className={`w-2 h-2 rounded-full ${toast.type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+          <span>{toast.message}</span>
+        </div>
+      )}
     </div>
   );
 }

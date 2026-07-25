@@ -1,79 +1,154 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   DollarSign, FileText, CheckCircle, AlertCircle, Search, 
   Download, Eye, RefreshCw, X, Play 
 } from 'lucide-react';
 import Card from '../../common/Card';
-
-const INITIAL_PAYROLL = [
-  { id: "PAY-101", employeeId: "EMP-101", name: "Sarah Connor", gross: 75000, deductions: 5200, net: 69800, status: "Paid", bank: "Nirman Axis Bank", payslipNo: "PS-2026-071" },
-  { id: "PAY-102", employeeId: "EMP-102", name: "Alice Smith", gross: 45000, deductions: 3100, net: 41900, status: "Paid", bank: "Nirman Axis Bank", payslipNo: "PS-2026-072" },
-  { id: "PAY-103", employeeId: "EMP-103", name: "Bob Johnson", gross: 50000, deductions: 3500, net: 46500, status: "Pending", bank: "HDFC Salaries", payslipNo: "PS-2026-073" },
-  { id: "PAY-104", employeeId: "EMP-104", name: "Charlie Brown", gross: 35000, deductions: 2400, net: 32600, status: "Pending", bank: "HDFC Salaries", payslipNo: "PS-2026-074" },
-  { id: "PAY-105", employeeId: "EMP-105", name: "Frank Castle", gross: 40000, deductions: 2800, net: 37200, status: "Error", bank: "Unmatched IFSC", payslipNo: "PS-2026-075" }
-];
+import {
+  getAllPayroll,
+  downloadEmployeePayslip
+} from '../../../service/payroll';
+import { parseIndexedObjectToArray } from '../../../service/leave';
 
 export default function PayrollData() {
-  const [payroll, setPayroll] = useState(INITIAL_PAYROLL);
+  const [payroll, setPayroll] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPay, setSelectedPay] = useState(INITIAL_PAYROLL[0]);
-  const [drawerOpen, setDrawerOpen] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState('July 2026');
+  const [selectedPay, setSelectedPay] = useState(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => {
+      setToast(prev => ({ ...prev, show: false }));
+    }, 4500);
+  };
+
+  const [monthName, yearStr] = selectedMonth.split(' ');
+  const monthNum = {
+    'January': 1, 'February': 2, 'March': 3, 'April': 4,
+    'May': 5, 'June': 6, 'July': 7, 'August': 8,
+    'September': 9, 'October': 10, 'November': 11, 'December': 12
+  }[monthName] || 7;
+  const yearNum = Number(yearStr) || 2026;
+
+  const fetchPayroll = async () => {
+    try {
+      setLoading(true);
+      const res = await getAllPayroll({ month: monthNum, year: yearNum });
+      const list = parseIndexedObjectToArray(res);
+      const mapped = list.map(rec => {
+        const userObj = rec.userId || {};
+        return {
+          id: rec._id,
+          userId: userObj._id || rec.userId,
+          name: userObj.name || "Nirman Employee",
+          employeeId: userObj.email?.split('@')[0] || "EMP",
+          gross: rec.baseSalary || 0,
+          deductions: rec.totalDeduction || 0,
+          net: rec.netSalary || 0,
+          status: "Paid",
+          bank: "Nirman Axis Bank",
+          payslipNo: `PS-${rec.year}-${String(rec.month).padStart(2, '0')}-${rec._id?.substring(18).toUpperCase() || 'XXX'}`
+        };
+      });
+      setPayroll(mapped);
+      if (mapped.length > 0) {
+        setSelectedPay(mapped[0]);
+      } else {
+        setSelectedPay(null);
+      }
+    } catch (err) {
+      console.error("Failed to fetch payroll list for HR:", err);
+      showToast("Error loading payroll sheets.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPayroll();
+  }, [selectedMonth]);
+
+  const handleDownloadPDF = async () => {
+    if (!selectedPay) return;
+    try {
+      showToast(`Downloading payslip for ${selectedPay.name}...`);
+      await downloadEmployeePayslip(selectedPay.userId, selectedPay.name, monthNum, yearNum);
+      showToast("Payslip downloaded successfully!");
+    } catch (err) {
+      console.error("Error downloading employee slip:", err);
+      showToast("Admin privilege required to download other employee slips.", "error");
+    }
+  };
 
   const filtered = payroll.filter(p => 
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.employeeId.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleRunPayroll = () => {
-    alert("Running payroll processing sequence for the current month... Success.");
-    setPayroll(prev => prev.map(p => p.status === 'Pending' ? { ...p, status: 'Paid' } : p));
-  };
+  const totalGross = payroll.reduce((acc, p) => acc + p.gross, 0);
+  const totalNet = payroll.reduce((acc, p) => acc + p.net, 0);
+  const totalDeductions = payroll.reduce((acc, p) => acc + p.deductions, 0);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       
       {/* 1. TOP BAR */}
-      <div className="bg-white p-5 rounded-3xl border border-slate-105 shadow-2xs flex flex-wrap gap-4 items-center justify-between">
+      <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-2xs flex flex-wrap gap-4 items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-blue-50/50 border border-blue-100 text-[#2484C6] rounded-2xl">
+          <div className="p-3 bg-brand-tint border border-brand-primary text-slate-805 rounded-2xl">
             <DollarSign className="w-6 h-6" />
           </div>
           <div>
             <strong className="text-slate-850 text-sm block">Payroll Operations</strong>
-            <span className="text-[10px] text-slate-405 block font-bold">Process operational salary releases and tax deduction logs</span>
+            <span className="text-[10px] text-slate-400 block font-bold">Process operational salary releases and tax deduction logs</span>
           </div>
         </div>
 
-        <button
-          onClick={handleRunPayroll}
-          className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-905 rounded-xl text-xs font-black uppercase transition-all shadow-sm flex items-center gap-1"
-        >
-          <Play className="w-4 h-4" />
-          Run Payroll
-        </button>
+        <div className="flex gap-2.5 items-center">
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="px-3 py-2 text-xs border border-slate-205 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-700 bg-white font-semibold"
+          >
+            <option value="June 2026">June 2026</option>
+            <option value="July 2026">July 2026</option>
+            <option value="August 2026">August 2026</option>
+          </select>
+          <button
+            onClick={fetchPayroll}
+            className="p-2 bg-slate-50 border border-slate-205 hover:bg-slate-100 text-slate-700 rounded-xl transition-all shadow-3xs"
+            title="Refresh Payroll List"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {/* 2. SUMMARY STRIP */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="bg-blue-50/30 p-4 rounded-2xl border border-blue-100 shadow-3xs text-center">
-          <span className="text-[9px] font-bold text-slate-400 uppercase block">Total Payroll</span>
-          <strong className="text-base font-black text-slate-800 block mt-0.5">$245,000</strong>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-xs font-bold text-slate-550">
+        <div className="premium-stat-box p-4 text-center bg-white border border-slate-100 rounded-2xl shadow-3xs">
+          <span className="text-[9px] font-bold text-slate-400 uppercase block">Total Gross</span>
+          <strong className="text-base font-black text-slate-800 block mt-0.5">${totalGross.toLocaleString()}</strong>
         </div>
-        <div className="bg-blue-50/30 p-4 rounded-2xl border border-blue-100 shadow-3xs text-center">
+        <div className="premium-stat-box p-4 text-center bg-white border border-slate-100 rounded-2xl shadow-3xs">
           <span className="text-[9px] font-bold text-slate-400 uppercase block">Net Payable</span>
-          <strong className="text-base font-black text-emerald-600 block mt-0.5">$228,000</strong>
+          <strong className="text-base font-black text-emerald-600 block mt-0.5">${totalNet.toLocaleString()}</strong>
         </div>
-        <div className="bg-blue-50/30 p-4 rounded-2xl border border-blue-100 shadow-3xs text-center">
+        <div className="premium-stat-box p-4 text-center bg-white border border-slate-100 rounded-2xl shadow-3xs">
           <span className="text-[9px] font-bold text-slate-400 uppercase block">Deductions</span>
-          <strong className="text-base font-black text-slate-500 block mt-0.5">$17,000</strong>
+          <strong className="text-base font-black text-slate-500 block mt-0.5">${totalDeductions.toLocaleString()}</strong>
         </div>
-        <div className="bg-blue-50/30 p-4 rounded-2xl border border-blue-100 shadow-3xs text-center">
-          <span className="text-[9px] font-bold text-slate-400 uppercase block">Pending Approvals</span>
-          <strong className="text-base font-black text-amber-500 block mt-0.5">2 Pending</strong>
+        <div className="premium-stat-box p-4 text-center bg-white border border-slate-100 rounded-2xl shadow-3xs">
+          <span className="text-[9px] font-bold text-slate-400 uppercase block">Active Employees</span>
+          <strong className="text-base font-black text-amber-500 block mt-0.5">{payroll.length} Staff</strong>
         </div>
-        <div className="bg-blue-50/30 p-4 rounded-2xl border border-blue-100 shadow-3xs text-center">
-          <span className="text-[9px] font-bold text-slate-400 uppercase block">Payroll Errors</span>
-          <strong className="text-base font-black text-rose-500 block mt-0.5">1 Alert</strong>
+        <div className="premium-stat-box p-4 text-center bg-white border border-slate-100 rounded-2xl shadow-3xs">
+          <span className="text-[9px] font-bold text-slate-400 uppercase block">Status</span>
+          <strong className="text-base font-black text-emerald-500 block mt-0.5">Ready</strong>
         </div>
       </div>
 
@@ -147,6 +222,13 @@ export default function PayrollData() {
                       </td>
                     </tr>
                   ))}
+                  {filtered.length === 0 && (
+                    <tr>
+                      <td colSpan="6" className="py-8 text-center text-xs font-bold text-slate-405">
+                        No payroll sheets compiled for the selected cycle.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -184,7 +266,7 @@ export default function PayrollData() {
                   <span>Gross Base Salary:</span>
                   <span>${selectedPay.gross.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between items-center text-[10px] text-rose-500">
+                <div className="flex justify-between items-center text-[10px] text-rose-505">
                   <span>Tax Deductions:</span>
                   <span>-${selectedPay.deductions.toLocaleString()}</span>
                 </div>
@@ -196,8 +278,8 @@ export default function PayrollData() {
 
               <div className="flex gap-2 pt-2">
                 <button
-                  onClick={() => alert(`Downloading payslip for ${selectedPay.name}`)}
-                  className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black uppercase rounded-xl transition-all shadow-3xs flex items-center justify-center gap-1"
+                  onClick={handleDownloadPDF}
+                  className="flex-1 py-2 bg-slate-150 hover:bg-slate-200 text-slate-705 text-xs font-black uppercase rounded-xl transition-all shadow-3xs flex items-center justify-center gap-1"
                 >
                   <Download className="w-4 h-4" />
                   Get PDF
@@ -209,6 +291,15 @@ export default function PayrollData() {
 
       </div>
 
+      {toast.show && (
+        <div className={`fixed top-5 right-5 px-4 py-3 rounded-2xl shadow-lg border text-xs font-bold z-50 flex items-center gap-2 ${
+          toast.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-705' : 'bg-rose-50 border-rose-100 text-rose-705'
+        }`}>
+          <div className={`w-2 h-2 rounded-full ${toast.type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+          <span>{toast.message}</span>
+        </div>
+      )}
     </div>
   );
 }
+

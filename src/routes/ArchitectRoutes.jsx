@@ -9,6 +9,7 @@ import ArchitectTime from '../components/architect/time-tracking/index';
 import ArchitectChats from '../components/architect/chats/index';
 import ArchitectDocs from '../components/architect/documents/index';
 import ArchitectNotifications from '../components/architect/notifications/index';
+import LeavesPortal from '../components/common/LeavesPortal';
 
 export default function getArchitectRoutes(handleRoleChange) {
   return (
@@ -16,6 +17,11 @@ export default function getArchitectRoutes(handleRoleChange) {
       <Route path="/architect" element={
         <DashboardLayout role="Architect" onChangeRole={handleRoleChange} title="Architect / Designer">
           <ArchitectDashboard />
+        </DashboardLayout>
+      } />
+      <Route path="/architect/leaves" element={
+        <DashboardLayout role="Architect" onChangeRole={handleRoleChange} title="Leaves Portal">
+          <LeavesPortal />
         </DashboardLayout>
       } />
       <Route path="/architect/tasks" element={

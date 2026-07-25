@@ -1,45 +1,158 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ResponsiveContainer, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, 
   XAxis, YAxis, CartesianGrid, Tooltip, Legend 
 } from 'recharts';
-import { Search, DollarSign, FileText, Download, Calculator, Check } from 'lucide-react';
+import { Search, DollarSign, FileText, Download, Calculator, Check, RefreshCw } from 'lucide-react';
 import Card from '../../common/Card';
+import {
+  getAllPayroll,
+  generateAllPayroll,
+  downloadEmployeePayslip,
+  downloadAllPayslipsZip
+} from '../../../service/payroll';
+import { parseIndexedObjectToArray } from '../../../service/leave';
 
-const COLORS = ['#8FC9FF', '#A2D2FF', '#34D399', '#EF4444'];
+const COLORS = ['#8FC9FF', '#EF4444', '#34D399'];
 
-export default function HRPayrollOps({
-  payrollRecords,
-  onCalculatePayroll,
-  payrollApproved,
-  onApprovePayroll
-}) {
+export default function HRPayrollOps() {
+  const [payroll, setPayroll] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('July 2026');
+  const [payrollApproved, setPayrollApproved] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => {
+      setToast(prev => ({ ...prev, show: false }));
+    }, 4500);
+  };
+
+  const [monthName, yearStr] = selectedMonth.split(' ');
+  const monthNum = {
+    'January': 1, 'February': 2, 'March': 3, 'April': 4,
+    'May': 5, 'June': 6, 'July': 7, 'August': 8,
+    'September': 9, 'October': 10, 'November': 11, 'December': 12
+  }[monthName] || 7;
+  const yearNum = Number(yearStr) || 2026;
+
+  const fetchPayrollRecords = async () => {
+    try {
+      setLoading(true);
+      const res = await getAllPayroll({ month: monthNum, year: yearNum });
+      const list = parseIndexedObjectToArray(res);
+      const mapped = list.map(rec => {
+        const userObj = rec.userId || {};
+        return {
+          id: rec._id,
+          userId: userObj._id || rec.userId,
+          name: userObj.name || "Nirman Employee",
+          role: userObj.designation || "Staff",
+          base: rec.baseSalary || 0,
+          allowance: 0,
+          deduction: rec.totalDeduction || 0,
+          delayPenalty: 0,
+          bonus: 0,
+          netPay: rec.netSalary || 0,
+          bank: "Nirman Axis Bank",
+          payslipNo: `PS-${rec.year}-${String(rec.month).padStart(2, '0')}-${rec._id?.substring(18).toUpperCase() || 'XXX'}`
+        };
+      });
+      setPayroll(mapped);
+    } catch (err) {
+      console.error("Failed to load payroll records:", err);
+      showToast("Could not retrieve payroll sheets.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPayrollRecords();
+  }, [selectedMonth]);
+
+  const handleCalculatePayroll = async () => {
+    try {
+      showToast("Triggering payroll calculation sequence...");
+      const res = await generateAllPayroll({ month: monthNum, year: yearNum });
+      if (res.success || res.records) {
+        showToast(res.message || "Payroll calculated successfully!");
+        fetchPayrollRecords();
+      } else {
+        showToast("Calculation execution failed.", "error");
+      }
+    } catch (err) {
+      console.error("Error generating payroll:", err);
+      showToast(err.response?.data?.message || err.message || "Failed to calculate payroll.", "error");
+    }
+  };
+
+  const handleApprovePayroll = () => {
+    setPayrollApproved(true);
+    showToast("Monthly payroll approved and released successfully!");
+  };
+
+  const handleDownloadPayslip = async (rec) => {
+    try {
+      showToast(`Downloading payslip for ${rec.name}...`);
+      await downloadEmployeePayslip(rec.userId, rec.name, monthNum, yearNum);
+      showToast("Payslip downloaded successfully!");
+    } catch (err) {
+      console.error("Error downloading payslip:", err);
+      showToast("Failed to download payslip PDF.", "error");
+    }
+  };
+
+  const handleBulkDownloadZip = async () => {
+    try {
+      showToast("Compiling payslips ZIP archive...");
+      await downloadAllPayslipsZip(monthNum, yearNum);
+      showToast("ZIP archive downloaded successfully!");
+    } catch (err) {
+      console.error("Error downloading ZIP archive:", err);
+      showToast("Failed to download ZIP archive.", "error");
+    }
+  };
 
   // Filtered payroll
-  const filteredRecords = payrollRecords.filter(rec => 
+  const filteredRecords = payroll.filter(rec => 
     rec.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Recharts Data
-  const deptCostData = [
-    { name: 'Architecture', cost: 15400 },
-    { name: 'Engineering', cost: 24200 },
-    { name: 'Project Mgmt', cost: 18500 }
-  ];
+  // Dynamic Recharts Data accumulation
+  const deptCostMap = {};
+  payroll.forEach(rec => {
+    const dept = rec.role || 'Staff';
+    deptCostMap[dept] = (deptCostMap[dept] || 0) + rec.netPay;
+  });
+  const deptCostData = Object.keys(deptCostMap).length > 0
+    ? Object.keys(deptCostMap).map(k => ({ name: k, cost: deptCostMap[k] }))
+    : [
+        { name: 'Architecture', cost: 15400 },
+        { name: 'Engineering', cost: 24200 },
+        { name: 'Project Mgmt', cost: 18500 }
+      ];
 
   const monthlyTrendData = [
     { month: 'May', cost: 52000 },
     { month: 'Jun', cost: 55000 },
-    { month: 'Jul', cost: 58100 }
+    { month: 'Jul', cost: payroll.reduce((acc, r) => acc + r.netPay, 0) || 58100 }
   ];
 
+  let totalBase = 0;
+  let totalDeductions = 0;
+  let totalNet = 0;
+  payroll.forEach(rec => {
+    totalBase += rec.base;
+    totalDeductions += rec.deduction;
+    totalNet += rec.netPay;
+  });
   const componentSplitData = [
-    { name: 'Basic Pay', value: 45000 },
-    { name: 'Allowances', value: 8500 },
-    { name: 'Bonuses', value: 6200 },
-    { name: 'Deductions', value: 1600 }
+    { name: 'Basic Pay', value: totalBase || 45000 },
+    { name: 'Deductions', value: totalDeductions || 1600 },
+    { name: 'Net Pay', value: totalNet || 43400 }
   ];
 
   return (
@@ -70,14 +183,15 @@ export default function HRPayrollOps({
           </select>
 
           <button
-            onClick={onCalculatePayroll}
-            className="px-4 py-2 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-black uppercase transition-all shadow-3xs"
+            onClick={handleCalculatePayroll}
+            className="px-4 py-2 bg-slate-50 border border-slate-205 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-black uppercase transition-all shadow-3xs flex items-center gap-1"
           >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             Fetch Attendance Logs
           </button>
 
           <button
-            onClick={onApprovePayroll}
+            onClick={handleApprovePayroll}
             disabled={payrollApproved}
             className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all shadow-sm flex items-center gap-1.5 ${
               payrollApproved 
@@ -87,6 +201,14 @@ export default function HRPayrollOps({
           >
             <Check className="w-4 h-4" />
             {payrollApproved ? 'Payroll Released' : 'Approve Release'}
+          </button>
+
+          <button
+            onClick={handleBulkDownloadZip}
+            className="px-4 py-2 bg-slate-900 hover:bg-slate-805 text-white rounded-xl text-xs font-black uppercase transition-all shadow-3xs flex items-center gap-1.5"
+          >
+            <Download className="w-4 h-4" />
+            Bulk Download ZIP
           </button>
         </div>
 
@@ -108,47 +230,58 @@ export default function HRPayrollOps({
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left table-auto">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/50">
-                  <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Employee details</th>
-                  <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Base Salary</th>
-                  <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Allowances</th>
-                  <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Deductions</th>
-                  <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-rose-500">Delay penalty</th>
-                  <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Bonuses</th>
-                  <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Net Pay</th>
-                  <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Payslip</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {filteredRecords.map(rec => (
-                  <tr key={rec.id} className="hover:bg-slate-50/40">
-                    <td className="px-4 py-3.5 align-middle">
-                      <div>
-                        <strong className="text-slate-805 block">{rec.name}</strong>
-                        <span className="text-[9px] text-slate-400 block font-semibold">{rec.role}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5 text-slate-700 font-bold align-middle">${rec.base}</td>
-                    <td className="px-4 py-3.5 text-slate-500 font-semibold align-middle">+${rec.allowance}</td>
-                    <td className="px-4 py-3.5 text-slate-500 font-semibold align-middle">-${rec.deduction}</td>
-                    <td className="px-4 py-3.5 text-rose-505 font-bold align-middle">-${rec.delayPenalty}</td>
-                    <td className="px-4 py-3.5 text-emerald-600 font-bold align-middle">+${rec.bonus}</td>
-                    <td className="px-4 py-3.5 text-slate-805 font-black align-middle">${rec.netPay}</td>
-                    <td className="px-4 py-3.5 text-right align-middle">
-                      <button
-                        onClick={() => alert(`Downloading Payslip PDF for ${rec.name}`)}
-                        className="px-2.5 py-1 bg-white border border-slate-205 hover:bg-slate-50 text-slate-700 rounded-lg text-[9px] font-black uppercase tracking-wider shadow-3xs transition-all flex items-center gap-0.5"
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                        Payslip
-                      </button>
-                    </td>
+            {loading && payroll.length === 0 ? (
+              <div className="py-8 text-center text-xs font-bold text-slate-400">Loading payroll register data...</div>
+            ) : (
+              <table className="w-full text-xs text-left table-auto">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/50">
+                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Employee details</th>
+                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Base Salary</th>
+                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Allowances</th>
+                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Deductions</th>
+                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-rose-500">Delay penalty</th>
+                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Bonuses</th>
+                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Net Pay</th>
+                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Payslip</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {filteredRecords.map(rec => (
+                    <tr key={rec.id} className="hover:bg-slate-50/40">
+                      <td className="px-4 py-3.5 align-middle">
+                        <div>
+                          <strong className="text-slate-805 block">{rec.name}</strong>
+                          <span className="text-[9px] text-slate-400 block font-semibold">{rec.role}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 text-slate-700 font-bold align-middle">${rec.base.toLocaleString()}</td>
+                      <td className="px-4 py-3.5 text-slate-500 font-semibold align-middle">+${rec.allowance}</td>
+                      <td className="px-4 py-3.5 text-slate-500 font-semibold align-middle">-${rec.deduction.toLocaleString()}</td>
+                      <td className="px-4 py-3.5 text-rose-505 font-bold align-middle">-${rec.delayPenalty}</td>
+                      <td className="px-4 py-3.5 text-emerald-600 font-bold align-middle">+${rec.bonus}</td>
+                      <td className="px-4 py-3.5 text-slate-805 font-black align-middle">${rec.netPay.toLocaleString()}</td>
+                      <td className="px-4 py-3.5 text-right align-middle">
+                        <button
+                          onClick={() => handleDownloadPayslip(rec)}
+                          className="px-2.5 py-1 bg-white border border-slate-205 hover:bg-slate-50 text-slate-700 rounded-lg text-[9px] font-black uppercase tracking-wider shadow-3xs transition-all flex items-center gap-0.5 ml-auto"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          Payslip
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredRecords.length === 0 && (
+                    <tr>
+                      <td colSpan="8" className="py-8 text-center text-xs font-bold text-slate-405">
+                        No payroll sheets compiled for the selected cycle.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
 
         </div>
@@ -216,6 +349,14 @@ export default function HRPayrollOps({
 
       </div>
 
+      {toast.show && (
+        <div className={`fixed top-5 right-5 px-4 py-3 rounded-2xl shadow-lg border text-xs font-bold z-50 flex items-center gap-2 ${
+          toast.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-705' : 'bg-rose-50 border-rose-100 text-rose-705'
+        }`}>
+          <div className={`w-2 h-2 rounded-full ${toast.type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+          <span>{toast.message}</span>
+        </div>
+      )}
     </div>
   );
 }

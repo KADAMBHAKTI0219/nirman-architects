@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Navigation, Camera, ShieldCheck, AlertCircle } from 'lucide-react';
-import { siteCheckin, siteCheckout, getSiteLocations } from '../../../services/attendance.api';
+import { postAttendanceEvent, getMyAttendance, getSiteLocationsList } from '../../../service/attendance';
 
 export default function AttendanceSite() {
   const [isCheckedIn, setIsCheckedIn] = useState(false);
@@ -11,7 +11,7 @@ export default function AttendanceSite() {
   const [error, setError] = useState('');
   const [sites, setSites] = useState([]);
 
-  // Fetch coordinates on mount to show preview
+  // Fetch coordinates on mount to show preview and verify active session
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -26,18 +26,35 @@ export default function AttendanceSite() {
         }
       );
     }
+
+    const fetchSessionStatus = async () => {
+      try {
+        const res = await getMyAttendance();
+        const rawLogs = res.logs || res.data || (Array.isArray(res) ? res : []);
+        if (rawLogs && rawLogs.length > 0) {
+          const latest = rawLogs[0];
+          // Open session exists if clockOutTime is null
+          if (!latest.clockOutTime) {
+            setIsCheckedIn(true);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch initial check-in status:", err);
+      }
+    };
+    fetchSessionStatus();
   }, []);
 
   // Load dynamic site locations from backend
   useEffect(() => {
     const loadSites = async () => {
       try {
-        const res = await getSiteLocations();
-        if (res.success && res.locations) {
-          setSites(res.locations);
-          if (res.locations.length > 0) {
-            // Find active Noida or default project site
-            setProjectId(res.locations[0].projectId || res.locations[0]._id);
+        const res = await getSiteLocationsList();
+        const locationList = res.data?.locations || res.locations || (Array.isArray(res) ? res : []);
+        if (locationList) {
+          setSites(locationList);
+          if (locationList.length > 0) {
+            setProjectId(locationList[0].project || locationList[0]._id);
           }
         }
       } catch (err) {
@@ -79,19 +96,27 @@ export default function AttendanceSite() {
         try {
           if (!isCheckedIn) {
             // Trigger site check-in API
-            const response = await siteCheckin(userId, projectId, lat, lng, "https://storage.nirman.com/selfies/checkin.jpg");
+            const response = await postAttendanceEvent({
+              type: 'clock_in',
+              deviceId: 'web-mobile-gps',
+              clientTime: new Date().toISOString()
+            });
             setIsCheckedIn(true);
             alert(response.message || "Site GPS Check-In recorded successfully!");
           } else {
             // Trigger site check-out API
-            const response = await siteCheckout(userId, projectId, lat, lng);
+            const response = await postAttendanceEvent({
+              type: 'clock_out',
+              deviceId: 'web-mobile-gps',
+              clientTime: new Date().toISOString()
+            });
             setIsCheckedIn(false);
             setSelfieCaptured(false);
             alert(response.message || "Site Clock Out logged successfully!");
           }
         } catch (err) {
           console.error("GPS Check-In/Out failed:", err);
-          setError(err.message || "Geo-fence check failed or site bounds rejection.");
+          setError(err.response?.data?.message || err.message || "Geo-fence check failed or site bounds rejection.");
         } finally {
           setLoading(false);
         }

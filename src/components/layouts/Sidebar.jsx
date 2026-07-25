@@ -44,6 +44,7 @@ const SIDEBAR_ITEMS = {
     { category: "Collaboration" },
     { label: "Team Roster", path: "/project-manager/team", icon: "Users" },
     { label: "Client Communication", path: "/project-manager/chats", icon: "MessageSquare" },
+    { label: "Leaves Portal", path: "/project-manager/leaves", icon: "Calendar" },
     { label: "Reports", path: "/project-manager/reports/projects", icon: "BarChart3" }
   ],
   Architect: [
@@ -52,6 +53,7 @@ const SIDEBAR_ITEMS = {
     { label: "My Tasks", path: "/architect/tasks", icon: "CheckSquare" },
     { label: "My Drawings", path: "/architect/drawings", icon: "DraftingCompass" },
     { label: "Time Tracking", path: "/architect/time", icon: "Clock3" },
+    { label: "Leaves Portal", path: "/architect/leaves", icon: "Calendar" },
     { category: "Communication" },
     { label: "Project Chats", path: "/architect/chats", icon: "MessageSquare" },
     { label: "Documents", path: "/architect/docs", icon: "FolderOpen" },
@@ -62,6 +64,7 @@ const SIDEBAR_ITEMS = {
     { category: "Construction Site" },
     { label: "Active Sites", path: "/site-engineer/sites", icon: "HardHat" },
     { label: "Site Attendance", path: "/site-engineer/attendance", icon: "CalendarRange" },
+    { label: "Leaves Portal", path: "/site-engineer/leaves", icon: "Calendar" },
     { label: "Photos & Issues", path: "/site-engineer/photos", icon: "Camera" },
     { label: "Client Updates", path: "/site-engineer/updates", icon: "Share2" },
     { label: "Notifications", path: "/site-engineer/notifications", icon: "Bell" }
@@ -70,6 +73,7 @@ const SIDEBAR_ITEMS = {
     { label: "Dashboard", path: "/employee", icon: "LayoutDashboard" },
     { category: "Office Terminal" },
     { label: "Shift Attendance", path: "/employee/attendance", icon: "Fingerprint" },
+    { label: "Leaves Portal", path: "/employee/leaves", icon: "Calendar" },
     { label: "My Tasks", path: "/employee/tasks", icon: "CheckSquare" },
     { label: "Drawings Assigned", path: "/employee/drawings", icon: "FileCode" },
     { label: "Documents", path: "/employee/docs", icon: "FolderOpen" },
@@ -112,7 +116,21 @@ const getProfileDetails = (role) => {
 export default function Sidebar({ role, onClose }) {
   const items = SIDEBAR_ITEMS[role] || [];
   const location = useLocation();
-  const { initials, name, roleLabel } = getProfileDetails(role);
+  
+  let { initials, name, roleLabel } = getProfileDetails(role);
+  const savedUserStr = localStorage.getItem('user');
+  if (savedUserStr) {
+    try {
+      const user = JSON.parse(savedUserStr);
+      name = user.name || user.email?.split('@')[0] || name;
+      if (user.name) {
+        initials = user.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+      }
+      roleLabel = user.role?.replace('_', ' ') || roleLabel;
+    } catch (e) {
+      console.error("Error parsing saved user in Sidebar", e);
+    }
+  }
 
   const renderIcon = (name) => {
     const IconComponent = Icons[name] || Icons.HelpCircle;
@@ -120,9 +138,9 @@ export default function Sidebar({ role, onClose }) {
   };
 
   return (
-    <aside className="w-64 bg-white text-slate-650 h-screen flex flex-col flex-shrink-0 shadow-sm border-r border-slate-100 sticky top-0">
+    <aside className="w-64 bg-white text-slate-650 h-screen flex flex-col flex-shrink-0 shadow-xs sticky top-0">
       {/* Brand Profile */}
-      <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/40">
+      <div className="p-6 border-b border-slate-100/50 flex items-center justify-between bg-slate-50/40">
         <img 
           src={logoImg} 
           alt="Nex Alliance Logo" 
@@ -131,7 +149,7 @@ export default function Sidebar({ role, onClose }) {
         {onClose && (
           <button
             onClick={onClose}
-            className="md:hidden p-1.5 hover:bg-slate-150 text-slate-500 hover:text-slate-700 rounded-lg transition-colors"
+            className="lg:hidden p-1.5 hover:bg-slate-150 text-slate-500 hover:text-slate-700 rounded-lg transition-colors"
             title="Close Menu"
           >
             <Icons.X className="w-4.5 h-4.5" />

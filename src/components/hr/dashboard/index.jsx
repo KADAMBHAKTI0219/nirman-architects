@@ -9,7 +9,7 @@ import {
   Check, X, Cake, ShieldCheck, DollarSign, Award, RefreshCw 
 } from 'lucide-react';
 import Card from '../../common/Card';
-import { getAllAttendance, getHRDashboardWidgets } from '../../../services/attendance.api';
+import { getAllAttendance, getHRDashboardWidgets } from '../../../mockApi';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444'];
 
@@ -135,70 +135,69 @@ export default function HRDashboard() {
       {/* ================= ZONE 1: TOP SECTION (KPIs) ================= */}
       <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-4">
         
-        <div className="bg-blue-50/30 p-4 rounded-2xl border border-blue-100 shadow-3xs flex flex-col justify-between h-20">
-          <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Total Employees</span>
+        <div className="premium-stat-box p-4 flex flex-col justify-between h-20">
+          <span className="text-[9px] font-black text-slate-405 uppercase tracking-wider block">Total Employees</span>
           <div className="flex items-center justify-between">
             <strong className="text-base font-black text-slate-800">{totalEmployees}</strong>
             <span className="w-2 h-2 rounded-full bg-blue-500"></span>
           </div>
         </div>
 
-        <div className="bg-blue-50/30 p-4 rounded-2xl border border-blue-100 shadow-3xs flex flex-col justify-between h-20">
-          <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Present Today</span>
+        <div className="premium-stat-box p-4 flex flex-col justify-between h-20">
+          <span className="text-[9px] font-black text-slate-405 uppercase tracking-wider block">Present Today</span>
           <div className="flex items-center justify-between">
             <strong className="text-base font-black text-emerald-600">{presentToday}</strong>
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
           </div>
         </div>
 
-        <div className="bg-blue-50/30 p-4 rounded-2xl border border-blue-100 shadow-3xs flex flex-col justify-between h-20">
-          <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">On Leave (Offline)</span>
+        <div className="premium-stat-box p-4 flex flex-col justify-between h-20">
+          <span className="text-[9px] font-black text-slate-405 uppercase tracking-wider block">On Leave (Offline)</span>
           <div className="flex items-center justify-between">
             <strong className="text-base font-black text-rose-500">{onLeave}</strong>
             <span className="w-2 h-2 rounded-full bg-rose-500"></span>
           </div>
         </div>
 
-        <div className="bg-blue-50/30 p-4 rounded-2xl border border-blue-100 shadow-3xs flex flex-col justify-between h-20">
-          <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Late Arrivals</span>
+        <div className="premium-stat-box p-4 flex flex-col justify-between h-20">
+          <span className="text-[9px] font-black text-slate-405 uppercase tracking-wider block">Late Arrivals</span>
           <div className="flex items-center justify-between">
             <strong className="text-base font-black text-amber-500">2</strong>
             <span className="w-2 h-2 rounded-full bg-amber-500"></span>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs flex flex-col justify-between h-20">
-          <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">New Joiners</span>
+        <div className="premium-stat-box p-4 flex flex-col justify-between h-20">
+          <span className="text-[9px] font-black text-slate-405 uppercase tracking-wider block">New Joiners</span>
           <div className="flex items-center justify-between">
             <strong className="text-base font-black text-slate-700">3</strong>
             <span className="w-2 h-2 rounded-full bg-slate-400"></span>
           </div>
         </div>
 
-        <div className="bg-blue-50/30 p-4 rounded-2xl border border-blue-100 shadow-3xs flex flex-col justify-between h-20">
-          <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Pending Corrections</span>
+        <div className="premium-stat-box p-4 flex flex-col justify-between h-20">
+          <span className="text-[9px] font-black text-slate-405 uppercase tracking-wider block">Pending Corrections</span>
           <div className="flex items-center justify-between">
             <strong className="text-base font-black text-amber-600">{corrections} Requests</strong>
             <span className="w-2 h-2 rounded-full bg-amber-650"></span>
           </div>
         </div>
 
-        <div className="bg-blue-50/30 p-4 rounded-2xl border border-blue-100 shadow-3xs flex flex-col justify-between h-20">
-          <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Payroll Ready</span>
+        <div className="premium-stat-box p-4 flex flex-col justify-between h-20">
+          <span className="text-[9px] font-black text-slate-405 uppercase tracking-wider block">Payroll Ready</span>
           <div className="flex items-center justify-between">
             <strong className="text-base font-black text-slate-700">June</strong>
             <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
           </div>
         </div>
 
-        <div className="bg-blue-50/30 p-4 rounded-2xl border border-blue-100 shadow-3xs flex flex-col justify-between h-20">
-          <span className="text-[9px] font-black text-slate-400 tracking-wider uppercase block">Security Alerts</span>
+        <div className="premium-stat-box p-4 flex flex-col justify-between h-20">
+          <span className="text-[9px] font-black text-slate-405 tracking-wider uppercase block">Security Alerts</span>
           <div className="flex items-center justify-between">
             <strong className="text-base font-black text-[#2484C6]">{alerts} Alerts</strong>
             <span className="w-2 h-2 rounded-full bg-[#2484C6]"></span>
           </div>
         </div>
-
       </div>
 
       {/* ================= ZONE 2: MIDDLE SECTION (OPERATIONAL GRAPHS) ================= */}

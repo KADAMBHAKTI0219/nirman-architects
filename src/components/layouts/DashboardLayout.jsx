@@ -12,18 +12,18 @@ export default function DashboardLayout({ role, onChangeRole, title, children })
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 w-full text-slate-900 text-left relative">
       
-      {/* Mobile Sidebar Overlay Backdrop */}
+      {/* Mobile & Tablet Sidebar Overlay Backdrop */}
       {isMobileSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-slate-900/30 backdrop-blur-xs z-40 md:hidden animate-in fade-in duration-200" 
+          className="fixed inset-0 bg-slate-900/30 backdrop-blur-xs z-40 lg:hidden animate-in fade-in duration-200" 
           onClick={() => setIsMobileSidebarOpen(false)}
         ></div>
       )}
 
-      {/* Dynamic Slide-in Sidebar (Drawer on mobile, inline on desktop) */}
-      <div className={`fixed inset-y-0 left-0 z-50 md:relative md:translate-x-0 transition-transform duration-300 ease-out transform ${
+      {/* Dynamic Slide-in Sidebar (Drawer on mobile/tablet, inline on large desktop) */}
+      <div className={`fixed inset-y-0 left-0 z-50 lg:relative lg:translate-x-0 transition-transform duration-300 ease-out transform ${
         isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      } md:flex flex-shrink-0`}>
+      } lg:flex flex-shrink-0`}>
         <Sidebar role={role} onClose={() => setIsMobileSidebarOpen(false)} />
       </div>
 

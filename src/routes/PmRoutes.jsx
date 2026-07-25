@@ -9,6 +9,7 @@ import PMDrawings from '../components/project-manager/drawings/index';
 import PMTeam from '../components/project-manager/team/index';
 import PMCommunication from '../components/project-manager/client-communication/index';
 import PMReports from '../components/project-manager/reports/index';
+import LeavesPortal from '../components/common/LeavesPortal';
 
 export default function getPmRoutes(handleRoleChange) {
   return (
@@ -16,6 +17,11 @@ export default function getPmRoutes(handleRoleChange) {
       <Route path="/project-manager" element={
         <DashboardLayout role="ProjectManager" onChangeRole={handleRoleChange} title="Project Manager">
           <PMDashboard />
+        </DashboardLayout>
+      } />
+      <Route path="/project-manager/leaves" element={
+        <DashboardLayout role="ProjectManager" onChangeRole={handleRoleChange} title="Leaves Portal">
+          <LeavesPortal role="ProjectManager" />
         </DashboardLayout>
       } />
       <Route path="/project-manager/projects" element={

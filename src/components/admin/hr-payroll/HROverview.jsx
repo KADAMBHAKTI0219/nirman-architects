@@ -20,7 +20,7 @@ export default function HROverview({
     <div className="space-y-6 animate-in fade-in duration-200">
       
       {/* 1. KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs flex flex-col justify-between h-20">
           <span className="text-[9px] font-bold text-slate-400 uppercase block">Total Employees</span>
           <div className="flex items-end justify-between mt-1">

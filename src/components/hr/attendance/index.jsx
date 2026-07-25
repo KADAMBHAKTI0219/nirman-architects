@@ -4,7 +4,9 @@ import AttendanceStats from './AttendanceStats';
 import AttendanceCalendar from './AttendanceCalendar';
 import AttendanceLogsTable from './AttendanceLogsTable';
 import AttendanceDetailDrawer from './AttendanceDetailDrawer';
-import { getAllAttendance, getHRDashboardWidgets } from '../../../services/attendance.api';
+import { getHRDashboardWidgets } from '../../../mockApi';
+import { getAllAttendanceList } from '../../../service/attendance';
+import { parseIndexedObjectToArray } from '../../../service/leave';
 
 export default function Attendance() {
   const [activeTab, setActiveTab] = useState('overview'); // overview, daily, monthly, exceptions
@@ -33,24 +35,49 @@ export default function Attendance() {
     setLoading(true);
     setError('');
     try {
-      // 1. Fetch Company Attendance logs filtered by date
-      const logsRes = await getAllAttendance(selectedDate);
-      if (logsRes.success && logsRes.logs) {
-        const rawLogs = logsRes.logs;
-        const mappedLogs = rawLogs.map(log => ({
-          id: log.id || log._id,
-          employeeId: log.userEmail?.split('@')[0].toUpperCase() || 'EMP',
-          name: log.employeeName || log.userEmail?.split('@')[0] || 'User',
-          dept: log.projectName || 'Main Office',
-          shift: log.mode === 'OFFICE_AUTO' ? 'Office Auto Shift' : 'Site Mobile Shift',
-          checkIn: log.type === 'CLOCK_IN' ? new Date(log.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A',
-          checkOut: log.type === 'CLOCK_OUT' ? new Date(log.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A',
-          hours: log.type === 'CLOCK_IN' ? 'Active' : 'Completed',
-          status: log.isOffline ? 'Offline' : (log.autoClosed ? 'Auto-Closed' : 'Present'),
-          location: log.mode === 'OFFICE_AUTO' ? 'Office' : 'Site',
-          manager: log.projectName || 'HR Manager',
-          notes: `Source: ${log.source}${log.isOffline ? ' (Offline)' : ''}${log.autoClosed ? ' (Auto Closed)' : ''}`
-        }));
+      // Extract month and year from selectedDate to match backend filter query
+      const dateObj = new Date(selectedDate);
+      const month = dateObj.getMonth() + 1;
+      const year = dateObj.getFullYear();
+
+      // 1. Fetch Company Attendance logs via real API
+      const logsRes = await getAllAttendanceList({ month, year });
+      console.log("getAllAttendanceList response:", logsRes);
+
+      const rawLogs = parseIndexedObjectToArray(logsRes);
+
+      if (rawLogs) {
+        const mappedLogs = rawLogs.map((log, idx) => {
+          const emp = log.userId || {};
+          const clockIn = new Date(log.clockInTime);
+          const clockOut = log.clockOutTime ? new Date(log.clockOutTime) : null;
+          
+          let hoursStr = 'Active';
+          if (clockOut) {
+            const diffMs = clockOut - clockIn;
+            const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+            const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+            hoursStr = `${diffHrs}h ${diffMins}m`;
+          }
+          
+          const isSite = (log.deviceId || '').toLowerCase().includes('gps') || (log.deviceId || '').toLowerCase().includes('mobile');
+          
+          return {
+            id: log._id || log.id || idx,
+            employeeId: emp._id || emp.id || 'EMP',
+            name: emp.name || 'Unknown User',
+            dept: emp.department || 'Main Office',
+            shift: isSite ? 'Site Mobile Shift' : 'Office Auto Shift',
+            checkIn: clockIn.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            checkOut: clockOut ? clockOut.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'In Progress',
+            hours: hoursStr,
+            status: log.isOfflineEntry ? 'Offline' : (log.autoClosed ? 'Auto-Closed' : 'Present'),
+            location: isSite ? 'Site' : 'Office',
+            manager: emp.designation || 'Staff Member',
+            notes: `Device: ${log.deviceId || 'N/A'}${log.isOfflineEntry ? ' (Offline)' : ''}${log.autoClosed ? ' (Auto Closed)' : ''}`,
+            rawLog: log
+          };
+        });
         setLogs(mappedLogs);
         if (mappedLogs.length > 0) {
           setSelectedLog(mappedLogs[0]);

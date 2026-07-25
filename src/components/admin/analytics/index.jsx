@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, 
   XAxis, YAxis, CartesianGrid, Tooltip, Legend 
@@ -8,12 +8,46 @@ import {
   CheckSquare, FileText, CheckCircle2, Clock 
 } from 'lucide-react';
 import Card from '../../common/Card';
+import { exportLeaveReport } from '../../../mockApi';
 
 const COLORS = ['#8FC9FF', '#A2D2FF', '#34D399', '#EF4444'];
 
 export default function Analytics() {
-  const [activeReportTab, setActiveReportTab] = useState('projects'); // projects, productivity, drawings, attendance
+  const [activeReportTab, setActiveReportTab] = useState('projects'); // projects, productivity, drawings, attendance, leaves
   const [searchQuery, setSearchQuery] = useState('');
+  const [leaveReportList, setLeaveReportList] = useState([]);
+  const [loadingLeaveReport, setLoadingLeaveReport] = useState(false);
+
+  const fetchLeaveReport = async () => {
+    try {
+      setLoadingLeaveReport(true);
+      const res = await exportLeaveReport();
+      if (res && res.success && Array.isArray(res.data)) {
+        setLeaveReportList(res.data);
+      } else {
+        setLeaveReportList([
+          { name: "Alice Smith", department: "Architecture", type: "Annual", days: 6, status: "Approved", reason: "Family trip and rest days" },
+          { name: "Bob Johnson", department: "Engineering", type: "Sick", days: 1, status: "Approved", reason: "Medical consultation check" },
+          { name: "John Wick", department: "Management", type: "Casual", days: 1, status: "Rejected", reason: "Product launch overlay" }
+        ]);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch leave report, using mock data", err);
+      setLeaveReportList([
+        { name: "Alice Smith", department: "Architecture", type: "Annual", days: 6, status: "Approved", reason: "Family trip and rest days" },
+        { name: "Bob Johnson", department: "Engineering", type: "Sick", days: 1, status: "Approved", reason: "Medical consultation check" },
+        { name: "John Wick", department: "Management", type: "Casual", days: 1, status: "Rejected", reason: "Product launch overlay" }
+      ]);
+    } finally {
+      setLoadingLeaveReport(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeReportTab === 'leaves') {
+      fetchLeaveReport();
+    }
+  }, [activeReportTab]);
 
   // 1. Mock Projects Report Data
   const projectsReportData = [
@@ -51,7 +85,8 @@ export default function Analytics() {
     { id: 'projects', label: 'Project Progress' },
     { id: 'productivity', label: 'Productivity Logs' },
     { id: 'drawings', label: 'Drawing Status' },
-    { id: 'attendance', label: 'Attendance Registry' }
+    { id: 'attendance', label: 'Attendance Registry' },
+    { id: 'leaves', label: 'Leave Summary Reports' }
   ];
 
   return (
@@ -323,6 +358,53 @@ export default function Analytics() {
                       <td className="px-4 py-3.5 text-right font-black text-slate-705 align-middle">{row.hoursLogged} Hours</td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {activeReportTab === 'leaves' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <Card title="Leave Utilization Report Dataset" subtitle="Company-wide dataset for leave planning, resource load balancing and auditing">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left table-auto">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/50">
+                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Employee Name</th>
+                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Department</th>
+                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Leave Type</th>
+                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Duration (Days)</th>
+                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Reason / Notes</th>
+                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {leaveReportList.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/40">
+                      <td className="px-4 py-3.5 font-bold text-slate-805">{row.name || row.employeeName}</td>
+                      <td className="px-4 py-3.5 text-slate-405 font-bold uppercase text-[9px] align-middle">{row.department || "Staff"}</td>
+                      <td className="px-4 py-3.5 text-slate-650 font-bold align-middle">{row.type}</td>
+                      <td className="px-4 py-3.5 text-slate-600 font-extrabold align-middle">{row.days} Days</td>
+                      <td className="px-4 py-3.5 text-slate-500 italic align-middle">"{row.reason}"</td>
+                      <td className="px-4 py-3.5 text-right align-middle">
+                        <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded border leading-none ${
+                          row.status === 'Approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                          row.status === 'Rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                          'bg-amber-50 text-amber-600 border-amber-100'
+                        }`}>{row.status}</span>
+                      </td>
+                    </tr>
+                  ))}
+
+                  {leaveReportList.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-400 font-bold uppercase">
+                        No leave records found in the report dataset.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

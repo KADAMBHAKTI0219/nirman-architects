@@ -2,22 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   User, Mail, Phone, Lock, Shield, Laptop, 
-  ArrowLeft, CheckCircle2, AlertCircle, Clock 
+  ArrowLeft, CheckCircle2, AlertCircle, Clock,
+  Briefcase, DollarSign
 } from 'lucide-react';
-import { register, getRoles } from '../../services/auth.api';
+import { registerUser, getRoles } from '../../service/auth';
 
 export default function Register() {
   const navigate = useNavigate();
 
-  // Form Fields State
+  // Form Fields State aligned with Backend Schema
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    mobileNumber: '',
+    name: '',
     email: '',
     password: '',
-    role: 'Super Admin',
-    deviceId: import.meta.env.VITE_LOCAL_DEVICE_ID || 'E3D9C5BE-3D2C-4C2E-ACF8-A108FF8A3EC5'
+    phone: '',
+    roleId: '',
+    role: '',
+    department: '',
+    designation: '',
+    baseSalary: '',
+    deviceId: import.meta.env.VITE_LOCAL_DEVICE_ID || 'GUID-MACHINE-123'
   });
 
   const [roles, setRoles] = useState([]);
@@ -26,7 +30,7 @@ export default function Register() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  // Load available roles from API
+  // Load available roles from backend API
   useEffect(() => {
     const fetchRoles = async () => {
       try {
@@ -34,25 +38,38 @@ export default function Register() {
         const res = await getRoles();
         if (res.success && Array.isArray(res.roles)) {
           setRoles(res.roles);
-          // Set first role as default if available
-          if (res.roles.length > 0) {
-            setFormData(prev => ({ ...prev, role: res.roles[0].name }));
+          // Set EMPLOYEE as default role if it exists in retrieved roles
+          const defaultRole = res.roles.find(r => r.roleCode === 'EMPLOYEE') || res.roles[0];
+          if (defaultRole) {
+            setFormData(prev => ({
+              ...prev,
+              roleId: defaultRole._id || defaultRole.id,
+              role: defaultRole.roleCode,
+              designation: defaultRole.roleName,
+              department: defaultRole.roleCode === 'SUPER_ADMIN' ? 'Super Admin' : 'Office Staff'
+            }));
           }
         }
       } catch (err) {
-        console.warn("Failed to load roles, fallback to default roles list", err);
+        console.warn("Failed to load roles, fallback to default list", err);
         const fallbackRoles = [
-          { "_id": "6a607dae7f99c70902371c1d", "name": "Super Admin" },
-          { "_id": "6a607dae7f99c70902371c1f", "name": "HR" },
-          { "_id": "6a607dae7f99c70902371c22", "name": "Project Manager" },
-          { "_id": "6a607dae7f99c70902371c24", "name": "Architect" },
-          { "_id": "6a607dae7f99c70902371c26", "name": "Site Engineer" },
-          { "_id": "6a607dae7f99c70902371c28", "name": "Employee" },
-          { "_id": "6a607dae7f99c70902371c2a", "name": "customer" },
-          { "_id": "6a6094667f99c70902373c05", "name": "Site Manager" }
+          { "_id": "6a6377dd1c9726ccf73aa7fd", "roleCode": "SUPER_ADMIN", "roleName": "Super Admin" },
+          { "_id": "6a6377dd1c9726ccf73aa7fe", "roleCode": "HR", "roleName": "HR" },
+          { "_id": "6a6377dd1c9726ccf73aa7ff", "roleCode": "PROJECT_MANAGER", "roleName": "Project Manager" },
+          { "_id": "6a6377dd1c9726ccf73aa800", "roleCode": "ARCHITECT", "roleName": "Architect" },
+          { "_id": "6a6377dd1c9726ccf73aa801", "roleCode": "SITE_ENGINEER", "roleName": "Site Engineer" },
+          { "_id": "6a6377de1c9726ccf73aa802", "roleCode": "EMPLOYEE", "roleName": "Employee" },
+          { "_id": "6a6377de1c9726ccf73aa803", "roleCode": "CUSTOMER", "roleName": "Customer" }
         ];
         setRoles(fallbackRoles);
-        setFormData(prev => ({ ...prev, role: fallbackRoles[0].name }));
+        const defaultRole = fallbackRoles.find(r => r.roleCode === 'EMPLOYEE') || fallbackRoles[0];
+        setFormData(prev => ({
+          ...prev,
+          roleId: defaultRole._id,
+          role: defaultRole.roleCode,
+          designation: defaultRole.roleName,
+          department: 'Office Staff'
+        }));
       } finally {
         setRolesLoading(false);
       }
@@ -63,8 +80,8 @@ export default function Register() {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    // Restrict mobile number to exactly 10 numeric digits
-    if (name === 'mobileNumber') {
+    // Restrict phone to exactly 10 numeric digits
+    if (name === 'phone') {
       const numericValue = value.replace(/\D/g, '');
       if (numericValue.length > 10) return;
       setFormData(prev => ({
@@ -80,26 +97,56 @@ export default function Register() {
     }));
   };
 
+  const handleRoleChange = (e) => {
+    const selectedRoleId = e.target.value;
+    const selectedRole = roles.find(r => (r._id || r.id) === selectedRoleId);
+    if (selectedRole) {
+      setFormData(prev => ({
+        ...prev,
+        roleId: selectedRoleId,
+        role: selectedRole.roleCode,
+        designation: selectedRole.roleName,
+        department: selectedRole.roleCode === 'SUPER_ADMIN' ? 'Super Admin' : (selectedRole.roleName + ' Department')
+      }));
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    if (!formData.firstName || !formData.lastName || !formData.mobileNumber || !formData.email || !formData.password || !formData.role) {
+    const { name, email, password, phone, roleId, role, department, designation, baseSalary } = formData;
+
+    if (!name || !email || !password || !phone || !roleId || !role || !department || !designation || !baseSalary) {
       setError('Please fill in all required fields.');
       setLoading(false);
       return;
     }
 
-    if (formData.mobileNumber.length !== 10) {
-      setError('Mobile number must be exactly 10 digits.');
+    if (phone.length !== 10) {
+      setError('Phone number must be exactly 10 digits.');
       setLoading(false);
       return;
     }
 
     try {
-      const response = await register(formData);
-      if (response.success) {
+      // Structure the payload explicitly to match backend schema keys
+      const payload = {
+        name,
+        email,
+        password,
+        phone,
+        roleId,
+        role,
+        department,
+        designation,
+        baseSalary: Number(baseSalary),
+        deviceId: formData.deviceId
+      };
+
+      const response = await registerUser(payload);
+      if (response.success || response._id) {
         setSuccess(true);
         setTimeout(() => {
           navigate('/');
@@ -108,7 +155,11 @@ export default function Register() {
         setError(response.message || 'Registration failed.');
       }
     } catch (err) {
-      setError(err.message || 'Registration failed. Please check your network.');
+      setError(
+        err.response?.data?.message || 
+        err.message || 
+        'Registration failed. Please check your network.'
+      );
     } finally {
       setLoading(false);
     }
@@ -116,7 +167,7 @@ export default function Register() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-6 md:p-8">
-      <div className="w-full max-w-lg bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden flex flex-col p-6 sm:p-8 space-y-6 animate-in fade-in duration-200">
+      <div className="w-full max-w-xl bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden flex flex-col p-6 sm:p-8 space-y-6 animate-in fade-in duration-200">
         
         {/* Back Button & Title */}
         <div className="flex items-center justify-between border-b border-slate-50 pb-4">
@@ -151,7 +202,7 @@ export default function Register() {
             <CheckCircle2 className="w-12 h-12 text-emerald-500 animate-bounce" />
             <strong className="text-sm font-black block">Account Registered Successfully!</strong>
             <p className="text-xs font-semibold text-slate-500 max-w-xs">
-              Hardware device token bound to system. Redirecting you to login portal...
+              Workforce member registered and device token bound to system. Redirecting to login...
             </p>
             <div className="flex items-center gap-1 text-[10px] text-slate-405 font-bold uppercase tracking-wider pt-2">
               <Clock className="w-3 h-3 animate-spin" />
@@ -161,40 +212,23 @@ export default function Register() {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             
-            {/* First & Last Name row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">First Name</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input 
-                    type="text" 
-                    name="firstName" 
-                    value={formData.firstName}
-                    onChange={handleChange}
-                    placeholder="John" 
-                    className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Last Name</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input 
-                    type="text" 
-                    name="lastName" 
-                    value={formData.lastName}
-                    onChange={handleChange}
-                    placeholder="Doe" 
-                    className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
-                  />
-                </div>
+            {/* Full Name field */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Full Name</label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input 
+                  type="text" 
+                  name="name" 
+                  value={formData.name}
+                  onChange={handleChange}
+                  placeholder="Kadam Bhakti" 
+                  className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
+                />
               </div>
             </div>
 
-            {/* Email & Mobile Number row */}
+            {/* Email & Phone number row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Email Address</label>
@@ -205,20 +239,20 @@ export default function Register() {
                     name="email" 
                     value={formData.email}
                     onChange={handleChange}
-                    placeholder="john.doe@example.com" 
+                    placeholder="kadambhakti@gmail.com" 
                     className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Mobile Number</label>
+                <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Phone Number</label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input 
                     type="tel" 
-                    name="mobileNumber" 
-                    value={formData.mobileNumber}
+                    name="phone" 
+                    value={formData.phone}
                     onChange={handleChange}
                     placeholder="9876543210" 
                     className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
@@ -251,31 +285,81 @@ export default function Register() {
               <div className="relative">
                 <Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <select 
-                  name="role" 
-                  value={formData.role}
-                  onChange={handleChange}
+                  name="roleId" 
+                  value={formData.roleId}
+                  onChange={handleRoleChange}
                   className="w-full pl-9 pr-4 py-2.5 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
                 >
                   {roles.map(r => (
-                    <option key={r._id} value={r.name}>{r.name}</option>
+                    <option key={r._id || r.id} value={r._id || r.id}>{r.roleName} ({r.roleCode})</option>
                   ))}
                 </select>
               </div>
             </div>
 
-            {/* Hardware Device ID (GUI) */}
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Hardware Device Binding ID (GUID)</label>
-              <div className="relative">
-                <Laptop className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input 
-                  type="text" 
-                  name="deviceId" 
-                  value={formData.deviceId}
-                  onChange={handleChange}
-                  placeholder="Device GUID" 
-                  className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
-                />
+            {/* Department & Designation row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Department</label>
+                <div className="relative">
+                  <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input 
+                    type="text" 
+                    name="department" 
+                    value={formData.department}
+                    onChange={handleChange}
+                    placeholder="Super Admin / Architecture" 
+                    className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Designation</label>
+                <div className="relative">
+                  <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input 
+                    type="text" 
+                    name="designation" 
+                    value={formData.designation}
+                    onChange={handleChange}
+                    placeholder="Super Admin / Senior Architect" 
+                    className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Base Salary & Hardware Device ID (GUI) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Base Salary (INR)</label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input 
+                    type="number" 
+                    name="baseSalary" 
+                    value={formData.baseSalary}
+                    onChange={handleChange}
+                    placeholder="25000" 
+                    className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Hardware Device ID (GUID)</label>
+                <div className="relative">
+                  <Laptop className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input 
+                    type="text" 
+                    name="deviceId" 
+                    value={formData.deviceId}
+                    onChange={handleChange}
+                    placeholder="GUID-MACHINE-123" 
+                    className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
+                  />
+                </div>
               </div>
             </div>
 
@@ -285,7 +369,7 @@ export default function Register() {
               disabled={loading}
               className="w-full py-3 bg-brand-primary hover:bg-brand-secondary text-slate-905 font-black uppercase text-xs rounded-xl shadow-xs transition-all tracking-wider mt-4 disabled:opacity-50"
             >
-              {loading ? 'Registering Device...' : 'Register Workforce Account'}
+              {loading ? 'Registering...' : 'Register Workforce Account'}
             </button>
           </form>
         )}

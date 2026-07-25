@@ -4,7 +4,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend 
 } from 'recharts';
 import Card from '../../common/Card';
-import { getMyCorrections } from '../../../services/attendance.api';
+import { getMyCorrections } from '../../../mockApi';
 
 const COLORS = ['#10B981', '#F59E0B', '#EF4444', '#64748B'];
 

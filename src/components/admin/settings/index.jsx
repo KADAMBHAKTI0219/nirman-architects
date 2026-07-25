@@ -1,12 +1,163 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, RefreshCw, Mail, Smartphone, Globe, Settings as SettingsIcon, 
-  UserCheck, Database, ToggleLeft, ToggleRight, Save, Plus, Trash2, Key 
+  UserCheck, Database, ToggleLeft, ToggleRight, Save, Plus, Trash2, Key, MapPin 
 } from 'lucide-react';
 import Card from '../../common/Card';
+import { getRoles, createRole } from '../../../service/auth';
+import { getSiteLocationsList, createSiteLocation } from '../../../service/attendance';
 
 export default function Settings() {
   const [activeSettingTab, setActiveSettingTab] = useState('roles'); // general, roles, workflow, integrations
+  const [roles, setRoles] = useState([]);
+  const [rolesLoading, setRolesLoading] = useState(false);
+  const [newRoleData, setNewRoleData] = useState({
+    roleName: '',
+    roleCode: '',
+    description: ''
+  });
+  const [roleCreating, setRoleCreating] = useState(false);
+  const [roleError, setRoleError] = useState('');
+  const [roleSuccess, setRoleSuccess] = useState('');
+
+  // Geofence site locations states
+  const [siteLocations, setSiteLocations] = useState([]);
+  const [locationsLoading, setLocationsLoading] = useState(false);
+  const [newLocationData, setNewLocationData] = useState({
+    projectId: '',
+    projectName: '',
+    lat: '',
+    lng: '',
+    radiusMeters: '100'
+  });
+  const [locationEditingId, setLocationEditingId] = useState(null);
+  const [locationCreating, setLocationCreating] = useState(false);
+  const [locationError, setLocationError] = useState('');
+  const [locationSuccess, setLocationSuccess] = useState('');
+
+  const fetchSiteLocations = async () => {
+    try {
+      setLocationsLoading(true);
+      const res = await getSiteLocationsList();
+      const list = res.data?.locations || res.locations || (Array.isArray(res) ? res : []);
+      if (list) {
+        setSiteLocations(list);
+      }
+    } catch (err) {
+      console.error("Failed to fetch site locations:", err);
+    } finally {
+      setLocationsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeSettingTab === 'geofence') {
+      fetchSiteLocations();
+    }
+  }, [activeSettingTab]);
+
+  const handleCreateLocationSubmit = async (e) => {
+    e.preventDefault();
+    setLocationError('');
+    setLocationSuccess('');
+
+    if (!newLocationData.projectName || !newLocationData.lat || !newLocationData.lng) {
+      setLocationError('Project Name, Latitude, and Longitude are required.');
+      return;
+    }
+
+    setLocationCreating(true);
+    try {
+      const payload = {
+        projectName: newLocationData.projectName,
+        lat: Number(newLocationData.lat),
+        lng: Number(newLocationData.lng),
+        radiusMeters: Number(newLocationData.radiusMeters || 100)
+      };
+      
+      if (newLocationData.projectId) {
+        payload.projectId = newLocationData.projectId;
+      }
+
+      const res = await createSiteLocation(payload);
+      if (res.success || res.siteLocation || res._doc || res._id) {
+        setLocationSuccess('Site geofence configured successfully!');
+        setNewLocationData({ projectId: '', projectName: '', lat: '', lng: '', radiusMeters: '100' });
+        setLocationEditingId(null);
+        fetchSiteLocations();
+      } else {
+        setLocationError(res.message || 'Failed to configure site location.');
+      }
+    } catch (err) {
+      setLocationError(err.response?.data?.message || err.message || 'Failed to configure site location.');
+    } finally {
+      setLocationCreating(false);
+    }
+  };
+
+  const handleEditLocation = (loc) => {
+    setNewLocationData({
+      projectId: loc.project?._id || loc.project?.id || loc.project || '',
+      projectName: loc.projectName || '',
+      lat: String(loc.lat || ''),
+      lng: String(loc.lng || ''),
+      radiusMeters: String(loc.radiusMeters || '100')
+    });
+    setLocationEditingId(loc._id || loc.id);
+  };
+
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        setRolesLoading(true);
+        const res = await getRoles();
+        if (res.success && Array.isArray(res.roles)) {
+          setRoles(res.roles);
+        }
+      } catch (err) {
+        console.error("Failed to fetch roles in settings page:", err);
+      } finally {
+        setRolesLoading(false);
+      }
+    };
+    fetchRoles();
+  }, []);
+
+  const handleCreateRoleSubmit = async (e) => {
+    e.preventDefault();
+    setRoleError('');
+    setRoleSuccess('');
+    
+    if (!newRoleData.roleName || !newRoleData.roleCode) {
+      setRoleError('Role Name and Role Code are required.');
+      return;
+    }
+    
+    setRoleCreating(true);
+    try {
+      const res = await createRole({
+        roleName: newRoleData.roleName,
+        roleCode: newRoleData.roleCode.toUpperCase().replace(/\s+/g, '_'),
+        description: newRoleData.description
+      });
+      
+      if (res.success || res._doc || res._id) {
+        setRoleSuccess('Role created successfully!');
+        setNewRoleData({ roleName: '', roleCode: '', description: '' });
+        // Reload roles
+        const updatedRoles = await getRoles();
+        if (updatedRoles.success && Array.isArray(updatedRoles.roles)) {
+          setRoles(updatedRoles.roles);
+        }
+      } else {
+        setRoleError(res.message || 'Failed to create role.');
+      }
+    } catch (err) {
+      setRoleError(err.response?.data?.message || err.message || 'Failed to create role.');
+    } finally {
+      setRoleCreating(false);
+    }
+  };
 
   // 1. General Profile State
   const [profile, setProfile] = useState({
@@ -60,6 +211,7 @@ export default function Settings() {
     { id: 'general', label: 'Company Profile', icon: Globe },
     { id: 'roles', label: 'Role Access Control', icon: UserCheck },
     { id: 'workflow', label: 'Workflow Rules', icon: RefreshCw },
+    { id: 'geofence', label: 'Site Geofence Locations', icon: MapPin },
     { id: 'integrations', label: 'API Integrations', icon: Key }
   ];
 
@@ -146,62 +298,101 @@ export default function Settings() {
           )}
 
           {activeSettingTab === 'roles' && (
-            <Card title="Role Access Permissions Matrix" subtitle="Map functional access constraints across system roles">
-              <div className="overflow-x-auto pt-2">
-                <table className="w-full text-xs text-left table-auto">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50/50">
-                      <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">System Role</th>
-                      <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">View Projects</th>
-                      <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Approve GFC</th>
-                      <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Manage Tasks</th>
-                      <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">View Payroll</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {rolesPermissions.map((row, roleIdx) => (
-                      <tr key={roleIdx} className="hover:bg-slate-50/40">
-                        <td className="px-4 py-3.5 font-bold text-slate-805">{row.role}</td>
-                        
-                        <td className="px-4 py-3.5 text-center align-middle">
-                          <input 
-                            type="checkbox" 
-                            checked={row.viewProjects}
-                            onChange={() => handleTogglePermission(roleIdx, 'viewProjects')}
-                            className="rounded text-brand-primary focus:ring-brand-primary w-4 h-4"
-                          />
-                        </td>
-                        <td className="px-4 py-3.5 text-center align-middle">
-                          <input 
-                            type="checkbox" 
-                            checked={row.approveDrawings}
-                            onChange={() => handleTogglePermission(roleIdx, 'approveDrawings')}
-                            className="rounded text-brand-primary focus:ring-brand-primary w-4 h-4"
-                          />
-                        </td>
-                        <td className="px-4 py-3.5 text-center align-middle">
-                          <input 
-                            type="checkbox" 
-                            checked={row.manageTasks}
-                            onChange={() => handleTogglePermission(roleIdx, 'manageTasks')}
-                            className="rounded text-brand-primary focus:ring-brand-primary w-4 h-4"
-                          />
-                        </td>
-                        <td className="px-4 py-3.5 text-center align-middle">
-                          <input 
-                            type="checkbox" 
-                            checked={row.viewPayroll}
-                            onChange={() => handleTogglePermission(roleIdx, 'viewPayroll')}
-                            className="rounded text-brand-primary focus:ring-brand-primary w-4 h-4"
-                          />
-                        </td>
+            <div className="space-y-6">
+              <Card title="Active System Roles" subtitle="Registered roles loaded from the backend server">
+                {rolesLoading ? (
+                  <div className="p-4 text-center text-xs font-semibold text-slate-400">Loading roles...</div>
+                ) : (
+                  <div className="overflow-x-auto pt-2">
+                    <table className="w-full text-xs text-left table-auto">
+                      <thead>
+                        <tr className="border-b border-slate-100 bg-slate-50/50">
+                          <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Role Name</th>
+                          <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Role Code</th>
+                          <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Description</th>
+                          <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {roles.map((row, roleIdx) => (
+                          <tr key={row._id || roleIdx} className="hover:bg-slate-50/40">
+                            <td className="px-4 py-3.5 font-bold text-slate-805">{row.roleName}</td>
+                            <td className="px-4 py-3.5 font-mono text-[10px] text-slate-500">{row.roleCode}</td>
+                            <td className="px-4 py-3.5 text-slate-500 font-semibold">{row.description || 'N/A'}</td>
+                            <td className="px-4 py-3.5 text-center align-middle">
+                              <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${
+                                row.isActive !== false ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'
+                              }`}>
+                                {row.isActive !== false ? 'Active' : 'Inactive'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Card>
 
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+              <Card title="Add New System Role" subtitle="Create a new role definition on the backend server">
+                <form onSubmit={handleCreateRoleSubmit} className="space-y-4 pt-2 text-xs font-bold text-slate-700">
+                  {roleError && (
+                    <div className="p-3.5 bg-rose-50 border border-rose-100 text-rose-600 rounded-xl font-bold">
+                      {roleError}
+                    </div>
+                  )}
+                  {roleSuccess && (
+                    <div className="p-3.5 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-xl font-bold">
+                      {roleSuccess}
+                    </div>
+                  )}
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[9px] font-black text-slate-405 block uppercase mb-1">Role Name</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={newRoleData.roleName}
+                        onChange={(e) => setNewRoleData(prev => ({ ...prev, roleName: e.target.value }))}
+                        placeholder="e.g. Senior Architect"
+                        className="w-full px-3.5 py-2.5 border border-slate-205 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-800 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black text-slate-405 block uppercase mb-1">Role Code</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={newRoleData.roleCode}
+                        onChange={(e) => setNewRoleData(prev => ({ ...prev, roleCode: e.target.value.toUpperCase() }))}
+                        placeholder="e.g. SENIOR_ARCHITECT"
+                        className="w-full px-3.5 py-2.5 border border-slate-205 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-800 bg-white"
+                      />
+                    </div>
+                    <div className="col-span-1 sm:col-span-2">
+                      <label className="text-[9px] font-black text-slate-405 block uppercase mb-1">Description</label>
+                      <input 
+                        type="text" 
+                        value={newRoleData.description}
+                        onChange={(e) => setNewRoleData(prev => ({ ...prev, description: e.target.value }))}
+                        placeholder="e.g. Design lead responsible for blueprints"
+                        className="w-full px-3.5 py-2.5 border border-slate-205 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-800 bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={roleCreating}
+                    className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary disabled:opacity-50 text-slate-905 rounded-xl text-xs font-black uppercase transition-all shadow-sm flex items-center gap-1 mt-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {roleCreating ? 'Creating Role...' : 'Create Role'}
+                  </button>
+                </form>
+              </Card>
+            </div>
           )}
 
           {activeSettingTab === 'workflow' && (
@@ -260,6 +451,151 @@ export default function Settings() {
                   </div>
                 </div>
               </form>
+            </Card>
+          )}
+
+          {activeSettingTab === 'geofence' && (
+            <Card title="Project Site Geo-Fencing Configuration" subtitle="Configure lat/lng bounds and allowed radius zones for site engineers and architects checkins">
+              <div className="space-y-6 pt-2">
+                
+                {/* Form to Add/Edit Geofence */}
+                <form onSubmit={handleCreateLocationSubmit} className="p-5 bg-slate-50/50 border border-slate-105 rounded-2xl space-y-4 text-xs font-bold text-slate-700">
+                  <h4 className="text-[10px] font-black uppercase text-slate-405 tracking-wider">
+                    {locationEditingId ? 'Edit Site Geofence' : 'Configure New Site Geofence'}
+                  </h4>
+
+                  {locationError && (
+                    <div className="p-3 bg-rose-50 border border-rose-100 text-rose-600 rounded-xl font-bold">
+                      {locationError}
+                    </div>
+                  )}
+                  {locationSuccess && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-xl font-bold">
+                      {locationSuccess}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-[9px] font-black text-slate-405 block uppercase mb-1">Project / Site Name</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={newLocationData.projectName}
+                        onChange={(e) => setNewLocationData(prev => ({ ...prev, projectName: e.target.value }))}
+                        placeholder="e.g. Noida Commercial Tower"
+                        className="w-full px-3 py-2 border border-slate-205 rounded-xl focus:outline-none bg-white font-semibold text-slate-800"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black text-slate-405 block uppercase mb-1">Project ID (Optional)</label>
+                      <input 
+                        type="text" 
+                        value={newLocationData.projectId}
+                        onChange={(e) => setNewLocationData(prev => ({ ...prev, projectId: e.target.value }))}
+                        placeholder="e.g. 6a607dae7f99c70902371c1d"
+                        className="w-full px-3 py-2 border border-slate-205 rounded-xl focus:outline-none bg-white font-semibold text-slate-800"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black text-slate-405 block uppercase mb-1">Geo-Fence Radius (Meters)</label>
+                      <input 
+                        type="number" 
+                        required
+                        value={newLocationData.radiusMeters}
+                        onChange={(e) => setNewLocationData(prev => ({ ...prev, radiusMeters: e.target.value }))}
+                        placeholder="100"
+                        className="w-full px-3 py-2 border border-slate-205 rounded-xl focus:outline-none bg-white font-semibold text-slate-800"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black text-slate-405 block uppercase mb-1">Latitude</label>
+                      <input 
+                        type="number" 
+                        step="any"
+                        required
+                        value={newLocationData.lat}
+                        onChange={(e) => setNewLocationData(prev => ({ ...prev, lat: e.target.value }))}
+                        placeholder="e.g. 28.6273"
+                        className="w-full px-3 py-2 border border-slate-205 rounded-xl focus:outline-none bg-white font-semibold text-slate-800"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black text-slate-405 block uppercase mb-1">Longitude</label>
+                      <input 
+                        type="number" 
+                        step="any"
+                        required
+                        value={newLocationData.lng}
+                        onChange={(e) => setNewLocationData(prev => ({ ...prev, lng: e.target.value }))}
+                        placeholder="e.g. 77.3725"
+                        className="w-full px-3 py-2 border border-slate-205 rounded-xl focus:outline-none bg-white font-semibold text-slate-800"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <button
+                        type="submit"
+                        disabled={locationCreating}
+                        className="w-full py-2 bg-brand-primary hover:bg-brand-secondary disabled:opacity-50 text-slate-905 font-black uppercase rounded-xl transition-all shadow-3xs flex items-center justify-center gap-1"
+                      >
+                        <Plus className="w-4 h-4" />
+                        {locationCreating ? 'Configuring...' : (locationEditingId ? 'Update Geofence' : 'Configure Geofence')}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+
+                {/* Table of configured locations */}
+                <div className="border border-slate-100 rounded-2xl overflow-hidden">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-100">
+                        <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Site Name</th>
+                        <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Coordinates (Lat, Lng)</th>
+                        <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Radius</th>
+                        <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50 bg-white">
+                      {locationsLoading ? (
+                        <tr>
+                          <td colSpan="4" className="p-6 text-center text-slate-400 font-bold">Loading geofence locations...</td>
+                        </tr>
+                      ) : siteLocations.length === 0 ? (
+                        <tr>
+                          <td colSpan="4" className="p-6 text-center text-slate-400 font-bold">No geofences configured yet. Use the form above to add one.</td>
+                        </tr>
+                      ) : (
+                        siteLocations.map(loc => (
+                          <tr key={loc._id || loc.id} className="hover:bg-slate-50/50">
+                            <td className="p-3 font-bold text-slate-805">
+                              {loc.projectName}
+                              {loc.project && (
+                                <span className="block text-[8px] text-slate-405 font-bold">Linked Project ID: {loc.project._id || loc.project?.id || loc.project}</span>
+                              )}
+                            </td>
+                            <td className="p-3 text-slate-500 font-mono">
+                              {loc.lat?.toFixed(5)}, {loc.lng?.toFixed(5)}
+                            </td>
+                            <td className="p-3 text-slate-650 font-bold">
+                              {loc.radiusMeters} meters
+                            </td>
+                            <td className="p-3 text-right">
+                              <button
+                                onClick={() => handleEditLocation(loc)}
+                                className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-202 rounded-lg text-[9px] font-black uppercase transition-all shadow-4xs"
+                              >
+                                Edit bounds
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+              </div>
             </Card>
           )}
 
