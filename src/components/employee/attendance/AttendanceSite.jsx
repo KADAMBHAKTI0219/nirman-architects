@@ -1,17 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Navigation, Camera, ShieldCheck, AlertCircle } from 'lucide-react';
-import { postAttendanceEvent, getMyAttendance, getSiteLocationsList } from '../../../service/attendance';
+import { MapPin, Navigation, ShieldCheck } from 'lucide-react';
+import { getMyAttendance, getTodayAttendance } from '../../../service/attendance';
+import { parseIndexedObjectToArray } from '../../../service/leave';
 
 export default function AttendanceSite() {
   const [isCheckedIn, setIsCheckedIn] = useState(false);
-  const [projectId, setProjectId] = useState('6a607dae7f99c70902371c1d'); // Default master project ID
-  const [selfieCaptured, setSelfieCaptured] = useState(false);
   const [coords, setCoords] = useState({ lat: null, lng: null });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [sites, setSites] = useState([]);
 
-  // Fetch coordinates on mount to show preview and verify active session
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -29,14 +24,9 @@ export default function AttendanceSite() {
 
     const fetchSessionStatus = async () => {
       try {
-        const res = await getMyAttendance();
-        const rawLogs = res.logs || res.data || (Array.isArray(res) ? res : []);
-        if (rawLogs && rawLogs.length > 0) {
-          const latest = rawLogs[0];
-          // Open session exists if clockOutTime is null
-          if (!latest.clockOutTime) {
-            setIsCheckedIn(true);
-          }
+        const res = await getTodayAttendance();
+        if (res && res.clockedIn) {
+          setIsCheckedIn(true);
         }
       } catch (err) {
         console.error("Failed to fetch initial check-in status:", err);
@@ -45,98 +35,14 @@ export default function AttendanceSite() {
     fetchSessionStatus();
   }, []);
 
-  // Load dynamic site locations from backend
-  useEffect(() => {
-    const loadSites = async () => {
-      try {
-        const res = await getSiteLocationsList();
-        const locationList = res.data?.locations || res.locations || (Array.isArray(res) ? res : []);
-        if (locationList) {
-          setSites(locationList);
-          if (locationList.length > 0) {
-            setProjectId(locationList[0].project || locationList[0]._id);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to load project sites:", err);
-      }
-    };
-    loadSites();
-  }, []);
-
-  const handleToggle = async () => {
-    if (!selfieCaptured && !isCheckedIn) {
-      alert("Please capture a verification selfie before checking in at the site.");
-      return;
-    }
-
-    const savedUser = localStorage.getItem('user');
-    const userId = savedUser ? JSON.parse(savedUser).id : null;
-    if (!userId) {
-      alert("Session expired. Please log in again.");
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    // Fetch fresh coordinates from browser Geolocation API
-    if (!navigator.geolocation) {
-      alert("Geolocation is not supported by your browser.");
-      setLoading(false);
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
-        setCoords({ lat, lng });
-
-        try {
-          if (!isCheckedIn) {
-            // Trigger site check-in API
-            const response = await postAttendanceEvent({
-              type: 'clock_in',
-              deviceId: 'web-mobile-gps',
-              clientTime: new Date().toISOString()
-            });
-            setIsCheckedIn(true);
-            alert(response.message || "Site GPS Check-In recorded successfully!");
-          } else {
-            // Trigger site check-out API
-            const response = await postAttendanceEvent({
-              type: 'clock_out',
-              deviceId: 'web-mobile-gps',
-              clientTime: new Date().toISOString()
-            });
-            setIsCheckedIn(false);
-            setSelfieCaptured(false);
-            alert(response.message || "Site Clock Out logged successfully!");
-          }
-        } catch (err) {
-          console.error("GPS Check-In/Out failed:", err);
-          setError(err.response?.data?.message || err.message || "Geo-fence check failed or site bounds rejection.");
-        } finally {
-          setLoading(false);
-        }
-      },
-      (err) => {
-        console.error("Failed to retrieve GPS position:", err);
-        setError("Could not retrieve GPS coordinates. Please enable device location settings.");
-        setLoading(false);
-      }
-    );
-  };
-
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       
-      {/* Upper Layout: Site Coordinates Map + Controls */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Upper Layout: Site Coordinates Map */}
+      <div className="grid grid-cols-1 gap-6">
         
-        {/* Left Side: Real Geolocation coordinates and radial zone map representation */}
-        <div className="lg:col-span-2 bg-[#0B1E33] border border-slate-800 rounded-3xl p-6 relative overflow-hidden h-[340px] flex flex-col justify-between shadow-inner">
+        {/* Real Geolocation coordinates and radial zone map representation */}
+        <div className="bg-[#0B1E33] border border-slate-800 rounded-3xl p-6 relative overflow-hidden h-[340px] flex flex-col justify-between shadow-inner">
           <div className="flex justify-between items-start z-10">
             <div className="bg-slate-900/80 px-2.5 py-1.5 rounded-xl border border-slate-800 text-xs text-sky-405 font-bold flex items-center gap-1.5">
               <Navigation className="w-3.5 h-3.5 text-sky-400 animate-spin" />
@@ -165,82 +71,13 @@ export default function AttendanceSite() {
               </span>
             </div>
           </div>
-        </div>
 
-        {/* Right Side: Site controls and selfie uploads */}
-        <div className="space-y-4">
-          
-          {/* Selfie capture verification */}
-          <div className="bg-white p-5 rounded-3xl border border-slate-105 shadow-2xs space-y-4">
-            <h4 className="text-[10px] font-black text-slate-455 uppercase tracking-widest block border-b border-slate-55 pb-2">Webcam Site Check</h4>
-            
-            {selfieCaptured ? (
-              <div className="relative rounded-2xl overflow-hidden border border-slate-100 h-28 bg-slate-100 flex items-center justify-center">
-                <div className="w-14 h-14 rounded-full bg-brand-primary/20 border-2 border-brand-primary flex items-center justify-center font-black text-slate-905">
-                  AS
-                </div>
-                <div className="absolute bottom-2 left-2 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  Selfie Captured
-                </div>
-              </div>
-            ) : (
-              <div className="border border-dashed border-slate-205 rounded-2xl h-28 flex flex-col items-center justify-center p-4 bg-slate-50">
-                <Camera className="w-6 h-6 text-slate-450 mb-2" />
-                <button
-                  onClick={() => setSelfieCaptured(true)}
-                  className="px-3.5 py-1.5 bg-brand-primary hover:bg-brand-secondary text-slate-905 text-[10px] font-black uppercase rounded-lg shadow-3xs transition-all"
-                >
-                  Verify Face
-                </button>
-              </div>
-            )}
-
-            {error && (
-              <div className="p-3 bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl flex items-start gap-1.5 text-[10px] leading-normal font-bold">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            <button
-              onClick={handleToggle}
-              disabled={loading}
-              className={`w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-sm ${
-                isCheckedIn 
-                  ? 'bg-rose-500 hover:bg-rose-600 text-white' 
-                  : 'bg-brand-primary hover:bg-brand-secondary text-slate-905'
-              } disabled:opacity-50`}
-            >
-              {loading ? 'Processing GPS check...' : (isCheckedIn ? 'Clock Out Site Location' : 'Clock In Site Location')}
-            </button>
+          <div className="flex justify-between items-center z-10 bg-slate-900/80 px-4 py-2 rounded-2xl border border-slate-800">
+            <span className="text-xs font-bold text-slate-300">Geo-Fence Status:</span>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded ${isCheckedIn ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700/55 text-slate-400'}`}>
+              {isCheckedIn ? 'Clocked-In within geofence boundaries' : 'Outside boundary limits / Checked-Out'}
+            </span>
           </div>
-
-          {/* Travel note panel */}
-          <div className="bg-white p-5 rounded-3xl border border-slate-105 shadow-2xs space-y-3">
-            <span className="text-[10px] font-black text-slate-455 uppercase tracking-widest block border-b border-slate-55 pb-2">Travel & Site Location Settings</span>
-            <div className="space-y-2 text-xs">
-              <div>
-                <label className="text-[9px] font-bold text-slate-400 block uppercase mb-1">Select Construction Site</label>
-                <select 
-                  value={projectId} 
-                  onChange={(e) => setProjectId(e.target.value)} 
-                  className="w-full p-2 border border-slate-205 rounded-xl font-black text-slate-700 bg-white"
-                >
-                  {sites.length > 0 ? (
-                    sites.map(s => (
-                      <option key={s.id || s._id} value={s.projectId || s.id || s._id}>
-                        {s.name || `Site ID: ${s.projectId || s.id}`}
-                      </option>
-                    ))
-                  ) : (
-                    <option value="6a607dae7f99c70902371c1d">Default Noida Construction Site</option>
-                  )}
-                </select>
-              </div>
-            </div>
-          </div>
-
         </div>
 
       </div>

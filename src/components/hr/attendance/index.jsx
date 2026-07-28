@@ -47,7 +47,12 @@ export default function Attendance() {
       const rawLogs = parseIndexedObjectToArray(logsRes);
 
       if (rawLogs) {
-        const mappedLogs = rawLogs.map((log, idx) => {
+        const filteredRaw = rawLogs.filter(log => {
+          const logDateStr = log.date || (log.clockInTime ? log.clockInTime.split('T')[0] : '');
+          return logDateStr === selectedDate;
+        });
+
+        const mappedLogs = filteredRaw.map((log, idx) => {
           const emp = log.userId || {};
           const clockIn = new Date(log.clockInTime || log.loginTime || log.createdAt || Date.now());
           const clockOut = log.clockOutTime || log.logoutTime ? new Date(log.clockOutTime || log.logoutTime) : null;

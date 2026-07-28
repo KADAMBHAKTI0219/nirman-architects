@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import * as Icons from 'lucide-react';
 import logoImg from '../../assets/images/logo.png';
-import { logout } from '../../mockApi';
+
 
 const SIDEBAR_ITEMS = {
   Admin: [
@@ -210,15 +210,8 @@ export default function Sidebar({ role, onClose }) {
         </div>
 
         <button 
-          onClick={async () => {
-            try {
-              await logout();
-            } catch (e) {
-              console.log("Logout API call notice:", e.message);
-            }
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            localStorage.removeItem('isCheckedIn');
+          onClick={() => {
+            localStorage.clear();
             window.location.href = '/';
           }}
           className="p-1.5 hover:bg-slate-100 text-slate-450 hover:text-rose-600 rounded-lg transition-colors flex-shrink-0"

@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import Card from '../../common/Card';
 import { getRoles, createRole } from '../../../service/auth';
-import { getSiteLocationsList, createSiteLocation } from '../../../service/attendance';
+import { getSiteLocations, saveSiteLocation } from '../../../mockApi';
 
 export default function Settings() {
   const [activeSettingTab, setActiveSettingTab] = useState('roles'); // general, roles, workflow, integrations
@@ -38,7 +38,7 @@ export default function Settings() {
   const fetchSiteLocations = async () => {
     try {
       setLocationsLoading(true);
-      const res = await getSiteLocationsList();
+      const res = await getSiteLocations();
       const list = res.data?.locations || res.locations || (Array.isArray(res) ? res : []);
       if (list) {
         setSiteLocations(list);
@@ -79,7 +79,7 @@ export default function Settings() {
         payload.projectId = newLocationData.projectId;
       }
 
-      const res = await createSiteLocation(payload);
+      const res = await saveSiteLocation(payload.projectId || payload.projectName || 'proj_1', payload.lat, payload.lng, payload.radiusMeters);
       if (res.success || res.siteLocation || res._doc || res._id) {
         setLocationSuccess('Site geofence configured successfully!');
         setNewLocationData({ projectId: '', projectName: '', lat: '', lng: '', radiusMeters: '100' });

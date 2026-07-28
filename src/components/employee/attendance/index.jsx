@@ -3,7 +3,7 @@ import AttendanceCheckIn from './AttendanceCheckIn';
 import AttendanceOffice from './AttendanceOffice';
 import AttendanceSite from './AttendanceSite';
 import AttendanceReports from './AttendanceReports';
-import { getMyAttendance, postAttendanceEvent } from '../../../service/attendance';
+import { getMyAttendance } from '../../../service/attendance';
 import { ShieldCheck, Info, MapPin } from 'lucide-react';
 
 export default function Attendance() {
@@ -93,20 +93,10 @@ export default function Attendance() {
     window.addEventListener('keydown', handleActivity);
     window.addEventListener('click', handleActivity);
 
-    const interval = setInterval(async () => {
+    const interval = setInterval(() => {
       const isIdle = (Date.now() - lastActivity) > 300000;
       if (isIdle) {
         setIsOnBreak(true);
-      } else {
-        try {
-          await postAttendanceEvent({
-            type: 'heartbeat',
-            deviceId,
-            clientTime: new Date().toISOString()
-          });
-        } catch (err) {
-          console.warn("Heartbeat failed:", err.message);
-        }
       }
     }, 120000);
 
