@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-primary: #8FC9FF;
-  --color-brand-secondary: #A2D2FF;
-  --color-brand-soft: #B0E0FE;
-  --color-brand-light: #D1E8FC;
-  --color-brand-tint: #E5F0FA;
+  --color-brand-primary: #BDE0FE;
+  --color-brand-secondary: #D1E8FC;
+  --color-brand-soft: #E5F0FA;
+  --color-brand-light: #F0F6FC;
+  --color-brand-tint: #F7FAFD;
   --color-brand-dark: #1E293B;
   --color-brand-text: #0F172A;
   
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Poppins', 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 body {
@@ -149,4 +149,23 @@ html {
     font-size: 16.5px;
   }
 }
+
+/* Typography softening overrides: reduce heavy bold weights to semibold */
+.font-black, 
+.font-extrabold, 
+.font-bold,
+strong {
+  font-weight: 600 !important; /* Soften ultra-heavy weights to Semi-Bold */
+}
+
+/* Ensure only main/primary headings or key titles remain strong (Bold) */
+h1, 
+h2, 
+h3, 
+.text-2xl, 
+.text-3xl, 
+.main-title {
+  font-weight: 700 !important; /* Keep primary contents bold */
+}
+
 
