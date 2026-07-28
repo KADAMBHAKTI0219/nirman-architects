@@ -1,8 +1,9 @@
 import api from './auth';
 
-  * Automated PC Boot Clock-In (API_DOCUMENTATION.md Section 4.1)
-  * @param {object} payload - { employeeId, deviceId, loginTime, deviceName, ipAddress }
-  */
+/**
+ * Automated PC Boot Clock-In (API_DOCUMENTATION.md Section 4.1)
+ * @param {object} payload - { employeeId, deviceId, loginTime, deviceName, ipAddress }
+ */
 export const clockInPC = async (payload) => {
   const response = await api.post('/attendance/clock-in', payload);
   return response.data;
