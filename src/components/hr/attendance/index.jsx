@@ -49,16 +49,15 @@ export default function Attendance() {
       if (rawLogs) {
         const mappedLogs = rawLogs.map((log, idx) => {
           const emp = log.userId || {};
-          const clockIn = new Date(log.clockInTime);
-          const clockOut = log.clockOutTime ? new Date(log.clockOutTime) : null;
+          const clockIn = new Date(log.clockInTime || log.loginTime || log.createdAt || Date.now());
+          const clockOut = log.clockOutTime || log.logoutTime ? new Date(log.clockOutTime || log.logoutTime) : null;
           
-          let hoursStr = 'Active';
-          if (clockOut) {
-            const diffMs = clockOut - clockIn;
-            const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
-            const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-            hoursStr = `${diffHrs}h ${diffMins}m`;
-          }
+          const end = clockOut || new Date();
+          const diffMs = Math.max(0, end.getTime() - clockIn.getTime());
+          const totalMins = diffMs > 0 ? Math.max(1, Math.round(diffMs / (1000 * 60))) : 0;
+          const diffHrs = Math.floor(totalMins / 60);
+          const diffMins = totalMins % 60;
+          const hoursStr = `${diffHrs}h ${diffMins}m`;
           
           const isSite = (log.deviceId || '').toLowerCase().includes('gps') || (log.deviceId || '').toLowerCase().includes('mobile');
           

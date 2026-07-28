@@ -32,24 +32,23 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
       if (rawLogs) {
         const mappedLogs = rawLogs.map((log, idx) => {
           const emp = log.userId || {};
-          const clockIn = new Date(log.clockInTime);
-          const clockOut = log.clockOutTime ? new Date(log.clockOutTime) : null;
+          const clockIn = new Date(log.clockInTime || log.loginTime || log.createdAt || Date.now());
+          const clockOut = log.clockOutTime || log.logoutTime ? new Date(log.clockOutTime || log.logoutTime) : null;
           
-          let hoursStr = 'Active';
-          if (clockOut) {
-            const diffMs = clockOut - clockIn;
-            const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
-            const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-            hoursStr = `${diffHrs}h ${diffMins}m`;
-          }
+          const end = clockOut || new Date();
+          const diffMs = Math.max(0, end.getTime() - clockIn.getTime());
+          const totalMins = diffMs > 0 ? Math.max(1, Math.round(diffMs / (1000 * 60))) : 0;
+          const diffHrs = Math.floor(totalMins / 60);
+          const diffMins = totalMins % 60;
+          const hoursStr = `${diffHrs}h ${diffMins}m`;
           
           const isSite = (log.deviceId || '').toLowerCase().includes('gps') || (log.deviceId || '').toLowerCase().includes('mobile');
           
           return {
             id: log._id || log.id || idx,
             employeeId: emp._id || emp.id,
-            name: emp.name || 'Unknown User',
-            role: emp.designation || emp.roleName || 'Employee',
+            name: emp.name || log.employeeName || 'Unknown User',
+            role: emp.designation || emp.roleName || emp.role || 'Employee',
             timeIn: clockIn.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             timeOut: clockOut ? clockOut.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'In Progress',
             hours: hoursStr,
@@ -637,9 +636,16 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
                     }}
                     className="w-full pl-9 pr-4 py-2.5 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
                   >
-                    {roles.map(r => (
-                      <option key={r._id || r.id} value={r._id || r.id}>{r.roleName} ({r.roleCode})</option>
-                    ))}
+                    {roles.map(r => {
+                      const val = typeof r === 'object' ? (r._id || r.id || r.roleCode) : r;
+                      const name = typeof r === 'object' ? (r.roleName || r.name || r.roleCode || 'Role') : String(r);
+                      const code = typeof r === 'object' ? (r.roleCode || '') : '';
+                      return (
+                        <option key={val} value={val}>
+                          {name} {code ? `(${code})` : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               </div>
@@ -840,9 +846,16 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
                       }}
                       className="w-full pl-9 pr-4 py-2.5 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
                     >
-                      {roles.map(r => (
-                        <option key={r._id || r.id} value={r._id || r.id}>{r.roleName} ({r.roleCode})</option>
-                      ))}
+                      {roles.map(r => {
+                      const val = typeof r === 'object' ? (r._id || r.id || r.roleCode) : r;
+                      const name = typeof r === 'object' ? (r.roleName || r.name || r.roleCode || 'Role') : String(r);
+                      const code = typeof r === 'object' ? (r.roleCode || '') : '';
+                      return (
+                        <option key={val} value={val}>
+                          {name} {code ? `(${code})` : ''}
+                        </option>
+                      );
+                    })}
                     </select>
                   </div>
                 </div>

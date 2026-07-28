@@ -58,6 +58,12 @@ export const registerUser = async (payload) => {
   return response.data;
 };
 
+
+export const createUser = async (payload) => {
+  const response = await api.post('/users/create', payload);
+  return response.data;
+};
+
 /**
  * Fetch all roles from the backend and normalize them into an array.
  */

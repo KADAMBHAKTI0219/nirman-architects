@@ -25,9 +25,10 @@ const initLocalStorage = () => {
 
   if (!localStorage.getItem('nirman_leave_types')) {
     localStorage.setItem('nirman_leave_types', JSON.stringify([
-      { id: '6a62efaeca3553ab61cb7c1e', name: 'Annual Leave', code: 'ANNUAL', defaultQuota: 15, colorTag: '#3B82F6', active: true },
-      { id: 'leave-sick', name: 'Sick Leave', code: 'SICK', defaultQuota: 7, colorTag: '#EF4444', active: true },
-      { id: 'leave-casual', name: 'Casual Leave', code: 'CASUAL', defaultQuota: 5, colorTag: '#10B981', active: true }
+      { id: 'leave-casual', name: 'Casual Leave', code: 'CASUAL', defaultQuota: 12, colorTag: '#10B981', active: true },
+      { id: 'leave-sick', name: 'Sick Leave', code: 'SICK', defaultQuota: 8, colorTag: '#EF4444', active: true },
+      { id: 'leave-unpaid', name: 'Unpaid Leave', code: 'UNPAID', defaultQuota: 30, colorTag: '#6366F1', active: true },
+      { id: '6a62efaeca3553ab61cb7c1e', name: 'Annual Leave', code: 'ANNUAL', defaultQuota: 15, colorTag: '#3B82F6', active: true }
     ]));
   }
 
@@ -132,25 +133,35 @@ export const getMe = async () => {
 export const logout = async () => {
   const savedUser = localStorage.getItem('user');
   if (savedUser) {
-    const user = JSON.parse(savedUser);
-    const isSiteEngineer = user.role?.toLowerCase().includes('site');
-    const logs = JSON.parse(localStorage.getItem('nirman_attendance_logs') || '[]');
-    logs.push({
-      id: 'att_' + Math.random().toString(36).substr(2, 9),
-      userId: user.id,
-      employeeName: user.name || 'User',
-      userEmail: user.email,
-      type: 'CLOCK_OUT',
-      time: new Date().toISOString(),
-      source: 'LOGOUT',
-      mode: isSiteEngineer ? 'SITE_GPS' : 'OFFICE_AUTO',
-      deviceId: user.registeredDeviceId || 'web-browser',
-      isOffline: false
-    });
-    localStorage.setItem('nirman_attendance_logs', JSON.stringify(logs));
+    try {
+      const user = JSON.parse(savedUser);
+      const isSiteEngineer = user.role?.toLowerCase().includes('site');
+      const nowISO = new Date().toISOString();
+      const logs = JSON.parse(localStorage.getItem('nirman_attendance_logs') || '[]');
+      const newLog = {
+        id: 'att_' + Math.random().toString(36).substr(2, 9),
+        userId: user.id || user._id,
+        employeeName: user.name || 'User',
+        userEmail: user.email,
+        type: 'CLOCK_OUT',
+        time: nowISO,
+        source: 'LOGOUT',
+        mode: isSiteEngineer ? 'SITE_GPS' : 'OFFICE_AUTO',
+        deviceId: user.registeredDeviceId || user.deviceId || 'web-browser',
+        isOffline: false
+      };
+      logs.push(newLog);
+      localStorage.setItem('nirman_attendance_logs', JSON.stringify(logs));
+
+      // Await backend HTTP clock-out request BEFORE redirecting
+      await syncAttendanceToBackend(newLog);
+    } catch (err) {
+      console.error("Logout clock-out sync error:", err);
+    }
   }
   localStorage.removeItem('token');
   localStorage.removeItem('user');
+  localStorage.removeItem('isCheckedIn');
   window.location.href = '/';
 };
 
@@ -166,9 +177,21 @@ export const getUsers = async () => {
 export const applyLeave = async (data) => {
   await delay();
   const user = getSessionUser() || { id: 'u2', name: 'Alice Smith' };
-  const requests = JSON.parse(localStorage.getItem('nirman_leave_requests'));
-  const leaveTypes = JSON.parse(localStorage.getItem('nirman_leave_types'));
-  const activeType = leaveTypes.find(t => t.id === data.leaveTypeId) || leaveTypes[0];
+  const requests = JSON.parse(localStorage.getItem('nirman_leave_requests') || '[]');
+  const leaveTypes = JSON.parse(localStorage.getItem('nirman_leave_types') || '[]');
+  
+  const searchId = String(data.leaveTypeId || '').toLowerCase();
+  const activeType = leaveTypes.find(t => 
+    String(t.id).toLowerCase() === searchId || 
+    (t.code && String(t.code).toLowerCase() === searchId) ||
+    (t.name && String(t.name).toLowerCase().includes(searchId)) ||
+    (t.name && searchId.includes(String(t.name).toLowerCase()))
+  ) || {
+    id: data.leaveTypeId || 'leave-unpaid',
+    name: 'Unpaid Leave',
+    code: 'UNPAID',
+    colorTag: '#6366F1'
+  };
 
   const newRequest = {
     id: 'req_' + Math.random().toString(36).substr(2, 9),
@@ -192,18 +215,50 @@ export const applyLeave = async (data) => {
 export const getMyLeaves = async (year) => {
   await delay();
   const user = getSessionUser() || { id: 'u2' };
-  const requests = JSON.parse(localStorage.getItem('nirman_leave_requests')).filter(r => r.userId === user.id);
-  const leaveTypes = JSON.parse(localStorage.getItem('nirman_leave_types'));
+  const allRequests = JSON.parse(localStorage.getItem('nirman_leave_requests') || '[]');
   
-  const balances = leaveTypes.map(t => ({
-    leaveTypeId: t.id,
-    leaveTypeName: t.name,
-    code: t.code,
-    colorTag: t.colorTag,
-    allocatedDays: t.defaultQuota,
-    usedDays: requests.filter(r => r.leaveTypeId === t.id && r.status === 'APPROVED').length,
-    remainingDays: t.defaultQuota - requests.filter(r => r.leaveTypeId === t.id && r.status === 'APPROVED').length
-  }));
+  // Filter user requests matching by ID, email, or name
+  const requests = allRequests.filter(r => 
+    r.userId === user.id || 
+    (user.email && r.userEmail && r.userEmail.toLowerCase() === user.email.toLowerCase()) ||
+    (user.name && r.employeeName && r.employeeName.toLowerCase() === user.name.toLowerCase()) ||
+    allRequests.length === 1 // If demo single user session
+  );
+  
+  const leaveTypes = JSON.parse(localStorage.getItem('nirman_leave_types') || '[]');
+  
+  const balances = leaveTypes.map(t => {
+    const approvedRequests = requests.filter(r => {
+      const isApproved = r.status && String(r.status).toUpperCase() === 'APPROVED';
+      const isSameType = r.leaveTypeId === t.id || 
+                         (r.code && t.code && String(r.code).toUpperCase() === String(t.code).toUpperCase()) || 
+                         (r.leaveTypeName && t.name && String(r.leaveTypeName).toLowerCase().includes(String(t.name).toLowerCase())) ||
+                         (r.leaveTypeName && t.name && String(t.name).toLowerCase().includes(String(r.leaveTypeName).toLowerCase()));
+      return isApproved && isSameType;
+    });
+
+    const usedDays = approvedRequests.reduce((sum, r) => {
+      const from = r.fromDate ? new Date(r.fromDate) : null;
+      const to = r.toDate ? new Date(r.toDate) : null;
+      const calcDays = (from && to && !isNaN(from.getTime()) && !isNaN(to.getTime())) 
+        ? Math.max(1, Math.round(Math.abs(to - from) / (1000 * 60 * 60 * 24)) + 1)
+        : (r.days || r.totalDays || 1);
+      return sum + calcDays;
+    }, 0);
+
+    const quota = t.defaultQuota || 12;
+    const remainingDays = Math.max(0, quota - usedDays);
+
+    return {
+      leaveTypeId: t.id,
+      leaveTypeName: t.name,
+      code: t.code,
+      colorTag: t.colorTag,
+      allocatedDays: quota,
+      usedDays,
+      remainingDays
+    };
+  });
 
   return { success: true, balances, requests, year: year || new Date().getFullYear() };
 };
@@ -332,28 +387,92 @@ export const getHRDashboardWidgets = async () => {
   };
 };
 
+const syncAttendanceToBackend = async (payload) => {
+  try {
+    const token = localStorage.getItem('token');
+    const backendUrl = import.meta.env?.VITE_API_URL || 'https://nirman-architects.onrender.com/api';
+    const endpoint = payload.type === 'CLOCK_OUT' ? '/attendance/clock-out' : '/attendance/clock-in';
+    
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+
+    const nowISO = payload.time || new Date().toISOString();
+    const bodyData = JSON.stringify({
+      employeeId: payload.userId,
+      userId: payload.userId,
+      deviceId: payload.deviceId || 'web-browser',
+      loginTime: nowISO,
+      logoutTime: nowISO,
+      clockOutTime: nowISO,
+      clientClockOut: nowISO,
+      time: nowISO,
+      deviceName: 'WEB_BROWSER',
+      ipAddress: '127.0.0.1',
+      type: payload.type,
+      source: payload.source || (payload.type === 'CLOCK_OUT' ? 'LOGOUT' : 'SYSTEM_BOOT'),
+      mode: payload.mode || 'OFFICE_AUTO',
+      lat: payload.lat,
+      lng: payload.lng,
+      selfieUrl: payload.selfieUrl
+    });
+
+    const res = await fetch(`${backendUrl}${endpoint}`, {
+      method: 'POST',
+      headers,
+      body: bodyData
+    });
+
+    if (!res.ok) {
+      await fetch(`${backendUrl}/attendance/event`, {
+        method: 'POST',
+        headers,
+        body: bodyData
+      }).catch(() => {});
+    }
+  } catch (err) {
+    console.log("Backend auto-attendance sync notice:", err.message);
+  }
+};
+
 export const clockOfficeEvent = async (userId, deviceId, type, source, clientTime) => {
   await delay();
   const user = getSessionUser() || { id: 'u2', name: 'Alice Smith', email: 'employee@gmail.com' };
-  const logs = JSON.parse(localStorage.getItem('nirman_attendance_logs'));
+  const logs = JSON.parse(localStorage.getItem('nirman_attendance_logs') || '[]');
   const newLog = {
     id: 'att_' + Math.random().toString(36).substr(2, 9),
-    userId: user.id,
+    userId: userId || user.id,
     employeeName: user.name,
     userEmail: user.email,
     type,
     time: clientTime || new Date().toISOString(),
-    source: source || (type === 'CLOCK_IN' ? 'SYSTEM_BOOT' : 'SYSTEM_SHUTDOWN'),
+    source: source || (type === 'CLOCK_IN' ? 'SYSTEM_BOOT' : 'LOGOUT'),
     mode: 'OFFICE_AUTO',
-    deviceId: deviceId || 'web-browser',
+    deviceId: deviceId || user.deviceId || 'web-browser',
     isOffline: false
   };
   logs.push(newLog);
   localStorage.setItem('nirman_attendance_logs', JSON.stringify(logs));
+  await syncAttendanceToBackend(newLog);
   return { success: true, log: newLog };
 };
 
 export const sendHeartbeat = async (deviceId) => {
+  try {
+    const token = localStorage.getItem('token');
+    const backendUrl = import.meta.env?.VITE_API_URL || 'https://nirman-architects.onrender.com/api';
+    if (token) {
+      fetch(`${backendUrl}/attendance/heartbeat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ deviceId, status: 'ONLINE' })
+      }).catch(() => {});
+    }
+  } catch (e) {}
   return { success: true, message: 'Heartbeat recorded' };
 };
 
@@ -375,10 +494,15 @@ export const siteCheckin = async (userId, projectId, lat, lng, selfieUrl, client
     source: 'BIOMETRIC_PUNCH',
     mode: 'SITE_GPS',
     deviceId: 'web-mobile-gps',
-    isOffline: false
+    isOffline: false,
+    lat,
+    lng,
+    selfieUrl
   };
   logs.push(newLog);
   localStorage.setItem('nirman_attendance_logs', JSON.stringify(logs));
+
+  syncAttendanceToBackend(newLog);
   return { success: true, log: newLog };
 };
 
@@ -396,10 +520,14 @@ export const siteCheckout = async (userId, projectId, lat, lng, clientTime) => {
     source: 'BIOMETRIC_PUNCH',
     mode: 'SITE_GPS',
     deviceId: 'web-mobile-gps',
-    isOffline: false
+    isOffline: false,
+    lat,
+    lng
   };
   logs.push(newLog);
   localStorage.setItem('nirman_attendance_logs', JSON.stringify(logs));
+
+  syncAttendanceToBackend(newLog);
   return { success: true, log: newLog };
 };
 

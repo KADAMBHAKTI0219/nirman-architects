@@ -34,13 +34,19 @@ function App() {
 
   const coordsRef = useRef({ lat: 23.0225, lng: 72.5714 });
 
-  // 1. Global Auto Clock-In upon opening the laptop dashboard (any page/route)
+  // 1. Check existing session status on app mount to prevent duplicate clock-ins on page refresh
   useEffect(() => {
     if (!isAuthenticated) return;
 
     const triggerAutoClockIn = async () => {
       const savedUser = localStorage.getItem('user');
       if (!savedUser) return;
+
+      // If user is already checked in during this session, do not re-trigger clock in on page refresh!
+      if (localStorage.getItem('isCheckedIn') === 'true') {
+        console.log("Global Attendance: Session already active (Checked In). Skipping refresh clock-in.");
+        return;
+      }
 
       const user = JSON.parse(savedUser);
       const isSiteEngineer = user.role?.toLowerCase().includes('site');
@@ -136,7 +142,6 @@ function App() {
       window.removeEventListener('beforeunload', handleUnload);
     };
   }, [isAuthenticated]);
-
   return (
     <ToastProvider>
       <BrowserRouter>

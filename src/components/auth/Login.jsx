@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import loginHero from '../../assets/images/login/loginpage.png';
 import { Ruler, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { loginUser } from '../../service/auth';
+import { clockOfficeEvent } from '../../mockApi';
 
 const EMAIL_ROLE_MAP = {
   'admin@nirman.com': 'Admin',
@@ -72,6 +73,19 @@ export default function Login({ onLogin }) {
         const updatedUser = { ...user, role: normRole };
         localStorage.setItem('user', JSON.stringify(updatedUser));
         
+        // Fire Clock-In API call immediately upon successful login
+        try {
+          await clockOfficeEvent(
+            user.id,
+            user.deviceId || 'web-browser',
+            'CLOCK_IN',
+            'LOGIN_EVENT',
+            new Date().toISOString()
+          );
+          localStorage.setItem('isCheckedIn', 'true');
+        } catch (clockErr) {
+          console.log("Auto clock-in on login notice:", clockErr);
+        }
         onLogin(normRole);
       } else {
         setError(response.message || 'Invalid login credentials.');

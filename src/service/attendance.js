@@ -1,5 +1,47 @@
 import api from './auth';
 
+  * Automated PC Boot Clock-In (API_DOCUMENTATION.md Section 4.1)
+  * @param {object} payload - { employeeId, deviceId, loginTime, deviceName, ipAddress }
+  */
+export const clockInPC = async (payload) => {
+  const response = await api.post('/attendance/clock-in', payload);
+  return response.data;
+};
+
+/**
+ * Automated OS Shutdown Clock-Out (API_DOCUMENTATION.md Section 4.2)
+ * @param {object} payload - { employeeId, deviceId, logoutTime }
+ */
+export const clockOutPC = async (payload) => {
+  const response = await api.post('/attendance/clock-out', payload);
+  return response.data;
+};
+
+/**
+ * Send 30-Second Heartbeat Ping (API_DOCUMENTATION.md Section 4.3)
+ * @param {object} payload - { employeeId, deviceId, status }
+ */
+export const sendHeartbeat = async (payload) => {
+  const response = await api.post('/attendance/heartbeat', payload);
+  return response.data;
+};
+
+/**
+ * Get Today's Attendance Status (API_DOCUMENTATION.md Section 4.4)
+ */
+export const getTodayAttendance = async () => {
+  const response = await api.get('/attendance/today');
+  return response.data;
+};
+
+/**
+ * Realtime Active Employee Tracking (API_DOCUMENTATION.md Section 4.5)
+ */
+export const getLiveActiveUsers = async () => {
+  const response = await api.get('/admin/live-users');
+  return response.data;
+};
+
 /**
  * Handle unified Attendance Events (clock_in, clock_out, heartbeat)
  * @param {object} payload - { deviceId, type, clientTime, userId }

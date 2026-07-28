@@ -9,7 +9,13 @@ import {
   Check, X, Cake, ShieldCheck, DollarSign, Award, RefreshCw 
 } from 'lucide-react';
 import Card from '../../common/Card';
-import { getAllAttendance, getHRDashboardWidgets } from '../../../mockApi';
+import { 
+  getAllAttendance, 
+  getHRDashboardWidgets, 
+  getPendingLeaveRequests, 
+  approveLeaveRequest, 
+  rejectLeaveRequest 
+} from '../../../mockApi';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444'];
 
@@ -18,41 +24,53 @@ export default function HRDashboard() {
   const [apiError, setApiError] = useState('');
   const [attendanceData, setAttendanceData] = useState([]);
   const [widgetsData, setWidgetsData] = useState({
-    totalUsers: 1,
-    onlineCount: 0,
-    offlineCount: 1,
+    totalUsers: 6,
+    onlineCount: 2,
+    offlineCount: 4,
     pendingCorrections: 0,
     securityAlerts: 0
   });
   
-  // 1. Leave Approval Queue state
-  const [leaveQueue, setLeaveQueue] = useState([
-    { id: 1, name: "Alice Smith", dept: "Architecture", type: "Annual", dates: "July 29 - Aug 04", days: 6, reason: "Family trip and rest days" },
-    { id: 2, name: "Bob Johnson", dept: "Engineering", type: "Sick", dates: "July 25 - July 26", days: 1, reason: "Medical consultation check" }
-  ]);
+  // 1. Dynamic Leave Approval Queue state
+  const [leaveQueue, setLeaveQueue] = useState([]);
+
+  const loadHRData = async () => {
+    try {
+      setLoading(true);
+      setApiError('');
+      
+      const response = await getAllAttendance();
+      if (response.success && Array.isArray(response.data)) {
+        setAttendanceData(response.data);
+      }
+
+      const widgetsResponse = await getHRDashboardWidgets();
+      if (widgetsResponse.success) {
+        setWidgetsData(widgetsResponse);
+      }
+
+      const pendingLeaves = await getPendingLeaveRequests();
+      if (pendingLeaves.success && Array.isArray(pendingLeaves.requests)) {
+        const formatted = pendingLeaves.requests.map(r => ({
+          id: r.id,
+          name: r.employeeName || 'Employee',
+          dept: r.department || 'Architecture',
+          type: r.leaveTypeName || r.code || 'Leave',
+          dates: `${r.fromDate} - ${r.toDate}`,
+          days: 1,
+          reason: r.reason
+        }));
+        setLeaveQueue(formatted);
+      }
+    } catch (err) {
+      console.error(err);
+      setApiError('Unable to load real-time attendance feed.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadHRData = async () => {
-      try {
-        setLoading(true);
-        setApiError('');
-        
-        const response = await getAllAttendance();
-        if (response.success && Array.isArray(response.data)) {
-          setAttendanceData(response.data);
-        }
-
-        const widgetsResponse = await getHRDashboardWidgets();
-        if (widgetsResponse.success) {
-          setWidgetsData(widgetsResponse);
-        }
-      } catch (err) {
-        console.error(err);
-        setApiError('Unable to load real-time attendance feed.');
-      } finally {
-        setLoading(false);
-      }
-    };
     loadHRData();
   }, []);
 
@@ -66,14 +84,16 @@ export default function HRDashboard() {
     { id: 1, employee: "Alice Smith", requested: "Shift A -> Shift B", date: "2026-07-24" }
   ]);
 
-  const handleApproveLeave = (id) => {
+  const handleApproveLeave = async (id) => {
+    await approveLeaveRequest(id);
     setLeaveQueue(prev => prev.filter(req => req.id !== id));
-    alert("Leave request approved!");
+    loadHRData();
   };
 
-  const handleRejectLeave = (id) => {
+  const handleRejectLeave = async (id) => {
+    await rejectLeaveRequest(id, "Rejected by HR");
     setLeaveQueue(prev => prev.filter(req => req.id !== id));
-    alert("Leave request rejected.");
+    loadHRData();
   };
 
   const handleNotifyException = (name) => {
