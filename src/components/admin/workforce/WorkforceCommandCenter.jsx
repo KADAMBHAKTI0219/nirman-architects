@@ -79,6 +79,7 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
           return {
             id: u.id || u._id,
             name: u.name || 'User',
+            email: u.email || 'N/A',
             designation: u.roleId?.roleName || u.designation || 'Staff Member',
             department: u.department || 'Office Staff',
             shift: isSiteEng ? 'Site Shift B (8:00 - 16:30)' : 'Office Shift A (9:00 - 17:30)',
