@@ -262,7 +262,7 @@ export default function Settings() {
         <div className="lg:col-span-3">
           
           {activeSettingTab === 'general' && (
-            <Card title="Company Profile & Identity Settings" subtitle="Configure logo configurations, email contacts, and corporate details">
+            <Card title="Company Profile & Identity Settings" subtitle="Configure email contacts and corporate details (Company logo is fixed in sidebar navigation)">
               <form className="space-y-4 pt-2 text-xs font-bold text-slate-700">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>

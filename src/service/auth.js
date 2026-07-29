@@ -184,6 +184,16 @@ export const assignDevice = async (targetUserId, deviceId) => {
 };
 
 /**
+ * Change password for a specific user.
+ * @param {string} id - Target User ID
+ * @param {object} payload - { newPassword }
+ */
+export const changeUserPassword = async (id, payload) => {
+  const response = await api.put(`/users/${id}/change-password`, payload);
+  return response.data;
+};
+
+/**
  * Permanently delete user and ALL associated data (Cascade Delete - Admin / HR only).
  * @param {string} userId - Target User ID
  */

@@ -243,16 +243,18 @@ export default function Sidebar({ role, onClose }) {
   return (
     <aside className="w-64 bg-white text-slate-650 h-screen flex flex-col flex-shrink-0 shadow-xs sticky top-0">
       {/* Brand Profile */}
-      <div className="p-6 border-b border-slate-100/50 flex items-center justify-between bg-slate-50/40">
-        <img 
-          src={logoImg} 
-          alt="Nex Alliance Logo" 
-          className="h-9 w-auto object-contain"
-        />
+      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-center relative bg-white">
+        <Link to="/" className="flex items-center justify-center transition-opacity hover:opacity-90">
+          <img 
+            src={logoImg} 
+            alt="Nirman Architects Logo" 
+            className="h-11 sm:h-12 w-auto object-contain mx-auto"
+          />
+        </Link>
         {onClose && (
           <button
             onClick={onClose}
-            className="lg:hidden p-1.5 hover:bg-slate-150 text-slate-500 hover:text-slate-700 rounded-lg transition-colors"
+            className="lg:hidden absolute right-3 top-1/2 -translate-y-1/2 p-1.5 hover:bg-slate-100 text-slate-500 hover:text-slate-700 rounded-lg transition-colors"
             title="Close Menu"
           >
             <Icons.X className="w-4.5 h-4.5" />

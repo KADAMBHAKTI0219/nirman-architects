@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import loginHero from '../../assets/images/login/loginpage.png';
+import logoImg from '../../assets/images/logo.png';
 import { Ruler, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { loginUser } from '../../service/auth';
 
@@ -109,11 +110,13 @@ export default function Login({ onLogin }) {
         <div className="my-auto flex flex-col items-center space-y-4 md:space-y-8">
           
           {/* Logo & Typography Group (Centered) */}
-          <div className="text-center space-y-2">
-            <h1 className="text-xl md:text-2xl font-black tracking-widest text-slate-900 uppercase">
-              NIRMAN <span className="font-light text-slate-600">ARCHITECTS</span>
-            </h1>
-            <div className="w-10 h-0.5 bg-brand-primary mx-auto rounded-full mt-2"></div>
+          <div className="flex flex-col items-center justify-center text-center space-y-2">
+            <img 
+              src={logoImg} 
+              alt="Nirman Architects Logo" 
+              className="h-12 md:h-14 w-auto object-contain mx-auto"
+            />
+            <div className="w-12 h-0.5 bg-brand-primary mx-auto rounded-full mt-2"></div>
           </div>
 
           {/* Graphic Frame */}

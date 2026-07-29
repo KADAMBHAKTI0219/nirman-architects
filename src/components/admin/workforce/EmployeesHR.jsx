@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Search, Eye, ShieldCheck, Mail, MapPin, Briefcase, FileText, CheckCircle2, 
   Clock, Plus, Filter, Award, ChevronRight, Laptop, Calendar, DollarSign, UserCheck, X,
-  Pencil, Trash2, Camera, Download, RefreshCw, AlertTriangle
+  Pencil, Trash2, Camera, Download, RefreshCw, AlertTriangle, Key
 } from 'lucide-react';
 import Card from '../../common/Card';
 import {
@@ -12,8 +12,7 @@ import {
 } from '../../../service/offerLetter';
 import { parseIndexedObjectToArray } from '../../../service/leave';
 import { getEmployeeScreenshots, downloadAllScreenshots } from '../../../service/screenshot';
-import { deleteUser } from '../../../service/auth';
-import desktopScreenshotImg from '../../../assets/images/desktop_screenshot.jpg';
+import { deleteUser, changeUserPassword, getUserById } from '../../../service/auth';
 
 export default function EmployeesHR({
   employees,
@@ -29,6 +28,8 @@ export default function EmployeesHR({
   // Modals state
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [viewUserFullData, setViewUserFullData] = useState(null);
+  const [viewUserLoading, setViewUserLoading] = useState(false);
   const [showScreenshotsModal, setShowScreenshotsModal] = useState(false);
 
   // Offer Letter states
@@ -39,6 +40,14 @@ export default function EmployeesHR({
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [employeeToDelete, setEmployeeToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Change Password state
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [targetPasswordUser, setTargetPasswordUser] = useState(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
 
   // Fields for Regeneration Modal
   const [regenDesignation, setRegenDesignation] = useState('');
@@ -212,6 +221,74 @@ export default function EmployeesHR({
     }
   };
 
+  const handleChangePasswordSubmit = async (e) => {
+    e.preventDefault();
+    setPasswordError('');
+
+    if (!newPassword || newPassword.trim() === '') {
+      setPasswordError('Please enter a new password.');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New password and confirm password do not match.');
+      return;
+    }
+
+    if (!targetPasswordUser) return;
+
+    setIsSubmittingPassword(true);
+    try {
+      const userId = targetPasswordUser.id || targetPasswordUser._id || targetPasswordUser.rawUser?._id;
+      const res = await changeUserPassword(userId, { newPassword });
+      if (res && (res.success || res.message)) {
+        showToast(res.message || `Password changed successfully for ${targetPasswordUser.name}!`, 'success');
+        setShowPasswordModal(false);
+        setTargetPasswordUser(null);
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        setPasswordError(res?.message || 'Failed to change password.');
+      }
+    } catch (err) {
+      console.error("Error changing password:", err);
+      setPasswordError(err.response?.data?.message || err.message || 'Failed to change password.');
+    } finally {
+      setIsSubmittingPassword(false);
+    }
+  };
+
+  const handleOpenViewModal = async (emp) => {
+    setSelectedEmployee(emp);
+    setShowViewModal(true);
+    setViewUserLoading(true);
+    setViewUserFullData(null);
+    try {
+      const empId = emp._id || emp.id || emp.rawUser?._id || emp.rawUser?.id;
+      if (empId) {
+        const res = await getUserById(empId);
+        if (res && (res._id || res.id || res.user || res.data)) {
+          const userObj = res.user || res.data || res;
+          setViewUserFullData(userObj);
+        } else {
+          setViewUserFullData(emp);
+        }
+      } else {
+        setViewUserFullData(emp);
+      }
+    } catch (err) {
+      console.error("Failed to load user profile by ID:", err);
+      setViewUserFullData(emp);
+    } finally {
+      setViewUserLoading(false);
+    }
+  };
+
   // Filtered employees
   const filteredEmployees = localEmployees.filter(emp => {
     const matchesSearch = emp.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -326,10 +403,7 @@ export default function EmployeesHR({
                           
                           {/* VIEW PROFILE BUTTON */}
                           <button
-                            onClick={() => {
-                              setSelectedEmployee(emp);
-                              setShowViewModal(true);
-                            }}
+                            onClick={() => handleOpenViewModal(emp)}
                             className="p-2.5 bg-blue-50 hover:bg-blue-100 text-blue-650 border border-blue-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold"
                             title="View Profile"
                           >
@@ -346,6 +420,22 @@ export default function EmployeesHR({
                             title="Edit Details"
                           >
                             <Pencil className="w-4 h-4" />
+                          </button>
+
+                          {/* CHANGE PASSWORD BUTTON */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setTargetPasswordUser(emp);
+                              setNewPassword('');
+                              setConfirmPassword('');
+                              setPasswordError('');
+                              setShowPasswordModal(true);
+                            }}
+                            className="p-2.5 bg-purple-50 hover:bg-purple-100 text-purple-650 border border-purple-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold"
+                            title="Change Password"
+                          >
+                            <Key className="w-4 h-4" />
                           </button>
 
                           {/* DELETE EMPLOYEE BUTTON */}
@@ -391,223 +481,243 @@ export default function EmployeesHR({
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl w-full max-w-4xl overflow-hidden shadow-2xl border border-slate-105 flex flex-col animate-in fade-in zoom-in duration-200 max-h-[90vh]">
             
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-full bg-brand-primary/20 border border-brand-primary flex items-center justify-center font-black text-slate-805 text-sm shrink-0">
-                  {selectedEmployee.name.split(' ').map(n=>n[0]).join('')}
-                </div>
-                <div>
-                  <h3 className="text-sm font-black text-slate-905 leading-none">{selectedEmployee.name}</h3>
-                  <span className="text-[10px] text-slate-455 font-bold block mt-1.5">{selectedEmployee.designation} &bull; Joined {selectedEmployee.joiningDate}</span>
-                </div>
-              </div>
-              <button 
-                onClick={() => setShowViewModal(false)}
-                className="p-1.5 hover:bg-slate-200 text-slate-550 rounded-xl transition-all"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+            {(() => {
+              const u = viewUserFullData || selectedEmployee;
+              const name = u.name || selectedEmployee.name || 'User';
+              const designation = u.designation || u.roleId?.roleName || u.role?.roleName || selectedEmployee.designation || 'Staff Member';
+              const joiningDate = u.joiningDate ? u.joiningDate.split('T')[0] : (selectedEmployee.joiningDate || '2026-07-29');
+              const department = u.department || selectedEmployee.department || 'Project Manager Department';
+              const salary = u.baseSalary ?? selectedEmployee.baseSalary ?? 25000;
+              const empId = u._id || u.id || selectedEmployee._id || selectedEmployee.id || 'N/A';
+              const phone = u.phone || u.mobileNumber || selectedEmployee.phone || '1234567890';
+              const deviceId = u.deviceId || u.registeredDeviceId || selectedEmployee.deviceId || 'AFD16383-087C-4AC1-8C56-4A13DBE3EF50';
+              const roleCode = u.roleId?.roleCode || u.role?.roleCode || selectedEmployee.role || 'PROJECT_MANAGER';
+              const email = u.email || selectedEmployee.email || 'N/A';
+              const assignedProjects = u.roleProfile?.assignedProjects || selectedEmployee.assignedProjects || ['Main Office'];
 
-            {/* Content grid */}
-            <div className="p-6 overflow-y-auto space-y-6">
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                {/* Left side parameters */}
-                <div className="space-y-4">
-                  <div className="bg-slate-50/50 border border-slate-100 p-4 rounded-2xl space-y-4">
-                    <h4 className="text-[10px] font-black text-slate-450 uppercase tracking-wider border-b border-slate-200 pb-2">Shift & Leaves Registry</h4>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Department</span>
-                        <span className="text-xs font-bold text-slate-700 block mt-0.5">{selectedEmployee.department}</span>
+              return (
+                <>
+                  {/* Header */}
+                  <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-full bg-brand-primary/20 border border-brand-primary flex items-center justify-center font-black text-slate-805 text-sm shrink-0">
+                        {name.split(' ').map(n=>n[0]).join('')}
                       </div>
                       <div>
-                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Shift Timings</span>
-                        <span className="text-xs font-semibold text-slate-655 block mt-0.5">{selectedEmployee.shift}</span>
-                      </div>
-                      <div>
-                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Leave Tracker</span>
-                        <span className="text-xs font-semibold text-slate-655 block mt-0.5">{selectedEmployee.leaveStatus}</span>
-                      </div>
-                      <div>
-                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Leave Usage</span>
-                        <span className="text-xs font-semibold text-slate-655 block mt-0.5">{selectedEmployee.leaveHistory}</span>
+                        <h3 className="text-sm font-black text-slate-905 leading-none">{name}</h3>
+                        <span className="text-[10px] text-slate-455 font-bold block mt-1.5">{designation} &bull; Joined {joiningDate}</span>
                       </div>
                     </div>
+                    <button 
+                      onClick={() => setShowViewModal(false)}
+                      className="p-1.5 hover:bg-slate-200 text-slate-550 rounded-xl transition-all"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
 
-                  <div className="bg-slate-50/50 border border-slate-100 p-4 rounded-2xl space-y-4">
-                    <h4 className="text-[10px] font-black text-slate-450 uppercase tracking-wider border-b border-slate-200 pb-2">Payroll & Projects Summary</h4>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Salary / Compensation</span>
-                        <span className="text-xs font-black text-slate-700 block mt-0.5">
-                          {selectedEmployee.payrollData?.salary || `₹${selectedEmployee.baseSalary || 25000}/mo`}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Assigned Bank</span>
-                        <span className="text-xs font-semibold text-slate-655 block mt-0.5">
-                          {selectedEmployee.payrollData?.bank || 'Nirman Bank'}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <span className="text-[9px] font-bold text-slate-400 block uppercase mb-1">Assigned Active Projects</span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {(selectedEmployee.assignedProjects || []).map(proj => (
-                          <span key={proj} className="px-2.5 py-0.5 bg-white border border-slate-150 rounded-lg text-[9px] font-bold text-slate-500 shadow-4xs">
-                            {proj}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right side Offer letter & docs */}
-                <div className="space-y-4">
-                  <div className="bg-slate-50/50 border border-slate-100 p-4 rounded-2xl space-y-4">
-                    <h4 className="text-[10px] font-black text-slate-450 uppercase tracking-wider border-b border-slate-200 pb-2">Official Offer Letter</h4>
-                    
-                    {loadingOffer ? (
-                      <span className="text-[10px] text-slate-400 italic block">Loading metadata...</span>
-                    ) : offerMetadata ? (
-                      <div className="space-y-2.5 text-[10px] text-slate-600 font-semibold">
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-455">Issued Status:</span>
-                          <span className="bg-emerald-50 text-emerald-650 border border-emerald-100 px-1.5 py-0.5 rounded text-[8px] font-black">{offerMetadata.status}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-455">Snapshot Role:</span>
-                          <span className="text-slate-755 font-bold">{offerMetadata.designationSnapshot}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-455">Snapshot Salary:</span>
-                          <span className="text-slate-755 font-bold">₹{offerMetadata.baseSalarySnapshot?.toLocaleString()}/mo</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-455">Generated At:</span>
-                          <span className="text-slate-700 font-bold">{new Date(offerMetadata.generatedAt).toLocaleDateString()}</span>
-                        </div>
-                        <div className="flex gap-2 pt-2 border-t border-slate-100">
-                          <button 
-                            onClick={handleDownloadOfferLetter}
-                            className="flex-1 py-1.5 bg-white border border-slate-205 hover:bg-slate-50 text-slate-750 text-[9px] font-black uppercase rounded-lg transition-all shadow-3xs flex items-center justify-center gap-0.5"
-                          >
-                            <FileText className="w-3.5 h-3.5 text-slate-450" />
-                            Download PDF
-                          </button>
-                          <button 
-                            onClick={() => {
-                              setRegenDesignation(offerMetadata.designationSnapshot || selectedEmployee.designation || '');
-                              setRegenDepartment(offerMetadata.departmentSnapshot || selectedEmployee.department || '');
-                              setRegenBaseSalary(offerMetadata.baseSalarySnapshot || selectedEmployee.baseSalary || '');
-                              setRegenJoiningDate(offerMetadata.joiningDateSnapshot ? new Date(offerMetadata.joiningDateSnapshot).toISOString().split('T')[0] : selectedEmployee.joiningDate || '');
-                              setShowRegenerateModal(true);
-                            }}
-                            className="flex-1 py-1.5 bg-slate-900 hover:bg-slate-805 text-white text-[9px] font-black uppercase rounded-lg transition-all shadow-3xs flex items-center justify-center gap-0.5"
-                          >
-                            <RefreshCw className="w-3.5 h-3.5 text-slate-300" />
-                            Regenerate
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-center py-2 space-y-2">
-                        <p className="text-[10px] text-slate-455">No offer letter generated for this profile yet.</p>
-                        <button
-                          onClick={() => {
-                            setRegenDesignation(selectedEmployee.designation || '');
-                            setRegenDepartment(selectedEmployee.department || '');
-                            setRegenBaseSalary(selectedEmployee.baseSalary || '25000');
-                            setRegenJoiningDate(selectedEmployee.joiningDate || new Date().toISOString().split('T')[0]);
-                            setShowRegenerateModal(true);
-                          }}
-                          className="px-3 py-1.5 bg-brand-primary hover:bg-brand-secondary text-slate-905 text-[9px] font-black uppercase rounded-lg transition-all shadow-3xs mx-auto block"
-                        >
-                          Generate Offer Letter
-                        </button>
-                      </div>
+                  {/* Content grid */}
+                  <div className="p-6 overflow-y-auto space-y-6">
+                    {viewUserLoading && (
+                      <div className="text-center py-2 text-xs font-bold text-slate-400">Loading user profile from server...</div>
                     )}
-                  </div>
-
-                  <div className="bg-slate-50/50 border border-slate-100 p-4 rounded-2xl space-y-4">
-                    <h4 className="text-[10px] font-black text-slate-450 uppercase tracking-wider border-b border-slate-200 pb-2">Employee Contact & System Info</h4>
                     
-                    <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-slate-655">
-                      <div>
-                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Employee ID</span>
-                        <span className="text-xs font-mono text-slate-700 block mt-0.5 truncate" title={selectedEmployee._id || selectedEmployee.id || selectedEmployee.rawUser?._id || selectedEmployee.rawUser?.id || 'N/A'}>
-                          {selectedEmployee._id || selectedEmployee.id || selectedEmployee.rawUser?._id || selectedEmployee.rawUser?.id || 'N/A'}
-                        </span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      
+                      {/* Left side parameters */}
+                      <div className="space-y-4">
+                        <div className="bg-slate-50/50 border border-slate-100 p-4 rounded-2xl space-y-4">
+                          <h4 className="text-[10px] font-black text-slate-450 uppercase tracking-wider border-b border-slate-200 pb-2">SHIFT & LEAVES REGISTRY</h4>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <span className="text-[9px] font-bold text-slate-400 block uppercase">Department</span>
+                              <span className="text-xs font-bold text-slate-700 block mt-0.5">{department}</span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] font-bold text-slate-400 block uppercase">Shift Timings</span>
+                              <span className="text-xs font-semibold text-slate-655 block mt-0.5">Office Shift A (9:00 - 17:30)</span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] font-bold text-slate-400 block uppercase">Leave Tracker</span>
+                              <span className="text-xs font-semibold text-slate-655 block mt-0.5">On Duty</span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] font-bold text-slate-400 block uppercase">Leave Usage</span>
+                              <span className="text-xs font-semibold text-slate-655 block mt-0.5">0 / 15 days used</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-slate-50/50 border border-slate-100 p-4 rounded-2xl space-y-4">
+                          <h4 className="text-[10px] font-black text-slate-450 uppercase tracking-wider border-b border-slate-200 pb-2">PAYROLL & PROJECTS SUMMARY</h4>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <span className="text-[9px] font-bold text-slate-400 block uppercase">Salary / Compensation</span>
+                              <span className="text-xs font-black text-slate-700 block mt-0.5">
+                                ₹{salary}/mo
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] font-bold text-slate-400 block uppercase">Assigned Bank</span>
+                              <span className="text-xs font-semibold text-slate-655 block mt-0.5">
+                                Nirman Bank
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <span className="text-[9px] font-bold text-slate-400 block uppercase mb-1">Assigned Active Projects</span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {assignedProjects.length > 0 ? (
+                                assignedProjects.map((proj, idx) => (
+                                  <span key={idx} className="px-2.5 py-0.5 bg-white border border-slate-150 rounded-lg text-[9px] font-bold text-slate-500 shadow-4xs">
+                                    {typeof proj === 'object' ? proj.name || proj.projectName || 'Main Office' : proj}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="px-2.5 py-0.5 bg-white border border-slate-150 rounded-lg text-[9px] font-bold text-slate-500 shadow-4xs">
+                                  Main Office
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Phone Number</span>
-                        <span className="text-xs font-bold text-slate-700 block mt-0.5">
-                          {selectedEmployee.rawUser?.phone || selectedEmployee.phone || 'N/A'}
-                        </span>
+
+                      {/* Right side Offer letter & docs */}
+                      <div className="space-y-4">
+                        <div className="bg-slate-50/50 border border-slate-100 p-4 rounded-2xl space-y-4">
+                          <h4 className="text-[10px] font-black text-slate-450 uppercase tracking-wider border-b border-slate-200 pb-2">OFFICIAL OFFER LETTER</h4>
+                          
+                          {loadingOffer ? (
+                            <span className="text-[10px] text-slate-400 italic block">Loading metadata...</span>
+                          ) : offerMetadata ? (
+                            <div className="space-y-2.5 text-[10px] text-slate-600 font-semibold">
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-455">Issued Status:</span>
+                                <span className="bg-emerald-50 text-emerald-650 border border-emerald-100 px-1.5 py-0.5 rounded text-[8px] font-black">{offerMetadata.status}</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-455">Snapshot Role:</span>
+                                <span className="text-slate-755 font-bold">{offerMetadata.designationSnapshot}</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-455">Snapshot Salary:</span>
+                                <span className="text-slate-755 font-bold">₹{offerMetadata.baseSalarySnapshot?.toLocaleString()}/mo</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-455">Generated At:</span>
+                                <span className="text-slate-700 font-bold">{new Date(offerMetadata.generatedAt).toLocaleDateString()}</span>
+                              </div>
+                              <div className="flex gap-2 pt-2 border-t border-slate-100">
+                                <button 
+                                  onClick={handleDownloadOfferLetter}
+                                  className="flex-1 py-1.5 bg-white border border-slate-205 hover:bg-slate-50 text-slate-750 text-[9px] font-black uppercase rounded-lg transition-all shadow-3xs flex items-center justify-center gap-0.5"
+                                >
+                                  <FileText className="w-3.5 h-3.5 text-slate-450" />
+                                  Download PDF
+                                </button>
+                                <button 
+                                  onClick={() => {
+                                    setRegenDesignation(offerMetadata.designationSnapshot || designation);
+                                    setRegenDepartment(offerMetadata.departmentSnapshot || department);
+                                    setRegenBaseSalary(offerMetadata.baseSalarySnapshot || salary);
+                                    setRegenJoiningDate(offerMetadata.joiningDateSnapshot ? new Date(offerMetadata.joiningDateSnapshot).toISOString().split('T')[0] : joiningDate);
+                                    setShowRegenerateModal(true);
+                                  }}
+                                  className="flex-1 py-1.5 bg-slate-900 hover:bg-slate-805 text-white text-[9px] font-black uppercase rounded-lg transition-all shadow-3xs flex items-center justify-center gap-0.5"
+                                >
+                                  <RefreshCw className="w-3.5 h-3.5 text-slate-300" />
+                                  Regenerate
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-center py-2 space-y-2">
+                              <p className="text-[10px] text-slate-455">No offer letter generated for this profile yet.</p>
+                              <button
+                                onClick={() => {
+                                  setRegenDesignation(designation);
+                                  setRegenDepartment(department);
+                                  setRegenBaseSalary(salary);
+                                  setRegenJoiningDate(joiningDate);
+                                  setShowRegenerateModal(true);
+                                }}
+                                className="px-3 py-1.5 bg-brand-primary hover:bg-brand-secondary text-slate-905 text-[9px] font-black uppercase rounded-lg transition-all shadow-3xs mx-auto block"
+                              >
+                                Generate Offer Letter
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="bg-slate-50/50 border border-slate-100 p-4 rounded-2xl space-y-4">
+                          <h4 className="text-[10px] font-black text-slate-450 uppercase tracking-wider border-b border-slate-200 pb-2">EMPLOYEE CONTACT & SYSTEM INFO</h4>
+                          
+                          <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-slate-655">
+                            <div>
+                              <span className="text-[9px] font-bold text-slate-400 block uppercase">Employee ID</span>
+                              <span className="text-xs font-mono text-slate-700 block mt-0.5 truncate" title={empId}>
+                                {empId}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] font-bold text-slate-400 block uppercase">Phone Number</span>
+                              <span className="text-xs font-bold text-slate-700 block mt-0.5">
+                                {phone}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] font-bold text-slate-400 block uppercase">Login Device ID</span>
+                              <span className="text-xs font-mono text-slate-655 block mt-0.5 truncate" title={deviceId}>
+                                {deviceId}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] font-bold text-slate-400 block uppercase">System Role Code</span>
+                              <span className="text-xs font-bold text-slate-700 block mt-0.5 uppercase">
+                                {roleCode}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] font-bold text-slate-400 block uppercase">Official Email</span>
+                              <span className="text-xs font-semibold text-slate-655 block mt-0.5 truncate" title={email}>
+                                {email}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Login Device ID</span>
-                        <span className="text-xs font-mono text-slate-655 block mt-0.5 truncate" title={selectedEmployee.rawUser?.deviceId || selectedEmployee.deviceId || 'web-browser'}>
-                          {selectedEmployee.rawUser?.deviceId || selectedEmployee.deviceId || 'web-browser'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[9px] font-bold text-slate-400 block uppercase">System Role Code</span>
-                        <span className="text-xs font-bold text-slate-700 block mt-0.5 uppercase">
-                          {(() => {
-                            const r = selectedEmployee.rawUser?.role || selectedEmployee.role;
-                            if (!r) return 'Employee';
-                            if (typeof r === 'object') {
-                              return r.roleCode || r.roleName || r.name || 'Employee';
-                            }
-                            return r;
-                          })()}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Official Email</span>
-                        <span className="text-xs font-semibold text-slate-655 block mt-0.5 truncate" title={selectedEmployee.email}>
-                          {selectedEmployee.email}
-                        </span>
-                      </div>
+
                     </div>
+
                   </div>
-                </div>
 
-              </div>
-
-            </div>
-
-            {/* Footer buttons */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex gap-2 justify-end">
-              <button
-                onClick={() => {
-                  setShowViewModal(false);
-                  onEditEmployeeClick(selectedEmployee);
-                }}
-                className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-705 rounded-xl text-xs font-bold transition-all uppercase"
-              >
-                Edit Profile
-              </button>
-              <button
-                onClick={() => {
-                  alert(`Leave application approved for ${selectedEmployee.name}`);
-                  showToast(`Leave application approved for ${selectedEmployee.name}`, 'success');
-                }}
-                className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-905 rounded-xl text-xs font-black transition-all shadow-sm uppercase"
-              >
-                Approve Leave
-              </button>
-            </div>
+                  {/* Footer buttons */}
+                  <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex gap-2 justify-end">
+                    <button
+                      onClick={() => {
+                        setShowViewModal(false);
+                        onEditEmployeeClick(selectedEmployee);
+                      }}
+                      className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-705 rounded-xl text-xs font-bold transition-all uppercase"
+                    >
+                      EDIT PROFILE
+                    </button>
+                    <button
+                      onClick={() => {
+                        showToast(`Leave approved for ${name}!`);
+                      }}
+                      className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-905 rounded-xl text-xs font-black transition-all uppercase shadow-3xs"
+                    >
+                      APPROVE LEAVE
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
 
           </div>
         </div>
@@ -920,6 +1030,91 @@ export default function EmployeesHR({
                 )}
               </button>
             </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* CHANGE PASSWORD MODAL */}
+      {showPasswordModal && targetPasswordUser && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl border border-slate-105 flex flex-col animate-in fade-in zoom-in duration-200">
+            
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-purple-50 text-purple-600 rounded-xl border border-purple-100">
+                  <Key className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 leading-none">Change User Password</h3>
+                  <span className="text-[10px] text-slate-500 font-semibold block mt-1">{targetPasswordUser.name} ({targetPasswordUser.email})</span>
+                </div>
+              </div>
+              <button 
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setTargetPasswordUser(null);
+                }}
+                className="p-1.5 hover:bg-slate-200 text-slate-500 rounded-xl transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleChangePasswordSubmit} className="p-6 space-y-4">
+              {passwordError && (
+                <div className="p-3 bg-rose-50 border border-rose-100 text-rose-600 text-xs rounded-xl font-bold">
+                  {passwordError}
+                </div>
+              )}
+
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">New Password</label>
+                <input 
+                  type="password"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Enter new password (min 6 chars)"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">Confirm New Password</label>
+                <input 
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPasswordModal(false);
+                    setTargetPasswordUser(null);
+                  }}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingPassword}
+                  className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-black rounded-xl text-xs transition-all shadow-sm flex items-center gap-1.5"
+                >
+                  <Key className="w-3.5 h-3.5" />
+                  {isSubmittingPassword ? 'Updating...' : 'Update Password'}
+                </button>
+              </div>
+            </form>
 
           </div>
         </div>

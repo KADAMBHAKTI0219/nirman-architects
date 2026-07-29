@@ -20,7 +20,7 @@ export default function Header({ currentRole, onChangeRole, title = "Dashboard",
       default: return '/';
     }
   };
-  
+
   const fetchNotifications = async () => {
     try {
       const res = await getMyNotifications();
@@ -87,7 +87,7 @@ export default function Header({ currentRole, onChangeRole, title = "Dashboard",
 
         {/* Notifications Button */}
         <div className="relative">
-          <button 
+          <button
             onClick={() => setShowNotifications(!showNotifications)}
             className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-650 rounded-xl transition-colors relative"
             title="Notifications"
@@ -113,8 +113,8 @@ export default function Header({ currentRole, onChangeRole, title = "Dashboard",
               </div>
               <div className="divide-y divide-slate-50 max-h-64 overflow-y-auto">
                 {realNotifications.map(n => (
-                  <div 
-                    key={n._id || n.id} 
+                  <div
+                    key={n._id || n.id}
                     onClick={() => {
                       handleMarkAsRead(n._id || n.id);
                     }}
@@ -136,7 +136,7 @@ export default function Header({ currentRole, onChangeRole, title = "Dashboard",
                 )}
               </div>
               <div className="p-2 border-t border-slate-105 text-center bg-slate-50/30">
-                <button 
+                <button
                   onClick={() => setShowNotifications(false)}
                   className="text-[10px] font-black text-slate-600 hover:underline uppercase"
                 >
@@ -159,7 +159,7 @@ export default function Header({ currentRole, onChangeRole, title = "Dashboard",
                   if (user.name) {
                     return user.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
                   }
-                } catch {}
+                } catch { }
               }
               return currentRole.substring(0, 2).toUpperCase();
             })()}
@@ -172,7 +172,7 @@ export default function Header({ currentRole, onChangeRole, title = "Dashboard",
                   try {
                     const user = JSON.parse(savedUserStr);
                     if (user.name) return user.name;
-                  } catch {}
+                  } catch { }
                 }
                 return 'Nirman Staff';
               })()}
