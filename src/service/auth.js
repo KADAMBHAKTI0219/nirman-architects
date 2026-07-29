@@ -183,4 +183,13 @@ export const assignDevice = async (targetUserId, deviceId) => {
   return response.data;
 };
 
+/**
+ * Permanently delete user and ALL associated data (Cascade Delete - Admin / HR only).
+ * @param {string} userId - Target User ID
+ */
+export const deleteUser = async (userId) => {
+  const response = await api.delete(`/users/${userId}`);
+  return response.data;
+};
+
 export default api;
