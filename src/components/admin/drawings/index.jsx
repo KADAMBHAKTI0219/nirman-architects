@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DrawingList from './DrawingList';
 import DrawingDetails from './DrawingDetails';
 import DrawingCompare from './DrawingCompare';
@@ -79,7 +79,7 @@ const INITIAL_DRAWINGS = [
   }
 ];
 
-export default function Drawings() {
+export default function Drawings({ defaultTab = 'all' }) {
   const [drawings, setDrawings] = useState(INITIAL_DRAWINGS);
   const [selectedDrawing, setSelectedDrawing] = useState(null);
   const [viewMode, setViewMode] = useState('list'); // list, details, compare
@@ -90,6 +90,16 @@ export default function Drawings() {
   const [searchQuery, setSearchQuery] = useState('');
   const [projectFilter, setProjectFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
+
+  useEffect(() => {
+    if (defaultTab === 'approvals') {
+      setStatusFilter('Pending Review');
+    } else if (defaultTab === 'gfc') {
+      setStatusFilter('GFC Locked');
+    } else {
+      setStatusFilter('All');
+    }
+  }, [defaultTab]);
 
   // Create Modal State
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);

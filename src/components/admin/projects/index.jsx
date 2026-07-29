@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ProjectList from './ProjectList';
 import ProjectDetails from './ProjectDetails';
 import CreateProjectModal from './CreateProjectModal';
@@ -153,9 +153,17 @@ const INITIAL_PROJECTS = [
   }
 ];
 
-export default function Projects() {
+export default function Projects({ defaultTab = 'directory' }) {
   const [projects, setProjects] = useState(INITIAL_PROJECTS);
   const [selectedProject, setSelectedProject] = useState(null);
+
+  useEffect(() => {
+    if (defaultTab === 'timeline' && projects.length > 0) {
+      setSelectedProject(projects[0]);
+    } else if (defaultTab === 'directory') {
+      setSelectedProject(null);
+    }
+  }, [defaultTab, projects]);
   
   // Filtering list states
   const [searchQuery, setSearchQuery] = useState('');

@@ -26,42 +26,42 @@ export default function getAdminRoutes(handleRoleChange) {
       } />
       <Route path="/admin/projects" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Projects">
-          <AdminProjects />
+          <AdminProjects defaultTab="directory" />
         </DashboardLayout>
       } />
       <Route path="/admin/projects/new" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Projects">
-          <AdminProjects />
+          <AdminProjects defaultTab="directory" />
         </DashboardLayout>
       } />
       <Route path="/admin/projects/timeline" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Projects">
-          <AdminProjects />
+          <AdminProjects defaultTab="timeline" />
         </DashboardLayout>
       } />
       <Route path="/admin/tasks" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Tasks">
-          <AdminTasks />
+          <AdminTasks filter="all" />
         </DashboardLayout>
       } />
       <Route path="/admin/tasks/overdue" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Tasks">
-          <AdminTasks />
+          <AdminTasks filter="overdue" />
         </DashboardLayout>
       } />
       <Route path="/admin/drawings" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Drawings">
-          <AdminDrawings />
+          <AdminDrawings defaultTab="all" />
         </DashboardLayout>
       } />
       <Route path="/admin/drawings/approvals" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Drawings">
-          <AdminDrawings />
+          <AdminDrawings defaultTab="approvals" />
         </DashboardLayout>
       } />
       <Route path="/admin/drawings/gfc" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Drawings">
-          <AdminDrawings />
+          <AdminDrawings defaultTab="gfc" />
         </DashboardLayout>
       } />
       <Route path="/admin/employees" element={
@@ -76,82 +76,122 @@ export default function getAdminRoutes(handleRoleChange) {
       } />
       <Route path="/admin/attendance/office" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Attendance">
-          <AdminAttendance />
+          <AdminAttendance tab="attendance" />
+        </DashboardLayout>
+      } />
+      <Route path="/admin/attendance/devices" element={
+        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Attendance">
+          <AdminAttendance tab="devices" />
         </DashboardLayout>
       } />
       <Route path="/admin/attendance/site" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Attendance">
-          <AdminAttendance />
+          <AdminAttendance tab="attendance" />
         </DashboardLayout>
       } />
       <Route path="/admin/attendance/reports" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Attendance">
-          <AdminAttendance />
+          <AdminAttendance tab="attendance" />
+        </DashboardLayout>
+      } />
+      <Route path="/admin/hr/overview" element={
+        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="HR & Payroll">
+          <AdminHRPayroll defaultTab="overview" />
         </DashboardLayout>
       } />
       <Route path="/admin/hr/leaves" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="HR & Payroll">
-          <AdminHRPayroll />
+          <AdminHRPayroll defaultTab="leaves" />
+        </DashboardLayout>
+      } />
+      <Route path="/admin/hr/leave-master" element={
+        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="HR & Payroll">
+          <AdminHRPayroll defaultTab="leave-master" />
         </DashboardLayout>
       } />
       <Route path="/admin/hr/shifts" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="HR & Payroll">
-          <AdminHRPayroll />
+          <AdminHRPayroll defaultTab="shifts" />
         </DashboardLayout>
       } />
       <Route path="/admin/hr/payroll" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="HR & Payroll">
-          <AdminHRPayroll />
+          <AdminHRPayroll defaultTab="payroll" />
+        </DashboardLayout>
+      } />
+      <Route path="/admin/hr/performance" element={
+        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="HR & Payroll">
+          <AdminHRPayroll defaultTab="performance" />
         </DashboardLayout>
       } />
       <Route path="/admin/hr/reviews" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="HR & Payroll">
-          <AdminHRPayroll />
+          <AdminHRPayroll defaultTab="performance" />
+        </DashboardLayout>
+      } />
+      <Route path="/admin/crm/overview" element={
+        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Clients & CRM">
+          <AdminCRM defaultTab="overview" />
         </DashboardLayout>
       } />
       <Route path="/admin/crm/clients" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Clients & CRM">
-          <AdminCRM />
-        </DashboardLayout>
-      } />
-      <Route path="/admin/crm/projects" element={
-        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Clients & CRM">
-          <AdminCRM />
+          <AdminCRM defaultTab="clients" />
         </DashboardLayout>
       } />
       <Route path="/admin/crm/queries" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Clients & CRM">
-          <AdminCRM />
+          <AdminCRM defaultTab="queries" />
+        </DashboardLayout>
+      } />
+      <Route path="/admin/crm/approvals" element={
+        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Clients & CRM">
+          <AdminCRM defaultTab="approvals" />
+        </DashboardLayout>
+      } />
+      <Route path="/admin/crm/projects" element={
+        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Clients & CRM">
+          <AdminCRM defaultTab="clients" />
         </DashboardLayout>
       } />
       <Route path="/admin/docs/projects" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Documents">
-          <AdminDocs />
+          <AdminDocs defaultTab="vault" />
         </DashboardLayout>
       } />
       <Route path="/admin/docs/global" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Documents">
-          <AdminDocs />
+          <AdminDocs defaultTab="reports" />
         </DashboardLayout>
       } />
       <Route path="/admin/reports/projects" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Analytics">
-          <AdminAnalytics />
+          <AdminAnalytics defaultTab="projects" />
         </DashboardLayout>
       } />
       <Route path="/admin/reports/productivity" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Analytics">
-          <AdminAnalytics />
+          <AdminAnalytics defaultTab="productivity" />
         </DashboardLayout>
       } />
       <Route path="/admin/reports/drawings" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Analytics">
-          <AdminAnalytics />
+          <AdminAnalytics defaultTab="drawings" />
+        </DashboardLayout>
+      } />
+      <Route path="/admin/reports/attendance" element={
+        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Analytics">
+          <AdminAnalytics defaultTab="attendance" />
+        </DashboardLayout>
+      } />
+      <Route path="/admin/reports/leaves" element={
+        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Analytics">
+          <AdminAnalytics defaultTab="leaves" />
         </DashboardLayout>
       } />
       <Route path="/admin/reports/customers" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Analytics">
-          <AdminAnalytics />
+          <AdminAnalytics defaultTab="projects" />
         </DashboardLayout>
       } />
       <Route path="/admin/notifications" element={

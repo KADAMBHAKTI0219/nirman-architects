@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import HROverview from './HROverview';
 import HRLeaves from './HRLeaves';
 import HRShifts from './HRShifts';
@@ -82,8 +83,13 @@ const INITIAL_PERFORMANCE = [
   { id: "EMP-103", name: "John Wick", role: "Project Manager", productivity: 85, taskCompletion: 88, attendanceScore: 82, delaysCount: 1, reviewNotes: "Great leadership on tower structures. Late check-in recorded on boot timelines.", score: 85 }
 ];
 
-export default function HRPayroll() {
-  const [activeTab, setActiveTab] = useState('overview'); // overview, leaves, shifts, payroll, performance
+export default function HRPayroll({ defaultTab = 'overview' }) {
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState(defaultTab);
+
+  useEffect(() => {
+    setActiveTab(defaultTab);
+  }, [defaultTab]);
 
   // Leaves state
   const [leaveRequests, setLeaveRequests] = useState([]);
@@ -334,24 +340,34 @@ export default function HRPayroll() {
     <div className="space-y-6">
       
       {/* Sub-tab Navigation */}
-      <div className="flex justify-between items-center border-b border-slate-100 pb-2 flex-wrap gap-4 bg-slate-50/20 p-2 rounded-2xl">
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+      <div className="flex justify-between items-center border-b border-slate-100 pb-1 flex-wrap gap-4">
+        <div className="flex items-center gap-6 overflow-x-auto scrollbar-none pb-1">
           {tabs.map(t => (
             <button
               key={t.id}
-              onClick={() => setActiveTab(t.id)}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all border ${
+              onClick={() => {
+                if (t.id === 'overview') navigate('/admin/hr/overview');
+                else if (t.id === 'leaves') navigate('/admin/hr/leaves');
+                else if (t.id === 'leave-master') navigate('/admin/hr/leave-master');
+                else if (t.id === 'shifts') navigate('/admin/hr/shifts');
+                else if (t.id === 'payroll') navigate('/admin/hr/payroll');
+                else if (t.id === 'performance') navigate('/admin/hr/performance');
+              }}
+              className={`pb-2 text-xs font-bold tracking-wide transition-all relative ${
                 activeTab === t.id
-                  ? 'bg-brand-primary border-brand-primary text-slate-905 shadow-3xs font-extrabold'
-                  : 'bg-white border-slate-205 text-slate-550 hover:bg-slate-50'
+                  ? 'text-slate-900 font-black'
+                  : 'text-slate-400 hover:text-slate-600 font-semibold'
               }`}
             >
               {t.label}
+              {activeTab === t.id && (
+                <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-brand-primary rounded-full" />
+              )}
             </button>
           ))}
         </div>
 
-        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+        <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 pb-1">
           Admin HR Operations
         </div>
       </div>

@@ -131,10 +131,17 @@ const INITIAL_TASKS = [
   }
 ];
 
-export default function Tasks() {
+export default function Tasks({ filter = 'all' }) {
   const [tasks, setTasks] = useState(INITIAL_TASKS);
   const [selectedTask, setSelectedTask] = useState(null);
   const [viewMode, setViewMode] = useState('kanban'); // kanban, table, reports
+
+  const displayTasks = tasks.filter(task => {
+    if (filter === 'overdue') {
+      return task.progress < 100 && (task.delayFlag || new Date(task.deadline) < new Date());
+    }
+    return true;
+  });
 
   // Filtering list states
   const [searchQuery, setSearchQuery] = useState('');
@@ -207,7 +214,7 @@ export default function Tasks() {
         </div>
       ) : (
         <TaskList 
-          tasks={tasks}
+          tasks={displayTasks}
           viewMode={viewMode}
           setViewMode={setViewMode}
           searchQuery={searchQuery}

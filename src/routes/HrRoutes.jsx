@@ -24,24 +24,54 @@ export default function getHrRoutes(handleRoleChange) {
           <HREmployees />
         </DashboardLayout>
       } />
+      <Route path="/hr/attendance/overview" element={
+        <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Attendance">
+          <HRAttendance defaultTab="overview" />
+        </DashboardLayout>
+      } />
+      <Route path="/hr/attendance/daily" element={
+        <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Attendance">
+          <HRAttendance defaultTab="daily" />
+        </DashboardLayout>
+      } />
+      <Route path="/hr/attendance/monthly" element={
+        <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Attendance">
+          <HRAttendance defaultTab="monthly" />
+        </DashboardLayout>
+      } />
+      <Route path="/hr/attendance/exceptions" element={
+        <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Attendance">
+          <HRAttendance defaultTab="exceptions" />
+        </DashboardLayout>
+      } />
       <Route path="/hr/attendance/office" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Attendance">
-          <HRAttendance />
+          <HRAttendance defaultTab="overview" />
         </DashboardLayout>
       } />
       <Route path="/hr/attendance/site" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Attendance">
-          <HRAttendance />
+          <HRAttendance defaultTab="overview" />
         </DashboardLayout>
       } />
       <Route path="/hr/attendance/reports" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Attendance">
-          <HRAttendance />
+          <HRAttendance defaultTab="overview" />
+        </DashboardLayout>
+      } />
+      <Route path="/hr/leaves/company" element={
+        <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Leaves & Holidays">
+          <HRLeaves defaultTab="company" />
+        </DashboardLayout>
+      } />
+      <Route path="/hr/leaves/personal" element={
+        <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Leaves & Holidays">
+          <HRLeaves defaultTab="personal" />
         </DashboardLayout>
       } />
       <Route path="/hr/leaves" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Leaves & Holidays">
-          <HRLeaves />
+          <HRLeaves defaultTab="company" />
         </DashboardLayout>
       } />
       <Route path="/hr/shifts" element={

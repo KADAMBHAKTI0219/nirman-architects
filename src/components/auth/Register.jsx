@@ -290,9 +290,18 @@ export default function Register() {
                   onChange={handleRoleChange}
                   className="w-full pl-9 pr-4 py-2.5 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
                 >
-                  {roles.map(r => (
-                    <option key={r._id || r.id} value={r._id || r.id}>{r.roleName} ({r.roleCode})</option>
-                  ))}
+                  {roles.map(r => {
+                    const val = typeof r === 'object' ? (r._id || r.id || r.roleCode) : r;
+                    const name = typeof r === 'object' 
+                      ? (typeof r.roleName === 'string' ? r.roleName : (typeof r.name === 'string' ? r.name : (typeof r.roleCode === 'string' ? r.roleCode : 'Role')))
+                      : String(r);
+                    const code = typeof r === 'object' ? (typeof r.roleCode === 'string' ? r.roleCode : '') : '';
+                    return (
+                      <option key={val} value={val}>
+                        {name} {code ? `(${code})` : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             </div>

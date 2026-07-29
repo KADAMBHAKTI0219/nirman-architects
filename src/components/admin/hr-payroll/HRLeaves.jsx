@@ -78,14 +78,6 @@ export default function HRLeaves({
             Company Registry ({companyLeaves.length})
           </button>
         </div>
-
-        <button
-          onClick={() => setIsAdjustModalOpen(true)}
-          className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-805 text-white font-black rounded-xl text-xs uppercase tracking-wider transition-all shadow-xs"
-        >
-          <Edit3 className="w-4 h-4" />
-          Adjust Quota Balance
-        </button>
       </div>
 
       {/* Main Content Area */}
@@ -274,7 +266,7 @@ export default function HRLeaves({
                   <option value="">Choose Staff Account</option>
                   {usersList.map(u => (
                     <option key={u.id || u._id} value={u.id || u._id}>
-                      {u.name || u.firstName || u.email} ({u.role})
+                      {u.name || u.firstName || u.email} ({typeof u.role === 'object' ? (u.role?.roleName || u.role?.roleCode || u.role?.name || 'Employee') : (u.role || 'Employee')})
                     </option>
                   ))}
                 </select>

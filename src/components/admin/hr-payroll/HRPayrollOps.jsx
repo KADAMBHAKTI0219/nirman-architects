@@ -153,13 +153,30 @@ export default function HRPayrollOps() {
   };
 
   const handleBulkDownloadZip = async () => {
+    if (!payroll || payroll.length === 0) {
+      showToast("No payslips found for this period. Please generate payroll first!", "error");
+      return;
+    }
     try {
       showToast("Compiling payslips ZIP archive...");
       await downloadAllPayslipsZip(monthNum, yearNum);
       showToast("ZIP archive downloaded successfully!");
     } catch (err) {
-      console.error("Error downloading ZIP archive:", err);
-      showToast("Failed to download ZIP archive.", "error");
+      console.warn("Bulk ZIP download failed on backend, falling back to sequential downloads:", err);
+      showToast("ZIP server compilation failed. Downloading individual payslips...", "warning");
+      
+      try {
+        for (const rec of payroll) {
+          const empId = rec.userId || rec._id || rec.id;
+          if (empId) {
+            await downloadEmployeePayslip(empId, rec.name, monthNum, yearNum);
+          }
+        }
+        showToast("All individual payslips downloaded successfully!", "success");
+      } catch (fallbackErr) {
+        console.error("Sequential download fallback failed:", fallbackErr);
+        showToast("Failed to download individual payslips.", "error");
+      }
     }
   };
 
@@ -302,12 +319,12 @@ export default function HRPayrollOps() {
                           <span className="text-[9px] text-slate-400 block font-semibold">{rec.role}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3.5 text-slate-700 font-bold align-middle">${rec.base.toLocaleString()}</td>
-                      <td className="px-4 py-3.5 text-slate-500 font-semibold align-middle">+${rec.allowance}</td>
-                      <td className="px-4 py-3.5 text-slate-500 font-semibold align-middle">-${rec.deduction.toLocaleString()}</td>
-                      <td className="px-4 py-3.5 text-rose-505 font-bold align-middle">-${rec.delayPenalty}</td>
-                      <td className="px-4 py-3.5 text-emerald-600 font-bold align-middle">+${rec.bonus}</td>
-                      <td className="px-4 py-3.5 text-slate-805 font-black align-middle">${rec.netPay.toLocaleString()}</td>
+                      <td className="px-4 py-3.5 text-slate-700 font-bold align-middle">₹{rec.base.toLocaleString()}</td>
+                      <td className="px-4 py-3.5 text-slate-500 font-semibold align-middle">+₹{rec.allowance}</td>
+                      <td className="px-4 py-3.5 text-slate-500 font-semibold align-middle">-₹{rec.deduction.toLocaleString()}</td>
+                      <td className="px-4 py-3.5 text-rose-505 font-bold align-middle">-₹{rec.delayPenalty}</td>
+                      <td className="px-4 py-3.5 text-emerald-600 font-bold align-middle">+₹{rec.bonus}</td>
+                      <td className="px-4 py-3.5 text-slate-805 font-black align-middle">₹{rec.netPay.toLocaleString()}</td>
                       <td className="px-4 py-3.5 text-right align-middle">
                         <button
                           onClick={() => handleDownloadPayslip(rec)}
@@ -346,7 +363,7 @@ export default function HRPayrollOps() {
                 <XAxis dataKey="month" stroke="#94A3B8" fontSize={9} fontWeight="bold" />
                 <YAxis stroke="#94A3B8" fontSize={9} fontWeight="bold" />
                 <Tooltip />
-                <Line type="monotone" dataKey="cost" stroke="#34D399" strokeWidth={3} name="Cost ($)" />
+                <Line type="monotone" dataKey="cost" stroke="#34D399" strokeWidth={3} name="Cost (₹)" />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -361,7 +378,7 @@ export default function HRPayrollOps() {
                 <XAxis dataKey="name" stroke="#94A3B8" fontSize={9} fontWeight="bold" />
                 <YAxis stroke="#94A3B8" fontSize={9} fontWeight="bold" />
                 <Tooltip />
-                <Bar dataKey="cost" fill="#A2D2FF" radius={[4, 4, 0, 0]} name="Cost ($)" />
+                <Bar dataKey="cost" fill="#A2D2FF" radius={[4, 4, 0, 0]} name="Cost (₹)" />
               </BarChart>
             </ResponsiveContainer>
           </div>

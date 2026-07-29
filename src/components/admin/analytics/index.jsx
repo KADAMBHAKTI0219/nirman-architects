@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, 
   XAxis, YAxis, CartesianGrid, Tooltip, Legend 
@@ -12,8 +13,13 @@ import { exportLeaveReport } from '../../../mockApi';
 
 const COLORS = ['#8FC9FF', '#A2D2FF', '#34D399', '#EF4444'];
 
-export default function Analytics() {
-  const [activeReportTab, setActiveReportTab] = useState('projects'); // projects, productivity, drawings, attendance, leaves
+export default function Analytics({ defaultTab = 'projects' }) {
+  const navigate = useNavigate();
+  const [activeReportTab, setActiveReportTab] = useState(defaultTab); // projects, productivity, drawings, attendance, leaves
+
+  useEffect(() => {
+    setActiveReportTab(defaultTab);
+  }, [defaultTab]);
   const [searchQuery, setSearchQuery] = useState('');
   const [leaveReportList, setLeaveReportList] = useState([]);
   const [loadingLeaveReport, setLoadingLeaveReport] = useState(false);
@@ -93,24 +99,33 @@ export default function Analytics() {
     <div className="space-y-6 animate-in fade-in duration-200">
       
       {/* Tab Navigation header */}
-      <div className="flex justify-between items-center border-b border-slate-105 pb-2 flex-wrap gap-4 bg-slate-55/30 p-2 rounded-2xl">
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+      <div className="flex justify-between items-center border-b border-slate-100 pb-1 flex-wrap gap-4">
+        <div className="flex items-center gap-6 overflow-x-auto scrollbar-none pb-1">
           {reportTabs.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveReportTab(tab.id)}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all border ${
+              onClick={() => {
+                if (tab.id === 'projects') navigate('/admin/reports/projects');
+                else if (tab.id === 'productivity') navigate('/admin/reports/productivity');
+                else if (tab.id === 'drawings') navigate('/admin/reports/drawings');
+                else if (tab.id === 'attendance') navigate('/admin/reports/attendance');
+                else if (tab.id === 'leaves') navigate('/admin/reports/leaves');
+              }}
+              className={`pb-2 text-xs font-bold tracking-wide transition-all relative ${
                 activeReportTab === tab.id
-                  ? 'bg-brand-primary border-brand-primary text-slate-905 shadow-3xs font-extrabold'
-                  : 'bg-white border-slate-205 text-slate-500 hover:bg-slate-50'
+                  ? 'text-slate-900 font-black'
+                  : 'text-slate-400 hover:text-slate-600 font-semibold'
               }`}
             >
               {tab.label}
+              {activeReportTab === tab.id && (
+                <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-brand-primary rounded-full" />
+              )}
             </button>
           ))}
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 pb-1">
           <button
             onClick={() => handleExport('PDF')}
             className="px-3 py-1.5 bg-slate-900 hover:bg-slate-805 text-white rounded-xl text-[10px] font-black uppercase transition-all shadow-3xs"

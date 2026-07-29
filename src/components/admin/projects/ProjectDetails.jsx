@@ -14,9 +14,14 @@ export default function ProjectDetails({
   project,
   onBack,
   onUpdateProject,
-  onApproveDrawing
+  onApproveDrawing,
+  defaultTab = 'overview'
 }) {
-  const [activeTab, setActiveTab] = useState('overview'); // overview, timeline, tasks, drawings, team, documents, chat, approvals, reports
+  const [activeTab, setActiveTab] = useState(defaultTab); // overview, timeline, tasks, drawings, team, documents, chat, approvals, reports
+
+  useEffect(() => {
+    setActiveTab(defaultTab);
+  }, [defaultTab]);
   const [chatInput, setChatInput] = useState('');
   const [teamLeaves, setTeamLeaves] = useState([]);
   const [loadingTeamLeaves, setLoadingTeamLeaves] = useState(false);

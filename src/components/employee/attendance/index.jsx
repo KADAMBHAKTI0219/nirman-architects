@@ -154,19 +154,22 @@ export default function Attendance() {
       )}
 
       {/* Tab Navigation header */}
-      <div className="flex justify-between items-center border-b border-slate-100 pb-2 flex-wrap gap-4 bg-slate-50/20 p-2 rounded-2xl">
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+      <div className="flex justify-between items-center border-b border-slate-100 pb-1 flex-wrap gap-4">
+        <div className="flex items-center gap-6 overflow-x-auto scrollbar-none pb-1 w-full">
           {subTabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex-shrink-0 border ${
+              className={`pb-2 text-xs font-bold tracking-wide transition-all relative ${
                 activeTab === tab.id
-                  ? 'bg-brand-primary border-brand-primary text-slate-905 shadow-3xs font-extrabold'
-                  : 'bg-white border-slate-205 text-slate-500 hover:bg-slate-50'
+                  ? 'text-slate-900 font-black'
+                  : 'text-slate-400 hover:text-slate-600 font-semibold'
               }`}
             >
               {tab.label}
+              {activeTab === tab.id && (
+                <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-brand-primary rounded-full" />
+              )}
             </button>
           ))}
         </div>

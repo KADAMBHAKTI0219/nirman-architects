@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Clock, Calendar, AlertCircle } from 'lucide-react';
 import AttendanceStats from './AttendanceStats';
 import AttendanceCalendar from './AttendanceCalendar';
@@ -8,8 +9,13 @@ import { getHRDashboardWidgets } from '../../../mockApi';
 import { getAllAttendanceList } from '../../../service/attendance';
 import { parseIndexedObjectToArray } from '../../../service/leave';
 
-export default function Attendance() {
-  const [activeTab, setActiveTab] = useState('overview'); // overview, daily, monthly, exceptions
+export default function Attendance({ defaultTab = 'overview' }) {
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState(defaultTab); // overview, daily, monthly, exceptions
+
+  useEffect(() => {
+    setActiveTab(defaultTab);
+  }, [defaultTab]);
   const [logs, setLogs] = useState([]);
   const [selectedLog, setSelectedLog] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -41,7 +47,12 @@ export default function Attendance() {
       const year = dateObj.getFullYear();
 
       // 1. Fetch Company Attendance logs via real API
-      const logsRes = await getAllAttendanceList({ month, year });
+      let logsRes = [];
+      try {
+        logsRes = await getAllAttendanceList({ month, year });
+      } catch (err) {
+        console.warn("getAllAttendanceList failed, using local/empty fallback:", err);
+      }
       console.log("getAllAttendanceList response:", logsRes);
 
       const rawLogs = parseIndexedObjectToArray(logsRes);
@@ -49,22 +60,21 @@ export default function Attendance() {
       if (rawLogs) {
         const filteredRaw = rawLogs.filter(log => {
           const logDateStr = log.date || (log.clockInTime ? log.clockInTime.split('T')[0] : '');
-          return logDateStr === selectedDate;
+          if (logDateStr !== selectedDate) return false;
+
+          const emp = log.userId || {};
+          const designation = (emp.designation || emp.roleId?.roleName || '').toLowerCase();
+          const roleCode = (emp.roleId?.roleCode || emp.roleCode || '').toLowerCase();
+
+          // Exclude logs if designation or role contains site, manager, or engineer
+          const isSiteOrManagerOrEng = designation.includes('site') || designation.includes('manager') || designation.includes('engineer') || roleCode.includes('site');
+          return !isSiteOrManagerOrEng;
         });
 
         const mappedLogs = filteredRaw.map((log, idx) => {
           const emp = log.userId || {};
-          const clockIn = new Date(log.clockInTime || log.loginTime || log.createdAt || Date.now());
-          const clockOut = log.clockOutTime || log.logoutTime ? new Date(log.clockOutTime || log.logoutTime) : null;
-          
-          const end = clockOut || new Date();
-          const diffMs = Math.max(0, end.getTime() - clockIn.getTime());
-          const totalMins = diffMs > 0 ? Math.max(1, Math.round(diffMs / (1000 * 60))) : 0;
-          const diffHrs = Math.floor(totalMins / 60);
-          const diffMins = totalMins % 60;
-          const hoursStr = `${diffHrs}h ${diffMins}m`;
-          
           const isSite = (log.deviceId || '').toLowerCase().includes('gps') || (log.deviceId || '').toLowerCase().includes('mobile');
+          const hoursStr = typeof log.workingHours === 'number' ? `${log.workingHours} hrs` : (log.workingHours || '0 hrs');
           
           return {
             id: log._id || log.id || idx,
@@ -72,13 +82,13 @@ export default function Attendance() {
             name: emp.name || 'Unknown User',
             dept: emp.department || 'Main Office',
             shift: isSite ? 'Site Mobile Shift' : 'Office Auto Shift',
-            checkIn: clockIn.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            checkOut: clockOut ? clockOut.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'In Progress',
+            checkIn: log.clockInTime ? new Date(log.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A',
+            checkOut: log.clockOutTime ? new Date(log.clockOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'In Progress',
             hours: hoursStr,
-            status: log.isOfflineEntry ? 'Offline' : (log.autoClosed ? 'Auto-Closed' : 'Present'),
+            status: log.status || 'Present',
             location: isSite ? 'Site' : 'Office',
             manager: emp.designation || 'Staff Member',
-            notes: `Device: ${log.deviceId || 'N/A'}${log.isOfflineEntry ? ' (Offline)' : ''}${log.autoClosed ? ' (Auto Closed)' : ''}`,
+            notes: `Device: ${log.deviceId || 'N/A'}`,
             rawLog: log
           };
         });
@@ -93,15 +103,19 @@ export default function Attendance() {
       }
 
       // 2. Fetch HR Dashboard widgets metrics
-      const widgetsRes = await getHRDashboardWidgets();
-      if (widgetsRes.success && widgetsRes.data) {
-        setWidgets({
-          totalUsers: widgetsRes.data.totalUsers || 0,
-          onlineCount: widgetsRes.data.onlineCount || 0,
-          offlineCount: widgetsRes.data.offlineCount || 0,
-          pendingCorrections: widgetsRes.data.pendingCorrections || 0,
-          securityAlerts: widgetsRes.data.securityAlerts || 0
-        });
+      try {
+        const widgetsRes = await getHRDashboardWidgets();
+        if (widgetsRes.success && widgetsRes.data) {
+          setWidgets({
+            totalUsers: widgetsRes.data.totalUsers || 0,
+            onlineCount: widgetsRes.data.onlineCount || 0,
+            offlineCount: widgetsRes.data.offlineCount || 0,
+            pendingCorrections: widgetsRes.data.pendingCorrections || 0,
+            securityAlerts: widgetsRes.data.securityAlerts || 0
+          });
+        }
+      } catch (err) {
+        console.warn("getHRDashboardWidgets failed:", err);
       }
     } catch (err) {
       console.error('Error fetching attendance:', err);
@@ -174,18 +188,26 @@ export default function Attendance() {
       <AttendanceStats widgets={widgets} />
 
       {/* Tabs navigation panel */}
-      <div className="flex border-b border-slate-100 overflow-x-auto scrollbar-none gap-2 pb-1 bg-slate-50/20 p-2 rounded-2xl">
+      <div className="flex border-b border-slate-100 overflow-x-auto scrollbar-none gap-6 pb-1">
         {tabs.map(t => (
           <button
             key={t.id}
-            onClick={() => setActiveTab(t.id)}
-            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all border ${
+            onClick={() => {
+              if (t.id === 'overview') navigate('/hr/attendance/overview');
+              else if (t.id === 'daily') navigate('/hr/attendance/daily');
+              else if (t.id === 'monthly') navigate('/hr/attendance/monthly');
+              else if (t.id === 'exceptions') navigate('/hr/attendance/exceptions');
+            }}
+            className={`pb-2 text-xs font-bold tracking-wide transition-all relative ${
               activeTab === t.id
-                ? 'bg-brand-primary border-brand-primary text-slate-905 shadow-3xs font-extrabold'
-                : 'bg-white border-slate-205 text-slate-500 hover:bg-slate-50'
+                ? 'text-slate-900 font-black'
+                : 'text-slate-400 hover:text-slate-600 font-semibold'
             }`}
           >
             {t.label}
+            {activeTab === t.id && (
+              <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-brand-primary rounded-full" />
+            )}
           </button>
         ))}
       </div>

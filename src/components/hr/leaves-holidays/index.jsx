@@ -4,6 +4,7 @@ import LeaveCalendar from './LeaveCalendar';
 import LeaveRequestsInbox from './LeaveRequestsInbox';
 import LeaveHistoryTable from './LeaveHistoryTable';
 import LeavesPortal from '../../common/LeavesPortal';
+import { useNavigate } from 'react-router-dom';
 import { Edit3 } from 'lucide-react';
 import {
   getPendingLeaveRequests,
@@ -22,8 +23,13 @@ const INITIAL_REQUESTS = [
   { id: 3, name: "Charlie Brown", role: "Drafter", dept: "Architecture", type: "Casual", dates: "Aug 02 - Aug 09", days: 7, reason: "Annual vacation and rest", status: "Pending" }
 ];
 
-export default function LeavesHolidays() {
-  const [activeSubTab, setActiveSubTab] = useState('company'); // company, personal
+export default function LeavesHolidays({ defaultTab = 'company' }) {
+  const navigate = useNavigate();
+  const [activeSubTab, setActiveSubTab] = useState(defaultTab); // company, personal
+
+  useEffect(() => {
+    setActiveSubTab(defaultTab);
+  }, [defaultTab]);
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [allCompanyRequests, setAllCompanyRequests] = useState([]);
   const [usersList, setUsersList] = useState([]);
@@ -187,39 +193,35 @@ export default function LeavesHolidays() {
     <div className="space-y-6 animate-in fade-in duration-200">
       
       {/* Sub-tab Navigation */}
-      <div className="flex justify-between items-center border-b border-slate-100 pb-2 flex-wrap gap-4 bg-slate-50/20 p-2 rounded-2xl">
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+      <div className="flex justify-between items-center border-b border-slate-100 pb-1 flex-wrap gap-4">
+        <div className="flex items-center gap-6 overflow-x-auto scrollbar-none pb-1">
           <button
-            onClick={() => setActiveSubTab('company')}
-            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all border ${
+            onClick={() => navigate('/hr/leaves/company')}
+            className={`pb-2 text-xs font-bold tracking-wide transition-all relative ${
               activeSubTab === 'company'
-                ? 'bg-brand-primary border-brand-primary text-slate-905 shadow-3xs font-extrabold'
-                : 'bg-white border-slate-205 text-slate-550 hover:bg-slate-50'
+                ? 'text-slate-900 font-black'
+                : 'text-slate-400 hover:text-slate-600 font-semibold'
             }`}
           >
             Company Approvals
+            {activeSubTab === 'company' && (
+              <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-brand-primary rounded-full" />
+            )}
           </button>
           <button
-            onClick={() => setActiveSubTab('personal')}
-            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all border ${
+            onClick={() => navigate('/hr/leaves/personal')}
+            className={`pb-2 text-xs font-bold tracking-wide transition-all relative ${
               activeSubTab === 'personal'
-                ? 'bg-brand-primary border-brand-primary text-slate-905 shadow-3xs font-extrabold'
-                : 'bg-white border-slate-205 text-slate-550 hover:bg-slate-50'
+                ? 'text-slate-900 font-black'
+                : 'text-slate-400 hover:text-slate-600 font-semibold'
             }`}
           >
             My Personal Leaves
+            {activeSubTab === 'personal' && (
+              <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-brand-primary rounded-full" />
+            )}
           </button>
         </div>
-
-        {activeSubTab === 'company' && (
-          <button
-            onClick={() => setIsAdjustModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-805 text-white font-black rounded-xl text-xs uppercase tracking-wider transition-all shadow-xs"
-          >
-            <Edit3 className="w-4 h-4" />
-            Adjust Quota Balance
-          </button>
-        )}
       </div>
 
       {activeSubTab === 'company' ? (

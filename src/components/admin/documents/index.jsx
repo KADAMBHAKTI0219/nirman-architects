@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DocumentList from './DocumentList';
 import DocumentDetails from './DocumentDetails';
 import DocumentUploadModal from './DocumentUploadModal';
@@ -89,11 +89,15 @@ const INITIAL_DOCUMENTS = [
   }
 ];
 
-export default function Documents() {
+export default function Documents({ defaultTab = 'vault' }) {
   const [documents, setDocuments] = useState(INITIAL_DOCUMENTS);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [viewMode, setViewMode] = useState('list'); // list, details
-  const [viewReports, setViewReports] = useState(false);
+  const [viewReports, setViewReports] = useState(defaultTab === 'reports');
+
+  useEffect(() => {
+    setViewReports(defaultTab === 'reports');
+  }, [defaultTab]);
 
   // Filters State
   const [selectedProject, setSelectedProject] = useState('All Projects');

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import CRMOverview from './CRMOverview';
 import CRMClientList from './CRMClientList';
 import CRMClientProfile from './CRMClientProfile';
@@ -95,8 +96,13 @@ const INITIAL_APPROVALS = [
   }
 ];
 
-export default function CRM() {
-  const [activeTab, setActiveTab] = useState('overview'); // overview, clients, queries, approvals
+export default function CRM({ defaultTab = 'overview' }) {
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState(defaultTab);
+
+  useEffect(() => {
+    setActiveTab(defaultTab);
+  }, [defaultTab]);
 
   const [clients, setClients] = useState(INITIAL_CLIENTS);
   const [queriesList, setQueriesList] = useState(INITIAL_QUERIES);
@@ -196,24 +202,32 @@ export default function CRM() {
     <div className="space-y-6 animate-in fade-in duration-200">
       
       {/* Sub-tab Navigation */}
-      <div className="flex justify-between items-center border-b border-slate-100 pb-2 flex-wrap gap-4 bg-slate-50/20 p-2 rounded-2xl">
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+      <div className="flex justify-between items-center border-b border-slate-100 pb-1 flex-wrap gap-4">
+        <div className="flex items-center gap-6 overflow-x-auto scrollbar-none pb-1">
           {tabs.map(t => (
             <button
               key={t.id}
-              onClick={() => setActiveTab(t.id)}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all border ${
+              onClick={() => {
+                if (t.id === 'overview') navigate('/admin/crm/overview');
+                else if (t.id === 'clients') navigate('/admin/crm/clients');
+                else if (t.id === 'queries') navigate('/admin/crm/queries');
+                else if (t.id === 'approvals') navigate('/admin/crm/approvals');
+              }}
+              className={`pb-2 text-xs font-bold tracking-wide transition-all relative ${
                 activeTab === t.id
-                  ? 'bg-brand-primary border-brand-primary text-slate-905 shadow-3xs font-extrabold'
-                  : 'bg-white border-slate-205 text-slate-555 hover:bg-slate-50'
+                  ? 'text-slate-900 font-black'
+                  : 'text-slate-400 hover:text-slate-600 font-semibold'
               }`}
             >
               {t.label}
+              {activeTab === t.id && (
+                <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-brand-primary rounded-full" />
+              )}
             </button>
           ))}
         </div>
 
-        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+        <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 pb-1">
           Client Operations Desk
         </div>
       </div>

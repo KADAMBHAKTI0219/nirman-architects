@@ -11,6 +11,7 @@ import {
   regenerateOfferLetter
 } from '../../../service/offerLetter';
 import { parseIndexedObjectToArray } from '../../../service/leave';
+import { getEmployeeScreenshots, downloadAllScreenshots } from '../../../service/screenshot';
 import desktopScreenshotImg from '../../../assets/images/desktop_screenshot.jpg';
 
 export default function EmployeesHR({
@@ -41,6 +42,15 @@ export default function EmployeesHR({
   const [regenDepartment, setRegenDepartment] = useState('');
   const [regenBaseSalary, setRegenBaseSalary] = useState('');
   const [regenJoiningDate, setRegenJoiningDate] = useState('');
+
+  // Screenshots state
+  const [backendScreenshots, setBackendScreenshots] = useState([]);
+  const [screenshotsLoading, setScreenshotsLoading] = useState(false);
+  const [selectedScreenshotDate, setSelectedScreenshotDate] = useState(() => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
+  const [activeScreenshotIdx, setActiveScreenshotIdx] = useState(0);
 
   const departments = ['All', 'Architecture', 'Engineering', 'Project Management', 'HR'];
 
@@ -95,6 +105,28 @@ export default function EmployeesHR({
     }
   }, [selectedEmployee]);
 
+  const fetchScreenshots = async (empId, date) => {
+    setScreenshotsLoading(true);
+    try {
+      const res = await getEmployeeScreenshots(empId, date);
+      const list = parseIndexedObjectToArray(res.screenshots || res.data?.screenshots || res);
+      setBackendScreenshots(list || []);
+      setActiveScreenshotIdx(0);
+    } catch (err) {
+      console.error("Failed to fetch screenshots from backend:", err);
+      setBackendScreenshots([]);
+    } finally {
+      setScreenshotsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showScreenshotsModal && selectedEmployee) {
+      const empId = selectedEmployee._id || selectedEmployee.id;
+      fetchScreenshots(empId, selectedScreenshotDate);
+    }
+  }, [showScreenshotsModal, selectedScreenshotDate, selectedEmployee]);
+
   const handleDownloadOfferLetter = async () => {
     if (!selectedEmployee) return;
     const empId = selectedEmployee._id || selectedEmployee.id;
@@ -134,6 +166,27 @@ export default function EmployeesHR({
     }
   };
 
+  const handleDownloadZip = async () => {
+    if (!selectedEmployee) return;
+    const empId = selectedEmployee._id || selectedEmployee.id;
+    try {
+      showToast("Downloading all screenshots as ZIP...");
+      const blob = await downloadAllScreenshots(empId, selectedScreenshotDate);
+      const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/zip' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Screenshots_${selectedEmployee.name.replace(/\s+/g, '_')}_${selectedScreenshotDate}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      showToast("ZIP download started successfully!");
+    } catch (err) {
+      console.error("Failed to download ZIP:", err);
+      showToast("Failed to download ZIP file.", "error");
+    }
+  };
+
   const handleDeleteEmployee = (emp) => {
     if (window.confirm(`Are you sure you want to remove ${emp.name} from the directory?`)) {
       setLocalEmployees(prev => prev.filter(e => e.id !== emp.id));
@@ -163,7 +216,7 @@ export default function EmployeesHR({
           <span className="text-[9px] font-bold text-slate-400 uppercase block">Active Shift</span>
           <strong className="text-base font-black text-emerald-600 block mt-1">24 Active</strong>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs text-center">
+        <div className="bg-white p-4 rounded-2xl border border-slate-105 shadow-3xs text-center">
           <span className="text-[9px] font-bold text-slate-400 uppercase block">On Leave</span>
           <strong className="text-base font-black text-rose-600 block mt-1">2 Leave</strong>
         </div>
@@ -251,7 +304,7 @@ export default function EmployeesHR({
                       <td className="px-5 py-4 text-slate-600 font-semibold align-middle">{emp.email}</td>
                       <td className="px-5 py-4 text-slate-500 font-bold align-middle">{emp.department}</td>
                       <td className="px-5 py-4 text-right align-middle">
-                        <div className="flex justify-end gap-1.5">
+                        <div className="flex justify-end gap-2">
                           
                           {/* VIEW PROFILE BUTTON */}
                           <button
@@ -259,11 +312,10 @@ export default function EmployeesHR({
                               setSelectedEmployee(emp);
                               setShowViewModal(true);
                             }}
-                            className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-605 border border-blue-100 rounded-xl transition-all shadow-4xs flex items-center gap-1 font-bold text-[9px] uppercase tracking-wider"
-                            title="View HR Profile"
+                            className="p-2.5 bg-blue-50 hover:bg-blue-100 text-blue-650 border border-blue-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold"
+                            title="View Profile"
                           >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>View</span>
+                            <Eye className="w-4 h-4" />
                           </button>
 
                           {/* EDIT PROFILE BUTTON */}
@@ -272,11 +324,10 @@ export default function EmployeesHR({
                               e.stopPropagation();
                               onEditEmployeeClick(emp);
                             }}
-                            className="p-2 bg-amber-50 hover:bg-amber-100 text-amber-605 border border-amber-100 rounded-xl transition-all shadow-4xs flex items-center gap-1 font-bold text-[9px] uppercase tracking-wider"
-                            title="Edit Employee Details"
+                            className="p-2.5 bg-amber-50 hover:bg-amber-100 text-amber-650 border border-amber-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold"
+                            title="Edit Details"
                           >
-                            <Pencil className="w-3.5 h-3.5" />
-                            <span>Edit</span>
+                            <Pencil className="w-4 h-4" />
                           </button>
 
                           {/* DELETE EMPLOYEE BUTTON */}
@@ -285,24 +336,23 @@ export default function EmployeesHR({
                               e.stopPropagation();
                               handleDeleteEmployee(emp);
                             }}
-                            className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-605 border border-rose-100 rounded-xl transition-all shadow-4xs flex items-center gap-1 font-bold text-[9px] uppercase tracking-wider"
+                            className="p-2.5 bg-rose-50 hover:bg-rose-100 text-rose-650 border border-rose-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold"
                             title="Delete Employee"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Delete</span>
+                            <Trash2 className="w-4 h-4" />
                           </button>
 
                           {/* VIEW SCREENSHOTS BUTTON */}
                           <button
                             onClick={() => {
                               setSelectedEmployee(emp);
+                              setSelectedScreenshotDate(new Date().toISOString().split('T')[0]);
                               setShowScreenshotsModal(true);
                             }}
-                            className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-605 border border-emerald-100 rounded-xl transition-all shadow-4xs flex items-center gap-1 font-bold text-[9px] uppercase tracking-wider"
-                            title="View Active Desktop Screenshots"
+                            className="p-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-650 border border-emerald-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold"
+                            title="View Desktop Screenshots"
                           >
-                            <Laptop className="w-3.5 h-3.5" />
-                            <span>Screenshots</span>
+                            <Laptop className="w-4 h-4" />
                           </button>
 
                         </div>
@@ -331,7 +381,7 @@ export default function EmployeesHR({
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-slate-905 leading-none">{selectedEmployee.name}</h3>
-                  <span className="text-[10px] text-slate-450 font-bold block mt-1.5">{selectedEmployee.designation} &bull; Joined {selectedEmployee.joiningDate}</span>
+                  <span className="text-[10px] text-slate-455 font-bold block mt-1.5">{selectedEmployee.designation} &bull; Joined {selectedEmployee.joiningDate}</span>
                 </div>
               </div>
               <button 
@@ -379,7 +429,7 @@ export default function EmployeesHR({
                       <div>
                         <span className="text-[9px] font-bold text-slate-400 block uppercase">Salary / Compensation</span>
                         <span className="text-xs font-black text-slate-700 block mt-0.5">
-                          {selectedEmployee.payrollData?.salary || `$${selectedEmployee.baseSalary || 25000}/mo`}
+                          {selectedEmployee.payrollData?.salary || `₹${selectedEmployee.baseSalary || 25000}/mo`}
                         </span>
                       </div>
                       <div>
@@ -422,7 +472,7 @@ export default function EmployeesHR({
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-slate-455">Snapshot Salary:</span>
-                          <span className="text-slate-755 font-bold">${offerMetadata.baseSalarySnapshot?.toLocaleString()}/mo</span>
+                          <span className="text-slate-755 font-bold">₹{offerMetadata.baseSalarySnapshot?.toLocaleString()}/mo</span>
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-slate-455">Generated At:</span>
@@ -453,7 +503,7 @@ export default function EmployeesHR({
                       </div>
                     ) : (
                       <div className="text-center py-2 space-y-2">
-                        <p className="text-[10px] text-slate-450">No offer letter generated for this profile yet.</p>
+                        <p className="text-[10px] text-slate-455">No offer letter generated for this profile yet.</p>
                         <button
                           onClick={() => {
                             setRegenDesignation(selectedEmployee.designation || '');
@@ -470,20 +520,47 @@ export default function EmployeesHR({
                     )}
                   </div>
 
-                  <div className="bg-slate-50/50 border border-slate-100 p-4 rounded-2xl space-y-3">
-                    <h4 className="text-[10px] font-black text-slate-455 uppercase tracking-wider border-b border-slate-200 pb-2">HR Documents Vault</h4>
-                    <div className="space-y-1.5">
-                      {(selectedEmployee.documents || []).map(doc => (
-                        <div key={doc} className="p-2 bg-white border border-slate-150 rounded-xl flex items-center justify-between text-[10px]">
-                          <span className="font-semibold text-slate-700">{doc}</span>
-                          <button 
-                            onClick={() => alert(`Downloading Document: ${doc}`)}
-                            className="text-[9px] text-[#2484C6] hover:underline font-bold uppercase"
-                          >
-                            Get file
-                          </button>
-                        </div>
-                      ))}
+                  <div className="bg-slate-50/50 border border-slate-100 p-4 rounded-2xl space-y-4">
+                    <h4 className="text-[10px] font-black text-slate-450 uppercase tracking-wider border-b border-slate-200 pb-2">Employee Contact & System Info</h4>
+                    
+                    <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-slate-655">
+                      <div>
+                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Employee ID</span>
+                        <span className="text-xs font-mono text-slate-700 block mt-0.5 truncate" title={selectedEmployee._id || selectedEmployee.id || selectedEmployee.rawUser?._id || selectedEmployee.rawUser?.id || 'N/A'}>
+                          {selectedEmployee._id || selectedEmployee.id || selectedEmployee.rawUser?._id || selectedEmployee.rawUser?.id || 'N/A'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Phone Number</span>
+                        <span className="text-xs font-bold text-slate-700 block mt-0.5">
+                          {selectedEmployee.rawUser?.phone || selectedEmployee.phone || 'N/A'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Login Device ID</span>
+                        <span className="text-xs font-mono text-slate-655 block mt-0.5 truncate" title={selectedEmployee.rawUser?.deviceId || selectedEmployee.deviceId || 'web-browser'}>
+                          {selectedEmployee.rawUser?.deviceId || selectedEmployee.deviceId || 'web-browser'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] font-bold text-slate-400 block uppercase">System Role Code</span>
+                        <span className="text-xs font-bold text-slate-700 block mt-0.5 uppercase">
+                          {(() => {
+                            const r = selectedEmployee.rawUser?.role || selectedEmployee.role;
+                            if (!r) return 'Employee';
+                            if (typeof r === 'object') {
+                              return r.roleCode || r.roleName || r.name || 'Employee';
+                            }
+                            return r;
+                          })()}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Official Email</span>
+                        <span className="text-xs font-semibold text-slate-655 block mt-0.5 truncate" title={selectedEmployee.email}>
+                          {selectedEmployee.email}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -499,7 +576,7 @@ export default function EmployeesHR({
                   setShowViewModal(false);
                   onEditEmployeeClick(selectedEmployee);
                 }}
-                className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-all uppercase"
+                className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-705 rounded-xl text-xs font-bold transition-all uppercase"
               >
                 Edit Profile
               </button>
@@ -525,12 +602,12 @@ export default function EmployeesHR({
             
             {/* Header */}
             <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/40">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <Laptop className="w-4 h-4 text-emerald-500" />
                 <div>
-                  <h3 className="text-sm font-black text-slate-100">Workstation Desktop Registry & Screenshots</h3>
+                  <h3 className="text-sm font-black text-slate-100">Workstation Desktop Screenshots</h3>
                   <span className="text-[10px] text-slate-400 font-bold block mt-0.5">
-                    Monitoring: {selectedEmployee.name} &bull; Active Device: {selectedEmployee.deviceId || 'web-browser'}
+                    Monitoring: {selectedEmployee.name} &bull; Email: {selectedEmployee.email}
                   </span>
                 </div>
               </div>
@@ -542,101 +619,137 @@ export default function EmployeesHR({
               </button>
             </div>
 
-            {/* Screenshots Display Layout */}
+            {/* Grid Layout: Left side (3/4) is Screenshot viewer, Right side (1/4) is Controls & Details */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 p-6">
               
-              {/* Left Column: Interactive active screenshot window */}
-              <div className="lg:col-span-3 space-y-3">
-                <div className="relative border-4 border-slate-800 rounded-2xl overflow-hidden bg-slate-950 shadow-inner flex items-center justify-center aspect-video">
-                  <img 
-                    src={desktopScreenshotImg} 
-                    alt="Active Workspace desktop capture" 
-                    className="w-full h-full object-cover"
-                  />
-                  
-                  {/* Watermark/Details Overlay */}
-                  <div className="absolute bottom-3 left-3 bg-slate-950/85 border border-slate-800 px-2.5 py-1 rounded-xl text-[9px] font-mono text-slate-300">
-                    Capture Time: {new Date().toLocaleTimeString()} &bull; Latency: 32ms
+              {/* Left Column (lg:col-span-3): Screenshot capture area */}
+              <div className="lg:col-span-3 space-y-4">
+                {screenshotsLoading ? (
+                  <div className="flex flex-col items-center justify-center py-20 space-y-3">
+                    <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin" />
+                    <span className="text-xs font-bold text-slate-400">Fetching screenshots from backend...</span>
                   </div>
-                  <div className="absolute top-3 right-3 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg flex items-center gap-1 shadow">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    Verified Active
+                ) : backendScreenshots.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 space-y-3 text-center bg-slate-950 rounded-2xl border border-slate-800">
+                    <Camera className="w-10 h-10 text-slate-700" />
+                    <div>
+                      <strong className="text-sm font-black text-slate-300 block">No screenshots captured</strong>
+                      <span className="text-[10px] text-slate-500 font-bold block mt-1 uppercase">There are no desktop captures registered for this date.</span>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Interactive Screenshot Display Box */}
+                    <div className="relative border-4 border-slate-800 rounded-2xl overflow-hidden bg-slate-950 shadow-inner flex items-center justify-center aspect-video">
+                      <img 
+                        src={backendScreenshots[activeScreenshotIdx].cloudinaryUrl || backendScreenshots[activeScreenshotIdx].filePath || desktopScreenshotImg} 
+                        alt="Captured Workspace desktop screenshot" 
+                        className="w-full h-full object-contain"
+                      />
+                      
+                      {/* Watermark/Details Overlay */}
+                      <div className="absolute bottom-3 left-3 bg-slate-950/85 border border-slate-805 px-3 py-1.5 rounded-xl text-[10px] font-mono text-slate-350 flex flex-col gap-0.5">
+                        <span>Capture ID: {backendScreenshots[activeScreenshotIdx]._id || backendScreenshots[activeScreenshotIdx].id}</span>
+                        <span>Captured At: {new Date(backendScreenshots[activeScreenshotIdx].capturedAt || backendScreenshots[activeScreenshotIdx].createdAt).toLocaleString()}</span>
+                        {backendScreenshots[activeScreenshotIdx].fileSizeKB && (
+                          <span>File Size: {backendScreenshots[activeScreenshotIdx].fileSizeKB} KB</span>
+                        )}
+                      </div>
+                      
+                      <div className="absolute top-3 right-3 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-md">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        <span>Registry Verified</span>
+                      </div>
+                    </div>
 
-                <div className="flex justify-between items-center text-[10px] text-slate-405 font-bold px-1">
-                  <span>Showing 1 of 1 active registry captures</span>
-                  <div className="flex gap-2">
-                    <button className="px-2 py-1 bg-slate-800 rounded border border-slate-700 opacity-50 cursor-not-allowed text-slate-400">Previous</button>
-                    <button className="px-2 py-1 bg-slate-800 rounded border border-slate-700 opacity-50 cursor-not-allowed text-slate-400">Next</button>
+                    {/* Carousel Controls */}
+                    <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold px-1">
+                      <span>Showing {activeScreenshotIdx + 1} of {backendScreenshots.length} active captures</span>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => setActiveScreenshotIdx(prev => (prev === 0 ? backendScreenshots.length - 1 : prev - 1))}
+                          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-205 border border-slate-700 rounded-xl transition-colors font-bold uppercase tracking-wider"
+                        >
+                          Previous
+                        </button>
+                        <button 
+                          onClick={() => setActiveScreenshotIdx(prev => (prev === backendScreenshots.length - 1 ? 0 : prev + 1))}
+                          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-205 border border-slate-700 rounded-xl transition-colors font-bold uppercase tracking-wider"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
-              {/* Right Column: desktop tracking stats metadata */}
+              {/* Right Column (lg:col-span-1): Controls, Target Date Filter, and Device info */}
               <div className="space-y-4 text-xs font-semibold text-slate-300">
+                
+                {/* 1. Date Filter & Action card */}
                 <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-4">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2">Activity Stats</h4>
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2">Filter & Actions</h4>
                   
                   <div className="space-y-3.5">
                     <div>
-                      <span className="text-[8px] font-black text-slate-500 uppercase block">Active Application</span>
-                      <span className="text-xs font-extrabold text-slate-200 mt-0.5 block">Visual Studio Code</span>
+                      <span className="text-[8px] font-black text-slate-500 uppercase block mb-1.5">Target Date</span>
+                      <input 
+                        type="date"
+                        value={selectedScreenshotDate}
+                        onChange={(e) => setSelectedScreenshotDate(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                      />
                     </div>
-                    <div>
-                      <span className="text-[8px] font-black text-slate-500 uppercase block">Productivity Rating</span>
-                      <span className="text-xs font-black text-emerald-400 mt-0.5 block flex items-center gap-1">
-                        <Award className="w-3.5 h-3.5" />
-                        88% Good Standing
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[8px] font-black text-slate-500 uppercase block">Keystroke Frequency</span>
-                      <span className="text-xs font-bold text-slate-200 mt-0.5 block">54 keys/min</span>
-                    </div>
-                    <div>
-                      <span className="text-[8px] font-black text-slate-500 uppercase block">Mouse Clicks</span>
-                      <span className="text-xs font-bold text-slate-200 mt-0.5 block">12 clicks/min</span>
-                    </div>
+                    
+                    <button
+                      onClick={handleDownloadZip}
+                      disabled={screenshotsLoading || backendScreenshots.length === 0}
+                      className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-slate-950 rounded-xl text-xs font-black transition-all shadow-sm uppercase flex items-center justify-center gap-1.5"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download Zip</span>
+                    </button>
                   </div>
                 </div>
 
+                {/* 2. Device info card */}
                 <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-2">
                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2">Device Info</h4>
                   <div className="space-y-2.5 text-[10px] text-slate-400">
                     <div className="flex justify-between">
-                      <span className="text-slate-500 font-semibold">OS:</span>
-                      <span className="text-slate-200 font-bold">Windows 11 Corporate</span>
+                      <span className="text-slate-550 font-semibold">OS:</span>
+                      <span className="text-slate-202 font-bold">Windows 11 Corporate</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500 font-semibold">Local IP:</span>
-                      <span className="text-slate-200 font-bold font-mono">192.168.1.48</span>
+                      <span className="text-slate-550 font-semibold">Local IP:</span>
+                      <span className="text-slate-202 font-bold font-mono">192.168.1.48</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500 font-semibold">Device ID:</span>
-                      <span className="text-slate-200 font-bold font-mono truncate max-w-[100px]" title={selectedEmployee.deviceId || "web-browser"}>
+                      <span className="text-slate-550 font-semibold">Device ID:</span>
+                      <span className="text-slate-202 font-bold font-mono truncate max-w-[100px]" title={selectedEmployee.deviceId || "web-browser"}>
                         {selectedEmployee.deviceId || "web-browser"}
                       </span>
                     </div>
+                    {backendScreenshots.length > 0 && (
+                      <div className="flex justify-between border-t border-slate-800 pt-2 mt-1">
+                        <span className="text-slate-550 font-semibold">Active Session:</span>
+                        <span className="text-emerald-400 font-bold uppercase text-[9px]">Online</span>
+                      </div>
+                    )}
                   </div>
                 </div>
+
               </div>
 
             </div>
 
-            <div className="px-6 py-4 bg-slate-900/40 border-t border-slate-800 flex justify-end gap-2">
+            <div className="px-6 py-4 bg-slate-900/40 border-t border-slate-800 flex justify-end">
               <button
                 onClick={() => setShowScreenshotsModal(false)}
-                className="px-4 py-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all uppercase"
+                className="px-4 py-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-202 rounded-xl text-xs font-bold transition-all uppercase"
               >
                 Close Viewer
-              </button>
-              <button
-                onClick={() => alert("Downloading raw workstation snapshot stream logs...")}
-                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 rounded-xl text-xs font-black transition-all shadow-sm uppercase flex items-center gap-1"
-              >
-                <Download className="w-3.5 h-3.5" />
-                Download Zip
               </button>
             </div>
 
@@ -644,7 +757,95 @@ export default function EmployeesHR({
         </div>
       )}
 
-      {/* toast message alerts */}
+      {/* Regeneration Offer Letter Modal */}
+      {showRegenerateModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <form onSubmit={handleRegenerateOfferLetter} className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl border border-slate-100 flex flex-col animate-in fade-in zoom-in duration-200">
+            
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div>
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Offer Letter Wizard</span>
+                <h3 className="text-sm font-black text-slate-905">Generate Official Offer Letter</h3>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setShowRegenerateModal(false)}
+                className="p-1.5 hover:bg-slate-200 text-slate-550 rounded-lg transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <p className="text-[10px] text-slate-455 leading-relaxed">
+                Configure the snapshot values for this employee contract version. This creates a historical PDF version without altering live profiles.
+              </p>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Contract Designation</label>
+                <input 
+                  type="text" 
+                  value={regenDesignation} 
+                  onChange={(e) => setRegenDesignation(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 border border-slate-205 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-xs font-semibold bg-white text-slate-805"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Department</label>
+                <input 
+                  type="text" 
+                  value={regenDepartment} 
+                  onChange={(e) => setRegenDepartment(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 border border-slate-205 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-xs font-semibold bg-white text-slate-805"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Base Salary (USD / Month)</label>
+                <input 
+                  type="number" 
+                  value={regenBaseSalary} 
+                  onChange={(e) => setRegenBaseSalary(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 border border-slate-205 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-xs font-semibold bg-white text-slate-805"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Official Joining Date</label>
+                <input 
+                  type="date" 
+                  value={regenJoiningDate} 
+                  onChange={(e) => setRegenJoiningDate(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 border border-slate-205 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-xs font-semibold bg-white text-slate-805"
+                />
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setShowRegenerateModal(false)}
+                className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-500 rounded-xl text-xs font-bold transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-905 rounded-xl text-xs font-black transition-all shadow-sm uppercase tracking-wide"
+              >
+                Regenerate & Notify
+              </button>
+            </div>
+
+          </form>
+        </div>
+      )}
+
       {toast.show && (
         <div className={`fixed top-5 right-5 px-4 py-3 rounded-2xl shadow-lg border text-xs font-bold z-50 flex items-center gap-2 ${
           toast.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-705' : 'bg-rose-50 border-rose-100 text-rose-705'

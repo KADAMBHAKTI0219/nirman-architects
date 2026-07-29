@@ -8,18 +8,84 @@ const SIDEBAR_ITEMS = {
   Admin: [
     { label: "Dashboard", path: "/admin", icon: "LayoutDashboard" },
     { category: "ERP Modules" },
-    { label: "Projects", path: "/admin/projects", icon: "Building2" },
-    { label: "Tasks", path: "/admin/tasks", icon: "CheckSquare" },
-    { label: "Drawings", path: "/admin/drawings", icon: "FileCode" },
-    { label: "Documents", path: "/admin/docs/projects", icon: "FolderOpen" },
+    { 
+      label: "Projects", 
+      icon: "Building2",
+      subItems: [
+        { label: "Projects Directory", path: "/admin/projects" },
+        { label: "Project Timelines", path: "/admin/projects/timeline" }
+      ]
+    },
+    { 
+      label: "Tasks", 
+      icon: "CheckSquare",
+      subItems: [
+        { label: "Task Directory", path: "/admin/tasks" },
+        { label: "Overdue Tasks", path: "/admin/tasks/overdue" }
+      ]
+    },
+    { 
+      label: "Drawings", 
+      icon: "FileCode",
+      subItems: [
+        { label: "Drawings Directory", path: "/admin/drawings" },
+        { label: "Drawings Approvals", path: "/admin/drawings/approvals" },
+        { label: "GFC Releases", path: "/admin/drawings/gfc" }
+      ]
+    },
+    { 
+      label: "Documents", 
+      icon: "FolderOpen",
+      subItems: [
+        { label: "Project Documents", path: "/admin/docs/projects" },
+        { label: "Storage Analytics", path: "/admin/docs/global" }
+      ]
+    },
     { category: "Workforce Group" },
-    { label: "Attendance", path: "/admin/attendance/office", icon: "CalendarRange" },
-    { label: "Employees", path: "/admin/employees", icon: "Users" },
-    { label: "HR & Payroll", path: "/admin/hr/leaves", icon: "Briefcase" },
+    { 
+      label: "Attendance", 
+      icon: "CalendarRange",
+      subItems: [
+        { label: "Attendance Operations", path: "/admin/attendance/office" },
+        { label: "Employees Directory", path: "/admin/employees" },
+        { label: "Device Approvals", path: "/admin/attendance/devices" }
+      ]
+    },
+    { 
+      label: "HR & Payroll", 
+      icon: "Briefcase",
+      subItems: [
+        { label: "HR Overview", path: "/admin/hr/overview" },
+        { label: "Leave Management", path: "/admin/hr/leaves" },
+        { label: "Leave Master", path: "/admin/hr/leave-master" },
+        { label: "Shift Planner", path: "/admin/hr/shifts" },
+        { label: "Payroll Center", path: "/admin/hr/payroll" },
+        { label: "Performance Score", path: "/admin/hr/performance" }
+      ]
+    },
     { category: "CRM Modules" },
-    { label: "Clients & CRM", path: "/admin/crm/clients", icon: "BadgeAlert" },
+    { 
+      label: "Clients & CRM", 
+      icon: "BadgeAlert",
+      subItems: [
+        { label: "CRM Overview", path: "/admin/crm/overview" },
+        { label: "Client Directory", path: "/admin/crm/clients" },
+        { label: "Support Queries", path: "/admin/crm/queries" },
+        { label: "Client Approvals", path: "/admin/crm/approvals" }
+      ]
+    },
     { category: "Analytics & System" },
-    { label: "Analytics & Reports", path: "/admin/reports/projects", icon: "BarChart3" },
+    { 
+      label: "Analytics & Reports", 
+      icon: "BarChart3",
+      subItems: [
+        { label: "Project Progress", path: "/admin/reports/projects" },
+        { label: "Productivity Logs", path: "/admin/reports/productivity" },
+        { label: "Drawing Status", path: "/admin/reports/drawings" },
+        { label: "Attendance Registry", path: "/admin/reports/attendance" },
+        { label: "Leave Summaries", path: "/admin/reports/leaves" }
+      ]
+    },
     { label: "Notifications", path: "/admin/notifications", icon: "BellRing" },
     { label: "Settings", path: "/admin/settings", icon: "Settings2" },
     { label: "AI Insights (BI)", path: "/admin/bi", icon: "BrainCircuit" }
@@ -28,8 +94,24 @@ const SIDEBAR_ITEMS = {
     { label: "Dashboard", path: "/hr", icon: "LayoutDashboard" },
     { category: "Staff Management" },
     { label: "Employees", path: "/hr/employees", icon: "Users" },
-    { label: "Attendance", path: "/hr/attendance/office", icon: "CalendarRange" },
-    { label: "Leaves & Holidays", path: "/hr/leaves", icon: "Calendar" },
+    { 
+      label: "Attendance", 
+      icon: "CalendarRange",
+      subItems: [
+        { label: "Attendance Overview", path: "/hr/attendance/overview" },
+        { label: "Daily Punch Logs", path: "/hr/attendance/daily" },
+        { label: "Monthly Summaries", path: "/hr/attendance/monthly" },
+        { label: "Late & Exceptions", path: "/hr/attendance/exceptions" }
+      ]
+    },
+    { 
+      label: "Leaves & Holidays", 
+      icon: "Calendar",
+      subItems: [
+        { label: "Company Approvals", path: "/hr/leaves/company" },
+        { label: "My Personal Leaves", path: "/hr/leaves/personal" }
+      ]
+    },
     { label: "Shift Rosters", path: "/hr/shifts", icon: "Clock3" },
     { category: "Operations & Reviews" },
     { label: "Payroll", path: "/hr/payroll", icon: "Briefcase" },
@@ -117,6 +199,26 @@ const getProfileDetails = (role) => {
 export default function Sidebar({ role, onClose }) {
   const items = SIDEBAR_ITEMS[role] || [];
   const location = useLocation();
+
+  const [expandedMenus, setExpandedMenus] = React.useState(() => {
+    const activeObj = {};
+    items.forEach((item, idx) => {
+      if (item.subItems) {
+        const hasActiveSub = item.subItems.some(sub => location.pathname === sub.path || (sub.path !== '/' && location.pathname.startsWith(sub.path)));
+        if (hasActiveSub) {
+          activeObj[idx] = true;
+        }
+      }
+    });
+    return activeObj;
+  });
+
+  const toggleMenu = (idx) => {
+    setExpandedMenus(prev => ({
+      ...prev,
+      [idx]: !prev[idx]
+    }));
+  };
   
   let { initials, name, roleLabel } = getProfileDetails(role);
   const savedUserStr = localStorage.getItem('user');
@@ -165,6 +267,64 @@ export default function Sidebar({ role, onClose }) {
             return (
               <div key={`cat-${idx}`} className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-5 mb-2.5 px-4 block">
                 {item.category}
+              </div>
+            );
+          }
+
+          if (item.subItems) {
+            const isExpanded = !!expandedMenus[idx];
+            const hasExactSubMatch = item.subItems.some(sub => location.pathname === sub.path);
+            const hasActiveSub = item.subItems.some(sub => 
+              hasExactSubMatch 
+                ? location.pathname === sub.path 
+                : (sub.path !== '/' && location.pathname.startsWith(sub.path))
+            );
+            
+            return (
+              <div key={idx} className="space-y-1">
+                <button
+                  onClick={() => toggleMenu(idx)}
+                  className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                    hasActiveSub
+                      ? 'bg-brand-tint text-slate-900 font-extrabold border-l-4 border-brand-primary'
+                      : 'hover:bg-slate-50 hover:text-slate-900 text-slate-550'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    {renderIcon(item.icon)}
+                    <span>{item.label}</span>
+                  </div>
+                  {isExpanded ? (
+                    <Icons.ChevronDown className="w-3.5 h-3.5 transition-transform text-slate-400" />
+                  ) : (
+                    <Icons.ChevronRight className="w-3.5 h-3.5 transition-transform text-slate-400" />
+                  )}
+                </button>
+                {isExpanded && (
+                  <div className="pl-3.5 pr-1 py-1 space-y-1 border-l border-slate-100 ml-5">
+                    {item.subItems.map((sub, sIdx) => {
+                      const isSubActive = hasExactSubMatch 
+                        ? location.pathname === sub.path 
+                        : (sub.path !== '/' && location.pathname.startsWith(sub.path));
+                      return (
+                        <Link
+                          key={`sub-${idx}-${sIdx}`}
+                          to={sub.path}
+                          onClick={() => {
+                            if (onClose) onClose();
+                          }}
+                          className={`block px-3 py-2 rounded-lg text-[11px] font-semibold transition-all ${
+                            isSubActive
+                              ? 'bg-slate-50 text-slate-900 font-bold border-l-2 border-brand-primary/50'
+                              : 'hover:bg-slate-50/50 hover:text-slate-900 text-slate-450'
+                          }`}
+                        >
+                          {sub.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           }
