@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { LayoutGrid, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const CATEGORY_COLORS = {
-  Browser: 'bg-blue-50 text-blue-700 border-blue-200',
-  Development: 'bg-purple-50 text-purple-700 border-purple-200',
+  Browser: 'bg-brand-soft text-brand-dark border-brand-secondary',
+  Development: 'bg-sky-50 text-sky-700 border-sky-200',
   Design: 'bg-amber-50 text-amber-700 border-amber-200',
   Communication: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  Productivity: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  Productivity: 'bg-brand-light text-brand-dark border-brand-secondary',
   Entertainment: 'bg-orange-50 text-orange-700 border-orange-200',
   Other: 'bg-slate-100 text-slate-700 border-slate-200'
 };
@@ -50,7 +50,7 @@ export default function AppUsageDetailsTable({ appList }) {
       {/* Header */}
       <div className="flex items-center justify-between pb-2 border-b border-slate-100">
         <div className="flex items-center gap-2">
-          <LayoutGrid className="w-4 h-4 text-indigo-600" />
+          <LayoutGrid className="w-4 h-4 text-brand-dark" />
           <h3 className="font-extrabold text-slate-900 text-sm">Application Usage Details</h3>
         </div>
       </div>
@@ -154,7 +154,7 @@ export default function AppUsageDetailsTable({ appList }) {
               key={page}
               onClick={() => setCurrentPage(page)}
               className={`w-7 h-7 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                currentPage === page ? 'bg-indigo-600 text-white shadow-2xs' : 'hover:bg-slate-100 text-slate-700'
+                currentPage === page ? 'bg-brand-primary text-brand-dark font-extrabold shadow-2xs' : 'hover:bg-slate-100 text-slate-700'
               }`}
             >
               {page}

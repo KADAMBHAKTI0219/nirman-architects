@@ -20,7 +20,7 @@ export default function ActivityTimelineChart({ data = DEFAULT_TIMELINE_DATA }) 
       {/* Header & View Switcher */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-indigo-600" />
+          <Clock className="w-4 h-4 text-brand-dark" />
           <h3 className="font-extrabold text-slate-900 text-sm">Activity Timeline</h3>
         </div>
 

@@ -184,9 +184,9 @@ export default function AttendanceOps({
 
           <button
             onClick={() => alert("Exporting Attendance Data Report (CSV/PDF)...")}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
           >
-            <Download className="w-4 h-4 text-white" />
+            <Download className="w-4 h-4 text-brand-dark" />
             Export Attendance Report
           </button>
         </div>
@@ -198,7 +198,7 @@ export default function AttendanceOps({
         <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-slate-500 font-bold text-xs">Total Scheduled</span>
-            <div className="w-9 h-9 rounded-xl bg-purple-100/80 text-purple-600 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-brand-soft text-brand-dark flex items-center justify-center font-bold">
               <Users className="w-4 h-4" />
             </div>
           </div>
@@ -265,13 +265,13 @@ export default function AttendanceOps({
         <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-slate-500 font-bold text-xs">Office vs Site Mode</span>
-            <div className="w-9 h-9 rounded-xl bg-blue-100/80 text-blue-600 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-brand-soft text-brand-dark flex items-center justify-center font-bold">
               <Laptop className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
             <div className="text-2xl font-black text-slate-900">{metrics.officeCount} / {metrics.siteCount}</div>
-            <div className="mt-2 flex items-center gap-1 text-xs text-indigo-600 font-bold">
+            <div className="mt-2 flex items-center gap-1 text-xs text-brand-dark font-bold">
               <span>Laptop vs Mobile GPS</span>
             </div>
           </div>
@@ -289,7 +289,7 @@ export default function AttendanceOps({
               placeholder="Search employee by name, role, department..."
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-              className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50/50"
+              className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary bg-slate-50/50"
             />
           </div>
 
@@ -299,7 +299,7 @@ export default function AttendanceOps({
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+              className="px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary cursor-pointer"
             />
           </div>
 
@@ -307,7 +307,7 @@ export default function AttendanceOps({
           <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-            className="px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            className="px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary cursor-pointer"
           >
             <option value="All">All Statuses</option>
             <option value="Present">Present</option>
@@ -320,7 +320,7 @@ export default function AttendanceOps({
           <select
             value={modeFilter}
             onChange={(e) => { setModeFilter(e.target.value); setCurrentPage(1); }}
-            className="px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            className="px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary cursor-pointer"
           >
             <option value="All">All Modes</option>
             <option value="Office">Office Laptop</option>
@@ -349,7 +349,7 @@ export default function AttendanceOps({
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden space-y-4 p-5">
         <div className="flex items-center justify-between pb-2 border-b border-slate-100">
           <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-indigo-600" />
+            <Users className="w-4 h-4 text-brand-dark" />
             <h3 className="font-extrabold text-slate-900 text-sm">Daily Employee Attendance Summary</h3>
           </div>
           <span className="text-xs text-slate-400 font-bold">
@@ -379,7 +379,7 @@ export default function AttendanceOps({
                     {/* Employee Profile */}
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-extrabold text-xs flex items-center justify-center border border-indigo-200">
+                        <div className="w-8 h-8 rounded-full bg-brand-soft text-brand-dark font-extrabold text-xs flex items-center justify-center border border-brand-secondary">
                           {emp.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                         </div>
                         <div>
@@ -435,7 +435,7 @@ export default function AttendanceOps({
                     <td className="py-3.5 px-4 text-right">
                       <button
                         onClick={() => handleOpenInspect(emp)}
-                        className="px-3 py-1.5 bg-indigo-50 text-indigo-600 font-bold rounded-xl hover:bg-indigo-100 transition-all text-xs flex items-center gap-1.5 ml-auto"
+                        className="px-3 py-1.5 bg-brand-soft text-brand-dark font-extrabold rounded-xl hover:bg-brand-primary transition-all text-xs flex items-center gap-1.5 ml-auto cursor-pointer"
                       >
                         <History className="w-3.5 h-3.5" />
                         View Timeline
@@ -464,7 +464,7 @@ export default function AttendanceOps({
             <button
               onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
               disabled={currentPage === 1}
-              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 transition-colors text-slate-400 hover:text-slate-700"
+              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 transition-colors text-slate-400 hover:text-slate-700 cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -473,7 +473,7 @@ export default function AttendanceOps({
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
-                className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${currentPage === page ? 'bg-indigo-600 text-white shadow-2xs' : 'hover:bg-slate-100 text-slate-700'}`}
+                className={`w-7 h-7 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentPage === page ? 'bg-brand-primary text-brand-dark font-extrabold shadow-2xs' : 'hover:bg-slate-100 text-slate-700'}`}
               >
                 {page}
               </button>
@@ -482,7 +482,7 @@ export default function AttendanceOps({
             <button
               onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
               disabled={currentPage === totalPages}
-              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 transition-colors text-slate-400 hover:text-slate-700"
+              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 transition-colors text-slate-400 hover:text-slate-700 cursor-pointer"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -537,7 +537,7 @@ export default function AttendanceOps({
                 <YAxis stroke="#94A3B8" fontSize={11} fontWeight="bold" />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="office" stackId="a" fill="#6366F1" name="Office Laptop" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="office" stackId="a" fill="#BDE0FE" name="Office Laptop" radius={[0, 0, 0, 0]} />
                 <Bar dataKey="site" stackId="a" fill="#10B981" name="Site Mobile GPS" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -553,7 +553,7 @@ export default function AttendanceOps({
               {/* Header */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-extrabold text-sm flex items-center justify-center border border-indigo-200">
+                  <div className="w-10 h-10 rounded-full bg-brand-soft text-brand-dark font-extrabold text-sm flex items-center justify-center border border-brand-secondary">
                     {inspectEmployee.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                   </div>
                   <div>
@@ -586,7 +586,7 @@ export default function AttendanceOps({
               {/* Detailed Punch Timeline Logs */}
               <div className="space-y-3">
                 <h4 className="font-extrabold text-slate-900 text-xs flex items-center gap-2">
-                  <History className="w-4 h-4 text-indigo-600" />
+                  <History className="w-4 h-4 text-brand-dark" />
                   Check-In & Check-Out Timeline ({inspectEmployee.logs.length} {inspectEmployee.logs.length === 1 ? 'Entry' : 'Entries'})
                 </h4>
 
@@ -594,7 +594,7 @@ export default function AttendanceOps({
                   {inspectEmployee.logs.map((log, index) => (
                     <div key={log.id || index} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md text-[10px]">
+                        <span className="font-extrabold text-brand-dark bg-brand-soft border border-brand-secondary px-2 py-0.5 rounded-md text-[10px]">
                           Punch Session #{index + 1}
                         </span>
                         <span className="text-[11px] text-slate-500 font-mono font-bold">

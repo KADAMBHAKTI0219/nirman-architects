@@ -8,7 +8,7 @@
   --color-brand-tint: #F7FAFD;
   --color-brand-dark: #1E293B;
   --color-brand-text: #0F172A;
-  
+
   --font-sans: 'Poppins', 'Inter', system-ui, -apple-system, sans-serif;
 }
 
@@ -78,7 +78,9 @@ input::-ms-clear {
 }
 
 /* Stylized Form Inputs & Controls */
-input, select, textarea {
+input,
+select,
+textarea {
   border: 1.5px solid rgba(229, 240, 250, 0.85) !important;
   background-color: #FCFDFE !important;
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02) !important;
@@ -86,7 +88,9 @@ input, select, textarea {
   border-radius: 0.75rem !important;
 }
 
-input:focus, select:focus, textarea:focus {
+input:focus,
+select:focus,
+textarea:focus {
   outline: none !important;
   border-color: #8FC9FF !important;
   box-shadow: 0 0 0 4px rgba(143, 201, 255, 0.2) !important;
@@ -94,7 +98,9 @@ input:focus, select:focus, textarea:focus {
 }
 
 /* Faint Table Dividers */
-tr, th, td {
+tr,
+th,
+td {
   border-color: rgba(241, 245, 249, 0.6) !important;
 }
 
@@ -117,53 +123,66 @@ tr, th, td {
 
 /* Fluid Responsive Typography Scaling (sm, md, lg, xl, xxl) */
 html {
-  font-size: 13.5px; /* Default for mobile/portrait */
+  font-size: 13.5px;
+  /* Default for mobile/portrait */
 }
 
-@media (min-width: 640px) { /* sm */
+@media (min-width: 640px) {
+
+  /* sm */
   html {
     font-size: 14px;
   }
 }
 
-@media (min-width: 768px) { /* md */
+@media (min-width: 768px) {
+
+  /* md */
   html {
     font-size: 14.5px;
   }
 }
 
-@media (min-width: 1024px) { /* lg */
+@media (min-width: 1024px) {
+
+  /* lg */
   html {
     font-size: 15px;
   }
 }
 
-@media (min-width: 1280px) { /* xl */
+@media (min-width: 1280px) {
+
+  /* xl */
   html {
     font-size: 15.5px;
   }
 }
 
-@media (min-width: 1536px) { /* xxl */
+@media (min-width: 1536px) {
+
+  /* xxl */
   html {
     font-size: 16.5px;
   }
 }
 
 /* Typography softening overrides: reduce heavy bold weights to semibold */
-.font-black, 
-.font-extrabold, 
+.font-black,
+.font-extrabold,
 .font-bold,
 strong {
-  font-weight: 600 !important; /* Soften ultra-heavy weights to Semi-Bold */
+  font-weight: 600 !important;
+  /* Soften ultra-heavy weights to Semi-Bold */
 }
 
 /* Ensure only main/primary headings or key titles remain strong (Bold) */
-h1, 
-h2, 
-h3, 
-.text-2xl, 
-.text-3xl, 
+h1,
+h2,
+h3,
+.text-2xl,
+.text-3xl,
 .main-title {
-  font-weight: 700 !important; /* Keep primary contents bold */
+  font-weight: 700 !important;
+  /* Keep primary contents bold */
 }

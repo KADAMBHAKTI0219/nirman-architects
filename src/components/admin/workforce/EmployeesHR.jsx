@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Search, Eye, ShieldCheck, Mail, MapPin, Briefcase, FileText, CheckCircle2, 
+import {
+  Search, Eye, ShieldCheck, Mail, MapPin, Briefcase, FileText, CheckCircle2,
   Clock, Plus, Filter, Award, ChevronRight, Laptop, Calendar, DollarSign, UserCheck, X,
   Pencil, Trash2, Camera, Download, RefreshCw, AlertTriangle, Key
 } from 'lucide-react';
@@ -291,9 +291,9 @@ export default function EmployeesHR({
 
   // Filtered employees
   const filteredEmployees = localEmployees.filter(emp => {
-    const matchesSearch = emp.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          emp.designation.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          (emp.email || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      emp.designation.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (emp.email || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDept = selectedDept === 'All' || emp.department === selectedDept;
     return matchesSearch && matchesDept;
   });
@@ -311,15 +311,6 @@ export default function EmployeesHR({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onAddEmployeeClick}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
-          >
-            <Plus className="w-4 h-4 text-white" />
-            Add Employee
-          </button>
-        </div>
       </div>
 
       {/* 1. KPIs */}
@@ -346,27 +337,27 @@ export default function EmployeesHR({
         </div>
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs text-center">
           <span className="text-[9px] font-bold text-slate-400 uppercase block">Departments</span>
-          <strong className="text-base font-black text-indigo-505 block mt-1">4 Groups</strong>
+          <strong className="text-base font-black text-brand-dark block mt-1">4 Groups</strong>
         </div>
       </div>
 
       {/* 2. Main split view: Directory (3/3 full width) */}
       <div className="grid grid-cols-1 gap-6">
-        
+
         <div className="space-y-6">
-          
+
           <div className="bg-white p-4 rounded-3xl border border-slate-100/90 shadow-2xs flex flex-wrap gap-4 items-center justify-between">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input 
-                type="text" 
-                placeholder="Search by name, designation, email..." 
+              <input
+                type="text"
+                placeholder="Search by name, designation, email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 border border-slate-205 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-xs font-semibold bg-white text-slate-805"
               />
             </div>
-            
+
             <div className="flex gap-2 flex-wrap items-center">
               <select
                 value={selectedDept}
@@ -402,14 +393,14 @@ export default function EmployeesHR({
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {filteredEmployees.map(emp => (
-                    <tr 
-                      key={emp.id} 
+                    <tr
+                      key={emp.id}
                       className="hover:bg-slate-50/40 transition-colors"
                     >
                       <td className="px-5 py-4 align-middle">
                         <div className="flex items-center gap-2.5">
                           <div className="w-9 h-9 rounded-full bg-brand-primary/10 border border-brand-primary/20 flex items-center justify-center font-black text-slate-805 text-xs shrink-0">
-                            {emp.name.split(' ').map(n=>n[0]).join('')}
+                            {emp.name.split(' ').map(n => n[0]).join('')}
                           </div>
                           <div>
                             <strong className="text-slate-850 block text-xs">{emp.name}</strong>
@@ -421,7 +412,7 @@ export default function EmployeesHR({
                       <td className="px-5 py-4 text-slate-500 font-bold align-middle">{emp.department}</td>
                       <td className="px-5 py-4 text-right align-middle">
                         <div className="flex justify-end gap-2">
-                          
+
                           {/* VIEW PROFILE BUTTON */}
                           <button
                             onClick={() => handleOpenViewModal(emp)}
@@ -501,7 +492,7 @@ export default function EmployeesHR({
       {showViewModal && selectedEmployee && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl w-full max-w-4xl overflow-hidden shadow-2xl border border-slate-105 flex flex-col animate-in fade-in zoom-in duration-200 max-h-[90vh]">
-            
+
             {(() => {
               const u = viewUserFullData || selectedEmployee;
               const name = u.name || selectedEmployee.name || 'User';
@@ -522,14 +513,14 @@ export default function EmployeesHR({
                   <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                     <div className="flex items-center gap-3">
                       <div className="w-11 h-11 rounded-full bg-brand-primary/20 border border-brand-primary flex items-center justify-center font-black text-slate-805 text-sm shrink-0">
-                        {name.split(' ').map(n=>n[0]).join('')}
+                        {name.split(' ').map(n => n[0]).join('')}
                       </div>
                       <div>
                         <h3 className="text-sm font-black text-slate-905 leading-none">{name}</h3>
                         <span className="text-[10px] text-slate-455 font-bold block mt-1.5">{designation} &bull; Joined {joiningDate}</span>
                       </div>
                     </div>
-                    <button 
+                    <button
                       onClick={() => setShowViewModal(false)}
                       className="p-1.5 hover:bg-slate-200 text-slate-550 rounded-xl transition-all"
                     >
@@ -542,14 +533,14 @@ export default function EmployeesHR({
                     {viewUserLoading && (
                       <div className="text-center py-2 text-xs font-bold text-slate-400">Loading user profile from server...</div>
                     )}
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      
+
                       {/* Left side parameters */}
                       <div className="space-y-4">
                         <div className="bg-slate-50/50 border border-slate-100 p-4 rounded-2xl space-y-4">
                           <h4 className="text-[10px] font-black text-slate-450 uppercase tracking-wider border-b border-slate-200 pb-2">SHIFT & LEAVES REGISTRY</h4>
-                          
+
                           <div className="grid grid-cols-2 gap-4">
                             <div>
                               <span className="text-[9px] font-bold text-slate-400 block uppercase">Department</span>
@@ -572,7 +563,7 @@ export default function EmployeesHR({
 
                         <div className="bg-slate-50/50 border border-slate-100 p-4 rounded-2xl space-y-4">
                           <h4 className="text-[10px] font-black text-slate-450 uppercase tracking-wider border-b border-slate-200 pb-2">PAYROLL & PROJECTS SUMMARY</h4>
-                          
+
                           <div className="grid grid-cols-2 gap-4">
                             <div>
                               <span className="text-[9px] font-bold text-slate-400 block uppercase">Salary / Compensation</span>
@@ -587,7 +578,7 @@ export default function EmployeesHR({
                               </span>
                             </div>
                           </div>
-                          
+
                           <div>
                             <span className="text-[9px] font-bold text-slate-400 block uppercase mb-1">Assigned Active Projects</span>
                             <div className="flex flex-wrap gap-1.5">
@@ -611,7 +602,7 @@ export default function EmployeesHR({
                       <div className="space-y-4">
                         <div className="bg-slate-50/50 border border-slate-100 p-4 rounded-2xl space-y-4">
                           <h4 className="text-[10px] font-black text-slate-450 uppercase tracking-wider border-b border-slate-200 pb-2">OFFICIAL OFFER LETTER</h4>
-                          
+
                           {loadingOffer ? (
                             <span className="text-[10px] text-slate-400 italic block">Loading metadata...</span>
                           ) : offerMetadata ? (
@@ -633,14 +624,14 @@ export default function EmployeesHR({
                                 <span className="text-slate-700 font-bold">{new Date(offerMetadata.generatedAt).toLocaleDateString()}</span>
                               </div>
                               <div className="flex gap-2 pt-2 border-t border-slate-100">
-                                <button 
+                                <button
                                   onClick={handleDownloadOfferLetter}
                                   className="flex-1 py-1.5 bg-white border border-slate-205 hover:bg-slate-50 text-slate-750 text-[9px] font-black uppercase rounded-lg transition-all shadow-3xs flex items-center justify-center gap-0.5"
                                 >
                                   <FileText className="w-3.5 h-3.5 text-slate-450" />
                                   Download PDF
                                 </button>
-                                <button 
+                                <button
                                   onClick={() => {
                                     setRegenDesignation(offerMetadata.designationSnapshot || designation);
                                     setRegenDepartment(offerMetadata.departmentSnapshot || department);
@@ -676,7 +667,7 @@ export default function EmployeesHR({
 
                         <div className="bg-slate-50/50 border border-slate-100 p-4 rounded-2xl space-y-4">
                           <h4 className="text-[10px] font-black text-slate-450 uppercase tracking-wider border-b border-slate-200 pb-2">EMPLOYEE CONTACT & SYSTEM INFO</h4>
-                          
+
                           <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-slate-655">
                             <div>
                               <span className="text-[9px] font-bold text-slate-400 block uppercase">Employee ID</span>
@@ -748,7 +739,7 @@ export default function EmployeesHR({
       {showScreenshotsModal && selectedEmployee && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
           <div className="bg-[#0f172a] rounded-3xl w-full max-w-4xl overflow-hidden shadow-2xl border border-slate-800 flex flex-col animate-in fade-in zoom-in duration-200">
-            
+
             {/* Header */}
             <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/40">
               <div className="flex items-center gap-2.5">
@@ -760,7 +751,7 @@ export default function EmployeesHR({
                   </span>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => setShowScreenshotsModal(false)}
                 className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl transition-all"
               >
@@ -770,7 +761,7 @@ export default function EmployeesHR({
 
             {/* Grid Layout: Left side (3/4) is Screenshot viewer, Right side (1/4) is Controls & Details */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 p-6">
-              
+
               {/* Left Column (lg:col-span-3): Screenshot capture area */}
               <div className="lg:col-span-3 space-y-4">
                 {screenshotsLoading ? (
@@ -790,12 +781,12 @@ export default function EmployeesHR({
                   <div className="space-y-4">
                     {/* Interactive Screenshot Display Box */}
                     <div className="relative border-4 border-slate-800 rounded-2xl overflow-hidden bg-slate-950 shadow-inner flex items-center justify-center aspect-video">
-                      <img 
-                        src={backendScreenshots[activeScreenshotIdx].cloudinaryUrl || backendScreenshots[activeScreenshotIdx].filePath || desktopScreenshotImg} 
-                        alt="Captured Workspace desktop screenshot" 
+                      <img
+                        src={backendScreenshots[activeScreenshotIdx].cloudinaryUrl || backendScreenshots[activeScreenshotIdx].filePath || desktopScreenshotImg}
+                        alt="Captured Workspace desktop screenshot"
                         className="w-full h-full object-contain"
                       />
-                      
+
                       {/* Watermark/Details Overlay */}
                       <div className="absolute bottom-3 left-3 bg-slate-950/85 border border-slate-805 px-3 py-1.5 rounded-xl text-[10px] font-mono text-slate-350 flex flex-col gap-0.5">
                         <span>Capture ID: {backendScreenshots[activeScreenshotIdx]._id || backendScreenshots[activeScreenshotIdx].id}</span>
@@ -804,7 +795,7 @@ export default function EmployeesHR({
                           <span>File Size: {backendScreenshots[activeScreenshotIdx].fileSizeKB} KB</span>
                         )}
                       </div>
-                      
+
                       <div className="absolute top-3 right-3 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-md">
                         <ShieldCheck className="w-3.5 h-3.5" />
                         <span>Registry Verified</span>
@@ -815,13 +806,13 @@ export default function EmployeesHR({
                     <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold px-1">
                       <span>Showing {activeScreenshotIdx + 1} of {backendScreenshots.length} active captures</span>
                       <div className="flex gap-2">
-                        <button 
+                        <button
                           onClick={() => setActiveScreenshotIdx(prev => (prev === 0 ? backendScreenshots.length - 1 : prev - 1))}
                           className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-205 border border-slate-700 rounded-xl transition-colors font-bold uppercase tracking-wider"
                         >
                           Previous
                         </button>
-                        <button 
+                        <button
                           onClick={() => setActiveScreenshotIdx(prev => (prev === backendScreenshots.length - 1 ? 0 : prev + 1))}
                           className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-205 border border-slate-700 rounded-xl transition-colors font-bold uppercase tracking-wider"
                         >
@@ -835,22 +826,22 @@ export default function EmployeesHR({
 
               {/* Right Column (lg:col-span-1): Controls, Target Date Filter, and Device info */}
               <div className="space-y-4 text-xs font-semibold text-slate-300">
-                
+
                 {/* 1. Date Filter & Action card */}
                 <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-4">
                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2">Filter & Actions</h4>
-                  
+
                   <div className="space-y-3.5">
                     <div>
                       <span className="text-[8px] font-black text-slate-500 uppercase block mb-1.5">Target Date</span>
-                      <input 
+                      <input
                         type="date"
                         value={selectedScreenshotDate}
                         onChange={(e) => setSelectedScreenshotDate(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
                       />
                     </div>
-                    
+
                     <button
                       onClick={handleDownloadZip}
                       disabled={screenshotsLoading || backendScreenshots.length === 0}
@@ -910,13 +901,13 @@ export default function EmployeesHR({
       {showRegenerateModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <form onSubmit={handleRegenerateOfferLetter} className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl border border-slate-100 flex flex-col animate-in fade-in zoom-in duration-200">
-            
+
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div>
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Offer Letter Wizard</span>
                 <h3 className="text-sm font-black text-slate-905">Generate Official Offer Letter</h3>
               </div>
-              <button 
+              <button
                 type="button"
                 onClick={() => setShowRegenerateModal(false)}
                 className="p-1.5 hover:bg-slate-200 text-slate-550 rounded-lg transition-all"
@@ -932,9 +923,9 @@ export default function EmployeesHR({
 
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Contract Designation</label>
-                <input 
-                  type="text" 
-                  value={regenDesignation} 
+                <input
+                  type="text"
+                  value={regenDesignation}
                   onChange={(e) => setRegenDesignation(e.target.value)}
                   required
                   className="w-full px-3 py-2 border border-slate-205 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-xs font-semibold bg-white text-slate-805"
@@ -943,9 +934,9 @@ export default function EmployeesHR({
 
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Department</label>
-                <input 
-                  type="text" 
-                  value={regenDepartment} 
+                <input
+                  type="text"
+                  value={regenDepartment}
                   onChange={(e) => setRegenDepartment(e.target.value)}
                   required
                   className="w-full px-3 py-2 border border-slate-205 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-xs font-semibold bg-white text-slate-805"
@@ -954,9 +945,9 @@ export default function EmployeesHR({
 
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Base Salary (USD / Month)</label>
-                <input 
-                  type="number" 
-                  value={regenBaseSalary} 
+                <input
+                  type="number"
+                  value={regenBaseSalary}
                   onChange={(e) => setRegenBaseSalary(e.target.value)}
                   required
                   className="w-full px-3 py-2 border border-slate-205 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-xs font-semibold bg-white text-slate-805"
@@ -965,9 +956,9 @@ export default function EmployeesHR({
 
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Official Joining Date</label>
-                <input 
-                  type="date" 
-                  value={regenJoiningDate} 
+                <input
+                  type="date"
+                  value={regenJoiningDate}
                   onChange={(e) => setRegenJoiningDate(e.target.value)}
                   required
                   className="w-full px-3 py-2 border border-slate-205 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-xs font-semibold bg-white text-slate-805"
@@ -999,14 +990,14 @@ export default function EmployeesHR({
       {employeeToDelete && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl border border-slate-105 flex flex-col animate-in fade-in zoom-in duration-200">
-            
+
             {/* Header */}
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-rose-50/20">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-rose-500" />
                 <h3 className="text-sm font-black text-slate-905">Delete Employee?</h3>
               </div>
-              <button 
+              <button
                 onClick={() => setEmployeeToDelete(null)}
                 className="p-1.5 hover:bg-slate-200 text-slate-550 rounded-xl transition-all"
                 disabled={isDeleting}
@@ -1060,11 +1051,11 @@ export default function EmployeesHR({
       {showPasswordModal && targetPasswordUser && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl border border-slate-105 flex flex-col animate-in fade-in zoom-in duration-200">
-            
+
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-purple-50 text-purple-600 rounded-xl border border-purple-100">
+                <div className="p-2.5 bg-brand-soft text-brand-dark rounded-xl border border-brand-secondary">
                   <Key className="w-5 h-5" />
                 </div>
                 <div>
@@ -1072,7 +1063,7 @@ export default function EmployeesHR({
                   <span className="text-[10px] text-slate-500 font-semibold block mt-1">{targetPasswordUser.name} ({targetPasswordUser.email})</span>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => {
                   setShowPasswordModal(false);
                   setTargetPasswordUser(null);
@@ -1093,25 +1084,25 @@ export default function EmployeesHR({
 
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">New Password</label>
-                <input 
+                <input
                   type="password"
                   required
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Enter new password (min 6 chars)"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary"
                 />
               </div>
 
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">Confirm New Password</label>
-                <input 
+                <input
                   type="password"
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Confirm new password"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary"
                 />
               </div>
 
@@ -1129,9 +1120,9 @@ export default function EmployeesHR({
                 <button
                   type="submit"
                   disabled={isSubmittingPassword}
-                  className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-black rounded-xl text-xs transition-all shadow-sm flex items-center gap-1.5"
+                  className="px-5 py-2.5 bg-brand-primary hover:bg-brand-secondary disabled:opacity-50 text-brand-dark font-black rounded-xl text-xs transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Key className="w-3.5 h-3.5" />
+                  <Key className="w-3.5 h-3.5 text-brand-dark" />
                   {isSubmittingPassword ? 'Updating...' : 'Update Password'}
                 </button>
               </div>
@@ -1142,9 +1133,8 @@ export default function EmployeesHR({
       )}
 
       {toast.show && (
-        <div className={`fixed top-5 right-5 px-4 py-3 rounded-2xl shadow-lg border text-xs font-bold z-50 flex items-center gap-2 ${
-          toast.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-705' : 'bg-rose-50 border-rose-100 text-rose-705'
-        }`}>
+        <div className={`fixed top-5 right-5 px-4 py-3 rounded-2xl shadow-lg border text-xs font-bold z-50 flex items-center gap-2 ${toast.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-705' : 'bg-rose-50 border-rose-100 text-rose-705'
+          }`}>
           <div className={`w-2 h-2 rounded-full ${toast.type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
           <span>{toast.message}</span>
         </div>

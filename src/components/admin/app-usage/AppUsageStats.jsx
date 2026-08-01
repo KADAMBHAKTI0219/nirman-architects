@@ -16,7 +16,7 @@ export default function AppUsageStats({ statsData }) {
       <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
         <div className="flex items-center justify-between">
           <span className="text-slate-500 font-bold text-xs">Total Tracked Time</span>
-          <div className="w-9 h-9 rounded-xl bg-purple-100/80 text-purple-600 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-xl bg-brand-soft text-brand-dark font-bold flex items-center justify-center">
             <Clock className="w-4 h-4" />
           </div>
         </div>
@@ -67,7 +67,7 @@ export default function AppUsageStats({ statsData }) {
       <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
         <div className="flex items-center justify-between">
           <span className="text-slate-500 font-bold text-xs">Applications Used</span>
-          <div className="w-9 h-9 rounded-xl bg-blue-100/80 text-blue-600 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-xl bg-brand-soft text-brand-dark font-bold flex items-center justify-center">
             <LayoutGrid className="w-4 h-4" />
           </div>
         </div>
@@ -84,7 +84,7 @@ export default function AppUsageStats({ statsData }) {
       <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
         <div className="flex items-center justify-between">
           <span className="text-slate-500 font-bold text-xs">Productivity Score</span>
-          <div className="w-9 h-9 rounded-xl bg-purple-100/80 text-purple-600 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-xl bg-brand-soft text-brand-dark font-bold flex items-center justify-center">
             <TrendingUp className="w-4 h-4" />
           </div>
         </div>

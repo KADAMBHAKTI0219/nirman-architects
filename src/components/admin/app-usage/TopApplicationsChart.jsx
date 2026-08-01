@@ -17,10 +17,10 @@ export default function TopApplicationsChart({ apps = DEFAULT_TOP_APPS }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <LayoutGrid className="w-4 h-4 text-indigo-600" />
+          <LayoutGrid className="w-4 h-4 text-brand-dark" />
           <h3 className="font-extrabold text-slate-900 text-sm">Top Applications</h3>
         </div>
-        <button className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1 cursor-pointer">
+        <button className="text-xs font-extrabold text-brand-dark hover:text-slate-900 transition-colors flex items-center gap-1 cursor-pointer">
           View All
         </button>
       </div>

@@ -18,7 +18,7 @@ export default function ActivitySummaryGauge({
     <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-4 flex flex-col justify-between h-full">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <BarChart2 className="w-4 h-4 text-indigo-600" />
+        <BarChart2 className="w-4 h-4 text-brand-dark" />
         <h3 className="font-extrabold text-slate-900 text-sm">Activity Summary</h3>
       </div>
 

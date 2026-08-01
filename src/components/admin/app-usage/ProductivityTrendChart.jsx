@@ -20,7 +20,7 @@ export default function ProductivityTrendChart({ data = DEFAULT_TREND_DATA }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-indigo-600" />
+          <TrendingUp className="w-4 h-4 text-brand-dark" />
           <h3 className="font-extrabold text-slate-900 text-sm">Productivity Trend</h3>
         </div>
 

@@ -264,9 +264,9 @@ export default function AppUsageTracking({ userRole = 'Admin' }) {
           {/* Export Report Button */}
           <button
             onClick={handleExportReport}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
           >
-            <Download className="w-4 h-4 text-white" />
+            <Download className="w-4 h-4 text-brand-dark" />
             Export Report
           </button>
         </div>
