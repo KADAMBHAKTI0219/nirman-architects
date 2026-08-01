@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import AttendanceOps from './AttendanceOps';
 import EmployeesHR from './EmployeesHR';
+import AppUsageTracking from '../app-usage/AppUsageTracking';
 import { getAllAttendanceList } from '../../../service/attendance';
 import { getRoles, registerUser, getUsersList, getUserById, updateUser, getPendingDeviceRequests, approveDevice } from '../../../service/auth';
 import { parseIndexedObjectToArray } from '../../../service/leave';
@@ -425,59 +426,7 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
   return (
     <div className="space-y-6">
       
-      {/* Tab Navigation header */}
-      <div className="flex justify-between items-center border-b border-slate-105 pb-1 flex-wrap gap-4">
-        <div className="flex items-center gap-6 overflow-x-auto scrollbar-none pb-1">
-          <button
-            onClick={() => navigate('/admin/attendance/office')}
-            className={`pb-2 text-xs font-bold tracking-wide transition-all relative ${
-              activeTab === 'attendance'
-                ? 'text-slate-900 font-black'
-                : 'text-slate-400 hover:text-slate-600 font-semibold'
-            }`}
-          >
-            Attendance Operations
-            {activeTab === 'attendance' && (
-              <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-brand-primary rounded-full" />
-            )}
-          </button>
-          <button
-            onClick={() => navigate('/admin/employees')}
-            className={`pb-2 text-xs font-bold tracking-wide transition-all relative ${
-              activeTab === 'employees'
-                ? 'text-slate-900 font-black'
-                : 'text-slate-400 hover:text-slate-600 font-semibold'
-            }`}
-          >
-            Employees Directory
-            {activeTab === 'employees' && (
-              <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-brand-primary rounded-full" />
-            )}
-          </button>
-          <button
-            onClick={() => navigate('/admin/attendance/devices')}
-            className={`pb-2 text-xs font-bold tracking-wide transition-all relative flex items-center gap-1.5 ${
-              activeTab === 'devices'
-                ? 'text-slate-900 font-black'
-                : 'text-slate-400 hover:text-slate-600 font-semibold'
-            }`}
-          >
-            Device Approvals
-            {deviceRequests.length > 0 && (
-              <span className="bg-rose-500 text-white text-[9px] px-1.5 py-0.5 rounded-full font-black">
-                {deviceRequests.length}
-              </span>
-            )}
-            {activeTab === 'devices' && (
-              <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-brand-primary rounded-full" />
-            )}
-          </button>
-        </div>
 
-        <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 pb-1">
-          Workforce Command Center
-        </div>
-      </div>
 
       {error && (
         <div className="p-4 bg-rose-50 border border-rose-100 text-rose-605 rounded-2xl flex items-center gap-3 text-xs font-bold">
@@ -497,6 +446,10 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
           />
         )}
 
+        {activeTab === 'app-usage' && (
+          <AppUsageTracking userRole="Admin" />
+        )}
+
         {activeTab === 'employees' && (
           <EmployeesHR 
             employees={employees}
@@ -508,11 +461,20 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
         )}
 
         {activeTab === 'devices' && (
-          <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-2xs space-y-4 animate-in fade-in duration-200">
-            <div>
-              <h3 className="text-sm font-black text-slate-900">Workforce Device Binding Approvals</h3>
-              <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">Approve secondary device bindings and hardware changes</p>
+          <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
+            {/* TOP PAGE HEADER */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                  Device Binding Approvals
+                </h1>
+                <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+                  Approve secondary desktop device bindings, hardware changes & authorization requests
+                </p>
+              </div>
             </div>
+
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
             {deviceRequests.length === 0 ? (
               <div className="p-8 text-center text-slate-400 font-bold text-xs bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                 No pending device change requests found.
@@ -566,6 +528,7 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
                 </table>
               </div>
             )}
+          </div>
           </div>
         )}
       {/* Add Employee Modal overlay */}

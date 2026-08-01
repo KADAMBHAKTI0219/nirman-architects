@@ -9,7 +9,7 @@ import {
   CheckSquare, FileText, CheckCircle2, Clock 
 } from 'lucide-react';
 import Card from '../../common/Card';
-import { exportLeaveReport } from '../../../mockApi';
+import { exportLeaveReport } from '../../../service/mockApi';
 
 const COLORS = ['#8FC9FF', '#A2D2FF', '#34D399', '#EF4444'];
 

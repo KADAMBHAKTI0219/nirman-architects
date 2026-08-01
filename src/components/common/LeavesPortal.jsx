@@ -11,7 +11,7 @@ import {
   getCompanyLeaves,
   parseIndexedObjectToArray
 } from '../../service/leave';
-import * as mockApi from '../../mockApi';
+import * as mockApi from '../../service/mockApi';
 
 export default function LeavesPortal({ role = "Employee" }) {
   const [balances, setBalances] = useState([]);

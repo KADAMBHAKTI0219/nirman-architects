@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CRMOverview from './CRMOverview';
+import CRMLeadManagement from './CRMLeadManagement';
 import CRMClientList from './CRMClientList';
 import CRMClientProfile from './CRMClientProfile';
 import CRMQueries from './CRMQueries';
@@ -193,6 +194,7 @@ export default function CRM({ defaultTab = 'overview' }) {
 
   const tabs = [
     { id: 'overview', label: 'CRM Overview' },
+    { id: 'leads', label: 'Lead Management' },
     { id: 'clients', label: 'Client Directory' },
     { id: 'queries', label: 'Support Queries' },
     { id: 'approvals', label: 'Client Approvals' }
@@ -209,6 +211,7 @@ export default function CRM({ defaultTab = 'overview' }) {
               key={t.id}
               onClick={() => {
                 if (t.id === 'overview') navigate('/admin/crm/overview');
+                else if (t.id === 'leads') navigate('/admin/crm/leads');
                 else if (t.id === 'clients') navigate('/admin/crm/clients');
                 else if (t.id === 'queries') navigate('/admin/crm/queries');
                 else if (t.id === 'approvals') navigate('/admin/crm/approvals');
@@ -240,6 +243,10 @@ export default function CRM({ defaultTab = 'overview' }) {
             queriesList={queriesList}
             approvalsList={approvalsList}
           />
+        )}
+
+        {activeTab === 'leads' && (
+          <CRMLeadManagement />
         )}
 
         {activeTab === 'clients' && (

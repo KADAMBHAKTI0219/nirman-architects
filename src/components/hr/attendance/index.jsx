@@ -5,7 +5,7 @@ import AttendanceStats from './AttendanceStats';
 import AttendanceCalendar from './AttendanceCalendar';
 import AttendanceLogsTable from './AttendanceLogsTable';
 import AttendanceDetailDrawer from './AttendanceDetailDrawer';
-import { getHRDashboardWidgets } from '../../../mockApi';
+import { getHRDashboardWidgets } from '../../../service/mockApi';
 import { getAllAttendanceList } from '../../../service/attendance';
 import { parseIndexedObjectToArray } from '../../../service/leave';
 

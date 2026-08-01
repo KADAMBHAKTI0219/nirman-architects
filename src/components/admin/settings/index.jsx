@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import Card from '../../common/Card';
 import { getRoles, createRole } from '../../../service/auth';
-import { getSiteLocations, saveSiteLocation } from '../../../mockApi';
+import { getSiteLocations, saveSiteLocation } from '../../../service/mockApi';
 
 export default function Settings() {
   const [activeSettingTab, setActiveSettingTab] = useState('roles'); // general, roles, workflow, integrations
@@ -216,19 +216,23 @@ export default function Settings() {
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
       
       {/* Settings Header */}
-      <div className="flex justify-between items-center flex-wrap gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-black text-slate-900 tracking-tight">System Configuration Settings</h2>
-          <p className="text-xs text-slate-400">Configure global configurations, permissions roles, and QuickBooks API hooks</p>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            System Configuration Settings
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            Configure global configurations, permissions roles, and site geofence locations
+          </p>
         </div>
         <button
           onClick={handleSaveSettings}
-          className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-905 rounded-xl text-xs font-black uppercase transition-all shadow-sm flex items-center gap-1"
+          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
         >
-          <Save className="w-4 h-4" />
+          <Save className="w-4 h-4 text-white" />
           Save Configurations
         </button>
       </div>

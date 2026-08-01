@@ -6,7 +6,7 @@ import {
   Layers, MessageSquare, FolderOpen, Bell, CheckCheck 
 } from 'lucide-react';
 import Card from '../../common/Card';
-import { getAttendanceStatus, getMyAttendance } from '../../../mockApi';
+import { getAttendanceStatus, getMyAttendance } from '../../../service/mockApi';
 
 export default function EmployeeDashboard() {
   const navigate = useNavigate();

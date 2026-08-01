@@ -1,5 +1,8 @@
 import React from 'react';
-import { Search, Filter, Plus, Calendar, Clock, AlertCircle } from 'lucide-react';
+import { 
+  Search, Filter, Plus, Calendar, Clock, AlertCircle, 
+  Building2, AlertTriangle, FileText, DollarSign, ChevronRight, MoreHorizontal 
+} from 'lucide-react';
 
 export default function ProjectList({
   projects,
@@ -14,9 +17,10 @@ export default function ProjectList({
 }) {
   
   // Calculate summary metrics
-  const totalValuation = projects.reduce((acc, p) => acc + p.budget, 0);
+  const activeProjectsCount = projects.filter(p => p.status !== 'Completed').length;
   const delayedSitesCount = projects.filter(p => p.delayFlag).length;
   const totalPendingApprovals = projects.reduce((acc, p) => acc + p.pendingApprovals, 0);
+  const totalValuation = projects.reduce((acc, p) => acc + p.budget, 0);
 
   // Filter project cards
   const filteredProjects = projects.filter(p => {
@@ -29,77 +33,143 @@ export default function ProjectList({
   });
 
   return (
-    <div className="space-y-6">
-      {/* Roster Header */}
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
+      
+      {/* 0. PAGE HEADER */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-black text-slate-900 tracking-tight">Projects Control Center</h2>
-          <p className="text-xs text-slate-400">Full lifecycle project management, budgets, design sign-off, and delays</p>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            Projects Control Center
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            Full lifecycle project management, budgets, design sign-off, and delays
+          </p>
         </div>
-        <button
-          onClick={onCreateClick}
-          className="flex items-center gap-1.5 px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-905 font-black rounded-xl text-xs transition-all shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Create Project
-        </button>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onCreateClick}
+            className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4 text-white" />
+            Create Project
+          </button>
+        </div>
       </div>
 
-      {/* KPI Cards Panel */}
+      {/* 1. TOP 4 KPI CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-slate-100/90 shadow-2xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Active Database Contracts</span>
-          <div className="flex items-end justify-between mt-1">
-            <span className="text-xl font-black text-slate-805">{projects.length} Projects</span>
-            <span className="text-[10px] text-slate-400 font-semibold">100% Sync</span>
+        
+        {/* Card 1: Active Projects */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-100/90 shadow-2xs flex flex-col justify-between space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#E5F0FA] text-[#2484C6] flex items-center justify-center font-bold">
+                <Building2 className="w-5 h-5 text-[#2484C6]" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-slate-400 block">Active Projects</span>
+                <span className="text-2xl font-black text-slate-900 block mt-0.5">{activeProjectsCount}</span>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-slate-400" />
+          </div>
+          <div className="space-y-1 pt-1">
+            <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+              <div className="h-full bg-[#2484C6] rounded-full w-full"></div>
+            </div>
+            <span className="text-[10px] font-bold text-slate-400 block">100% Synced</span>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-100/90 shadow-2xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Delayed At-Risk Sites</span>
-          <div className="flex items-end justify-between mt-1">
-            <span className="text-xl font-black text-rose-600">{delayedSitesCount} Sites</span>
-            <span className="text-[9px] font-black px-1.5 py-0.5 bg-rose-50 text-rose-600 rounded-full">Requires Attention</span>
+
+        {/* Card 2: Delayed Sites */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-100/90 shadow-2xs flex flex-col justify-between space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+                <AlertTriangle className="w-5 h-5 text-rose-600" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-slate-400 block">Delayed Sites</span>
+                <span className="text-2xl font-black text-slate-900 block mt-0.5">{delayedSitesCount}</span>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-slate-400" />
+          </div>
+          <div className="pt-1">
+            <span className="text-[11px] font-extrabold text-rose-600 block">Requires Attention</span>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-100/90 shadow-2xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pending Drawing Signoffs</span>
-          <div className="flex items-end justify-between mt-1">
-            <span className="text-xl font-black text-slate-805">{totalPendingApprovals} Drawings</span>
-            <span className="text-[10px] text-slate-450 font-bold">Workflow</span>
+
+        {/* Card 3: Pending Drawings */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-100/90 shadow-2xs flex flex-col justify-between space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#E5F0FA] text-[#2484C6] flex items-center justify-center font-bold">
+                <FileText className="w-5 h-5 text-[#2484C6]" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-slate-400 block">Pending Drawings</span>
+                <span className="text-2xl font-black text-slate-900 block mt-0.5">{totalPendingApprovals}</span>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-slate-400" />
+          </div>
+          <div className="pt-1">
+            <span className="text-[11px] font-bold text-slate-400 block">In Workflow</span>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-100/90 shadow-2xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Cumulative Valuation</span>
-          <div className="flex items-end justify-between mt-1">
-            <span className="text-xl font-black text-[#2484C6]">${(totalValuation / 1000000).toFixed(2)}M</span>
-            <span className="text-[10px] text-slate-400 font-semibold">Budget Limit</span>
+
+        {/* Card 4: Cumulative Valuation */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-100/90 shadow-2xs flex flex-col justify-between space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                <DollarSign className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-slate-400 block">Cumulative Valuation</span>
+                <span className="text-2xl font-black text-slate-900 block mt-0.5">${(totalValuation / 1000000).toFixed(2)}M</span>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-slate-400" />
+          </div>
+          <div className="space-y-1 pt-1">
+            <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+              <div className="h-full bg-emerald-500 rounded-full w-4/5"></div>
+            </div>
+            <span className="text-[10px] font-bold text-slate-400 block">Budget Limit: $6.20M</span>
           </div>
         </div>
+
       </div>
 
-      {/* Filter and Search controls */}
-      <div className="bg-white p-4 rounded-3xl border border-slate-100/90 shadow-xs flex flex-wrap gap-4 items-center justify-between">
-        <div className="flex items-center gap-3 flex-1 min-w-[240px]">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input 
-              type="text"
-              placeholder="Search projects by name, code, or client..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-xs font-semibold bg-white"
-            />
-          </div>
+      {/* 2. SEARCH & FILTER RIBBON */}
+      <div className="bg-white p-3.5 rounded-2xl border border-slate-100/90 shadow-2xs flex flex-wrap gap-4 items-center justify-between">
+        
+        {/* Search Bar */}
+        <div className="relative flex-1 min-w-[260px]">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input 
+            type="text"
+            placeholder="Search projects by name, code, or client..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 text-xs font-semibold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white text-slate-800"
+          />
         </div>
+
+        {/* Filters Right Actions */}
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-            <Filter className="w-3.5 h-3.5" />
-            Filters:
-          </div>
+          <button className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all cursor-pointer">
+            <Filter className="w-3.5 h-3.5 text-slate-500" />
+            Filters
+          </button>
+          
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-700 bg-white font-semibold"
+            className="px-3.5 py-2 text-xs font-bold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 bg-white cursor-pointer"
           >
             <option value="All">All Statuses</option>
             <option value="In Progress">In Progress</option>
@@ -107,10 +177,11 @@ export default function ProjectList({
             <option value="Delayed / At Risk">Delayed / At Risk</option>
             <option value="Completed">Completed</option>
           </select>
+
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
-            className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-700 bg-white font-semibold"
+            className="px-3.5 py-2 text-xs font-bold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 bg-white cursor-pointer"
           >
             <option value="All">All Priorities</option>
             <option value="Critical">Critical</option>
@@ -118,123 +189,158 @@ export default function ProjectList({
             <option value="Medium">Medium</option>
           </select>
         </div>
+
       </div>
 
-      {/* Grid containing cards */}
+      {/* 3. PROJECT CARDS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredProjects.map((p) => (
           <div 
             key={p.code} 
             onClick={() => onSelectProject(p)}
-            className={`bg-white rounded-3xl border p-5 flex flex-col justify-between space-y-4 hover:shadow-md hover:border-brand-primary/30 hover:-translate-y-1 transition-all duration-300 cursor-pointer ${
-              p.delayFlag ? 'border-rose-100 bg-rose-50/5 animate-pulse-subtle' : 'border-slate-100/90'
-            }`}
+            className="bg-white rounded-3xl border border-slate-100/90 p-5 shadow-2xs space-y-4 hover:shadow-md hover:border-slate-200 transition-all duration-200 cursor-pointer flex flex-col justify-between"
           >
-            {/* 1. Header Badges */}
-            <div className="flex justify-between items-start">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{p.code}</span>
+            {/* Top Row: Code & Badges */}
+            <div className="flex justify-between items-center">
+              <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{p.code}</span>
+              
               <div className="flex items-center gap-1.5">
-                <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider ${
-                  p.priority === 'Critical' ? 'bg-rose-50 text-rose-600' :
-                  p.priority === 'High' ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-500'
+                <span className={`text-[9px] px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider ${
+                  p.priority === 'Critical' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
+                  p.priority === 'High' ? 'bg-amber-50 text-amber-600 border border-amber-100' : 'bg-slate-50 text-slate-500 border border-slate-100'
                 }`}>
                   {p.priority}
                 </span>
-                <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider ${
-                  p.status.includes('Progress') ? 'bg-indigo-50 text-indigo-600' :
-                  p.status.includes('Planning') ? 'bg-sky-50 text-sky-600' :
-                  p.status.includes('Delayed') ? 'bg-rose-100 text-rose-700' : 'bg-emerald-50 text-emerald-600'
+
+                <span className={`text-[9px] px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider ${
+                  p.status.includes('Progress') ? 'bg-blue-50 text-blue-600 border border-blue-100' :
+                  p.status.includes('Planning') ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                  p.status.includes('Delayed') ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
                 }`}>
                   {p.status}
                 </span>
               </div>
             </div>
 
-            {/* 2. Title & Client */}
-            <div>
-              <h3 className="text-sm font-black text-slate-805 block hover:text-brand-primary leading-tight truncate">{p.name}</h3>
-              <span className="text-[10px] text-slate-400 font-bold block mt-0.5">{p.client}</span>
+            {/* Project Name & Client Subtitle */}
+            <div className="space-y-0.5">
+              <h3 className="text-base font-extrabold text-slate-900 leading-snug hover:text-indigo-600 transition-colors truncate">
+                {p.name}
+              </h3>
+              <p className="text-xs font-semibold text-slate-400 truncate">
+                {p.client}
+              </p>
             </div>
 
-            {/* 3. Project Manager (Sarah Connor Above details grid) */}
-            <div className="flex items-center gap-2 p-2 bg-slate-50 border border-slate-100/60 rounded-2xl self-start">
-              <div className="w-6 h-6 rounded-full bg-brand-primary text-slate-905 border border-white flex items-center justify-center text-[8px] font-black shadow-xs uppercase flex-shrink-0">
-                {p.manager.split(' ').map(n=>n[0]).join('')}
+            {/* Project Lead Card */}
+            <div className="flex items-center gap-3 p-2.5 bg-slate-50/70 rounded-2xl border border-slate-100/80">
+              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-extrabold text-xs flex items-center justify-center flex-shrink-0">
+                {p.manager ? p.manager.split(' ').map(n=>n[0]).join('').toUpperCase() : 'PM'}
               </div>
               <div>
-                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block leading-none">Project Lead</span>
-                <span className="text-[10px] font-black text-slate-700 mt-0.5 block leading-none">{p.manager}</span>
+                <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                  PROJECT LEAD
+                </span>
+                <span className="text-xs font-extrabold text-slate-800 block">
+                  {p.manager}
+                </span>
               </div>
             </div>
 
-            {/* 4. Details Grid */}
-            <div className="grid grid-cols-2 gap-y-2 pt-1 text-[10px]">
+            {/* Dates Row (Start Date & Est Deadline) */}
+            <div className="grid grid-cols-2 gap-4 text-xs pt-1">
               <div>
-                <span className="text-slate-400 block uppercase tracking-wider text-[8px] font-bold">Start Date</span>
-                <span className="font-semibold text-slate-650 flex items-center gap-1 mt-0.5">
-                  <Calendar className="w-3 h-3 text-slate-400" /> {p.startDate}
+                <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                  START DATE
                 </span>
+                <div className="flex items-center gap-1.5 mt-1 font-bold text-slate-700">
+                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{p.startDate}</span>
+                </div>
               </div>
+
               <div>
-                <span className="text-slate-400 block uppercase tracking-wider text-[8px] font-bold">Est Deadline</span>
-                <span className="font-semibold text-slate-650 flex items-center gap-1 mt-0.5">
-                  <Clock className="w-3 h-3 text-slate-400" /> {p.estCompletion}
+                <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                  EST DEADLINE
                 </span>
+                <div className="flex items-center gap-1.5 mt-1 font-bold text-slate-700">
+                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{p.estCompletion}</span>
+                </div>
               </div>
+            </div>
+
+            {/* Metrics Row (Pending Actions & Budget Valuation) */}
+            <div className="grid grid-cols-2 gap-4 text-xs pt-1">
               <div>
-                <span className="text-slate-400 block uppercase tracking-wider text-[8px] font-bold">Pending Actions</span>
-                <span className="font-extrabold text-slate-700 block mt-0.5">
+                <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                  PENDING ACTIONS
+                </span>
+                <span className="font-extrabold text-slate-800 block mt-1">
                   {p.pendingApprovals} Approvals / {p.pendingTasks} Tasks
                 </span>
               </div>
+
               <div>
-                <span className="text-slate-400 block uppercase tracking-wider text-[8px] font-bold">Budget Valuation</span>
-                <span className="font-extrabold text-slate-800 block mt-0.5">
+                <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                  BUDGET VALUATION
+                </span>
+                <span className="font-extrabold text-slate-800 block mt-1">
                   ${(p.budget / 1000).toFixed(0)}k
                 </span>
               </div>
             </div>
 
-            {/* 5. Delay risk warning if flagged */}
+            {/* Delay Warning Box (if flagged) */}
             {p.delayFlag && (
-              <div className="p-2.5 bg-rose-50 border border-rose-100 rounded-xl flex items-start gap-2">
+              <div className="p-3 bg-rose-50 border border-rose-100 rounded-2xl flex items-start gap-2.5 text-xs text-rose-700 font-bold">
                 <AlertCircle className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
-                <p className="text-[9px] font-bold text-rose-705 leading-normal">{p.delayReason}</p>
+                <p className="leading-snug text-[11px]">{p.delayReason}</p>
               </div>
             )}
 
-            {/* 6. Milestone Progress (At last, above footer) */}
-            <div className="space-y-1.5 pt-2 border-t border-slate-50">
-              <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
-                <span>Milestone Progress</span>
-                <span className="font-extrabold text-slate-705">{p.progress}%</span>
+            {/* Bottom Progress Bar & Dots Menu */}
+            <div className="pt-2 space-y-2 border-t border-slate-100/80">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-extrabold text-slate-500 text-[11px]">Overall Progress</span>
+                <span className="font-extrabold text-slate-900 text-[11px]">{p.progress}%</span>
               </div>
-              <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                <div 
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    p.delayFlag ? 'bg-rose-450' : 'bg-brand-primary'
-                  }`}
-                  style={{ width: `${p.progress}%` }}
-                ></div>
+
+              <div className="flex items-center justify-between gap-3">
+                <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden flex-1">
+                  <div 
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      p.delayFlag ? 'bg-rose-500' : 'bg-blue-600'
+                    }`}
+                    style={{ width: `${p.progress}%` }}
+                  ></div>
+                </div>
+
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectProject(p);
+                  }}
+                  className="w-7 h-7 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-all flex-shrink-0 cursor-pointer"
+                  title="Project details"
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </button>
               </div>
             </div>
 
-            {/* 7. Footer: Manage Project link */}
-            <div className="pt-1 flex items-center justify-end">
-              <span className="text-[10px] font-black text-brand-dark hover:underline flex items-center gap-0.5">
-                Manage Project &rarr;
-              </span>
-            </div>
           </div>
         ))}
 
         {filteredProjects.length === 0 && (
           <div className="col-span-full py-12 text-center bg-white border border-slate-100 rounded-3xl">
             <AlertCircle className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-            <h4 className="text-xs font-black text-slate-805">No projects found matching filter criteria.</h4>
+            <h4 className="text-xs font-black text-slate-800">No projects found matching filter criteria.</h4>
           </div>
         )}
       </div>
+
     </div>
   );
 }
+

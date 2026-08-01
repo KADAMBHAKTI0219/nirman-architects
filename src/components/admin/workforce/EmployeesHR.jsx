@@ -299,8 +299,29 @@ export default function EmployeesHR({
   });
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      
+    <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
+      {/* 0. TOP PAGE HEADER & ACTION RIBBON */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            Employees Directory
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            Manage corporate employees, designations, department allocation & onboarding
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onAddEmployeeClick}
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4 text-white" />
+            Add Employee
+          </button>
+        </div>
+      </div>
+
       {/* 1. KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs text-center">

@@ -47,6 +47,7 @@ const SIDEBAR_ITEMS = {
       icon: "CalendarRange",
       subItems: [
         { label: "Attendance Operations", path: "/admin/attendance/office" },
+        { label: "App Usage Tracking", path: "/admin/app-usage" },
         { label: "Employees Directory", path: "/admin/employees" },
         { label: "Device Approvals", path: "/admin/attendance/devices" }
       ]
@@ -69,6 +70,7 @@ const SIDEBAR_ITEMS = {
       icon: "BadgeAlert",
       subItems: [
         { label: "CRM Overview", path: "/admin/crm/overview" },
+        { label: "Lead Management", path: "/admin/crm/leads" },
         { label: "Client Directory", path: "/admin/crm/clients" },
         { label: "Support Queries", path: "/admin/crm/queries" },
         { label: "Client Approvals", path: "/admin/crm/approvals" }
@@ -99,6 +101,7 @@ const SIDEBAR_ITEMS = {
       icon: "CalendarRange",
       subItems: [
         { label: "Attendance Overview", path: "/hr/attendance/overview" },
+        { label: "App Usage Tracking", path: "/hr/app-usage" },
         { label: "Daily Punch Logs", path: "/hr/attendance/daily" },
         { label: "Monthly Summaries", path: "/hr/attendance/monthly" },
         { label: "Late & Exceptions", path: "/hr/attendance/exceptions" }

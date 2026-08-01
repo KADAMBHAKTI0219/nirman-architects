@@ -10,10 +10,16 @@ import EmployeeDocs from '../components/employee/documents/index';
 import EmployeeChat from '../components/employee/chat/index';
 import EmployeeNotifications from '../components/employee/notifications/index';
 import LeavesPortal from '../components/common/LeavesPortal';
+import AppUsageTracking from '../components/admin/app-usage/AppUsageTracking';
 
 export default function getEmployeeRoutes(handleRoleChange) {
   return (
     <>
+      <Route path="/employee/app-usage" element={
+        <DashboardLayout role="Employee" onChangeRole={handleRoleChange} title="My App Usage Tracking">
+          <AppUsageTracking userRole="Employee" />
+        </DashboardLayout>
+      } />
       <Route path="/employee" element={
         <DashboardLayout role="Employee" onChangeRole={handleRoleChange} title="Employee Dashboard">
           <EmployeeDashboard />

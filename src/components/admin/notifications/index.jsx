@@ -101,8 +101,20 @@ export default function Notifications() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
       
+      {/* TOP PAGE HEADER */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            Notifications & Alert Center
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            Manage communication channels, broadcast alerts, and process system notifications
+          </p>
+        </div>
+      </div>
+
       {/* Top statistics banner */}
       <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-2xs flex flex-wrap gap-4 items-center justify-between">
         <div className="flex items-center gap-3">

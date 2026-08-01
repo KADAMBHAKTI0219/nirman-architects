@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Heart, HardHat, BrainCircuit, Star } from 'lucide-react';
-import { getUsers, getHRDashboardWidgets, getSiteLocations } from '../../../mockApi';
+import { getUsers, getHRDashboardWidgets, getSiteLocations } from '../../../service/mockApi';
 
 export default function Stats() {
   const [stats, setStats] = useState({

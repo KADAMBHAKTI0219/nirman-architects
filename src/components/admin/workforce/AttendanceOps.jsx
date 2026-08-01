@@ -1,297 +1,625 @@
-import React, { useState } from 'react';
-import { 
-  ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, 
-  CartesianGrid, Tooltip, Legend, BarChart, Bar 
+import React, { useState, useMemo } from 'react';
+import {
+  ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend
 } from 'recharts';
-import { 
-  Search, Eye, Clock, MapPin, Laptop, ShieldCheck, Smartphone, 
-  Download, ArrowRight, UserCheck, AlertTriangle
+import {
+  Search, Eye, Clock, MapPin, Laptop, ShieldCheck, Smartphone,
+  Download, ArrowRight, UserCheck, AlertTriangle, Users, Calendar,
+  Filter, CheckCircle2, XCircle, ChevronLeft, ChevronRight, X,
+  RotateCcw, SlidersHorizontal, History, User, TrendingUp, Coffee,
+  CheckCircle, AlertCircle
 } from 'lucide-react';
-import Card from '../../common/Card';
 
-const COLORS = ['#10B981', '#F59E0B', '#EF4444', '#64748B'];
+const DONUT_COLORS = ['#8FC9FF', '#A2D2FF', '#F87171', '#2484C6'];
 
 export default function AttendanceOps({
-  attendanceLogs,
-  liveAlerts,
+  attendanceLogs = [],
+  liveAlerts = [],
   onSelectEmployee,
-  selectedEmployee
+  selectedEmployee: propSelectedEmployee
 }) {
+  // Navigation & Filter states
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterMode, setFilterMode] = useState('All'); // All, Office, Site
+  const [statusFilter, setStatusFilter] = useState('All'); // All | Present | Late | Absent | On Leave
+  const [modeFilter, setModeFilter] = useState('All'); // All | Office | Site
+  const [departmentFilter, setDepartmentFilter] = useState('All');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
-  // Filtered Logs
-  const filteredLogs = attendanceLogs.filter(log => {
-    const matchesSearch = log.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesMode = filterMode === 'All' || log.mode === filterMode;
-    return matchesSearch && matchesMode;
-  });
+  // Punch Timeline Inspection Modal
+  const [inspectEmployee, setInspectEmployee] = useState(null);
 
-  // Recharts Data
+  // Generate fallback employee attendance list if props are empty or minimal
+  const sampleLogs = useMemo(() => {
+    if (attendanceLogs && attendanceLogs.length > 0) {
+      return attendanceLogs;
+    }
+
+    return [
+      { id: 'att-1', employeeId: 'u-1', name: 'Bhakti Kadam', role: 'HR Officer', department: 'HR', timeIn: '09:05 AM', timeOut: '06:15 PM', hours: '9h 10m', mode: 'Office', status: 'Present', date: selectedDate },
+      { id: 'att-2', employeeId: 'u-1', name: 'Bhakti Kadam', role: 'HR Officer', department: 'HR', timeIn: '01:00 PM', timeOut: '01:45 PM', hours: '0h 45m', mode: 'Office', status: 'Present', date: selectedDate },
+      { id: 'att-3', employeeId: 'u-2', name: 'Lax Savani', role: 'Admin', department: 'Executive', timeIn: '08:50 AM', timeOut: '05:40 PM', hours: '8h 50m', mode: 'Office', status: 'Present', date: selectedDate },
+      { id: 'att-4', employeeId: 'u-3', name: 'Sarah Connor', role: 'Lead Architect', department: 'Architecture', timeIn: '09:45 AM', timeOut: '06:30 PM', hours: '8h 45m', mode: 'Office', status: 'Late', date: selectedDate },
+      { id: 'att-5', employeeId: 'u-4', name: 'Alice Smith', role: 'Staff Engineer', department: 'Engineering', timeIn: '09:00 AM', timeOut: '06:00 PM', hours: '9h 00m', mode: 'Office', status: 'Present', date: selectedDate },
+      { id: 'att-6', employeeId: 'u-5', name: 'Bob Johnson', role: 'Site Engineer', department: 'Construction', timeIn: '08:30 AM', timeOut: '05:00 PM', hours: '8h 30m', mode: 'Site', status: 'Present', date: selectedDate },
+      { id: 'att-7', employeeId: 'u-6', name: 'Charlie Brown', role: 'Project Manager', department: 'Management', timeIn: '09:10 AM', timeOut: '06:20 PM', hours: '9h 10m', mode: 'Office', status: 'Present', date: selectedDate },
+      { id: 'att-8', employeeId: 'u-7', name: 'Vikram Singh', role: 'Site Supervisor', department: 'Construction', timeIn: '08:40 AM', timeOut: '05:30 PM', hours: '8h 50m', mode: 'Site', status: 'Present', date: selectedDate },
+      { id: 'att-9', employeeId: 'u-8', name: 'Priya Sharma', role: 'Interior Designer', department: 'Architecture', timeIn: '09:30 AM', timeOut: '06:15 PM', hours: '8h 45m', mode: 'Office', status: 'Late', date: selectedDate },
+      { id: 'att-10', employeeId: 'u-9', name: 'Aarav Shah', role: 'Structural Engineer', department: 'Engineering', timeIn: 'N/A', timeOut: 'N/A', hours: '0h 0m', mode: 'Office', status: 'Absent', date: selectedDate },
+      { id: 'att-11', employeeId: 'u-10', name: 'Neha Kapoor', role: 'Draftsman', department: 'Architecture', timeIn: '09:00 AM', timeOut: '06:00 PM', hours: '9h 00m', mode: 'Office', status: 'Present', date: selectedDate },
+      { id: 'att-12', employeeId: 'u-11', name: 'Rohan Mehta', role: 'QA Inspector', department: 'Engineering', timeIn: 'N/A', timeOut: 'N/A', hours: '0h 0m', mode: 'Office', status: 'On Leave', date: selectedDate },
+      { id: 'att-13', employeeId: 'u-12', name: 'Sneha Kulkarni', role: 'Accountant', department: 'Finance', timeIn: '09:15 AM', timeOut: '06:00 PM', hours: '8h 45m', mode: 'Office', status: 'Present', date: selectedDate }
+    ];
+  }, [attendanceLogs, selectedDate]);
+
+  // Group logs by employee so that 1 employee has 1 consolidated row for the day
+  const groupedEmployeeSummary = useMemo(() => {
+    const map = new Map();
+
+    sampleLogs.forEach(log => {
+      const empKey = log.employeeId || log.userId || log.email || log.name;
+      if (!map.has(empKey)) {
+        map.set(empKey, {
+          id: empKey,
+          employeeId: log.employeeId || log.userId || empKey,
+          name: log.name || log.employeeName || 'Staff Member',
+          role: log.role || log.designation || 'Staff',
+          department: log.department || 'Operations',
+          status: log.status || 'Present',
+          mode: log.mode || 'Office',
+          date: log.date || selectedDate,
+          firstIn: log.timeIn || 'N/A',
+          lastOut: log.timeOut || 'In Progress',
+          hours: log.hours || '8h 30m',
+          punchesCount: 1,
+          logs: [log]
+        });
+      } else {
+        const existing = map.get(empKey);
+        existing.punchesCount += 1;
+        existing.logs.push(log);
+        if (log.timeOut && log.timeOut !== 'N/A') {
+          existing.lastOut = log.timeOut;
+        }
+      }
+    });
+
+    return Array.from(map.values());
+  }, [sampleLogs, selectedDate]);
+
+  // Filter employees
+  const filteredEmployees = useMemo(() => {
+    return groupedEmployeeSummary.filter(emp => {
+      const matchesSearch = emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        emp.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        emp.department.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = statusFilter === 'All' || emp.status === statusFilter;
+      const matchesMode = modeFilter === 'All' || emp.mode === modeFilter;
+      const matchesDept = departmentFilter === 'All' || emp.department === departmentFilter;
+
+      return matchesSearch && matchesStatus && matchesMode && matchesDept;
+    });
+  }, [groupedEmployeeSummary, searchQuery, statusFilter, modeFilter, departmentFilter]);
+
+  // Paginated list (limit 10 per page)
+  const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage) || 1;
+  const paginatedEmployees = useMemo(() => {
+    const startIdx = (currentPage - 1) * itemsPerPage;
+    return filteredEmployees.slice(startIdx, startIdx + itemsPerPage);
+  }, [filteredEmployees, currentPage]);
+
+  // Summary Metrics
+  const metrics = useMemo(() => {
+    const total = groupedEmployeeSummary.length || 148;
+    const present = groupedEmployeeSummary.filter(e => e.status === 'Present').length || 132;
+    const late = groupedEmployeeSummary.filter(e => e.status === 'Late').length || 6;
+    const absent = groupedEmployeeSummary.filter(e => e.status === 'Absent').length || 7;
+    const onLeave = groupedEmployeeSummary.filter(e => e.status === 'On Leave').length || 3;
+    const officeCount = groupedEmployeeSummary.filter(e => e.mode === 'Office').length || 110;
+    const siteCount = groupedEmployeeSummary.filter(e => e.mode === 'Site').length || 38;
+
+    return { total, present, late, absent, onLeave, officeCount, siteCount };
+  }, [groupedEmployeeSummary]);
+
+  // Charts Data
   const donutData = [
-    { name: 'Present Today', value: attendanceLogs.filter(l => l.status === 'Present').length },
-    { name: 'Late Arrival', value: attendanceLogs.filter(l => l.status === 'Late').length },
-    { name: 'Absent', value: 2 },
-    { name: 'On Leave', value: 1 }
+    { name: 'Present', value: metrics.present },
+    { name: 'Late Arrival', value: metrics.late },
+    { name: 'Absent', value: metrics.absent },
+    { name: 'On Leave', value: metrics.onLeave }
   ];
 
   const trendData = [
-    { day: 'Mon', office: 12, site: 8 },
-    { day: 'Tue', office: 14, site: 9 },
-    { day: 'Wed', office: 15, site: 9 },
-    { day: 'Thu', office: 13, site: 7 },
-    { day: 'Fri', office: 15, site: 10 }
+    { day: 'Mon', office: 105, site: 35 },
+    { day: 'Tue', office: 112, site: 36 },
+    { day: 'Wed', office: 108, site: 38 },
+    { day: 'Thu', office: 110, site: 34 },
+    { day: 'Fri', office: 114, site: 37 }
   ];
 
+  const handleOpenInspect = (emp) => {
+    setInspectEmployee(emp);
+    if (onSelectEmployee) {
+      onSelectEmployee(emp.logs[0] || emp);
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'Present':
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      case 'Late':
+        return 'bg-amber-50 text-amber-700 border-amber-200';
+      case 'Absent':
+        return 'bg-rose-50 text-rose-700 border-rose-200';
+      case 'On Leave':
+        return 'bg-blue-50 text-blue-700 border-blue-200';
+      default:
+        return 'bg-slate-100 text-slate-700 border-slate-200';
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      
-      {/* 1. KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs text-center">
-          <span className="text-[9px] font-bold text-slate-400 uppercase block">Present Today</span>
-          <strong className="text-base font-black text-emerald-600 block mt-1">24 Staff</strong>
+    <div className="space-y-6 font-sans text-slate-800 pb-12">
+      {/* 1. TOP PAGE HEADER & EXPORT ACTION */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            Attendance Operations
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            Monitor daily employee attendance, punches, biometric validation & shift status
+          </p>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs text-center">
-          <span className="text-[9px] font-bold text-slate-400 uppercase block">Absent</span>
-          <strong className="text-base font-black text-rose-600 block mt-1">2 Staff</strong>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs text-center">
-          <span className="text-[9px] font-bold text-slate-400 uppercase block">Late Arrival</span>
-          <strong className="text-base font-black text-amber-500 block mt-1">3 Staff</strong>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs text-center">
-          <span className="text-[9px] font-bold text-slate-400 uppercase block">On Leave</span>
-          <strong className="text-base font-black text-slate-500 block mt-1">1 Staff</strong>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs text-center">
-          <span className="text-[9px] font-bold text-slate-400 uppercase block">Office Check-ins</span>
-          <strong className="text-base font-black text-sky-505 block mt-1">15 Laptop</strong>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs text-center">
-          <span className="text-[9px] font-bold text-slate-400 uppercase block">Site Check-ins</span>
-          <strong className="text-base font-black text-indigo-505 block mt-1">9 Mobile</strong>
+
+        <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2">
+            <span className="px-3 py-1.5 bg-emerald-50 text-emerald-600 border border-emerald-200 text-xs font-bold rounded-full flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Live Biometrics
+            </span>
+          </div>
+
+          <button
+            onClick={() => alert("Exporting Attendance Data Report (CSV/PDF)...")}
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+          >
+            <Download className="w-4 h-4 text-white" />
+            Export Attendance Report
+          </button>
         </div>
       </div>
 
-      {/* 2. Main content Split: List & Charts (2/3 width) + Live feed (1/3 width) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Left Side: Search, Table and Charts */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          {/* Filters Bar */}
-          <div className="bg-white p-4 rounded-3xl border border-slate-100/90 shadow-2xs flex flex-wrap gap-4 items-center justify-between">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input 
-                type="text" 
-                placeholder="Search staff attendance..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 border border-slate-205 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-xs font-semibold bg-white"
-              />
-            </div>
-            <div className="flex gap-2">
-              {['All', 'Office', 'Site'].map(mode => (
-                <button
-                  key={mode}
-                  onClick={() => setFilterMode(mode)}
-                  className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
-                    filterMode === mode 
-                      ? 'bg-brand-primary border-brand-primary text-slate-905 shadow-3xs' 
-                      : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
-                  }`}
-                >
-                  {mode}
-                </button>
-              ))}
+      {/* 2. TOP STAT CARDS (5 METRIC CARDS MATCHING APP-USAGE STYLE) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Card 1: Total Scheduled */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-slate-500 font-bold text-xs">Total Scheduled</span>
+            <div className="w-9 h-9 rounded-xl bg-purple-100/80 text-purple-600 flex items-center justify-center">
+              <Users className="w-4 h-4" />
             </div>
           </div>
-
-          {/* Table */}
-          <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-2xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left table-auto">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/50">
-                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Employee Name</th>
-                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Check-In</th>
-                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Check-Out</th>
-                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Hours</th>
-                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Mode</th>
-                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-55">
-                  {filteredLogs.map(log => (
-                    <tr key={log.id} className={`hover:bg-slate-50/40 cursor-pointer ${selectedEmployee?.id === log.employeeId ? 'bg-slate-50' : ''}`} onClick={() => onSelectEmployee(log)}>
-                      <td className="px-4 py-3.5 align-middle">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-brand-tint border border-brand-primary flex items-center justify-center font-bold text-[10px] text-slate-700">
-                            {log.name.split(' ').map(n=>n[0]).join('')}
-                          </div>
-                          <div>
-                            <strong className="text-slate-805 block">{log.name}</strong>
-                            <span className="text-[9px] text-slate-400 block font-semibold">{log.role}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3.5 text-slate-500 font-bold align-middle">{log.timeIn}</td>
-                      <td className="px-4 py-3.5 text-slate-500 font-semibold align-middle">{log.timeOut}</td>
-                      <td className="px-4 py-3.5 text-slate-705 font-black align-middle">{log.hours}</td>
-                      <td className="px-4 py-3.5 align-middle">
-                        <div className="flex items-center gap-1">
-                          {log.mode === 'Office' ? <Laptop className="w-3.5 h-3.5 text-slate-400" /> : <Smartphone className="w-3.5 h-3.5 text-slate-400" />}
-                          <span className="text-[10px] font-semibold text-slate-600">{log.mode}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3.5 align-middle">
-                        <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${
-                          log.status === 'Present' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                          log.status === 'Late' ? 'bg-amber-50 text-amber-600 border-amber-100' :
-                          'bg-slate-50 text-slate-500 border-slate-200'
-                        }`}>{log.status}</span>
-                      </td>
-                      <td className="px-4 py-3.5 text-right align-middle">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSelectEmployee(log);
-                          }}
-                          className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all shadow-3xs"
-                          title="Inspect Selfie Validation"
-                        >
-                          <Eye className="w-3.5 h-3.5 text-slate-650" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div className="mt-3">
+            <div className="text-2xl font-black text-slate-900">{metrics.total} Staff</div>
+            <div className="mt-2 flex items-center gap-1 text-xs text-emerald-600 font-extrabold">
+              <TrendingUp className="w-3.5 h-3.5" />
+              <span>100% Assigned</span>
             </div>
           </div>
+        </div>
 
-          {/* Charts Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
-            {/* Status donut */}
-            <Card title="Attendance Present Distribution" subtitle="Today check-ins status segmentation">
-              <div className="h-48 flex justify-center items-center">
-                <div className="h-40 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={donutData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={45}
-                        outerRadius={65}
-                        paddingAngle={4}
-                        dataKey="value"
+        {/* Card 2: Present Today */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-slate-500 font-bold text-xs">Present Today</span>
+            <div className="w-9 h-9 rounded-xl bg-emerald-100/80 text-emerald-600 flex items-center justify-center">
+              <UserCheck className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-black text-slate-900">{metrics.present} Staff</div>
+            <div className="mt-2 flex items-center gap-1 text-xs text-emerald-600 font-extrabold">
+              <TrendingUp className="w-3.5 h-3.5" />
+              <span>92% Attendance Rate</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Late Arrivals */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-slate-500 font-bold text-xs">Late Arrivals</span>
+            <div className="w-9 h-9 rounded-xl bg-amber-100/80 text-amber-600 flex items-center justify-center">
+              <Clock className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-black text-slate-900">{metrics.late} Staff</div>
+            <div className="mt-2 flex items-center gap-1 text-xs text-amber-600 font-extrabold">
+              <AlertCircle className="w-3.5 h-3.5" />
+              <span>Grace period applied</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 4: Absent & On Leave */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-slate-500 font-bold text-xs">Absent / Leave</span>
+            <div className="w-9 h-9 rounded-xl bg-rose-100/80 text-rose-600 flex items-center justify-center">
+              <XCircle className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-black text-slate-900">{metrics.absent + metrics.onLeave} Staff</div>
+            <div className="mt-2 flex items-center gap-1 text-xs text-slate-500 font-bold">
+              <span>{metrics.absent} Absent · {metrics.onLeave} On Leave</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 5: Check-in Mode Ratio */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-slate-500 font-bold text-xs">Office vs Site Mode</span>
+            <div className="w-9 h-9 rounded-xl bg-blue-100/80 text-blue-600 flex items-center justify-center">
+              <Laptop className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-black text-slate-900">{metrics.officeCount} / {metrics.siteCount}</div>
+            <div className="mt-2 flex items-center gap-1 text-xs text-indigo-600 font-bold">
+              <span>Laptop vs Mobile GPS</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. FILTERS CONTROL BAR */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
+          {/* Search input */}
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+            <input
+              type="text"
+              placeholder="Search employee by name, role, department..."
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+              className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50/50"
+            />
+          </div>
+
+          {/* Date Picker */}
+          <div className="relative">
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            />
+          </div>
+
+          {/* Status Filter */}
+          <select
+            value={statusFilter}
+            onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+            className="px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+          >
+            <option value="All">All Statuses</option>
+            <option value="Present">Present</option>
+            <option value="Late">Late Arrival</option>
+            <option value="Absent">Absent</option>
+            <option value="On Leave">On Leave</option>
+          </select>
+
+          {/* Mode Filter */}
+          <select
+            value={modeFilter}
+            onChange={(e) => { setModeFilter(e.target.value); setCurrentPage(1); }}
+            className="px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+          >
+            <option value="All">All Modes</option>
+            <option value="Office">Office Laptop</option>
+            <option value="Site">Site Mobile GPS</option>
+          </select>
+        </div>
+
+        {/* Reset Filters */}
+        <button
+          onClick={() => {
+            setSearchQuery('');
+            setStatusFilter('All');
+            setModeFilter('All');
+            setDepartmentFilter('All');
+            setSelectedDate(new Date().toISOString().split('T')[0]);
+            setCurrentPage(1);
+          }}
+          className="px-3 py-2 text-slate-500 hover:text-slate-800 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+        >
+          <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
+          Reset Filters
+        </button>
+      </div>
+
+      {/* 4. MAIN ATTENDANCE DIRECTORY TABLE (LIMIT 10 PER PAGE, GROUPED BY EMPLOYEE) */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden space-y-4 p-5">
+        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-indigo-600" />
+            <h3 className="font-extrabold text-slate-900 text-sm">Daily Employee Attendance Summary</h3>
+          </div>
+          <span className="text-xs text-slate-400 font-bold">
+            Showing {filteredEmployees.length} unique employees
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="text-slate-400 font-extrabold uppercase tracking-wider border-b border-slate-100 text-[10px]">
+                <th className="py-3 px-4">Employee</th>
+                <th className="py-3 px-4">Department</th>
+                <th className="py-3 px-4">First Clock-In</th>
+                <th className="py-3 px-4">Last Clock-Out</th>
+                <th className="py-3 px-4">Total Hours</th>
+                <th className="py-3 px-4">Check-In Mode</th>
+                <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4">Punches</th>
+                <th className="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+              {paginatedEmployees.length > 0 ? (
+                paginatedEmployees.map(emp => (
+                  <tr key={emp.id} className="hover:bg-slate-50/80 transition-colors">
+                    {/* Employee Profile */}
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-extrabold text-xs flex items-center justify-center border border-indigo-200">
+                          {emp.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="font-extrabold text-slate-900">{emp.name}</div>
+                          <div className="text-[11px] text-slate-400 font-medium">{emp.role}</div>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Department */}
+                    <td className="py-3.5 px-4 font-bold text-slate-700">
+                      {emp.department}
+                    </td>
+
+                    {/* First Clock-In */}
+                    <td className="py-3.5 px-4 font-mono font-bold text-slate-800">
+                      {emp.firstIn}
+                    </td>
+
+                    {/* Last Clock-Out */}
+                    <td className="py-3.5 px-4 font-mono text-slate-500 font-semibold">
+                      {emp.lastOut}
+                    </td>
+
+                    {/* Total Hours */}
+                    <td className="py-3.5 px-4 font-black text-slate-900">
+                      {emp.hours}
+                    </td>
+
+                    {/* Mode */}
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                        {emp.mode === 'Office' ? <Laptop className="w-3.5 h-3.5 text-slate-400" /> : <Smartphone className="w-3.5 h-3.5 text-slate-400" />}
+                        <span>{emp.mode}</span>
+                      </div>
+                    </td>
+
+                    {/* Status Badge */}
+                    <td className="py-3.5 px-4">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${getStatusBadge(emp.status)}`}>
+                        {emp.status}
+                      </span>
+                    </td>
+
+                    {/* Punches Count Badge */}
+                    <td className="py-3.5 px-4">
+                      <span className="px-2 py-0.5 bg-slate-100 text-slate-700 font-bold rounded-md text-[11px]">
+                        {emp.punchesCount} {emp.punchesCount === 1 ? 'Punch' : 'Punches'}
+                      </span>
+                    </td>
+
+                    {/* Action Button */}
+                    <td className="py-3.5 px-4 text-right">
+                      <button
+                        onClick={() => handleOpenInspect(emp)}
+                        className="px-3 py-1.5 bg-indigo-50 text-indigo-600 font-bold rounded-xl hover:bg-indigo-100 transition-all text-xs flex items-center gap-1.5 ml-auto"
                       >
-                        {donutData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                      <Legend verticalAlign="bottom" align="center" iconSize={8} iconType="circle" />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </Card>
-
-            {/* Stacked bar ratio */}
-            <Card title="Office vs Site Check-In Trends" subtitle="Laptop auto login versus site mobile GPS validations">
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="105%">
-                  <BarChart data={trendData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                    <XAxis dataKey="day" stroke="#94A3B8" fontSize={9} fontWeight="bold" />
-                    <YAxis stroke="#94A3B8" fontSize={9} fontWeight="bold" />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="office" stackId="a" fill="#A2D2FF" name="Office Laptop" />
-                    <Bar dataKey="site" stackId="a" fill="#34D399" name="Site Mobile GPS" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </Card>
-
-          </div>
-
+                        <History className="w-3.5 h-3.5" />
+                        View Timeline
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="9" className="py-10 text-center text-slate-400 font-bold">
+                    No employee attendance records found matching filters.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
 
-        {/* Right Side: Live Alerts feed & selfie validation displays */}
-        <div className="space-y-6">
-          
-          {/* Selfie Snapshot display of clicked employee */}
-          {selectedEmployee && (
-            <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-2xs space-y-4">
-              <div className="border-b border-slate-50 pb-2">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Biometric Selfie Validation</span>
-                <strong className="text-xs text-slate-805 block mt-0.5">{selectedEmployee.name}</strong>
-              </div>
+        {/* Pagination Controls (Limit 10 per page) */}
+        <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs text-slate-500 font-medium">
+          <div>
+            Showing {filteredEmployees.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} to {Math.min(currentPage * itemsPerPage, filteredEmployees.length)} of {filteredEmployees.length} employees
+          </div>
 
-              <div className="relative rounded-2xl overflow-hidden border border-slate-150 h-36 bg-slate-900 flex items-center justify-center">
-                {/* Simulated Selfie webcam picture */}
-                <div className="w-16 h-16 rounded-full bg-sky-500/20 border-2 border-sky-400 flex items-center justify-center font-black text-white text-base">
-                  {selectedEmployee.name.split(' ').map(n=>n[0]).join('')}
-                </div>
-                <div className="absolute bottom-2 left-2 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1 shadow-sm">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  Selfie Matches Profile ID
-                </div>
-              </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 transition-colors text-slate-400 hover:text-slate-700"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
 
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-slate-400 font-bold uppercase text-[9px]">Timestamp</span>
-                  <span className="font-semibold text-slate-700">{selectedEmployee.timeIn}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400 font-bold uppercase text-[9px]">Device Verified</span>
-                  <span className="font-semibold text-slate-700">{selectedEmployee.mode} Authentication</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400 font-bold uppercase text-[9px]">Geo-Fence status</span>
-                  <span className="font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded">Inside Site radius</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Live Alerts feed */}
-          <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-2xs space-y-4">
-            <h4 className="text-[10px] font-black text-slate-455 uppercase tracking-widest block border-b border-slate-55 pb-2">Live Check-In alerts</h4>
-            <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-              {liveAlerts.map(alert => (
-                <div key={alert.id} className="p-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs space-y-1">
-                  <div className="flex justify-between text-[8px] text-slate-400 font-bold uppercase">
-                    <span>{alert.type} Alert</span>
-                    <span>{alert.time}</span>
-                  </div>
-                  <p className="font-semibold text-slate-700 leading-normal">{alert.message}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex gap-2 justify-center pt-2">
-              <button 
-                onClick={() => alert("Downloading PDF summary data reports...")}
-                className="flex-1 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-205 text-slate-700 rounded-xl text-[10px] font-black uppercase transition-all shadow-3xs"
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${currentPage === page ? 'bg-indigo-600 text-white shadow-2xs' : 'hover:bg-slate-100 text-slate-700'}`}
               >
-                Export Reports
+                {page}
               </button>
-            </div>
+            ))}
+
+            <button
+              onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 transition-colors text-slate-400 hover:text-slate-700"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
-
         </div>
-
       </div>
 
+      {/* 5. CHARTS & FEED ROW */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+        {/* Attendance Distribution Donut */}
+        <div className="lg:col-span-6 bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <h3 className="font-extrabold text-slate-900 text-sm">Attendance Present Distribution</h3>
+            <span className="text-[11px] text-slate-400 font-bold">Today</span>
+          </div>
+
+          <div className="h-52 w-full flex items-center justify-center">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={donutData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={75}
+                  paddingAngle={4}
+                  dataKey="value"
+                >
+                  {donutData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={DONUT_COLORS[index % DONUT_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend verticalAlign="bottom" align="center" iconSize={8} iconType="circle" />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Office vs Site Trends Stacked Bar */}
+        <div className="lg:col-span-6 bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <h3 className="font-extrabold text-slate-900 text-sm">Office vs Site Check-In Trends</h3>
+            <span className="text-[11px] text-slate-400 font-bold">Weekly</span>
+          </div>
+
+          <div className="h-52 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={trendData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                <XAxis dataKey="day" stroke="#94A3B8" fontSize={11} fontWeight="bold" />
+                <YAxis stroke="#94A3B8" fontSize={11} fontWeight="bold" />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="office" stackId="a" fill="#6366F1" name="Office Laptop" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="site" stackId="a" fill="#10B981" name="Site Mobile GPS" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* 6. INSPECT EMPLOYEE PUNCH TIMELINE DRAWER / MODAL */}
+      {inspectEmployee && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-end z-50 animate-in slide-in-from-right duration-200">
+          <div className="bg-white w-full max-w-xl h-full shadow-2xl overflow-y-auto p-6 space-y-6 flex flex-col justify-between">
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-extrabold text-sm flex items-center justify-center border border-indigo-200">
+                    {inspectEmployee.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Employee Punch History</span>
+                    <h2 className="text-xl font-extrabold text-slate-900">{inspectEmployee.name}</h2>
+                  </div>
+                </div>
+                <button onClick={() => setInspectEmployee(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Status & Hours Summary Ribbon */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Today's Status</span>
+                  <span className={`px-3 py-1 rounded-full text-xs font-black border ${getStatusBadge(inspectEmployee.status)}`}>
+                    {inspectEmployee.status}
+                  </span>
+                </div>
+
+                <div className="text-right">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Hours Worked</span>
+                  <span className="text-base font-black text-slate-900">{inspectEmployee.hours}</span>
+                </div>
+              </div>
+
+
+
+              {/* Detailed Punch Timeline Logs */}
+              <div className="space-y-3">
+                <h4 className="font-extrabold text-slate-900 text-xs flex items-center gap-2">
+                  <History className="w-4 h-4 text-indigo-600" />
+                  Check-In & Check-Out Timeline ({inspectEmployee.logs.length} {inspectEmployee.logs.length === 1 ? 'Entry' : 'Entries'})
+                </h4>
+
+                <div className="space-y-2.5">
+                  {inspectEmployee.logs.map((log, index) => (
+                    <div key={log.id || index} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md text-[10px]">
+                          Punch Session #{index + 1}
+                        </span>
+                        <span className="text-[11px] text-slate-500 font-mono font-bold">
+                          {inspectEmployee.date}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                        <div>
+                          <span className="text-slate-400 text-[10px] font-bold uppercase block">Clock In</span>
+                          <span className="font-mono font-extrabold text-emerald-700">{log.timeIn || inspectEmployee.firstIn}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 text-[10px] font-bold uppercase block">Clock Out</span>
+                          <span className="font-mono font-extrabold text-slate-800">{log.timeOut || inspectEmployee.lastOut}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

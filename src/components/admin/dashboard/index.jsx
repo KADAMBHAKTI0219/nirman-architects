@@ -56,7 +56,19 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
+      {/* TOP PAGE HEADER */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            Executive Command Dashboard
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            Real-time financial overview, project health indicators & GFC sign-off queue
+          </p>
+        </div>
+      </div>
+
       <Stats />
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

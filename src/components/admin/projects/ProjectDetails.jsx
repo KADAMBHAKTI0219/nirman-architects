@@ -8,7 +8,7 @@ import {
   Clock, Send, HelpCircle 
 } from 'lucide-react';
 import Card from '../../common/Card';
-import { getProjectTeamLeaves } from '../../../mockApi';
+import { getProjectTeamLeaves } from '../../../service/mockApi';
 
 export default function ProjectDetails({
   project,

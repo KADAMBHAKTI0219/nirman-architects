@@ -48,13 +48,17 @@ export default function TaskList({
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
       
       {/* Header */}
-      <div className="flex justify-between items-center flex-wrap gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-black text-slate-900 tracking-tight">Task Operations Center</h2>
-          <p className="text-xs text-slate-400">Roster assignments, workflow status tracking, time analysis, and sign-offs</p>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            Task Operations Center
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            Roster assignments, workflow status tracking, time analysis, and sign-offs
+          </p>
         </div>
         <div className="flex items-center gap-3">
           {/* View switcher */}

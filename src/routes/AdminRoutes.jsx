@@ -15,10 +15,16 @@ import AdminAnalytics from '../components/admin/analytics/index';
 import AdminNotifications from '../components/admin/notifications/index';
 import AdminSettings from '../components/admin/settings/index';
 import AdminBI from '../components/admin/bi/index';
+import AppUsageTracking from '../components/admin/app-usage/AppUsageTracking';
 
 export default function getAdminRoutes(handleRoleChange) {
   return (
     <>
+      <Route path="/admin/app-usage" element={
+        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="App Usage Tracking">
+          <AppUsageTracking userRole="Admin" />
+        </DashboardLayout>
+      } />
       <Route path="/admin" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Admin / Super Admin">
           <AdminDashboard />
@@ -132,6 +138,11 @@ export default function getAdminRoutes(handleRoleChange) {
       <Route path="/admin/crm/overview" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Clients & CRM">
           <AdminCRM defaultTab="overview" />
+        </DashboardLayout>
+      } />
+      <Route path="/admin/crm/leads" element={
+        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Clients & CRM">
+          <AdminCRM defaultTab="leads" />
         </DashboardLayout>
       } />
       <Route path="/admin/crm/clients" element={

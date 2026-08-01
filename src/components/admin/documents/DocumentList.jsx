@@ -45,8 +45,27 @@ export default function DocumentList({
   const lockedCount = documents.filter(doc => doc.locked).length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
       
+      {/* 0. TOP PAGE HEADER */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            Documents Vault & Archiving
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            Store, organize, version control, and secure project documents and client agreements
+          </p>
+        </div>
+        <button
+          onClick={onUploadClick}
+          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+        >
+          <Plus className="w-4 h-4 text-white" />
+          Upload Document
+        </button>
+      </div>
+
       {/* 1. Project Selector Tabs */}
       <div className="flex gap-2 pb-1 overflow-x-auto scrollbar-none">
         {projectsList.map(proj => (

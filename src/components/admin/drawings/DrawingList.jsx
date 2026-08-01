@@ -48,7 +48,20 @@ export default function DrawingList({
   const gfcLockedCount = drawings.filter(d => d.status === 'GFC Locked').length;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <div className="space-y-6 font-sans text-slate-800 pb-12">
+      {/* 0. TOP PAGE HEADER */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            Drawings Vault Management
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            Store, review, compare versions, and approve GFC architectural blueprints & CAD schematics
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
       
       {/* 1. Left Sidebar Filters Panel */}
       <div className="lg:col-span-1 space-y-4">
@@ -256,8 +269,8 @@ export default function DrawingList({
             </table>
           </div>
         </div>
-
       </div>
+    </div>
     </div>
   );
 }

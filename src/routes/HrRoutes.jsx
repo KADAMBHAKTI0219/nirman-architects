@@ -10,10 +10,16 @@ import HRShifts from '../components/hr/shifts/index';
 import HRPayroll from '../components/hr/payroll-data/index';
 import HRReviews from '../components/hr/reviews/index';
 import HRDocs from '../components/hr/docs/index';
+import AppUsageTracking from '../components/admin/app-usage/AppUsageTracking';
 
 export default function getHrRoutes(handleRoleChange) {
   return (
     <>
+      <Route path="/hr/app-usage" element={
+        <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="App Usage Tracking">
+          <AppUsageTracking userRole="HR" />
+        </DashboardLayout>
+      } />
       <Route path="/hr" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="HR Workspace">
           <HRDashboard />

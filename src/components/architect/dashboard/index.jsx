@@ -8,7 +8,7 @@ import {
   AlertTriangle, Filter, ChevronRight, X 
 } from 'lucide-react';
 import Card from '../../common/Card';
-import { getMyAttendance } from '../../../mockApi';
+import { getMyAttendance } from '../../../service/mockApi';
 
 const TIME_LOGS = [
   { day: 'Mon', 'Noida Office': 4, 'Goa Beachfront': 2, 'Smart Mall': 2 },

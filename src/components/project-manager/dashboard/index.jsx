@@ -6,7 +6,7 @@ import ClientQueriesPanel from './ClientQueriesPanel';
 import Card from '../../common/Card';
 import DataTable from '../../common/DataTable';
 import DrawingViewer from '../../common/DrawingViewer';
-import { getProjectAttendance, getHRDashboardWidgets } from '../../../mockApi';
+import { getProjectAttendance, getHRDashboardWidgets } from '../../../service/mockApi';
 
 export default function Dashboard() {
   const [selectedDrawing, setSelectedDrawing] = useState(null);

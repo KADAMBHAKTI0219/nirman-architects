@@ -336,39 +336,36 @@ export default function HRPayroll({ defaultTab = 'overview' }) {
     { id: 'performance', label: 'Performance score' }
   ];
 
-  return (
-    <div className="space-y-6">
-      
-      {/* Sub-tab Navigation */}
-      <div className="flex justify-between items-center border-b border-slate-100 pb-1 flex-wrap gap-4">
-        <div className="flex items-center gap-6 overflow-x-auto scrollbar-none pb-1">
-          {tabs.map(t => (
-            <button
-              key={t.id}
-              onClick={() => {
-                if (t.id === 'overview') navigate('/admin/hr/overview');
-                else if (t.id === 'leaves') navigate('/admin/hr/leaves');
-                else if (t.id === 'leave-master') navigate('/admin/hr/leave-master');
-                else if (t.id === 'shifts') navigate('/admin/hr/shifts');
-                else if (t.id === 'payroll') navigate('/admin/hr/payroll');
-                else if (t.id === 'performance') navigate('/admin/hr/performance');
-              }}
-              className={`pb-2 text-xs font-bold tracking-wide transition-all relative ${
-                activeTab === t.id
-                  ? 'text-slate-900 font-black'
-                  : 'text-slate-400 hover:text-slate-600 font-semibold'
-              }`}
-            >
-              {t.label}
-              {activeTab === t.id && (
-                <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-brand-primary rounded-full" />
-              )}
-            </button>
-          ))}
-        </div>
+  const getTabHeader = () => {
+    switch (activeTab) {
+      case 'leaves':
+        return { title: 'Leave Management', subtitle: 'Review, approve, and track employee leave applications and leave balances' };
+      case 'leave-master':
+        return { title: 'Leave Master & Quotas', subtitle: 'Configure company leave types, annual quotas, and carry-forward policies' };
+      case 'shifts':
+        return { title: 'Shift Planner & Rota', subtitle: 'Assign work shifts, site rotas, and monitor active employee shifts' };
+      case 'payroll':
+        return { title: 'Payroll Processing Center', subtitle: 'Calculate salaries, deductions, overtime, and generate monthly payslips' };
+      case 'performance':
+        return { title: 'Performance Scores & Reviews', subtitle: 'Evaluate staff performance scores, ratings, and review notes' };
+      default:
+        return { title: 'HR & Payroll Overview', subtitle: 'Monitor workforce capacity, department distributions, attendance exceptions & HR metrics' };
+    }
+  };
+  const currentHeader = getTabHeader();
 
-        <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 pb-1">
-          Admin HR Operations
+  return (
+    <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
+      
+      {/* TOP PAGE HEADER */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            {currentHeader.title}
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            {currentHeader.subtitle}
+          </p>
         </div>
       </div>
 
