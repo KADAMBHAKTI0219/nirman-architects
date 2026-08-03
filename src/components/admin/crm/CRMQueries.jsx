@@ -27,6 +27,16 @@ export default function CRMQueries({
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Support Queries</h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            Manage client inquiries, technical support tickets and project communications
+          </p>
+        </div>
+      </div>
+
       {/* Upper split: Queries table (2/3) + Reply card (1/3) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         

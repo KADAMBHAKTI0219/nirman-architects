@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import { 
   ArrowLeft, Lock, Unlock, ShieldAlert, Clock, Eye, FileDown, 
-  Send, Layers, Calendar, CheckSquare, Plus, FileText, CheckCircle2
+  Send, Layers, Calendar, CheckSquare, Plus, FileText, CheckCircle2,
+  PenTool, Maximize2
 } from 'lucide-react';
 import Card from '../../common/Card';
+import MarkupEditor from '../markup/MarkupEditor';
 
 export default function DocumentDetails({
   doc,
   onBack,
   onUpdateDocument
 }) {
+  const [isFullMarkupMode, setIsFullMarkupMode] = useState(true);
   const [commentText, setCommentText] = useState('');
   const [newVersionLabel, setNewVersionLabel] = useState('');
   const [newChangeLog, setNewChangeLog] = useState('');
@@ -149,6 +152,16 @@ export default function DocumentDetails({
     });
   };
 
+  if (isFullMarkupMode) {
+    return (
+      <MarkupEditor
+        documentData={doc}
+        onBack={() => setIsFullMarkupMode(false)}
+        onSaveDocument={onUpdateDocument}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       
@@ -168,6 +181,13 @@ export default function DocumentDetails({
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsFullMarkupMode(true)}
+            className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+          >
+            <PenTool className="w-4 h-4" />
+            <span>Open PDF Markup Editor</span>
+          </button>
           {doc.confidential && (
             <span className="text-[9px] px-2 py-1 bg-rose-50 text-rose-600 border border-rose-100 font-black uppercase rounded-lg">
               Confidential

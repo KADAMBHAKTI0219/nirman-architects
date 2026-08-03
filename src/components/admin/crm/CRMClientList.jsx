@@ -20,6 +20,16 @@ export default function CRMClientList({
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Client Directory</h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            Manage client profiles, company contacts, linked projects and shared files
+          </p>
+        </div>
+      </div>
+
       {/* Search & Filters */}
       <div className="bg-white p-4 rounded-3xl border border-slate-100/90 shadow-2xs flex flex-wrap gap-4 items-center justify-between">
         <div className="relative flex-1 min-w-[200px]">

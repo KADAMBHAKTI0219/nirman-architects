@@ -40,6 +40,19 @@ exports.createLead = async (req, res) => {
       status: { $nin: ['WON', 'LOST'] }
     });
 
+    if (existingActiveLead && !req.body.forceCreate) {
+      return sendSuccess(res, 200, 'A lead with this phone number already exists.', {
+        lead: existingActiveLead,
+        duplicateWarning: true,
+        duplicateLeadInfo: {
+          id: existingActiveLead._id,
+          name: existingActiveLead.name,
+          status: existingActiveLead.status,
+          assignedTo: existingActiveLead.assignedTo
+        }
+      });
+    }
+
     const newLead = new Lead({
       name: name.trim(),
       phone: phone.trim(),
@@ -135,9 +148,27 @@ exports.getLeads = async (req, res) => {
         closedLeads: []
       };
 
+      const seenIds = new Set();
+      const seenPhones = new Set();
+
       activeLeads.forEach(lead => {
-        if (pipeline[lead.status]) {
-          pipeline[lead.status].push(lead);
+        const id = lead._id.toString();
+        const phone = lead.phone ? lead.phone.trim() : null;
+
+        // Deduplicate leads so each unique lead appears only once
+        if (seenIds.has(id)) return;
+        if (phone && seenPhones.has(phone)) return;
+
+        seenIds.add(id);
+        if (phone) seenPhones.add(phone);
+
+        let statusKey = (lead.status || 'NEW').toUpperCase().trim();
+        if (statusKey === 'NEW LEAD') statusKey = 'NEW';
+        if (statusKey === 'PROPOSAL SENT') statusKey = 'PROPOSAL_SENT';
+        if (statusKey === 'WON (CLIENT)' || statusKey === 'CLIENT') statusKey = 'WON';
+
+        if (pipeline[statusKey]) {
+          pipeline[statusKey].push(lead);
         } else {
           pipeline.closedLeads.push(lead);
         }

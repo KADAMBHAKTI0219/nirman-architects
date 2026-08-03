@@ -10,6 +10,16 @@ export default function CRMApprovals({
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Client Approvals</h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            Track drawing releases, document approvals and client sign-off ledgers
+          </p>
+        </div>
+      </div>
+
       {/* Approvals Table */}
       <Card title="Customer Approval Ledger" subtitle="Verify drawing releases, document approvals, and change orders signed off by clients">
         <div className="overflow-x-auto">

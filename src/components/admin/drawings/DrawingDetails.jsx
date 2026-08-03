@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { 
   ArrowLeft, Lock, Unlock, ZoomIn, ZoomOut, Maximize2, Plus, 
-  MessageSquare, FileText, Send, Clock, CheckCircle, ShieldAlert, Layers
+  MessageSquare, FileText, Send, Clock, CheckCircle, ShieldAlert, Layers,
+  PenTool
 } from 'lucide-react';
 import Card from '../../common/Card';
+import MarkupEditor from '../markup/MarkupEditor';
 
 export default function DrawingDetails({
   drawing,
@@ -11,6 +13,7 @@ export default function DrawingDetails({
   onUpdateDrawing,
   onCompareTrigger
 }) {
+  const [isFullMarkupMode, setIsFullMarkupMode] = useState(true);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [commentText, setCommentText] = useState('');
   const [newPinMessage, setNewPinMessage] = useState('');
@@ -88,6 +91,16 @@ export default function DrawingDetails({
     alert("Drawing locked as final GFC Release. Future edits restricted.");
   };
 
+  if (isFullMarkupMode) {
+    return (
+      <MarkupEditor
+        documentData={drawing}
+        onBack={() => setIsFullMarkupMode(false)}
+        onSaveDocument={onUpdateDrawing}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       
@@ -107,6 +120,13 @@ export default function DrawingDetails({
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsFullMarkupMode(true)}
+            className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+          >
+            <PenTool className="w-4 h-4" />
+            <span>Open Blueprint Markup Editor</span>
+          </button>
           <button
             onClick={() => onCompareTrigger(drawing)}
             className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-205 text-slate-700 rounded-xl text-[10px] font-black uppercase transition-all shadow-3xs"

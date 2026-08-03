@@ -268,14 +268,24 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
       });
     }
 
-    const totalLeadsCount = allLeadsList.length || 28;
-    const contactedCount = (pipelineData['CONTACTED'] || []).length || 16;
-    const qualifiedCount = (pipelineData['QUALIFIED'] || []).length || 8;
-    const proposalSentCount = (pipelineData['PROPOSAL_SENT'] || []).length || 2;
-    const wonCount = (pipelineData['WON'] || []).length || 5;
+    // Deduplicate all leads across pipeline
+    const seen = new Set();
+    const uniqueLeads = allLeadsList.filter(l => {
+      const id = l._id || l.id;
+      const phone = l.phone ? l.phone.trim() : null;
+      const key = id || phone;
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    const contactedCount = (pipelineData['CONTACTED'] || []).length;
+    const qualifiedCount = (pipelineData['QUALIFIED'] || []).length;
+    const proposalSentCount = (pipelineData['PROPOSAL_SENT'] || []).length;
+    const wonCount = (pipelineData['WON'] || []).length;
 
     return {
-      total: totalLeadsCount,
+      total: uniqueLeads.length,
       contacted: contactedCount,
       qualified: qualifiedCount,
       proposalSent: proposalSentCount,
@@ -427,9 +437,38 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
     }
   };
 
+  const handleQuickStatusChange = async (leadId, newStatus) => {
+    setActiveCardMenuId(null);
+    try {
+      const res = await updateLeadStatus(leadId, { newStatus });
+      if (res?.success) {
+        fetchData();
+      } else {
+        alert(res?.message || 'Failed to update status.');
+      }
+    } catch (err) {
+      alert(err.message || 'Error updating status.');
+    }
+  };
+
   // Filter & sort logic for Kanban column leads
   const filterAndSortCards = (cardsList = []) => {
     let result = [...cardsList];
+
+    // Strict deduplication by ID and Phone number so no card is rendered twice
+    const seenIds = new Set();
+    const seenPhones = new Set();
+    result = result.filter(lead => {
+      const id = lead._id || lead.id;
+      const phone = lead.phone ? lead.phone.trim() : null;
+
+      if (id && seenIds.has(id)) return false;
+      if (phone && seenPhones.has(phone)) return false;
+
+      if (id) seenIds.add(id);
+      if (phone) seenPhones.add(phone);
+      return true;
+    });
 
     if (ownerFilter) {
       result = result.filter(lead => {
@@ -794,7 +833,7 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
                               {isMenuOpen && (
                                 <div
                                   onClick={(e) => e.stopPropagation()}
-                                  className="absolute right-0 top-6 bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-1.5 w-36 text-xs"
+                                  className="absolute right-0 top-6 bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-1.5 w-44 text-xs"
                                 >
                                   <button
                                     onClick={() => handleOpenLeadDetails(lead._id || lead.id)}
@@ -808,6 +847,19 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
                                   >
                                     <Phone className="w-3.5 h-3.5 text-emerald-500" /> Call Direct
                                   </a>
+
+                                  <div className="border-t border-slate-100 my-1"></div>
+                                  <div className="px-3 py-1 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Move Status</div>
+                                  {['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL_SENT', 'WON'].filter(st => st !== statusKey).map(st => (
+                                    <button
+                                      key={st}
+                                      onClick={() => handleQuickStatusChange(lead._id || lead.id, st)}
+                                      className="w-full text-left px-3 py-1 hover:bg-slate-50 text-[11px] text-slate-700 font-bold flex items-center justify-between transition-colors"
+                                    >
+                                      <span>Move to {STATUS_CONFIG[st]?.label}</span>
+                                      <ArrowRight className="w-3 h-3 text-slate-400" />
+                                    </button>
+                                  ))}
                                 </div>
                               )}
                             </div>

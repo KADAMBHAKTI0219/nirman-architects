@@ -1233,9 +1233,24 @@ export const mockCreateLead = async (payload) => {
       email: 'user@nirman.com'
     };
 
-  const existingActive = leads.find(l => l.phone === phone.trim() && l.status !== 'WON' && l.status !== 'LOST');
+  const existingActive = leads.find(l => l.phone && l.phone.trim() === phone.trim() && l.status !== 'WON' && l.status !== 'LOST');
 
-  const initialStatus = status || 'NEW';
+  if (existingActive && !payload?.forceCreate) {
+    return {
+      success: true,
+      message: `A lead with phone number ${phone} already exists (${existingActive.name} - ${existingActive.status}).`,
+      lead: existingActive,
+      duplicateWarning: true,
+      duplicateLeadInfo: {
+        id: existingActive._id || existingActive.id,
+        name: existingActive.name,
+        status: existingActive.status,
+        assignedTo: existingActive.assignedTo
+      }
+    };
+  }
+
+  const initialStatus = status ? status.toUpperCase().trim() : 'NEW';
 
   const newLead = {
     _id: 'lead-' + Date.now(),
@@ -1273,36 +1288,46 @@ export const mockCreateLead = async (payload) => {
   });
   localStorage.setItem('nirman_lead_status_history', JSON.stringify(statusHistory));
 
-  let duplicateWarning = false;
-  let duplicateLeadInfo = null;
-  if (existingActive) {
-    duplicateWarning = true;
-    duplicateLeadInfo = {
-      id: existingActive._id,
-      name: existingActive.name,
-      status: existingActive.status,
-      assignedTo: existingActive.assignedTo
-    };
-  }
-
   return {
     success: true,
     message: 'Lead created successfully.',
     lead: newLead,
-    duplicateWarning,
-    ...(duplicateWarning && { duplicateLeadInfo })
+    duplicateWarning: false
   };
 };
 
 export const mockGetLeads = async (params = {}) => {
   await delay();
-  const leads = JSON.parse(localStorage.getItem('nirman_leads') || '[]');
+  const rawLeads = JSON.parse(localStorage.getItem('nirman_leads') || '[]');
+  
+  // Deduplicate stored leads by ID and Phone number
+  const seenIds = new Set();
+  const seenPhones = new Set();
+  const leads = [];
+
+  for (const l of rawLeads) {
+    const id = l._id || l.id;
+    const phone = l.phone ? l.phone.trim() : null;
+
+    if (id && seenIds.has(id)) continue;
+    if (phone && seenPhones.has(phone)) continue;
+
+    if (id) seenIds.add(id);
+    if (phone) seenPhones.add(phone);
+    leads.push(l);
+  }
+
+  if (leads.length !== rawLeads.length) {
+    localStorage.setItem('nirman_leads', JSON.stringify(leads));
+  }
+
   const { status, assignedTo, search, page = 1, limit = 10, pipelineView } = params;
 
   let filtered = [...leads];
 
   if (status) {
-    filtered = filtered.filter(l => l.status === status);
+    const searchStatus = status.toUpperCase().trim();
+    filtered = filtered.filter(l => (l.status || '').toUpperCase().trim() === searchStatus);
   }
 
   if (assignedTo) {
@@ -1329,8 +1354,13 @@ export const mockGetLeads = async (params = {}) => {
     };
 
     filtered.forEach(lead => {
-      if (pipeline[lead.status]) {
-        pipeline[lead.status].push(lead);
+      let statusKey = (lead.status || 'NEW').toUpperCase().trim();
+      if (statusKey === 'NEW LEAD') statusKey = 'NEW';
+      if (statusKey === 'PROPOSAL SENT') statusKey = 'PROPOSAL_SENT';
+      if (statusKey === 'WON (CLIENT)' || statusKey === 'CLIENT') statusKey = 'WON';
+
+      if (pipeline[statusKey]) {
+        pipeline[statusKey].push(lead);
       } else {
         pipeline.closedLeads.push(lead);
       }

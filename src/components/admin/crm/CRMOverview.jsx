@@ -40,6 +40,16 @@ export default function CRMOverview({
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">CRM Overview</h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            High-level metrics, client distribution and support operational analytics
+          </p>
+        </div>
+      </div>
+
       {/* 1. KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs flex flex-col justify-between h-20">

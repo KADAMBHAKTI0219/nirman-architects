@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import CRMOverview from './CRMOverview';
 import CRMLeadManagement from './CRMLeadManagement';
 import CRMClientList from './CRMClientList';
@@ -98,7 +97,6 @@ const INITIAL_APPROVALS = [
 ];
 
 export default function CRM({ defaultTab = 'overview' }) {
-  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(defaultTab);
 
   useEffect(() => {
@@ -192,48 +190,12 @@ export default function CRM({ defaultTab = 'overview' }) {
     }
   };
 
-  const tabs = [
-    { id: 'overview', label: 'CRM Overview' },
-    { id: 'leads', label: 'Lead Management' },
-    { id: 'clients', label: 'Client Directory' },
-    { id: 'queries', label: 'Support Queries' },
-    { id: 'approvals', label: 'Client Approvals' }
-  ];
+
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       
-      {/* Sub-tab Navigation */}
-      <div className="flex justify-between items-center border-b border-slate-100 pb-1 flex-wrap gap-4">
-        <div className="flex items-center gap-6 overflow-x-auto scrollbar-none pb-1">
-          {tabs.map(t => (
-            <button
-              key={t.id}
-              onClick={() => {
-                if (t.id === 'overview') navigate('/admin/crm/overview');
-                else if (t.id === 'leads') navigate('/admin/crm/leads');
-                else if (t.id === 'clients') navigate('/admin/crm/clients');
-                else if (t.id === 'queries') navigate('/admin/crm/queries');
-                else if (t.id === 'approvals') navigate('/admin/crm/approvals');
-              }}
-              className={`pb-2 text-xs font-bold tracking-wide transition-all relative ${
-                activeTab === t.id
-                  ? 'text-slate-900 font-black'
-                  : 'text-slate-400 hover:text-slate-600 font-semibold'
-              }`}
-            >
-              {t.label}
-              {activeTab === t.id && (
-                <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-brand-primary rounded-full" />
-              )}
-            </button>
-          ))}
-        </div>
 
-        <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 pb-1">
-          Client Operations Desk
-        </div>
-      </div>
 
       {/* Render selected CRM module section */}
       <div>
