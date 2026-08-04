@@ -7,7 +7,7 @@ import RightSidePanel from './RightSidePanel';
 import AnnotationPinModal from './AnnotationPinModal';
 import SelectedObjectActionBar from './SelectedObjectActionBar';
 import ZoomControls from './ZoomControls';
-import { getBlueprintSvgDataUrl, renderPdfPageToDataUrl } from './sampleAssets';
+import { getBlueprintSvgDataUrl, renderPdfPageToDataUrl, convertFileToDataUrl } from './sampleAssets';
 import { exportAsPng, exportAsPdf, exportAsJson } from './ExportManager';
 
 export default function MarkupEditor({
@@ -17,34 +17,67 @@ export default function MarkupEditor({
 }) {
   // Title & Metadata
   const docTitle = documentData?.name || documentData?.title || 'ARCHITECTURE_INTERIOR_BLUEPRINT.PDF';
+  const [currentTitle, setCurrentTitle] = useState(docTitle);
   const docVersion = documentData?.version || 'v3.2';
   const docStatus = documentData?.status || 'GFC Released';
   const targetPdfUrl = documentData?.fileUrl || documentData?.pdfUrl || '/architecture.pdf';
 
   const [bgBlueprintSrc, setBgBlueprintSrc] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isPdfLoading, setIsPdfLoading] = useState(true);
+  const [activeFileRef, setActiveFileRef] = useState(targetPdfUrl);
 
-  // Load PDF Page 1 or fallback SVG Blueprint
-  useEffect(() => {
-    let isMounted = true;
-    const loadPdfBackground = async () => {
-      try {
-        const dataUrl = await renderPdfPageToDataUrl(targetPdfUrl, 1, 2);
-        if (isMounted) {
-          if (dataUrl) {
-            setBgBlueprintSrc(dataUrl);
-          } else {
-            setBgBlueprintSrc(getBlueprintSvgDataUrl(docTitle, docVersion));
-          }
-        }
-      } catch (err) {
-        if (isMounted) {
-          setBgBlueprintSrc(getBlueprintSvgDataUrl(docTitle, docVersion));
-        }
+  const loadBackgroundPage = useCallback(async (fileTarget, page = 1) => {
+    setIsPdfLoading(true);
+    try {
+      const res = await convertFileToDataUrl(fileTarget, page, 2.5);
+      if (res) {
+        const src = typeof res === 'string' ? res : res.dataUrl;
+        setBgBlueprintSrc(src);
+        setTotalPages(res.numPages || 1);
+        setCurrentPage(res.pageNum || 1);
+      } else {
+        setBgBlueprintSrc(getBlueprintSvgDataUrl(docTitle, docVersion));
+        setTotalPages(1);
+        setCurrentPage(1);
       }
-    };
-    loadPdfBackground();
-    return () => { isMounted = false; };
-  }, [targetPdfUrl, docTitle, docVersion]);
+    } catch (err) {
+      console.warn("Background PDF load error:", err);
+      setBgBlueprintSrc(getBlueprintSvgDataUrl(docTitle, docVersion));
+    } finally {
+      setIsPdfLoading(false);
+    }
+  }, [docTitle, docVersion]);
+
+  useEffect(() => {
+    setActiveFileRef(targetPdfUrl);
+    loadBackgroundPage(targetPdfUrl, 1);
+  }, [targetPdfUrl, loadBackgroundPage]);
+
+  const handlePageChange = (newPage) => {
+    if (newPage < 1 || newPage > totalPages) return;
+    loadBackgroundPage(activeFileRef, newPage);
+  };
+
+  // Handle User Opening ANY Custom PDF or Image File
+  const handleUserFileSelect = async (file) => {
+    if (!file) return;
+    try {
+      setActiveFileRef(file);
+      setCurrentTitle(file.name);
+      await loadBackgroundPage(file, 1);
+      if (fabricCanvas) {
+        // Keep background and clear old markups for new file
+        fabricCanvas.getObjects().forEach((obj) => {
+          if (!obj.isBackground) fabricCanvas.remove(obj);
+        });
+        fabricCanvas.renderAll();
+      }
+    } catch (err) {
+      alert("Error opening file: " + err.message);
+    }
+  };
 
   // Canvas Instance & State
   const [fabricCanvas, setFabricCanvas] = useState(null);
@@ -344,29 +377,48 @@ export default function MarkupEditor({
     <div className="fixed inset-0 z-50 bg-[#F8FAFC] flex flex-col font-sans select-none overflow-hidden animate-in fade-in duration-200">
       {/* 1. Top Glass Header */}
       <TopHeader
-        title={docTitle}
+        title={currentTitle}
         version={docVersion}
         status={docStatus}
         saveStatus={saveStatus}
         canUndo={canUndo}
         canRedo={canRedo}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={handlePageChange}
         onBack={onBack}
         onUndo={handleUndo}
         onRedo={handleRedo}
         onSave={handleSaveAll}
-        onExportPng={() => exportAsPng(fabricCanvas, docTitle)}
-        onExportPdf={() => exportAsPdf(fabricCanvas, docTitle)}
-        onExportJson={() => exportAsJson(fabricCanvas, pins, docTitle)}
+        onExportPng={() => exportAsPng(fabricCanvas, currentTitle)}
+        onExportPdf={() => exportAsPdf(fabricCanvas, currentTitle)}
+        onExportJson={() => exportAsJson(fabricCanvas, pins, currentTitle)}
         onToggleSidePanel={() => setIsSidePanelOpen(!isSidePanelOpen)}
         isSidePanelOpen={isSidePanelOpen}
         onSelectAllMarkups={handleSelectAllMarkups}
         onClearAllMarkups={handleClearAllMarkups}
         onFlattenMarkups={handleFlattenMarkups}
-        onOpenProperties={() => alert(`Properties: ${docTitle} (${docVersion})`)}
+        onOpenProperties={() => alert(`Properties: ${currentTitle} (${docVersion})`)}
+        onFileSelect={handleUserFileSelect}
       />
 
       {/* 2. Main Canvas View Area */}
       <div className="flex-1 w-full h-full relative">
+        {isPdfLoading && (
+          <div className="absolute inset-0 z-20 bg-slate-900/40 backdrop-blur-sm flex flex-col items-center justify-center text-white space-y-3 animate-in fade-in">
+            <div className="w-12 h-12 rounded-2xl bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-sky-400">
+              <svg className="animate-spin h-6 w-6 text-sky-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </div>
+            <div className="text-center">
+              <span className="font-extrabold text-sm block">Rendering High-Res Architectural Blueprint...</span>
+              <span className="text-[11px] text-slate-300 font-medium mt-0.5 block">Converting CAD PDF Vector Layers to Fabric Canvas</span>
+            </div>
+          </div>
+        )}
+
         <CanvasViewer
           bgImageSrc={bgBlueprintSrc}
           activeTool={activeTool}

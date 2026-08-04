@@ -126,7 +126,23 @@ export default function DrawingCreateModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">Mock File Size</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">Select File (PDF or Image)</label>
+              <input 
+                type="file" 
+                accept="application/pdf,image/*"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    const file = e.target.files[0];
+                    handleChange('fileUrl', file);
+                    if (!formData.name) handleChange('name', file.name);
+                    handleChange('fileSize', `${(file.size / (1024 * 1024)).toFixed(1)} MB`);
+                  }
+                }}
+                className="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-extrabold file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100 cursor-pointer"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">File Size</label>
               <input 
                 type="text" 
                 required 

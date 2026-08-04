@@ -95,6 +95,27 @@ export default function CanvasViewer({
       const w = containerRef.current.clientWidth;
       const h = containerRef.current.clientHeight;
       canvas.setDimensions({ width: w, height: h });
+
+      if (bgImageRef.current) {
+        const fabricImg = bgImageRef.current;
+        const imgW = fabricImg.width || 1000;
+        const imgH = fabricImg.height || 800;
+        const topOffset = 75;
+        const bottomOffset = 110;
+        const availW = Math.max(200, w - 80);
+        const availH = Math.max(200, h - topOffset - bottomOffset);
+        const scale = Math.min(availW / imgW, availH / imgH);
+
+        fabricImg.set({
+          originX: 'center',
+          originY: 'center',
+          scaleX: scale,
+          scaleY: scale,
+          left: w / 2,
+          top: topOffset + availH / 2
+        });
+      }
+
       canvas.renderAll();
     };
     window.addEventListener('resize', handleResize);
@@ -113,6 +134,15 @@ export default function CanvasViewer({
     const canvas = fabricCanvasRef.current;
     if (!canvas || !bgImageSrc) return;
 
+    // Ensure canvas dimensions match container size
+    if (containerRef.current) {
+      const w = containerRef.current.clientWidth;
+      const h = containerRef.current.clientHeight;
+      if (w > 0 && h > 0) {
+        canvas.setDimensions({ width: w, height: h });
+      }
+    }
+
     const imgElement = new Image();
     imgElement.crossOrigin = 'anonymous';
     imgElement.src = bgImageSrc;
@@ -122,15 +152,26 @@ export default function CanvasViewer({
         const fabricImg = new fabric.FabricImage(imgElement);
         bgImageRef.current = fabricImg;
 
-        const cWidth = canvas.width;
-        const cHeight = canvas.height;
-        const scale = Math.min((cWidth - 80) / fabricImg.width, (cHeight - 80) / fabricImg.height, 1);
+        const cWidth = canvas.width || containerRef.current?.clientWidth || 1200;
+        const cHeight = canvas.height || containerRef.current?.clientHeight || 800;
+        const imgW = fabricImg.width || 1000;
+        const imgH = fabricImg.height || 800;
+
+        // Account for Top Header (~75px) and Bottom Toolbar (~110px) paddings
+        const topOffset = 75;
+        const bottomOffset = 110;
+        const availW = Math.max(200, cWidth - 80);
+        const availH = Math.max(200, cHeight - topOffset - bottomOffset);
+
+        const scale = Math.min(availW / imgW, availH / imgH);
 
         fabricImg.set({
+          originX: 'center',
+          originY: 'center',
           scaleX: scale,
           scaleY: scale,
-          left: (cWidth - fabricImg.width * scale) / 2,
-          top: (cHeight - fabricImg.height * scale) / 2,
+          left: cWidth / 2,
+          top: topOffset + availH / 2,
           selectable: false,
           evented: false,
           isBackground: true
@@ -146,6 +187,10 @@ export default function CanvasViewer({
       } catch (err) {
         console.warn('Fabric background image loading issue:', err);
       }
+    };
+
+    imgElement.onerror = (err) => {
+      console.warn('Background image failed to load:', err);
     };
   }, [bgImageSrc]);
 

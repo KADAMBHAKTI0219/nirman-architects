@@ -6,26 +6,27 @@ import ClientQueriesPanel from './ClientQueriesPanel';
 import Card from '../../common/Card';
 import DataTable from '../../common/DataTable';
 import DrawingViewer from '../../common/DrawingViewer';
+import MarkupEditor from '../../admin/markup/MarkupEditor';
 import { getProjectAttendance, getHRDashboardWidgets } from '../../../service/mockApi';
+
+import SiteLocationManagerModal from '../projects/SiteLocationManagerModal';
+import { MapPin, Globe } from 'lucide-react';
 
 export default function Dashboard() {
   const [selectedDrawing, setSelectedDrawing] = useState(null);
   const [pmAttendance, setPmAttendance] = useState([]);
   const [widgets, setWidgets] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isSiteLocationModalOpen, setIsSiteLocationModalOpen] = useState(false);
 
   useEffect(() => {
     const loadPMData = async () => {
       try {
         setLoading(true);
-        
-        // Load PM specific stats widgets dynamically
         const widgetsRes = await getHRDashboardWidgets();
         if (widgetsRes.success && widgetsRes.data) {
           setWidgets(widgetsRes.data);
         }
-
-        // Load project team attendance list
         const response = await getProjectAttendance('proj_1');
         if (response.success && response.logs) {
           setPmAttendance(response.logs);
@@ -81,6 +82,27 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      
+      {/* Top Header Controls (PM Site Location Geo-Fence Setup Button) */}
+      <div className="bg-slate-900 text-white p-4 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-400">
+            <Globe className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="font-extrabold text-sm text-white">Project Site Geo-Fencing</h3>
+            <p className="text-[10px] text-slate-400 font-medium">Configure GPS coordinates & allowed radiuses for site punch-in</p>
+          </div>
+        </div>
+        <button
+          onClick={() => setIsSiteLocationModalOpen(true)}
+          className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+        >
+          <MapPin className="w-4 h-4" />
+          <span>Configure Site Locations</span>
+        </button>
+      </div>
+
       <Stats pmAttendance={pmAttendance} widgets={widgets} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -104,12 +126,26 @@ export default function Dashboard() {
       <ClientQueriesPanel />
 
       {selectedDrawing && (
-        <DrawingViewer 
-          drawing={selectedDrawing} 
-          onClose={() => setSelectedDrawing(null)} 
-          onStatusChange={handleUpdateDrawingStatus}
+        <MarkupEditor 
+          documentData={{
+            ...selectedDrawing,
+            name: selectedDrawing.title || "Ground Floor Wall Layout Blueprint",
+            fileUrl: "/architecture.pdf",
+            pdfUrl: "/architecture.pdf"
+          }} 
+          onBack={() => setSelectedDrawing(null)} 
+          onSaveDocument={(updatedDoc) => {
+            handleUpdateDrawingStatus(selectedDrawing.id, 'Approved');
+            setSelectedDrawing(null);
+          }}
         />
       )}
+
+      {/* PM Site Geo-Fence Location Manager Modal */}
+      <SiteLocationManagerModal
+        isOpen={isSiteLocationModalOpen}
+        onClose={() => setIsSiteLocationModalOpen(false)}
+      />
     </div>
   );
 }

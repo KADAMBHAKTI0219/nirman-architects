@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import {
   ArrowLeft, Save, Share2, Download, MoreVertical, Layers,
   FileText, Check, RotateCcw, RotateCw, Trash2, Copy, Edit3,
-  FileDown, ShieldCheck, History, Sliders, ChevronDown, CheckCircle2, CheckSquare
+  FileDown, ShieldCheck, History, Sliders, ChevronDown, CheckCircle2, CheckSquare, Upload,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 export default function TopHeader({
@@ -12,6 +13,9 @@ export default function TopHeader({
   saveStatus = "Saved just now",
   canUndo = false,
   canRedo = false,
+  currentPage = 1,
+  totalPages = 1,
+  onPageChange,
   onBack,
   onUndo,
   onRedo,
@@ -24,7 +28,8 @@ export default function TopHeader({
   onSelectAllMarkups,
   onClearAllMarkups,
   onFlattenMarkups,
-  onOpenProperties
+  onOpenProperties,
+  onFileSelect
 }) {
   const [showThreeDotMenu, setShowThreeDotMenu] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -61,6 +66,29 @@ export default function TopHeader({
             </div>
           </div>
         </div>
+
+        {/* PDF Page Navigation Pill */}
+        {totalPages > 1 && (
+          <div className="hidden md:flex items-center gap-1 bg-slate-800/90 border border-slate-700 px-2.5 py-1 rounded-full text-[10px] font-black text-sky-400 shadow-xs">
+            <button
+              onClick={() => onPageChange && onPageChange(currentPage - 1)}
+              disabled={currentPage <= 1}
+              className="hover:text-white disabled:opacity-40 cursor-pointer transition-colors"
+              title="Previous PDF Page"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <span>Page {currentPage} / {totalPages}</span>
+            <button
+              onClick={() => onPageChange && onPageChange(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+              className="hover:text-white disabled:opacity-40 cursor-pointer transition-colors"
+              title="Next PDF Page"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Right: iOS Floating Pill (Undo, Redo, Three-Dot, Yellow Checkmark) */}
@@ -131,6 +159,24 @@ export default function TopHeader({
               </div>
             )}
           </div>
+
+          {/* Open File (PDF or Image) */}
+          <label
+            className="p-1.5 text-slate-200 hover:bg-slate-700 rounded-full transition-all cursor-pointer flex items-center justify-center"
+            title="Open Custom PDF or Image File"
+          >
+            <Upload className="w-4 h-4 text-sky-400" />
+            <input
+              type="file"
+              accept="application/pdf,image/*"
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0] && onFileSelect) {
+                  onFileSelect(e.target.files[0]);
+                }
+              }}
+              className="hidden"
+            />
+          </label>
 
           {/* Toggle Side Panel */}
           <button

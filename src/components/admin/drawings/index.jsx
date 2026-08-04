@@ -19,6 +19,8 @@ const INITIAL_DRAWINGS = [
     accessLevel: "Admin & Staff Only",
     locked: false,
     fileSize: "3.4 MB",
+    fileUrl: "/architecture.pdf",
+    pdfUrl: "/architecture.pdf",
     versions: [
       { version: "V1.0", date: "2026-07-10", uploader: "Sarah Connor", changeLog: "Initial draft wall layout", status: "Approved" },
       { version: "V2.0", date: "2026-07-18", uploader: "Alice Smith", changeLog: "Offset lobby column wall adjustment", status: "Approved" },
@@ -47,6 +49,8 @@ const INITIAL_DRAWINGS = [
     accessLevel: "Admin & Staff Only",
     locked: false,
     fileSize: "4.8 MB",
+    fileUrl: "/architecture.pdf",
+    pdfUrl: "/architecture.pdf",
     versions: [
       { version: "V1.0", date: "2026-07-18", uploader: "John Wick", changeLog: "Initial facade bracket elevation draft", status: "Approved" }
     ],
@@ -67,6 +71,8 @@ const INITIAL_DRAWINGS = [
     accessLevel: "Public & Client Visible",
     locked: true,
     fileSize: "2.1 MB",
+    fileUrl: "/architecture.pdf",
+    pdfUrl: "/architecture.pdf",
     versions: [
       { version: "V1.0", date: "2026-07-12", uploader: "Alice Smith", changeLog: "Initial draft villa layout plan", status: "Approved" },
       { version: "V1.1", date: "2026-07-21", uploader: "Alice Smith", changeLog: "Confirm balcony width layout V2", status: "Approved" }
@@ -119,6 +125,8 @@ export default function Drawings({ defaultTab = 'all' }) {
       accessLevel: formData.accessLevel,
       locked: false,
       fileSize: formData.fileSize,
+      fileUrl: formData.fileUrl || "/architecture.pdf",
+      pdfUrl: formData.pdfUrl || "/architecture.pdf",
       versions: [
         { version: formData.version, date: new Date().toISOString().split('T')[0], uploader: "Super Admin", changeLog: formData.changeLog, status: "Pending Review" }
       ],

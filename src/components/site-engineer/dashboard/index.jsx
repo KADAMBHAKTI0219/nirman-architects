@@ -23,21 +23,35 @@ const ISSUE_SEVERITY = [
   { name: 'Low', count: 1, fill: '#64748B' }
 ];
 
+import SiteLocationModal from './SiteLocationModal';
+
 export default function Dashboard() {
   const [activeSite, setActiveSite] = useState('Smart City Mall Foundations');
   const [crewCount, setCrewCount] = useState("12 / 15 Present");
   const [isCheckedIn, setIsCheckedIn] = useState(false);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
 
-  const handleSiteCheckin = async () => {
+  // Active site geofence config mapping
+  const SITE_CONFIGS = {
+    'Smart City Mall Foundations': { projectName: 'Smart City Mall Foundations', lat: 21.1702, lng: 72.8311, radiusMeters: 150 },
+    'Metro Station Tunnel Excavation': { projectName: 'Metro Station Tunnel Excavation', lat: 23.0300, lng: 72.5800, radiusMeters: 300 },
+    'Oceanic Villas Block C Slab': { projectName: 'Oceanic Villas Block C Slab', lat: 23.0225, lng: 72.5714, radiusMeters: 200 }
+  };
+
+  const handleOpenCheckinModal = () => {
+    setIsLocationModalOpen(true);
+  };
+
+  const handleConfirmPunchIn = async (userLoc, geoRes) => {
     try {
       const savedUser = localStorage.getItem('user');
       const userId = savedUser ? JSON.parse(savedUser).id : 'usr_5';
-      const response = await siteCheckin(userId, 'proj_1', 21.110, 72.885, 'https://cdn.example.com/selfie.jpg');
+      const response = await siteCheckin(userId, 'proj_1', userLoc.lat, userLoc.lng, 'https://cdn.example.com/selfie.jpg');
       setIsCheckedIn(true);
-      alert(response.message || "Site check-in recorded successfully!");
+      alert(`Site Punch-In Verified! (${geoRes.distanceMeters}m from site center)`);
     } catch (err) {
       setIsCheckedIn(true);
-      alert("Site check-in recorded successfully!");
+      alert(`Site Punch-In Verified! (${geoRes.distanceMeters}m from site center)`);
     }
   };
 
@@ -45,7 +59,7 @@ export default function Dashboard() {
     try {
       const savedUser = localStorage.getItem('user');
       const userId = savedUser ? JSON.parse(savedUser).id : 'usr_5';
-      const response = await siteCheckout(userId, 'proj_1', 21.110, 72.885);
+      const response = await siteCheckout(userId, 'proj_1', 21.1702, 72.8311);
       setIsCheckedIn(false);
       alert(response.message || "Site check-out recorded successfully!");
     } catch (err) {
@@ -70,10 +84,10 @@ export default function Dashboard() {
           <div className="flex gap-2">
             {!isCheckedIn ? (
               <button 
-                onClick={handleSiteCheckin}
-                className="px-3.5 py-1.5 bg-brand-primary text-slate-905 rounded-xl text-[10px] font-black uppercase shadow-3xs"
+                onClick={handleOpenCheckinModal}
+                className="px-3.5 py-1.5 bg-sky-600 text-white hover:bg-sky-500 rounded-xl text-[10px] font-black uppercase shadow-3xs transition-all flex items-center gap-1.5"
               >
-                Punch In Site
+                <span>Punch In Site (GPS)</span>
               </button>
             ) : (
               <button 
@@ -223,6 +237,14 @@ export default function Dashboard() {
         </Card>
 
       </div>
+
+      {/* Site Geo-Fence Location Permission & Verification Modal */}
+      <SiteLocationModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        activeSite={SITE_CONFIGS[activeSite] || SITE_CONFIGS['Smart City Mall Foundations']}
+        onConfirmPunchIn={handleConfirmPunchIn}
+      />
 
     </div>
   );

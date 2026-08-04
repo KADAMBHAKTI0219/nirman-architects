@@ -1,8 +1,10 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Set up PDF.js CDN worker for browser execution
+// Set up PDF.js worker matching installed pdfjsLib version
 try {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version || '4.0.379'}/pdf.worker.min.mjs`;
+  if (typeof window !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version || '3.11.174'}/build/pdf.worker.min.mjs`;
+  }
 } catch (e) {
   console.warn("PDF worker initialization warning:", e);
 }
@@ -10,11 +12,29 @@ try {
 /**
  * Render a PDF page (e.g. /architecture.pdf) into a High-Res Image Data URL for Fabric Canvas
  */
-export const renderPdfPageToDataUrl = async (pdfUrl = '/architecture.pdf', pageNum = 1, scale = 2) => {
+export const renderPdfPageToDataUrl = async (pdfUrl = '/architecture.pdf', pageNum = 1, scale = 2.5) => {
   try {
-    const loadingTask = pdfjsLib.getDocument(pdfUrl);
+    let pdfData = pdfUrl;
+    if (typeof pdfUrl === 'string' && (pdfUrl.startsWith('/') || pdfUrl.startsWith('http'))) {
+      try {
+        const resp = await fetch(pdfUrl);
+        if (resp.ok) {
+          pdfData = await resp.arrayBuffer();
+        }
+      } catch (fetchErr) {
+        console.warn("PDF fetch fallback to URL string:", fetchErr);
+      }
+    }
+
+    const loadingTask = pdfjsLib.getDocument(
+      typeof pdfData === 'string'
+        ? { url: pdfData, cMapUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/cmaps/', cMapPacked: true }
+        : { data: pdfData, cMapUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/cmaps/', cMapPacked: true }
+    );
+
     const pdf = await loadingTask.promise;
-    const page = await pdf.getPage(pageNum);
+    const targetPage = Math.min(Math.max(1, pageNum), pdf.numPages);
+    const page = await pdf.getPage(targetPage);
 
     const viewport = page.getViewport({ scale });
     const canvas = document.createElement('canvas');
@@ -28,11 +48,81 @@ export const renderPdfPageToDataUrl = async (pdfUrl = '/architecture.pdf', pageN
     };
 
     await page.render(renderContext).promise;
-    return canvas.toDataURL('image/png');
+    const dataUrl = canvas.toDataURL('image/png');
+    return { dataUrl, numPages: pdf.numPages, pageNum: targetPage };
   } catch (err) {
-    console.warn("pdfjs-dist failed to render PDF, falling back to SVG blueprint:", err);
+    console.warn("pdfjs-dist failed to render PDF, using CAD Blueprint fallback:", err);
+    return { dataUrl: getBlueprintSvgDataUrl("GROUND FLOOR WALL LAYOUT BLUEPRINT", "REV 3.2"), numPages: 1, pageNum: 1 };
+  }
+};
+
+/**
+ * Render a PDF ArrayBuffer into a High-Res Image Data URL for Fabric Canvas
+ */
+export const renderPdfBufferToDataUrl = async (arrayBuffer, pageNum = 1, scale = 2.5) => {
+  try {
+    const loadingTask = pdfjsLib.getDocument({
+      data: arrayBuffer,
+      cMapUrl: 'https://unpkg.com/pdfjs-dist@4.0.379/cmaps/',
+      cMapPacked: true
+    });
+    const pdf = await loadingTask.promise;
+    const targetPage = Math.min(Math.max(1, pageNum), pdf.numPages);
+    const page = await pdf.getPage(targetPage);
+
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+
+    const renderContext = {
+      canvasContext: context,
+      viewport: viewport
+    };
+
+    await page.render(renderContext).promise;
+    return { dataUrl: canvas.toDataURL('image/png'), numPages: pdf.numPages, pageNum: targetPage };
+  } catch (err) {
+    console.warn("pdfjs-dist failed to render PDF buffer:", err);
     return null;
   }
+};
+
+/**
+ * Universal File Converter: Converts ANY user-uploaded File (PDF or Image) or URL
+ * into a High-Res Data URL for Fabric Canvas Background
+ */
+export const convertFileToDataUrl = async (fileOrUrl, pageNum = 1, scale = 2.5) => {
+  if (!fileOrUrl) return null;
+
+  // 1. User selected File or Blob object
+  if (fileOrUrl instanceof File || fileOrUrl instanceof Blob) {
+    const isPdf = fileOrUrl.type === 'application/pdf' || (fileOrUrl.name && fileOrUrl.name.toLowerCase().endsWith('.pdf'));
+    if (isPdf) {
+      const buffer = await fileOrUrl.arrayBuffer();
+      const pdfRes = await renderPdfBufferToDataUrl(buffer, pageNum, scale);
+      if (pdfRes) return pdfRes;
+    }
+    // Standard Image file (.png, .jpg, .jpeg, .webp, .svg)
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve({ dataUrl: e.target.result, numPages: 1, pageNum: 1 });
+      reader.onerror = (e) => reject(e);
+      reader.readAsDataURL(fileOrUrl);
+    });
+  }
+
+  // 2. URL String
+  if (typeof fileOrUrl === 'string') {
+    if (fileOrUrl.toLowerCase().endsWith('.pdf') || fileOrUrl.includes('.pdf')) {
+      const pdfRes = await renderPdfPageToDataUrl(fileOrUrl, pageNum, scale);
+      if (pdfRes) return pdfRes;
+    }
+    return { dataUrl: fileOrUrl, numPages: 1, pageNum: 1 };
+  }
+
+  return null;
 };
 
 // Generate an SVG data URL for Architectural CAD Blueprint

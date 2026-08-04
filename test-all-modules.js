@@ -15,19 +15,19 @@ if (typeof window === 'undefined') {
 }
 
 async function runSuite() {
-  const { 
-    login, 
-    getUsers, 
-    applyLeave, 
-    getMyLeaves, 
-    getPendingLeaveRequests, 
-    createLeaveType, 
-    getActiveLeaveTypes, 
-    getAttendanceStatus, 
-    clockOffice, 
-    registerDevice, 
-    getDeviceStatus, 
-    getNotifications, 
+  const {
+    login,
+    getUsers,
+    applyLeave,
+    getMyLeaves,
+    getPendingLeaveRequests,
+    createLeaveType,
+    getActiveLeaveTypes,
+    getAttendanceStatus,
+    clockOffice,
+    registerDevice,
+    getDeviceStatus,
+    getNotifications,
     saveSiteLocation,
     getSiteLocations
   } = await import('./src/mockApi.js');
