@@ -1,8 +1,4 @@
-import React from 'react';
-import { 
-  Search, Filter, Plus, Calendar, Clock, AlertCircle, 
-  Building2, AlertTriangle, FileText, DollarSign, ChevronRight, MoreHorizontal 
-} from 'lucide-react';
+import { PageHeader, StatsKpiCard, SearchFilterBar, StatusBadge } from '../../common';
 
 export default function ProjectList({
   projects,
@@ -35,27 +31,19 @@ export default function ProjectList({
   return (
     <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
       
-      {/* 0. PAGE HEADER */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            Projects Control Center
-          </h1>
-          <p className="text-slate-500 text-xs sm:text-sm mt-0.5 font-medium">
-            Full lifecycle project management, budgets, design sign-off, and client project linkages
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
+      {/* 0. PAGE HEADER MATCHING DRAWINGS VAULT MANAGEMENT */}
+      <PageHeader
+        title="Projects Control Center"
+        subtitle="Full lifecycle project management, budgets, design sign-off, and client project linkages"
+        actions={
           <button
             onClick={onCreateClick}
-            className="flex items-center gap-2 px-5 py-2.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all cursor-pointer border border-brand-soft"
+            className="flex items-center justify-center gap-2 px-4.5 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 rounded-xl text-xs sm:text-sm font-extrabold shadow-md transition-all cursor-pointer border border-brand-secondary/40"
           >
-            <Plus className="w-4 h-4 text-brand-dark" />
-            Create Project
+            <span>+ Create Project</span>
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* 1. TOP 4 KPI CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

@@ -1,56 +1,63 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Route } from 'react-router-dom';
 import DashboardLayout from '../components/layouts/DashboardLayout';
+import BrandLoader from '../components/common/BrandLoader';
 
-import CustomerDashboard from '../components/customer/dashboard/index';
-import CustomerTimeline from '../components/customer/timeline/index';
-import CustomerDrawings from '../components/customer/drawings/index';
-import CustomerPhotos3D from '../components/customer/photos-3d/index';
-import CustomerChat from '../components/customer/chat-queries/index';
-import CustomerNotifications from '../components/customer/notifications/index';
-import CustomerHistory from '../components/customer/history/index';
+const CustomerDashboard = lazy(() => import('../components/customer/dashboard/index'));
+const CustomerTimeline = lazy(() => import('../components/customer/timeline/index'));
+const CustomerDrawings = lazy(() => import('../components/customer/drawings/index'));
+const CustomerPhotos3D = lazy(() => import('../components/customer/photos-3d/index'));
+const CustomerChat = lazy(() => import('../components/customer/chat-queries/index'));
+const CustomerNotifications = lazy(() => import('../components/customer/notifications/index'));
+const CustomerHistory = lazy(() => import('../components/customer/history/index'));
+
+const LazyWrap = ({ children }) => (
+  <Suspense fallback={<BrandLoader message="Loading Client Portal..." />}>
+    {children}
+  </Suspense>
+);
 
 export default function getCustomerRoutes(handleRoleChange) {
   return (
     <>
       <Route path="/customer" element={
         <DashboardLayout role="Customer" onChangeRole={handleRoleChange} title="Customer Workspace">
-          <CustomerDashboard />
+          <LazyWrap><CustomerDashboard /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/customer/timeline" element={
         <DashboardLayout role="Customer" onChangeRole={handleRoleChange} title="Project Timeline">
-          <CustomerTimeline />
+          <LazyWrap><CustomerTimeline /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/customer/drawings" element={
         <DashboardLayout role="Customer" onChangeRole={handleRoleChange} title="Drawings">
-          <CustomerDrawings />
+          <LazyWrap><CustomerDrawings /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/customer/drawings/approvals" element={
         <DashboardLayout role="Customer" onChangeRole={handleRoleChange} title="Drawings">
-          <CustomerDrawings />
+          <LazyWrap><CustomerDrawings /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/customer/views" element={
         <DashboardLayout role="Customer" onChangeRole={handleRoleChange} title="Photos & 3D Views">
-          <CustomerPhotos3D />
+          <LazyWrap><CustomerPhotos3D /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/customer/chat" element={
         <DashboardLayout role="Customer" onChangeRole={handleRoleChange} title="Chat & Queries">
-          <CustomerChat />
+          <LazyWrap><CustomerChat /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/customer/notifications" element={
         <DashboardLayout role="Customer" onChangeRole={handleRoleChange} title="Notifications">
-          <CustomerNotifications />
+          <LazyWrap><CustomerNotifications /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/customer/history" element={
         <DashboardLayout role="Customer" onChangeRole={handleRoleChange} title="Project History">
-          <CustomerHistory />
+          <LazyWrap><CustomerHistory /></LazyWrap>
         </DashboardLayout>
       } />
     </>

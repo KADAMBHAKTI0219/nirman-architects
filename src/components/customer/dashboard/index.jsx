@@ -5,7 +5,7 @@ import {
   Building, RefreshCw, UserCheck, ShieldCheck, Calendar, MapPin, Phone, User, Edit, Layers, Star, Plus, LifeBuoy, Lock
 } from 'lucide-react';
 import Card from '../../common/Card';
-import { clientChangePassword } from '../../../service/client';
+import { clientChangePassword } from '../../../service/crm/client';
 import { 
   getClientDashboard, 
   getClientProjectDetail, 
@@ -13,20 +13,22 @@ import {
   updateClientProfile, 
   logClientSessionLogin, 
   sendClientSessionHeartbeat 
-} from '../../../service/clientPortal';
+} from '../../../service/crm/clientPortal';
 import {
   getPendingFeedbackPrompts,
   submitClientFeedback,
   skipFeedbackPrompt,
   getActiveFeedbackCategories
-} from '../../../service/feedback';
+} from '../../../service/crm/feedback';
 import {
   createClientTicket,
   getMyClientTickets,
   respondToClientTicket,
   reopenClientTicket,
   cancelClientTicket
-} from '../../../service/ticket';
+} from '../../../service/crm/ticket';
+
+import useSEO from '../../../hooks/useSEO';
 
 export default function CustomerDashboard() {
   const [user, setUser] = useState(() => {
@@ -35,6 +37,12 @@ export default function CustomerDashboard() {
     } catch {
       return {};
     }
+  });
+
+  useSEO({
+    title: 'Client Project Workspace & Portal',
+    description: 'Access real-time project progress, approved GFC drawings, billing invoices, and site updates on Nirman Architects Client Portal.',
+    keywords: 'Client Portal, Nirman Architects Client Portal, Project Workspace, GFC Blueprints, Construction Progress'
   });
 
   const [dashboardData, setDashboardData] = useState({

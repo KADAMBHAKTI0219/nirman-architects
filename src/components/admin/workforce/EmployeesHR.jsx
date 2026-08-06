@@ -9,9 +9,9 @@ import {
   getOfferLetterMetadata,
   downloadOfferLetterPDF,
   regenerateOfferLetter
-} from '../../../service/offerLetter';
-import { parseIndexedObjectToArray } from '../../../service/leave';
-import { getEmployeeScreenshots, downloadAllScreenshots } from '../../../service/screenshot';
+} from '../../../service/hrm/offerLetter';
+import { parseIndexedObjectToArray } from '../../../service/hrm/leave';
+import { getEmployeeScreenshots, downloadAllScreenshots } from '../../../service/hrm/screenshot';
 import { deleteUser, changeUserPassword, getUserById } from '../../../service/auth';
 
 export default function EmployeesHR({

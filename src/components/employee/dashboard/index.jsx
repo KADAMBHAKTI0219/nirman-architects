@@ -6,10 +6,26 @@ import {
   Layers, MessageSquare, FolderOpen, Bell, CheckCheck 
 } from 'lucide-react';
 import Card from '../../common/Card';
+import DrawingViewer from '../../common/DrawingViewer';
 import { getAttendanceStatus, getMyAttendance } from '../../../service/mockApi';
 
 export default function EmployeeDashboard() {
   const navigate = useNavigate();
+
+  const [user, setUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') || '{}');
+    } catch {
+      return {};
+    }
+  });
+
+  const empName = user.name || "Alice Smith";
+  const empRole = user.designation || user.role || "Junior Architect";
+  const empDept = user.department || "Architecture & Design";
+
+  // Selected Drawing modal state
+  const [selectedDrawing, setSelectedDrawing] = useState(null);
 
   // Check-In and Timer States
   const [isCheckedIn, setIsCheckedIn] = useState(() => localStorage.getItem('isCheckedIn') === 'true');
@@ -135,33 +151,35 @@ export default function EmployeeDashboard() {
   const completedTasksCount = tasks.filter(t => t.completed).length;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
       
-      {/* 1. GREETING + TODAY STATUS HEADER */}
-      <div className="bg-gradient-to-r from-blue-50/50 to-[#E5F0FA]/30 p-5 rounded-3xl border border-blue-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-3xs">
+      {/* 0. TOP PAGE HEADER MATCHING DRAWINGS VAULT MANAGEMENT */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
         <div>
-          <h2 className="text-lg font-black text-slate-900 leading-none">Hello, Alice Smith</h2>
-          <span className="text-[10px] text-slate-405 font-bold block mt-1 uppercase tracking-wider">
-            Junior Architect &bull; General Shift A (9:00 AM - 5:30 PM)
-          </span>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Employee Workstation Dashboard
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5 font-medium">
+            Welcome back, <strong className="text-slate-800">{empName}</strong> &bull; {empRole} ({empDept})
+          </p>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-150 rounded-xl text-[10px] font-bold text-slate-550 shadow-3xs">
+          <div className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 shadow-2xs">
             <MapPin className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
-            <span>Noida Sector 62 Site</span>
+            <span>Noida Site Headquarters</span>
           </div>
 
           <button
             onClick={handleCheckInToggle}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase transition-all shadow-xs ${
+            className={`flex items-center gap-1.5 px-4.5 py-2.5 rounded-xl text-xs font-extrabold shadow-sm transition-all cursor-pointer border ${
               isCheckedIn 
-                ? 'bg-rose-500 hover:bg-rose-600 text-white' 
-                : 'bg-brand-primary hover:bg-brand-secondary text-slate-905'
+                ? 'bg-rose-600 hover:bg-rose-700 text-white border-rose-700' 
+                : 'bg-brand-primary hover:bg-brand-secondary text-slate-900 border-brand-secondary/40'
             }`}
           >
             <Fingerprint className="w-4 h-4" />
-            {isCheckedIn ? 'Check Out' : 'Check In'}
+            <span>{isCheckedIn ? 'Check Out' : 'Gate Check In'}</span>
           </button>
 
           {isCheckedIn && (
@@ -290,17 +308,37 @@ export default function EmployeeDashboard() {
                       <FileText className="w-4.5 h-4.5" />
                     </div>
                     <div>
-                      <strong className="text-slate-805 block text-xs leading-none">{d.name}</strong>
+                      <strong className="text-slate-800 block text-xs leading-none">{d.name}</strong>
                       <span className="text-[9px] text-slate-400 block mt-1.5 font-bold uppercase">{d.category} &bull; {d.version}</span>
                     </div>
                   </div>
-                  <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${
-                    d.status === 'GFC Locked' ? 'bg-indigo-50 text-indigo-650 border-indigo-100' : 'bg-amber-50 text-amber-655 border-amber-100'
-                  }`}>{d.status}</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setSelectedDrawing(d)}
+                      className="px-3 py-1.5 bg-sky-100 hover:bg-sky-200 text-sky-900 font-extrabold text-[11px] rounded-2xl border border-sky-300/60 flex items-center gap-1.5 shadow-3xs cursor-pointer transition-all"
+                      title="Open CAD Viewer & Signatures"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-sky-700 stroke-[2.5]" />
+                      <span className="leading-tight">View & Sign</span>
+                    </button>
+                    <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${
+                      d.status === 'GFC Locked' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-amber-50 text-amber-600 border-amber-100'
+                    }`}>{d.status}</span>
+                  </div>
                 </div>
               ))}
             </div>
           </Card>
+
+          {/* Drawing Viewer Overlay */}
+          {selectedDrawing && (
+            <DrawingViewer 
+              drawing={selectedDrawing}
+              onClose={() => setSelectedDrawing(null)}
+              userPermissionLevel="MEMBER"
+              initialMarkupMode={true}
+            />
+          )}
 
         </div>
 

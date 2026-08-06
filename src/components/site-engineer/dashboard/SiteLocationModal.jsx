@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, CheckCircle2, XCircle, ShieldAlert, Navigation, RefreshCw, AlertCircle, Check, X } from 'lucide-react';
+import { MapPin, CheckCircle2, XCircle, ShieldAlert, Navigation, RefreshCw, AlertCircle, Check, X, Loader2 } from 'lucide-react';
 import { checkGeoFence, calculateDistanceInMeters } from '../../../service/siteLocationService';
+import useGeoLocation from '../../../hooks/useGeoLocation';
 
 export default function SiteLocationModal({
   isOpen,
@@ -10,48 +11,32 @@ export default function SiteLocationModal({
 }) {
   const [permissionState, setPermissionState] = useState('prompt'); // 'prompt', 'granted', 'denied'
   const [userLocation, setUserLocation] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [geoResult, setGeoResult] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
 
-  const requestBrowserLocation = () => {
-    setIsLoading(true);
+  const { getLocation, loading: isLoading } = useGeoLocation({
+    enableHighAccuracy: true,
+    timeout: 12000,
+    reverseGeocode: true
+  });
+
+  const requestBrowserLocation = async () => {
     setErrorMessage(null);
+    const res = await getLocation();
 
-    if (!navigator.geolocation) {
+    if (res.success && res.location) {
+      const uLat = res.location.latitude;
+      const uLng = res.location.longitude;
+      setUserLocation({ lat: uLat, lng: uLng, accuracy: res.location.accuracy, address: res.location.address });
+      setPermissionState('granted');
+
+      // Verify geofence against active site
+      const result = checkGeoFence(uLat, uLng, activeSite.lat, activeSite.lng, activeSite.radiusMeters);
+      setGeoResult(result);
+    } else if (res.error) {
       setPermissionState('denied');
-      setErrorMessage('Geolocation API is not supported by your browser.');
-      setIsLoading(false);
-      return;
+      setErrorMessage(res.error.message);
     }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const uLat = position.coords.latitude;
-        const uLng = position.coords.longitude;
-        setUserLocation({ lat: uLat, lng: uLng, accuracy: position.coords.accuracy });
-        setPermissionState('granted');
-        setIsLoading(false);
-
-        // Verify geofence against active site
-        const result = checkGeoFence(uLat, uLng, activeSite.lat, activeSite.lng, activeSite.radiusMeters);
-        setGeoResult(result);
-      },
-      (error) => {
-        console.warn('Geolocation permission error:', error);
-        setPermissionState('denied');
-        setIsLoading(false);
-
-        if (error.code === error.PERMISSION_DENIED) {
-          setErrorMessage('Location permission was denied. Please allow location access in your browser settings to verify site punch-in.');
-        } else if (error.code === error.POSITION_UNAVAILABLE) {
-          setErrorMessage('GPS Location unavailable. Please ensure your device location/GPS is turned on.');
-        } else {
-          setErrorMessage('Location request timed out. Please try again.');
-        }
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
   };
 
   const handleDenyPermission = () => {

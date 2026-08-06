@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Navigation, ShieldCheck } from 'lucide-react';
-import { getMyAttendance, getTodayAttendance } from '../../../service/attendance';
-import { parseIndexedObjectToArray } from '../../../service/leave';
+import { getMyAttendance, getTodayAttendance } from '../../../service/hrm/attendance';
+import { parseIndexedObjectToArray } from '../../../service/hrm/leave';
 
 export default function AttendanceSite() {
   const [isCheckedIn, setIsCheckedIn] = useState(false);

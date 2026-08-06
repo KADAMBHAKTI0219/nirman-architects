@@ -98,8 +98,20 @@ export default function CustomerDocuments() {
   };
 
   return (
-    <div className="space-y-6 font-sans text-slate-800 animate-in fade-in duration-200">
+    <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
       
+      {/* 0. TOP PAGE HEADER MATCHING DRAWINGS VAULT MANAGEMENT */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Client Document Vault & Invoices
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5 font-medium">
+            Download project contracts, billing invoices, approval certificates & compliance files
+          </p>
+        </div>
+      </div>
+
       {/* 1. FILTER & SEARCH HEADER */}
       <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
         <div className="flex flex-wrap gap-4 items-center justify-between">

@@ -10,8 +10,8 @@ import {
   generateAllPayroll,
   downloadEmployeePayslip,
   downloadAllPayslipsZip
-} from '../../../service/payroll';
-import { parseIndexedObjectToArray } from '../../../service/leave';
+} from '../../../service/hrm/payroll';
+import { parseIndexedObjectToArray } from '../../../service/hrm/leave';
 
 const COLORS = ['#8FC9FF', '#EF4444', '#34D399'];
 

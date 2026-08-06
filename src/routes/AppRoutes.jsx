@@ -14,8 +14,10 @@ import getEmployeeRoutes from './EmployeeRoutes';
 import getCustomerRoutes from './CustomerRoutes';
 
 // Site Engineer explicit routes from PRD
-import SiteAttendance from '../components/site-engineer/attendance/index';
 import DashboardLayout from '../components/layouts/DashboardLayout';
+import BrandLoader from '../components/common/BrandLoader';
+
+const SiteAttendance = React.lazy(() => import('../components/site-engineer/attendance/index'));
 
 export default function AppRoutes({ role, setRole, isAuthenticated, setIsAuthenticated }) {
   const navigate = useNavigate();
@@ -126,21 +128,27 @@ export default function AppRoutes({ role, setRole, isAuthenticated, setIsAuthent
       <Route path="/site/checkin" element={
         <ProtectedRoute isAuthenticated={isAuthenticated} role={role} allowedRoles={['SiteEngineer']}>
           <DashboardLayout role="SiteEngineer" onChangeRole={handleRoleChange} title="Site Check-in">
-            <SiteAttendance defaultTab="checkin" />
+            <React.Suspense fallback={<BrandLoader message="Loading Site Check-in..." />}>
+              <SiteAttendance defaultTab="checkin" />
+            </React.Suspense>
           </DashboardLayout>
         </ProtectedRoute>
       } />
       <Route path="/site/checkout" element={
         <ProtectedRoute isAuthenticated={isAuthenticated} role={role} allowedRoles={['SiteEngineer']}>
           <DashboardLayout role="SiteEngineer" onChangeRole={handleRoleChange} title="Site Check-out">
-            <SiteAttendance defaultTab="checkout" />
+            <React.Suspense fallback={<BrandLoader message="Loading Site Check-out..." />}>
+              <SiteAttendance defaultTab="checkout" />
+            </React.Suspense>
           </DashboardLayout>
         </ProtectedRoute>
       } />
       <Route path="/site/history" element={
         <ProtectedRoute isAuthenticated={isAuthenticated} role={role} allowedRoles={['SiteEngineer']}>
           <DashboardLayout role="SiteEngineer" onChangeRole={handleRoleChange} title="Attendance History">
-            <SiteAttendance defaultTab="history" />
+            <React.Suspense fallback={<BrandLoader message="Loading Attendance History..." />}>
+              <SiteAttendance defaultTab="history" />
+            </React.Suspense>
           </DashboardLayout>
         </ProtectedRoute>
       } />

@@ -3,7 +3,7 @@ import {
   Search, FileText, Download, Eye, File, Folder, Layers, X, Calendar, Database
 } from 'lucide-react';
 import Card from '../../common/Card';
-import { getOfferLetterMetadata, downloadOfferLetterPDF } from '../../../service/offerLetter';
+import { getOfferLetterMetadata, downloadOfferLetterPDF } from '../../../service/hrm/offerLetter';
 
 export default function EmployeeDocs() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -133,7 +133,19 @@ export default function EmployeeDocs() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
+      
+      {/* 0. TOP PAGE HEADER MATCHING DRAWINGS VAULT MANAGEMENT */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Employee Documents & Policy Vault
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5 font-medium">
+            Access official employment offer letters, company safety standards & policies
+          </p>
+        </div>
+      </div>
       
       {/* Official Offer Letter Section */}
       {offerMetadata && (

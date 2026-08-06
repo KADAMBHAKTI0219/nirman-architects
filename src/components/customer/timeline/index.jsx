@@ -5,7 +5,7 @@ import {
   Sparkles, Check, CheckSquare, Layers, LayoutGrid, Kanban, RefreshCw, X, Eye, FileText
 } from 'lucide-react';
 import Card from '../../common/Card';
-import { getClientProjectTimeline, getClientDashboard } from '../../../service/clientPortal';
+import { getClientProjectTimeline, getClientDashboard } from '../../../service/crm/clientPortal';
 
 const TIMELINE_PHASES = [
   {
@@ -94,8 +94,20 @@ export default function CustomerTimeline() {
   const filteredPhases = getFilteredPhases();
 
   return (
-    <div className="space-y-4 font-sans text-slate-800 animate-in fade-in duration-200 pb-16 w-full max-w-[1400px] mx-auto select-none">
+    <div className="space-y-6 font-sans text-slate-800 animate-in fade-in duration-200 pb-16 w-full max-w-[1400px] mx-auto select-none">
       
+      {/* 0. TOP PAGE HEADER MATCHING DRAWINGS VAULT MANAGEMENT */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Client Project Milestone Timeline
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5 font-medium">
+            Track real-time construction progress, completed phases & upcoming site handovers
+          </p>
+        </div>
+      </div>
+
       {/* 1. TOP BREADCRUMB & CONTROL BAR (Identical to Screenshot) */}
       <div className="bg-white p-4 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
         

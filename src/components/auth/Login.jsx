@@ -4,7 +4,8 @@ import loginHero from '../../assets/images/login/loginpage.png';
 import logoImg from '../../assets/images/logo.png';
 import { Ruler, ArrowRight, Eye, EyeOff, ShieldCheck, User, Building, Lock, Key, AlertCircle, CheckCircle, RefreshCw, X } from 'lucide-react';
 import { loginUser } from '../../service/auth';
-import { clientLogin, clientChangePassword, clientForgotPassword, clientResetPassword } from '../../service/client';
+import { clientLogin, clientChangePassword, clientForgotPassword, clientResetPassword } from '../../service/crm/client';
+import BrandLoader from '../common/BrandLoader';
 
 const STAFF_DEMO_ACCOUNTS = {
   'admin@nirman.com': 'Admin',
@@ -26,8 +27,8 @@ const CLIENT_DEMO_ACCOUNTS = {
 
 export default function Login({ onLogin }) {
   const [authType, setAuthType] = useState('staff'); // 'staff' or 'client'
-  const [email, setEmail] = useState('admin@nirman.com');
-  const [password, setPassword] = useState('••••••••');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -66,25 +67,21 @@ export default function Login({ onLogin }) {
   const handleTabSwitch = (type) => {
     setAuthType(type);
     setError('');
-    if (type === 'client') {
-      setEmail('bruce@waynecorp.com');
-      setPassword('Password123!');
-    } else {
-      setEmail('admin@nirman.com');
-      setPassword('Admin123!');
-    }
+    setEmail('');
+    setPassword('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail = (email.trim() || (authType === 'client' ? 'bruce@waynecorp.com' : 'admin@nirman.com')).toLowerCase();
+    const cleanPassword = password || (authType === 'client' ? 'Password123!' : 'Admin123!');
     setError('');
     setLoading(true);
 
     try {
       if (authType === 'client') {
         // Explicit Client Portal Login Endpoint: POST /api/client-auth/login
-        const res = await clientLogin({ email: cleanEmail, password });
+        const res = await clientLogin({ email: cleanEmail, password: cleanPassword });
         if (res?.success) {
           handleClientLoginSuccess(res, cleanEmail);
           return;
@@ -94,7 +91,7 @@ export default function Login({ onLogin }) {
       } else {
         // Staff Login Endpoint: POST /api/auth/login
         try {
-          const response = await loginUser(cleanEmail, password);
+          const response = await loginUser(cleanEmail, cleanPassword);
           const token = response.token || response.data?.token;
           const success = response.success === true || !!token || response.data?.success === true || String(response.message).toLowerCase().includes('success');
 
@@ -286,6 +283,8 @@ export default function Login({ onLogin }) {
 
   return (
     <div className="w-full min-h-screen flex flex-col md:flex-row bg-white text-left font-sans">
+      
+      {loading && <BrandLoader fullScreen text="Authenticating & Loading Dashboard..." />}
 
       {/* Left Column: Graphic & Centered Branding */}
       <div className="w-full md:w-1/2 bg-gradient-to-tr from-brand-light via-brand-soft to-brand-secondary p-8 flex flex-col justify-between items-center text-brand-dark min-h-[300px] md:min-h-screen">
@@ -334,8 +333,8 @@ export default function Login({ onLogin }) {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@company.com"
-                className="w-full px-4 py-3 text-xs font-semibold text-slate-800 bg-slate-50/50 border border-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all bg-white"
+                placeholder={authType === 'client' ? 'e.g. bruce@waynecorp.com' : 'e.g. admin@nirman.com'}
+                className="w-full px-4 py-3 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all placeholder:text-slate-400 placeholder:font-normal"
               />
             </div>
 
@@ -350,15 +349,19 @@ export default function Login({ onLogin }) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-4 pr-12 py-3 text-xs font-semibold text-slate-800 bg-slate-50/50 border border-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all bg-white"
+                  className="w-full pl-4 pr-12 py-3 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all placeholder:text-slate-400 placeholder:font-normal"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-0 border-0 bg-transparent outline-none focus:outline-none cursor-pointer flex items-center justify-center"
                   title={showPassword ? 'Hide password' : 'Show password'}
                 >
-                  {showPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
+                  {showPassword ? (
+                    <EyeOff className="w-4.5 h-4.5 text-slate-400 hover:text-slate-600 border-none bg-transparent" />
+                  ) : (
+                    <Eye className="w-4.5 h-4.5 text-slate-400 hover:text-slate-600 border-none bg-transparent" />
+                  )}
                 </button>
               </div>
             </div>

@@ -1,103 +1,110 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Route } from 'react-router-dom';
 import DashboardLayout from '../components/layouts/DashboardLayout';
+import BrandLoader from '../components/common/BrandLoader';
 
-import HRDashboard from '../components/hr/dashboard/index';
-import HREmployees from '../components/hr/employees/index';
-import HRAttendance from '../components/hr/attendance/index';
-import HRLeaves from '../components/hr/leaves-holidays/index';
-import HRShifts from '../components/hr/shifts/index';
-import HRPayroll from '../components/hr/payroll-data/index';
-import HRReviews from '../components/hr/reviews/index';
-import HRDocs from '../components/hr/docs/index';
-import AppUsageTracking from '../components/admin/app-usage/AppUsageTracking';
+const HRDashboard = lazy(() => import('../components/hr/dashboard/index'));
+const HREmployees = lazy(() => import('../components/hr/employees/index'));
+const HRAttendance = lazy(() => import('../components/hr/attendance/index'));
+const HRLeaves = lazy(() => import('../components/hr/leaves-holidays/index'));
+const HRShifts = lazy(() => import('../components/hr/shifts/index'));
+const HRPayroll = lazy(() => import('../components/hr/payroll-data/index'));
+const HRReviews = lazy(() => import('../components/hr/reviews/index'));
+const HRDocs = lazy(() => import('../components/hr/docs/index'));
+const AppUsageTracking = lazy(() => import('../components/admin/app-usage/AppUsageTracking'));
+
+const LazyWrap = ({ children }) => (
+  <Suspense fallback={<BrandLoader message="Loading HR Workspace..." />}>
+    {children}
+  </Suspense>
+);
 
 export default function getHrRoutes(handleRoleChange) {
   return (
     <>
       <Route path="/hr/app-usage" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="App Usage Tracking">
-          <AppUsageTracking userRole="HR" />
+          <LazyWrap><AppUsageTracking userRole="HR" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/hr" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="HR Workspace">
-          <HRDashboard />
+          <LazyWrap><HRDashboard /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/hr/employees" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Employees">
-          <HREmployees />
+          <LazyWrap><HREmployees /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/hr/attendance/overview" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Attendance">
-          <HRAttendance defaultTab="overview" />
+          <LazyWrap><HRAttendance defaultTab="overview" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/hr/attendance/daily" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Attendance">
-          <HRAttendance defaultTab="daily" />
+          <LazyWrap><HRAttendance defaultTab="daily" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/hr/attendance/monthly" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Attendance">
-          <HRAttendance defaultTab="monthly" />
+          <LazyWrap><HRAttendance defaultTab="monthly" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/hr/attendance/exceptions" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Attendance">
-          <HRAttendance defaultTab="exceptions" />
+          <LazyWrap><HRAttendance defaultTab="exceptions" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/hr/attendance/office" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Attendance">
-          <HRAttendance defaultTab="overview" />
+          <LazyWrap><HRAttendance defaultTab="overview" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/hr/attendance/site" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Attendance">
-          <HRAttendance defaultTab="overview" />
+          <LazyWrap><HRAttendance defaultTab="overview" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/hr/attendance/reports" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Attendance">
-          <HRAttendance defaultTab="overview" />
+          <LazyWrap><HRAttendance defaultTab="overview" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/hr/leaves/company" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Leaves & Holidays">
-          <HRLeaves defaultTab="company" />
+          <LazyWrap><HRLeaves defaultTab="company" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/hr/leaves/personal" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Leaves & Holidays">
-          <HRLeaves defaultTab="personal" />
+          <LazyWrap><HRLeaves defaultTab="personal" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/hr/leaves" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Leaves & Holidays">
-          <HRLeaves defaultTab="company" />
+          <LazyWrap><HRLeaves defaultTab="company" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/hr/shifts" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Shifts">
-          <HRShifts />
+          <LazyWrap><HRShifts /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/hr/payroll" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Payroll">
-          <HRPayroll />
+          <LazyWrap><HRPayroll /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/hr/reviews" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Reviews">
-          <HRReviews />
+          <LazyWrap><HRReviews /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/hr/docs" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="HR Documents">
-          <HRDocs />
+          <LazyWrap><HRDocs /></LazyWrap>
         </DashboardLayout>
       } />
     </>

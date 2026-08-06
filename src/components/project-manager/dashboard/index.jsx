@@ -118,37 +118,51 @@ export default function Dashboard() {
 
   const handleCreateNewDrawing = async (e) => {
     e.preventDefault();
-    if (!newDrawingTitle.trim()) return;
+    if (!newDrawingTitle.trim()) {
+      alert("Please provide a drawing title.");
+      return;
+    }
 
     setIsUploading(true);
     try {
-      const res = await uploadDrawing({
-        title: newDrawingTitle,
-        projectId: 'proj-1',
-        category: newDrawingCategory,
-        notes: newDrawingNotes,
-        fileUrl: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80"
-      });
+      const payloadData = new FormData();
+      payloadData.append('title', newDrawingTitle);
+      payloadData.append('projectId', newDrawingProject || 'proj-1');
+      payloadData.append('category', newDrawingCategory || 'Working Drawings');
+      payloadData.append('notes', newDrawingNotes || 'PM uploaded blueprint');
+      payloadData.append('visibleToClient', 'true');
+
+      if (selectedDrawingFile) {
+        payloadData.append('file', selectedDrawingFile);
+      } else if (drawingDataUrl) {
+        payloadData.append('fileUrl', drawingDataUrl);
+      }
+
+      const res = await uploadDrawing(payloadData);
 
       const newDoc = {
-        id: res.drawing?._id || Date.now(),
+        id: res?.drawing?._id || res?.drawing?.id || Date.now(),
         title: newDrawingTitle,
         project: newDrawingProject,
         type: newDrawingCategory.toUpperCase(),
-        uploader: "Sarah Connor",
-        role: "Lead PM",
+        uploader: "Lax Savani",
+        role: "Project Manager",
         avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80",
-        status: "AWAITING PM APPROVAL",
-        date: new Date().toISOString().split('T')[0]
+        status: "AWAITING CLIENT SIGNOFF",
+        date: new Date().toISOString().split('T')[0],
+        fileUrl: res?.drawing?.fileUrl || drawingDataUrl || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80"
       };
 
       setDrawingQueue(prev => [newDoc, ...prev]);
       setIsNewDrawingModalOpen(false);
       setNewDrawingTitle('');
       setNewDrawingNotes('');
-      alert("New drawing blueprint uploaded successfully!");
+      setSelectedDrawingFile(null);
+      setDrawingDataUrl('');
+      alert(`Drawing "${newDrawingTitle}" uploaded successfully to server & saved in Drawings Vault!`);
     } catch (err) {
-      alert("Error uploading drawing: " + err.message);
+      console.error("Failed to upload drawing:", err);
+      alert("Error uploading drawing: " + (err.message || "Upload failed"));
     } finally {
       setIsUploading(false);
     }
@@ -181,88 +195,52 @@ export default function Dashboard() {
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
 
-      {/* 1. TOP WELCOME & SEARCH HEADER */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 text-white p-5.5 rounded-3xl border border-slate-800 shadow-lg relative overflow-hidden">
-        <div className="absolute top-0 right-1/3 w-64 h-64 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="px-2.5 py-0.5 rounded-md bg-sky-500/20 text-sky-300 font-extrabold text-[10px] uppercase tracking-wider border border-sky-400/30">
-              Project Manager Command Portal
-            </span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
-            <span>Good morning, {loggedInUserName}</span>
-            <span className="text-2xl">👋</span>
+      {/* 0. TOP PAGE HEADER MATCHING DRAWINGS VAULT MANAGEMENT */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Project Manager Command Dashboard
           </h1>
-          <p className="text-xs text-slate-300 font-medium mt-0.5">
-            Monitor real-time project timelines, site punch-ins, client communications & drawing approvals.
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5 font-medium">
+            Monitor real-time project timelines, site punch-ins, client communications & drawing approvals
           </p>
         </div>
-
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto relative z-10">
-          {/* Search Bar Input */}
-          <div className="relative flex-1 md:w-72">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search drawings, projects, clients..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 bg-slate-800/90 border border-slate-700/80 rounded-xl text-xs font-semibold text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400/40 transition-all"
-            />
-          </div>
-
-          {/* Notification Icon */}
-          <button
-            onClick={() => navigate('/project-manager/chats')}
-            className="p-2.5 bg-slate-800 hover:bg-slate-750 border border-slate-700 rounded-xl text-slate-300 relative transition-all cursor-pointer shadow-xs"
-            title="Notifications & Chats"
-          >
-            <Bell className="w-4 h-4 text-sky-400" />
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 rounded-full text-[9px] font-black text-white flex items-center justify-center border-2 border-slate-900">
-              3
-            </span>
-          </button>
-
-          {/* + New Drawing Button */}
+        <div className="flex items-center gap-3 w-full sm:w-auto">
           <button
             onClick={() => setIsNewDrawingModalOpen(true)}
-            className="px-4.5 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4.5 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 rounded-xl text-xs sm:text-sm font-extrabold shadow-md transition-all cursor-pointer border border-brand-secondary/40"
           >
-            <Plus className="w-4 h-4" />
-            <span>New Drawing</span>
+            <Plus className="w-4 h-4 text-slate-900 stroke-[2.5]" />
+            <span>Upload Drawing</span>
           </button>
         </div>
       </div>
 
-      {/* 2. PROJECT SITE GEO-FENCING TOP BANNER */}
-      <div className="bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-950 text-white p-4.5 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md border border-indigo-800/40 relative overflow-hidden">
+      {/* 2. PROJECT SITE GEO-FENCING TOP BANNER (SOFT LIGHT SHADE) */}
+      <div className="bg-brand-soft/70 p-4.5 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-3xs border border-brand-secondary/30 relative overflow-hidden">
         <div className="flex items-center gap-3.5 relative z-10">
-          <div className="w-11 h-11 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
-            <Globe className="w-5.5 h-5.5 animate-pulse" />
+          <div className="w-11 h-11 rounded-2xl bg-brand-primary/40 border border-brand-secondary/60 flex items-center justify-center text-slate-900 shrink-0 shadow-3xs">
+            <Globe className="w-5.5 h-5.5 animate-pulse text-indigo-700" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-extrabold text-sm text-white tracking-tight">Project Site Geo-Fencing System</h3>
-              <span className="px-2 py-0.2 bg-emerald-500/20 text-emerald-400 text-[9px] font-black rounded border border-emerald-500/30 uppercase">Active</span>
+              <h3 className="font-black text-sm text-slate-900 tracking-tight">Project Site Geo-Fencing System</h3>
+              <span className="px-2.5 py-0.5 bg-emerald-100/80 text-emerald-800 text-[9px] font-black rounded-full border border-emerald-200 uppercase">Active</span>
             </div>
-            <p className="text-xs text-slate-300 font-medium mt-0.5">
+            <p className="text-xs text-slate-700 font-semibold mt-0.5">
               Configure GPS coordinates & allowed radius boundaries for automated site biometric punch-ins
             </p>
           </div>
         </div>
         <button
           onClick={() => setIsSiteLocationModalOpen(true)}
-          className="px-4.5 py-2.5 bg-sky-400 hover:bg-sky-300 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer shrink-0 relative z-10"
+          className="px-4.5 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-extrabold text-xs rounded-xl shadow-3xs transition-all flex items-center gap-2 cursor-pointer shrink-0 relative z-10 border border-brand-secondary/40"
         >
-          <MapPin className="w-4 h-4" />
+          <MapPin className="w-4 h-4 text-slate-900 stroke-[2.5]" />
           <span>Configure Site Locations</span>
         </button>
       </div>
 
-      {/* 3. 8 STAT CARDS GRID */}
-      <Stats pmAttendance={pmAttendance} widgets={widgets} />
 
       {/* 4. ACTIVE PROJECTS & TIMELINES + TEAM PRODUCTIVITY GRID (Screenshot 1) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -442,19 +420,19 @@ export default function Dashboard() {
       {isNewDrawingModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden text-slate-900">
-            <div className="bg-slate-900 text-white p-5 flex items-center justify-between">
+            <div className="bg-white border-b border-slate-100 p-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center font-bold">
-                  <Upload className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-2xl bg-brand-soft text-slate-900 flex items-center justify-center font-bold border border-brand-secondary/40">
+                  <Upload className="w-5 h-5 text-indigo-700 stroke-[2.5]" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-sm">Upload New Drawing Blueprint</h3>
-                  <p className="text-[11px] text-slate-400">Submit CAD/DWG file for PM verification</p>
+                  <h3 className="font-black text-sm text-slate-900">Upload New Drawing Blueprint</h3>
+                  <p className="text-[11px] text-slate-500 font-semibold">Submit CAD/DWG file for PM verification & release</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsNewDrawingModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800"
+                className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-all"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -462,7 +440,7 @@ export default function Dashboard() {
 
             <form onSubmit={handleCreateNewDrawing} className="p-6 space-y-4 text-xs">
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Drawing Title</label>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Drawing Title *</label>
                 <input
                   type="text"
                   required
@@ -471,6 +449,21 @@ export default function Dashboard() {
                   onChange={(e) => setNewDrawingTitle(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
                 />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Select Blueprint File (PDF, DWG, PNG, JPG)</label>
+                <input
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg,.dwg,.dxf"
+                  onChange={handleFileSelect}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-extrabold file:bg-brand-primary file:text-slate-900 cursor-pointer"
+                />
+                {selectedDrawingFile && (
+                  <span className="text-[10px] text-emerald-600 font-bold block mt-1">
+                    ✓ File selected: {selectedDrawingFile.name} ({(selectedDrawingFile.size / (1024 * 1024)).toFixed(2)} MB)
+                  </span>
+                )}
               </div>
 
               <div>
@@ -523,10 +516,10 @@ export default function Dashboard() {
                 <button
                   type="submit"
                   disabled={isUploading}
-                  className="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white font-extrabold rounded-xl shadow-md flex items-center gap-1.5"
+                  className="px-5 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-extrabold rounded-xl shadow-2xs flex items-center gap-1.5 cursor-pointer border border-brand-secondary/40 transition-all"
                 >
-                  <FileCheck className="w-4 h-4" />
-                  <span>{isUploading ? 'Uploading...' : 'Submit Drawing'}</span>
+                  <FileCheck className="w-4 h-4 text-slate-900 stroke-[2.5]" />
+                  <span>{isUploading ? 'Uploading Drawing...' : 'Submit Drawing Blueprint'}</span>
                 </button>
               </div>
             </form>

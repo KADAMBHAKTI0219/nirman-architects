@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar as CalendarIcon, Clock, ShieldAlert } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, ShieldAlert, Plus } from 'lucide-react';
 import ShiftStats from './ShiftStats';
 import ShiftWeeklyGrid from './ShiftWeeklyGrid';
 import ShiftDetailDrawer from './ShiftDetailDrawer';
@@ -58,11 +58,10 @@ export default function Shifts() {
       const resHeartbeat = await updateHeartbeatConfig(heartbeatTimeout);
       if (resShift.success && resHeartbeat.success) {
         alert("Shift timings and heartbeat policies updated successfully!");
-      } else {
-        alert("Policy configurations updated successfully (simulation mode).");
       }
     } catch (err) {
-      alert("Policy configurations updated successfully (simulation mode).");
+      console.error(err);
+      alert("Failed to update shift policy.");
     } finally {
       setSavingPolicy(false);
     }
@@ -90,7 +89,28 @@ export default function Shifts() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
+      
+      {/* 0. TOP PAGE HEADER MATCHING DRAWINGS VAULT MANAGEMENT & ADMIN DASHBOARD */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Shift Planner & Rota Management
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            Assign employee work shifts, site duty rotas, and manage overtime coverage schedules
+          </p>
+        </div>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <button
+            onClick={() => alert("Creating a new work shift rule...")}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4.5 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 rounded-xl text-xs sm:text-sm font-extrabold shadow-md transition-all cursor-pointer border border-brand-secondary/40"
+          >
+            <Plus className="w-4 h-4 text-slate-900 stroke-[2.5]" />
+            <span>Add Shift Rule</span>
+          </button>
+        </div>
+      </div>
       
       {/* 1. TOP BAR FILTERS & EXPORTS */}
       <div className="bg-white p-5 rounded-3xl border border-slate-105 shadow-2xs flex flex-wrap gap-4 items-center justify-between">

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Navigation, Save, RefreshCw, Plus, Shield, Check, X, Compass, Globe } from 'lucide-react';
+import { MapPin, Navigation, Save, RefreshCw, Plus, Shield, Check, X, Compass, Globe, AlertTriangle, Loader2 } from 'lucide-react';
 import { createSiteLocation, getSiteLocations } from '../../../service/siteLocationService';
+import useGeoLocation from '../../../hooks/useGeoLocation';
 
 export default function SiteLocationManagerModal({ isOpen, onClose }) {
   const [siteLocations, setSiteLocations] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [gpsDetecting, setGpsDetecting] = useState(false);
 
   // Form State
   const [projectId, setProjectId] = useState('proj_1');
@@ -15,10 +15,19 @@ export default function SiteLocationManagerModal({ isOpen, onClose }) {
   const [lng, setLng] = useState('72.5714');
   const [radiusMeters, setRadiusMeters] = useState('100');
   const [feedbackMessage, setFeedbackMessage] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(null);
+
+  const { getLocation, loading: gpsDetecting } = useGeoLocation({
+    enableHighAccuracy: true,
+    timeout: 12000,
+    reverseGeocode: true
+  });
 
   useEffect(() => {
     if (isOpen) {
       fetchLocations();
+      setFeedbackMessage(null);
+      setErrorMessage(null);
     }
   }, [isOpen]);
 
@@ -36,44 +45,20 @@ export default function SiteLocationManagerModal({ isOpen, onClose }) {
     }
   };
 
-  const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
-
-  const handleUseCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      setShowPermissionPrompt(true);
-      return;
-    }
-    setGpsDetecting(true);
+  const handleFetchCurrentLocation = async () => {
     setFeedbackMessage(null);
+    setErrorMessage(null);
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLat(pos.coords.latitude.toFixed(6));
-        setLng(pos.coords.longitude.toFixed(6));
-        setGpsDetecting(false);
-        setShowPermissionPrompt(false);
-        setFeedbackMessage(`Detected live GPS coordinates: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`);
-      },
-      (err) => {
-        console.warn('High accuracy GPS error, trying standard geolocation...', err);
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            setLat(pos.coords.latitude.toFixed(6));
-            setLng(pos.coords.longitude.toFixed(6));
-            setGpsDetecting(false);
-            setShowPermissionPrompt(false);
-            setFeedbackMessage(`Detected live GPS coordinates: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`);
-          },
-          (err2) => {
-            console.warn('Standard geolocation error:', err2);
-            setGpsDetecting(false);
-            setShowPermissionPrompt(true);
-          },
-          { enableHighAccuracy: false, timeout: 15000 }
-        );
-      },
-      { enableHighAccuracy: true, timeout: 5000 }
-    );
+    const res = await getLocation();
+    if (res.success && res.location) {
+      const detectedLat = res.location.latitude.toFixed(6);
+      const detectedLng = res.location.longitude.toFixed(6);
+      setLat(detectedLat);
+      setLng(detectedLng);
+      setFeedbackMessage(`✓ Location fetched! Coords set to: ${detectedLat}, ${detectedLng}${res.location.address ? ` (${res.location.address})` : ''}`);
+    } else if (res.error) {
+      setErrorMessage(res.error.message);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -140,48 +125,15 @@ export default function SiteLocationManagerModal({ isOpen, onClose }) {
             </div>
           )}
 
-          {/* GEOLOCATION PERMISSION PROMPT DIALOG CARD */}
-          {showPermissionPrompt && (
-            <div className="bg-sky-50 border-2 border-sky-200 rounded-3xl p-5 text-center space-y-3.5 animate-in fade-in zoom-in-95 duration-200 shadow-md">
-              <div className="w-14 h-14 rounded-full bg-white border-4 border-sky-100 flex items-center justify-center mx-auto text-sky-600 shadow-xs">
-                <Navigation className="w-7 h-7 animate-bounce text-sky-600" />
+          {errorMessage && (
+            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3.5 text-rose-800 font-bold text-xs flex items-center justify-between animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{errorMessage}</span>
               </div>
-              <div>
-                <h4 className="font-black text-sm text-slate-900 uppercase tracking-tight">Allow Browser Geolocation Access?</h4>
-                <p className="text-slate-600 text-xs mt-1 leading-relaxed max-w-md mx-auto font-medium">
-                  Nirman NextAlliance requires your real-time GPS coordinates to set project location boundaries & geo-fencing radiuses.
-                </p>
-              </div>
-              <div className="flex flex-col sm:flex-row justify-center items-center gap-2.5 pt-1">
-                <button
-                  type="button"
-                  onClick={handleUseCurrentLocation}
-                  className="w-full sm:w-auto px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white font-extrabold rounded-xl text-xs shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <Navigation className="w-4 h-4" />
-                  <span>Grant / Request Location Access</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLat("23.0225");
-                    setLng("72.5714");
-                    setShowPermissionPrompt(false);
-                    setFeedbackMessage("Updated coordinates to default project site GPS (23.0225, 72.5714)");
-                  }}
-                  className="w-full sm:w-auto px-4 py-2 bg-white border border-sky-300 hover:bg-sky-100 text-sky-800 font-bold rounded-xl text-xs transition-all cursor-pointer"
-                >
-                  <span>Use Sample GPS (23.0225, 72.5714)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowPermissionPrompt(false)}
-                  className="p-2 text-slate-400 hover:text-slate-600"
-                  title="Dismiss"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+              <button onClick={() => setErrorMessage(null)} className="text-rose-600 hover:text-rose-900">
+                <X className="w-4 h-4" />
+              </button>
             </div>
           )}
 
@@ -194,12 +146,12 @@ export default function SiteLocationManagerModal({ isOpen, onClose }) {
               </span>
               <button
                 type="button"
-                onClick={handleUseCurrentLocation}
+                onClick={handleFetchCurrentLocation}
                 disabled={gpsDetecting}
-                className="px-3 py-1.5 rounded-xl bg-white border border-sky-300 text-sky-700 font-extrabold hover:bg-sky-50 transition-all text-[11px] flex items-center gap-1.5 shadow-2xs"
+                className="px-3 py-1.5 rounded-xl bg-white border border-sky-300 text-sky-700 font-extrabold hover:bg-sky-50 transition-all text-[11px] flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-60"
               >
-                {gpsDetecting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Navigation className="w-3.5 h-3.5" />}
-                <span>{gpsDetecting ? 'Detecting GPS...' : 'Use My Current Location'}</span>
+                {gpsDetecting ? <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-600" /> : <Navigation className="w-3.5 h-3.5 text-sky-600" />}
+                <span>{gpsDetecting ? 'Fetching Location...' : 'Use My Current Location'}</span>
               </button>
             </div>
 

@@ -1,57 +1,64 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Route } from 'react-router-dom';
 import DashboardLayout from '../components/layouts/DashboardLayout';
+import BrandLoader from '../components/common/BrandLoader';
 
-import ArchitectDashboard from '../components/architect/dashboard/index';
-import ArchitectTasks from '../components/architect/tasks/index';
-import ArchitectDrawings from '../components/architect/drawings/index';
-import ArchitectTime from '../components/architect/time-tracking/index';
-import ArchitectChats from '../components/architect/chats/index';
-import ArchitectDocs from '../components/architect/documents/index';
-import ArchitectNotifications from '../components/architect/notifications/index';
-import LeavesPortal from '../components/common/LeavesPortal';
+const ArchitectDashboard = lazy(() => import('../components/architect/dashboard/index'));
+const ArchitectTasks = lazy(() => import('../components/architect/tasks/index'));
+const ArchitectDrawings = lazy(() => import('../components/architect/drawings/index'));
+const ArchitectTime = lazy(() => import('../components/architect/time-tracking/index'));
+const ArchitectChats = lazy(() => import('../components/architect/chats/index'));
+const ArchitectDocs = lazy(() => import('../components/architect/documents/index'));
+const ArchitectNotifications = lazy(() => import('../components/architect/notifications/index'));
+const LeavesPortal = lazy(() => import('../components/common/LeavesPortal'));
+
+const LazyWrap = ({ children }) => (
+  <Suspense fallback={<BrandLoader message="Loading Design Studio..." />}>
+    {children}
+  </Suspense>
+);
 
 export default function getArchitectRoutes(handleRoleChange) {
   return (
     <>
       <Route path="/architect" element={
         <DashboardLayout role="Architect" onChangeRole={handleRoleChange} title="Architect / Designer">
-          <ArchitectDashboard />
+          <LazyWrap><ArchitectDashboard /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/architect/leaves" element={
         <DashboardLayout role="Architect" onChangeRole={handleRoleChange} title="Leaves Portal">
-          <LeavesPortal />
+          <LazyWrap><LeavesPortal /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/architect/tasks" element={
         <DashboardLayout role="Architect" onChangeRole={handleRoleChange} title="My Tasks">
-          <ArchitectTasks />
+          <LazyWrap><ArchitectTasks /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/architect/drawings" element={
         <DashboardLayout role="Architect" onChangeRole={handleRoleChange} title="My Drawings">
-          <ArchitectDrawings />
+          <LazyWrap><ArchitectDrawings /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/architect/time" element={
         <DashboardLayout role="Architect" onChangeRole={handleRoleChange} title="Time Tracking">
-          <ArchitectTime />
+          <LazyWrap><ArchitectTime /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/architect/chats" element={
         <DashboardLayout role="Architect" onChangeRole={handleRoleChange} title="Project Chats">
-          <ArchitectChats />
+          <LazyWrap><ArchitectChats /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/architect/docs" element={
         <DashboardLayout role="Architect" onChangeRole={handleRoleChange} title="Documents">
-          <ArchitectDocs />
+          <LazyWrap><ArchitectDocs /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/architect/notifications" element={
         <DashboardLayout role="Architect" onChangeRole={handleRoleChange} title="Notifications">
-          <ArchitectNotifications />
+          <LazyWrap><ArchitectNotifications /></LazyWrap>
         </DashboardLayout>
       } />
     </>

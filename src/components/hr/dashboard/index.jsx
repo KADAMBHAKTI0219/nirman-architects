@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, 
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, RadarChart, PolarGrid, 
@@ -6,7 +7,7 @@ import {
 } from 'recharts';
 import { 
   Users, UserCheck, Calendar, AlertTriangle, FileText, CheckCircle2, Clock, 
-  Check, X, Cake, ShieldCheck, DollarSign, Award, RefreshCw 
+  Check, X, Cake, ShieldCheck, DollarSign, Award, RefreshCw, UserPlus, Plus 
 } from 'lucide-react';
 import Card from '../../common/Card';
 import { 
@@ -20,6 +21,7 @@ import {
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444'];
 
 export default function HRDashboard() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState('');
   const [attendanceData, setAttendanceData] = useState([]);
@@ -145,7 +147,36 @@ export default function HRDashboard() {
   const alerts = widgetsData.securityAlerts !== undefined ? widgetsData.securityAlerts : 0;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-200">
+    <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
+      
+      {/* 0. TOP PAGE HEADER MATCHING DRAWINGS VAULT MANAGEMENT & ADMIN DASHBOARD */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            HR & Workforce Command Center
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            Real-time employee attendance, leave approvals, payroll readiness, shift rotas & performance scorecards
+          </p>
+        </div>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <button
+            onClick={() => navigate('/hr/employees')}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-all cursor-pointer"
+          >
+            <UserCheck className="w-4 h-4 text-slate-500" />
+            <span>Employee Roster</span>
+          </button>
+          <button
+            onClick={() => navigate('/hr/payroll-data')}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4.5 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 rounded-xl text-xs sm:text-sm font-extrabold shadow-md transition-all cursor-pointer border border-brand-secondary/40"
+          >
+            <DollarSign className="w-4 h-4 text-slate-900 stroke-[2.5]" />
+            <span>Process Payroll</span>
+          </button>
+        </div>
+      </div>
+
       {apiError && (
         <div className="p-4 bg-rose-50 text-rose-600 border border-rose-100 rounded-2xl text-xs font-bold">
           {apiError}

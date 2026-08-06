@@ -9,11 +9,8 @@ const SIDEBAR_ITEMS = {
     { category: "ERP Modules" },
     { 
       label: "Projects", 
-      icon: "Building2",
-      subItems: [
-        { label: "Projects Directory", path: "/admin/projects" },
-        { label: "Project Timelines", path: "/admin/projects/timeline" }
-      ]
+      path: "/admin/projects",
+      icon: "Building2"
     },
     { 
       label: "Tasks", 
@@ -122,7 +119,7 @@ const SIDEBAR_ITEMS = {
     { label: "Leaves Approvals", path: "/project-manager/leaves", icon: "Calendar" },
     { category: "Team & Communication" },
     { label: "Client Communication", path: "/project-manager/client-communication", icon: "MessageSquare" },
-    { label: "Team Directory", path: "/project-manager/team", icon: "Users" },
+    { label: "Teams Management", path: "/project-manager/team", icon: "Users" },
     { label: "Reports & Audits", path: "/project-manager/reports", icon: "BarChart3" }
   ],
   Architect: [

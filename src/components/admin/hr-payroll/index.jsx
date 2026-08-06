@@ -16,7 +16,7 @@ import {
   getCompanyLeaves,
   adjustLeaveBalance,
   parseIndexedObjectToArray
-} from '../../../service/leave';
+} from '../../../service/hrm/leave';
 import { getUsersList } from '../../../service/auth';
 
 // Mock DB Initial Data

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Download, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import BrandLoader from './BrandLoader';
 
 export default function DataTable({ 
   columns, 
@@ -8,7 +9,8 @@ export default function DataTable({
   filterKey, 
   filterOptions = [],
   exportTitle = "Report",
-  actions
+  actions,
+  loading = false
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterValue, setFilterValue] = useState('all');
@@ -132,7 +134,13 @@ export default function DataTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {paginatedData.length > 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={columns.length} className="px-6 py-8 text-center">
+                  <BrandLoader size="sm" text="Fetching Records..." />
+                </td>
+              </tr>
+            ) : paginatedData.length > 0 ? (
               paginatedData.map((row, rowIdx) => (
                 <tr key={rowIdx} className="hover:bg-slate-50/50 transition-colors">
                   {columns.map((col, colIdx) => (

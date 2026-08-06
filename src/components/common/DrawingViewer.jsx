@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   X, ZoomIn, ZoomOut, RotateCcw, MapPin, MessageSquare, 
   CheckCircle, AlertTriangle, FileText, Send, Lock, Eye, Download, 
-  History, GitCompare, ArrowLeft, ShieldCheck, Check, Share2, Layers, MoreVertical
+  History, GitCompare, ArrowLeft, ShieldCheck, Check, Share2, Layers, MoreVertical, PenTool
 } from 'lucide-react';
 import { 
   approveDrawing, 
@@ -13,15 +13,18 @@ import {
   compareDrawingVersions,
   getCachedDrawingFile
 } from '../../service/drawing';
+import MarkupEditor from '../admin/markup/MarkupEditor';
 
 export default function DrawingViewer({
   drawing,
   onClose,
   onStatusChange,
-  userPermissionLevel = 'OWNER' // OWNER, MEMBER, VIEW_ONLY
+  userPermissionLevel = 'OWNER', // OWNER, MEMBER, VIEW_ONLY
+  initialMarkupMode = false
 }) {
   const drawingId = drawing._id || drawing.id || 'drg-101';
   const [zoom, setZoom] = useState(1);
+  const [showFullMarkup, setShowFullMarkup] = useState(initialMarkupMode);
   const [activeTab, setActiveTab] = useState('comments'); // comments, history, compare, clientLogs
   
   // Status state
@@ -216,6 +219,25 @@ export default function DrawingViewer({
     { versionNumber: 2, fileUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c', notes: 'V2 with revised column positioning', uploadedAt: '2026-07-20T14:30:00Z' }
   ];
 
+  if (showFullMarkup) {
+    return (
+      <MarkupEditor
+        documentData={drawing}
+        onBack={() => {
+          if (initialMarkupMode) {
+            onClose();
+          } else {
+            setShowFullMarkup(false);
+          }
+        }}
+        onSaveDocument={(updated) => {
+          if (onStatusChange) onStatusChange(drawingId, updated.status || 'APPROVED');
+          if (initialMarkupMode) onClose();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 font-sans text-slate-100 overflow-hidden">
       
@@ -259,6 +281,15 @@ export default function DrawingViewer({
         {/* Right: Header Toolbar + Request Changes (Orange ✓) & Approve Buttons */}
         <div className="flex items-center gap-3">
           
+          <button
+            onClick={() => setShowFullMarkup(true)}
+            className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-xs rounded-xl flex items-center gap-1.5 shadow-md cursor-pointer transition-all border border-sky-400/40"
+            title="Open Full CAD Markup & Pen Canvas Editor"
+          >
+            <PenTool className="w-4 h-4" />
+            <span>Markup Tools</span>
+          </button>
+
           <div className="hidden sm:flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800 text-slate-300">
             <button onClick={() => setZoom(prev => Math.max(prev - 0.25, 0.5))} className="p-1.5 hover:bg-slate-800 rounded-lg cursor-pointer" title="Zoom Out">
               <ZoomOut className="w-4 h-4" />

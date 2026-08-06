@@ -1,56 +1,63 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Route } from 'react-router-dom';
 import DashboardLayout from '../components/layouts/DashboardLayout';
+import BrandLoader from '../components/common/BrandLoader';
 
-import SiteDashboard from '../components/site-engineer/dashboard/index';
-import SiteList from '../components/site-engineer/sites/index';
-import SiteAttendance from '../components/site-engineer/attendance/index';
-import SitePhotosIssues from '../components/site-engineer/photos-issues/index';
-import SiteUpdates from '../components/site-engineer/client-updates/index';
-import SiteNotifications from '../components/site-engineer/notifications/index';
-import LeavesPortal from '../components/common/LeavesPortal';
+const SiteDashboard = lazy(() => import('../components/site-engineer/dashboard/index'));
+const SiteList = lazy(() => import('../components/site-engineer/sites/index'));
+const SiteAttendance = lazy(() => import('../components/site-engineer/attendance/index'));
+const SitePhotosIssues = lazy(() => import('../components/site-engineer/photos-issues/index'));
+const SiteUpdates = lazy(() => import('../components/site-engineer/client-updates/index'));
+const SiteNotifications = lazy(() => import('../components/site-engineer/notifications/index'));
+const LeavesPortal = lazy(() => import('../components/common/LeavesPortal'));
+
+const LazyWrap = ({ children }) => (
+  <Suspense fallback={<BrandLoader message="Loading Site Operations..." />}>
+    {children}
+  </Suspense>
+);
 
 export default function getSiteEngineerRoutes(handleRoleChange) {
   return (
     <>
       <Route path="/site-engineer" element={
         <DashboardLayout role="SiteEngineer" onChangeRole={handleRoleChange} title="Site Engineer">
-          <SiteDashboard />
+          <LazyWrap><SiteDashboard /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/site-engineer/leaves" element={
         <DashboardLayout role="SiteEngineer" onChangeRole={handleRoleChange} title="Leaves Portal">
-          <LeavesPortal />
+          <LazyWrap><LeavesPortal /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/site-engineer/sites" element={
         <DashboardLayout role="SiteEngineer" onChangeRole={handleRoleChange} title="Sites">
-          <SiteList />
+          <LazyWrap><SiteList /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/site-engineer/sites/progress" element={
         <DashboardLayout role="SiteEngineer" onChangeRole={handleRoleChange} title="Sites">
-          <SiteList />
+          <LazyWrap><SiteList /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/site-engineer/attendance" element={
         <DashboardLayout role="SiteEngineer" onChangeRole={handleRoleChange} title="Site Attendance">
-          <SiteAttendance />
+          <LazyWrap><SiteAttendance /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/site-engineer/photos" element={
         <DashboardLayout role="SiteEngineer" onChangeRole={handleRoleChange} title="Photos & Issues">
-          <SitePhotosIssues />
+          <LazyWrap><SitePhotosIssues /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/site-engineer/updates" element={
         <DashboardLayout role="SiteEngineer" onChangeRole={handleRoleChange} title="Client Updates">
-          <SiteUpdates />
+          <LazyWrap><SiteUpdates /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/site-engineer/notifications" element={
         <DashboardLayout role="SiteEngineer" onChangeRole={handleRoleChange} title="Notifications">
-          <SiteNotifications />
+          <LazyWrap><SiteNotifications /></LazyWrap>
         </DashboardLayout>
       } />
     </>

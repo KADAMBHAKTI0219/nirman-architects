@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   FileText, Download, Upload, Search, CheckCircle, 
-  AlertTriangle, Eye, X, BookOpen, FileDown 
+  AlertTriangle, Eye, X, BookOpen, FileDown, Plus 
 } from 'lucide-react';
 import Card from '../../common/Card';
 
@@ -48,7 +48,28 @@ export default function Docs() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
+      
+      {/* 0. TOP PAGE HEADER MATCHING DRAWINGS VAULT MANAGEMENT & ADMIN DASHBOARD */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            HR Documents & Compliance Vault
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            Store, audit, and manage employee contracts, identity proofs, certificates & NDA agreements
+          </p>
+        </div>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <button
+            onClick={handleUploadDocument}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4.5 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 rounded-xl text-xs sm:text-sm font-extrabold shadow-md transition-all cursor-pointer border border-brand-secondary/40"
+          >
+            <Plus className="w-4 h-4 text-slate-900 stroke-[2.5]" />
+            <span>Upload Document</span>
+          </button>
+        </div>
+      </div>
       
       {/* 1. TOP BAR */}
       <div className="bg-white p-5 rounded-3xl border border-slate-105 shadow-2xs flex flex-wrap gap-4 items-center justify-between">

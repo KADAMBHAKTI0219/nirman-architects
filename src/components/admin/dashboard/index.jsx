@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Eye } from 'lucide-react';
 import Stats from './Stats';
 import RevenuesChart from './RevenuesChart';
 import PortfolioChart from './PortfolioChart';
@@ -48,9 +49,10 @@ export default function Dashboard() {
     { header: "Action", render: (row) => (
       <button 
         onClick={() => setSelectedDrawing(row)}
-        className="px-3 py-1 bg-brand-primary text-slate-900 font-bold rounded-lg text-xs hover:bg-brand-secondary transition-all"
+        className="px-3.5 py-1.5 bg-brand-primary text-slate-900 font-black rounded-xl text-xs hover:bg-brand-secondary transition-all inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 border border-brand-secondary/40 shadow-3xs cursor-pointer"
       >
-        View & Sign
+        <Eye className="w-4 h-4 shrink-0 stroke-[2.5]" />
+        <span className="whitespace-nowrap font-extrabold leading-none">View & Sign</span>
       </button>
     )}
   ];
@@ -98,6 +100,7 @@ export default function Dashboard() {
         <DrawingViewer 
           drawing={selectedDrawing} 
           onClose={() => setSelectedDrawing(null)} 
+          initialMarkupMode={true}
           onStatusChange={handleUpdateDrawingStatus}
         />
       )}

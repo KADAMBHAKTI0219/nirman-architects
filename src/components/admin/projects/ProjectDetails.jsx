@@ -16,7 +16,7 @@ import {
   toggleProjectLinkVisibility,
   unlinkProject,
   getClients
-} from '../../../service/client';
+} from '../../../service/crm/client';
 
 export default function ProjectDetails({
   project,

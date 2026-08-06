@@ -226,7 +226,26 @@ export default function ClientCommunication({ defaultProjectId = null }) {
   });
 
   return (
-    <div className="flex h-[calc(100vh-130px)] rounded-2xl overflow-hidden border border-slate-200/90 shadow-lg bg-[#f0f2f5] font-sans text-slate-800 antialiased">
+    <div className="space-y-4 animate-in fade-in duration-200 font-sans text-slate-800">
+      {/* 0. TOP PAGE HEADER MATCHING DRAWINGS VAULT MANAGEMENT */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Client Communication & Live Messaging
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            Seamless real-time chat with clients, internal project discussions, and query sign-offs
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-xl text-xs font-extrabold shadow-2xs">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            Realtime Gateway Active
+          </span>
+        </div>
+      </div>
+
+      <div className="flex h-[calc(100vh-190px)] rounded-2xl overflow-hidden border border-slate-200/90 shadow-lg bg-[#f0f2f5] font-sans text-slate-800 antialiased">
       
       {/* 1. WHATSAPP WEB LEFT SIDEBAR */}
       <div className="w-80 md:w-96 bg-white border-r border-[#e9edef] flex flex-col shrink-0">
@@ -618,6 +637,7 @@ export default function ClientCommunication({ defaultProjectId = null }) {
         )}
       </AnimatePresence>
 
+    </div>
     </div>
   );
 }

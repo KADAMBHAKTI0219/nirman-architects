@@ -1,223 +1,231 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Route } from 'react-router-dom';
 import DashboardLayout from '../components/layouts/DashboardLayout';
+import BrandLoader from '../components/common/BrandLoader';
 
-import AdminDashboard from '../components/admin/dashboard/index';
-import AdminProjects from '../components/admin/projects/index';
-import AdminTasks from '../components/admin/tasks/index';
-import AdminDrawings from '../components/admin/drawings/index';
-import AdminEmployees from '../components/admin/employees/index';
-import AdminAttendance from '../components/admin/attendance/index';
-import AdminHRPayroll from '../components/admin/hr-payroll/index';
-import AdminCRM from '../components/admin/crm/index';
-import AdminDocs from '../components/admin/documents/index';
-import AdminAnalytics from '../components/admin/analytics/index';
-import AdminNotifications from '../components/admin/notifications/index';
-import AdminSettings from '../components/admin/settings/index';
-import AdminBI from '../components/admin/bi/index';
-import AppUsageTracking from '../components/admin/app-usage/AppUsageTracking';
+// Lazy-loaded route components for high performance and minimal initial bundle size
+const AdminDashboard = lazy(() => import('../components/admin/dashboard/index'));
+const AdminProjects = lazy(() => import('../components/admin/projects/index'));
+const AdminTasks = lazy(() => import('../components/admin/tasks/index'));
+const AdminDrawings = lazy(() => import('../components/admin/drawings/index'));
+const AdminEmployees = lazy(() => import('../components/admin/employees/index'));
+const AdminAttendance = lazy(() => import('../components/admin/attendance/index'));
+const AdminHRPayroll = lazy(() => import('../components/admin/hr-payroll/index'));
+const AdminCRM = lazy(() => import('../components/admin/crm/index'));
+const AdminDocs = lazy(() => import('../components/admin/documents/index'));
+const AdminAnalytics = lazy(() => import('../components/admin/analytics/index'));
+const AdminNotifications = lazy(() => import('../components/admin/notifications/index'));
+const AdminSettings = lazy(() => import('../components/admin/settings/index'));
+const AdminBI = lazy(() => import('../components/admin/bi/index'));
+const AppUsageTracking = lazy(() => import('../components/admin/app-usage/AppUsageTracking'));
+
+const LazyWrap = ({ children }) => (
+  <Suspense fallback={<BrandLoader message="Loading Admin Workspace..." />}>
+    {children}
+  </Suspense>
+);
 
 export default function getAdminRoutes(handleRoleChange) {
   return (
     <>
       <Route path="/admin/app-usage" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="App Usage Tracking">
-          <AppUsageTracking userRole="Admin" />
+          <LazyWrap><AppUsageTracking userRole="Admin" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Admin / Super Admin">
-          <AdminDashboard />
+          <LazyWrap><AdminDashboard /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/projects" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Projects">
-          <AdminProjects defaultTab="directory" />
+          <LazyWrap><AdminProjects defaultTab="directory" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/projects/new" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Projects">
-          <AdminProjects defaultTab="directory" />
+          <LazyWrap><AdminProjects defaultTab="directory" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/projects/timeline" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Projects">
-          <AdminProjects defaultTab="timeline" />
+          <LazyWrap><AdminProjects defaultTab="timeline" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/tasks" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Tasks">
-          <AdminTasks filter="all" />
+          <LazyWrap><AdminTasks filter="all" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/tasks/overdue" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Tasks">
-          <AdminTasks filter="overdue" />
+          <LazyWrap><AdminTasks filter="overdue" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/drawings" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Drawings">
-          <AdminDrawings defaultTab="all" />
+          <LazyWrap><AdminDrawings defaultTab="all" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/drawings/approvals" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Drawings">
-          <AdminDrawings defaultTab="approvals" />
+          <LazyWrap><AdminDrawings defaultTab="approvals" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/drawings/gfc" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Drawings">
-          <AdminDrawings defaultTab="gfc" />
+          <LazyWrap><AdminDrawings defaultTab="gfc" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/employees" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Employees">
-          <AdminEmployees />
+          <LazyWrap><AdminEmployees /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/employees/departments" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Employees">
-          <AdminEmployees />
+          <LazyWrap><AdminEmployees /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/attendance/office" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Attendance">
-          <AdminAttendance tab="attendance" />
+          <LazyWrap><AdminAttendance tab="attendance" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/attendance/devices" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Attendance">
-          <AdminAttendance tab="devices" />
+          <LazyWrap><AdminAttendance tab="devices" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/attendance/site" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Attendance">
-          <AdminAttendance tab="attendance" />
+          <LazyWrap><AdminAttendance tab="attendance" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/attendance/reports" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Attendance">
-          <AdminAttendance tab="attendance" />
+          <LazyWrap><AdminAttendance tab="attendance" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/hr/overview" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="HR & Payroll">
-          <AdminHRPayroll defaultTab="overview" />
+          <LazyWrap><AdminHRPayroll defaultTab="overview" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/hr/leaves" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="HR & Payroll">
-          <AdminHRPayroll defaultTab="leaves" />
+          <LazyWrap><AdminHRPayroll defaultTab="leaves" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/hr/leave-master" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="HR & Payroll">
-          <AdminHRPayroll defaultTab="leave-master" />
+          <LazyWrap><AdminHRPayroll defaultTab="leave-master" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/hr/shifts" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="HR & Payroll">
-          <AdminHRPayroll defaultTab="shifts" />
+          <LazyWrap><AdminHRPayroll defaultTab="shifts" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/hr/payroll" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="HR & Payroll">
-          <AdminHRPayroll defaultTab="payroll" />
+          <LazyWrap><AdminHRPayroll defaultTab="payroll" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/hr/performance" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="HR & Payroll">
-          <AdminHRPayroll defaultTab="performance" />
+          <LazyWrap><AdminHRPayroll defaultTab="performance" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/hr/reviews" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="HR & Payroll">
-          <AdminHRPayroll defaultTab="performance" />
+          <LazyWrap><AdminHRPayroll defaultTab="performance" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/crm/overview" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Clients & CRM">
-          <AdminCRM defaultTab="overview" />
+          <LazyWrap><AdminCRM defaultTab="overview" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/crm/leads" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Clients & CRM">
-          <AdminCRM defaultTab="leads" />
+          <LazyWrap><AdminCRM defaultTab="leads" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/crm/clients" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Clients & CRM">
-          <AdminCRM defaultTab="clients" />
+          <LazyWrap><AdminCRM defaultTab="clients" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/crm/queries" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Clients & CRM">
-          <AdminCRM defaultTab="queries" />
+          <LazyWrap><AdminCRM defaultTab="queries" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/crm/approvals" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Clients & CRM">
-          <AdminCRM defaultTab="approvals" />
+          <LazyWrap><AdminCRM defaultTab="approvals" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/crm/projects" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Clients & CRM">
-          <AdminCRM defaultTab="clients" />
+          <LazyWrap><AdminCRM defaultTab="clients" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/docs/projects" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Documents">
-          <AdminDocs defaultTab="vault" />
+          <LazyWrap><AdminDocs defaultTab="vault" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/docs/global" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Documents">
-          <AdminDocs defaultTab="reports" />
+          <LazyWrap><AdminDocs defaultTab="reports" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/reports/projects" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Analytics">
-          <AdminAnalytics defaultTab="projects" />
+          <LazyWrap><AdminAnalytics defaultTab="projects" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/reports/productivity" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Analytics">
-          <AdminAnalytics defaultTab="productivity" />
+          <LazyWrap><AdminAnalytics defaultTab="productivity" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/reports/drawings" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Analytics">
-          <AdminAnalytics defaultTab="drawings" />
+          <LazyWrap><AdminAnalytics defaultTab="drawings" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/reports/attendance" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Analytics">
-          <AdminAnalytics defaultTab="attendance" />
+          <LazyWrap><AdminAnalytics defaultTab="attendance" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/reports/leaves" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Analytics">
-          <AdminAnalytics defaultTab="leaves" />
+          <LazyWrap><AdminAnalytics defaultTab="leaves" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/reports/customers" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Analytics">
-          <AdminAnalytics defaultTab="projects" />
+          <LazyWrap><AdminAnalytics defaultTab="projects" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/notifications" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Notifications">
-          <AdminNotifications />
+          <LazyWrap><AdminNotifications /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/settings" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Settings">
-          <AdminSettings />
+          <LazyWrap><AdminSettings /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/bi" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="BI & Future">
-          <AdminBI />
+          <LazyWrap><AdminBI /></LazyWrap>
         </DashboardLayout>
       } />
     </>

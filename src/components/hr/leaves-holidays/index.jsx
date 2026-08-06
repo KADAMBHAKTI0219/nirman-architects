@@ -5,7 +5,7 @@ import LeaveRequestsInbox from './LeaveRequestsInbox';
 import LeaveHistoryTable from './LeaveHistoryTable';
 import LeavesPortal from '../../common/LeavesPortal';
 import { useNavigate } from 'react-router-dom';
-import { Edit3 } from 'lucide-react';
+import { Edit3, Sliders, Plus } from 'lucide-react';
 import {
   getPendingLeaveRequests,
   getCompanyLeaves,
@@ -14,7 +14,7 @@ import {
   adjustLeaveBalance,
   getAllLeaveTypes,
   parseIndexedObjectToArray
-} from '../../../service/leave';
+} from '../../../service/hrm/leave';
 import { getUsersList } from '../../../service/auth';
 
 const INITIAL_REQUESTS = [
@@ -190,14 +190,35 @@ export default function LeavesHolidays({ defaultTab = 'company' }) {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
       
+      {/* 0. TOP PAGE HEADER MATCHING DRAWINGS VAULT MANAGEMENT & ADMIN DASHBOARD */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Leaves & Holidays Management
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5 font-medium">
+            Review company leave requests, adjust staff leave quotas, and manage holiday schedules
+          </p>
+        </div>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <button
+            onClick={() => setIsAdjustModalOpen(true)}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4.5 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 rounded-xl text-xs sm:text-sm font-extrabold shadow-md transition-all cursor-pointer border border-brand-secondary/40"
+          >
+            <Sliders className="w-4 h-4 text-slate-900 stroke-[2.5]" />
+            <span>Adjust Leave Quotas</span>
+          </button>
+        </div>
+      </div>
+
       {/* Sub-tab Navigation */}
-      <div className="flex justify-between items-center border-b border-slate-100 pb-1 flex-wrap gap-4">
+      <div className="flex justify-between items-center border-b border-slate-200 pb-1 flex-wrap gap-4">
         <div className="flex items-center gap-6 overflow-x-auto scrollbar-none pb-1">
           <button
-            onClick={() => navigate('/hr/leaves/company')}
-            className={`pb-2 text-xs font-bold tracking-wide transition-all relative ${
+            onClick={() => setActiveSubTab('company')}
+            className={`pb-2 text-xs font-bold tracking-wide transition-all relative cursor-pointer ${
               activeSubTab === 'company'
                 ? 'text-slate-900 font-black'
                 : 'text-slate-400 hover:text-slate-600 font-semibold'
@@ -209,8 +230,21 @@ export default function LeavesHolidays({ defaultTab = 'company' }) {
             )}
           </button>
           <button
-            onClick={() => navigate('/hr/leaves/personal')}
-            className={`pb-2 text-xs font-bold tracking-wide transition-all relative ${
+            onClick={() => setActiveSubTab('master')}
+            className={`pb-2 text-xs font-bold tracking-wide transition-all relative cursor-pointer ${
+              activeSubTab === 'master'
+                ? 'text-slate-900 font-black'
+                : 'text-slate-400 hover:text-slate-600 font-semibold'
+            }`}
+          >
+            Leave Master & Quotas
+            {activeSubTab === 'master' && (
+              <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-brand-primary rounded-full" />
+            )}
+          </button>
+          <button
+            onClick={() => setActiveSubTab('personal')}
+            className={`pb-2 text-xs font-bold tracking-wide transition-all relative cursor-pointer ${
               activeSubTab === 'personal'
                 ? 'text-slate-900 font-black'
                 : 'text-slate-400 hover:text-slate-600 font-semibold'
@@ -224,10 +258,14 @@ export default function LeavesHolidays({ defaultTab = 'company' }) {
         </div>
       </div>
 
-      {activeSubTab === 'company' ? (
+      {activeSubTab === 'company' && (
         <>
           {/* 1. TOP SUMMARY ROW */}
-          <LeaveStats />
+          <LeaveStats 
+            pendingCount={leaveRequests.filter(r => r.status === 'Pending').length || 3}
+            approvedCount={allCompanyRequests.filter(r => r.status === 'Approved').length || 12}
+            offTodayCount={2}
+          />
 
           {/* 2. MIDDLE AREA (Calendar & Inbox) */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -245,11 +283,54 @@ export default function LeavesHolidays({ defaultTab = 'company' }) {
 
           {/* 3. BOTTOM AREA (Leave history grid) */}
           <LeaveHistoryTable 
-            leaveRequests={allCompanyRequests}
+            leaveRequests={allCompanyRequests.length > 0 ? allCompanyRequests : INITIAL_REQUESTS}
           />
         </>
-      ) : (
-        <LeavesPortal role="Employee" />
+      )}
+
+      {activeSubTab === 'master' && (
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-3xl border border-slate-200/90 shadow-2xs space-y-5">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Company Leave Quotas & Allocation Policy</h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">Configure default annual quotas, carry-forward caps, and approval workflows</p>
+              </div>
+              <button 
+                onClick={() => setIsAdjustModalOpen(true)}
+                className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-900 rounded-xl text-xs font-extrabold shadow-3xs cursor-pointer border border-brand-secondary/40"
+              >
+                + Configure New Quota Rule
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                { type: "Annual Paid Leave", quota: "12 Days / Year", carry: "Max 5 Days", paid: "Paid", color: "bg-sky-50 text-sky-700 border-sky-200" },
+                { type: "Casual Leave", quota: "7 Days / Year", carry: "Non Carryable", paid: "Paid", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+                { type: "Sick Leave", quota: "7 Days / Year", carry: "Non Carryable", paid: "Paid", color: "bg-amber-50 text-amber-700 border-amber-200" },
+                { type: "Maternity / Paternity", quota: "180 / 15 Days", carry: "Special Policy", paid: "Paid", color: "bg-purple-50 text-purple-700 border-purple-200" }
+              ].map((q, idx) => (
+                <div key={idx} className="p-4 bg-slate-50/70 border border-slate-200/80 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <strong className="text-xs font-black text-slate-900">{q.type}</strong>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase border ${q.color}`}>{q.paid}</span>
+                  </div>
+                  <strong className="text-lg font-black text-slate-800 block">{q.quota}</strong>
+                  <span className="text-[11px] text-slate-500 font-medium block">Policy: {q.carry}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <LeaveHistoryTable 
+            leaveRequests={allCompanyRequests.length > 0 ? allCompanyRequests : INITIAL_REQUESTS}
+          />
+        </div>
+      )}
+
+      {activeSubTab === 'personal' && (
+        <LeavesPortal role="Employee" hideHeader={true} />
       )}
 
       {/* Adjust quota balance modal dialog */}

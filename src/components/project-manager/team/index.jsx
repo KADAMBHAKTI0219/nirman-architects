@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  Users, CheckCircle, Search, AlertTriangle, Eye, X, BookOpen, Clock, ChevronRight, Phone, Mail
+  Users, CheckCircle, Search, AlertTriangle, Eye, X, BookOpen, Clock, ChevronRight, Phone, Mail, Plus, Download, UserPlus
 } from 'lucide-react';
 import Card from '../../common/Card';
 import { motion } from 'framer-motion';
@@ -20,6 +20,30 @@ export default function Team() {
   const [selectedMember, setSelectedMember] = useState(INITIAL_TEAM[0]);
   const [drawerOpen, setDrawerOpen] = useState(true);
 
+  const handleAddMember = async () => {
+    const name = await window.prompt("Enter Team Member Name:", "", "Add Team Member");
+    if (!name) return;
+    const role = await window.prompt("Enter Role (e.g. Architect, Engineer, Drafter):", "Jr Architect", "Add Team Member");
+    if (!role) return;
+    const dept = await window.prompt("Enter Department (e.g. Architecture, Engineering):", "Architecture", "Add Team Member");
+    if (name && role && dept) {
+      const newMem = {
+        id: `EMP-${100 + team.length + 1}`,
+        name,
+        role,
+        dept,
+        availability: "Available",
+        workload: 50,
+        tasks: 0,
+        phone: "+91 98765 99999",
+        email: `${name.toLowerCase().replace(/\s+/g, '')}@nirman.com`,
+        schedule: { Mon: "Office", Tue: "Office", Wed: "Office", Thu: "Office", Fri: "Office" }
+      };
+      setTeam(prev => [...prev, newMem]);
+      alert(`Team member ${name} added successfully!`);
+    }
+  };
+
   const filtered = team.filter(t => {
     const matchesSearch = t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           t.role.toLowerCase().includes(searchQuery.toLowerCase());
@@ -32,6 +56,34 @@ export default function Team() {
   return (
     <div className="space-y-6 animate-in fade-in duration-200 font-sans text-slate-800">
       
+      {/* 0. TOP PAGE HEADER MATCHING DRAWING VAULT MANAGEMENT */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Teams Management & Roster
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5 font-medium">
+            View project team members, roles, contact channels, and site attendance status
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => alert("Downloading team roster report...")}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-all cursor-pointer"
+          >
+            <Download className="w-4 h-4 text-slate-500" />
+            <span>Export Roster</span>
+          </button>
+          <button
+            onClick={handleAddMember}
+            className="flex items-center justify-center gap-2 px-4.5 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 rounded-xl text-xs sm:text-sm font-extrabold shadow-md transition-all cursor-pointer border border-brand-secondary/40"
+          >
+            <UserPlus className="w-4 h-4 text-slate-900 stroke-[2.5]" />
+            <span>Add Team Member</span>
+          </button>
+        </div>
+      </div>
+
       {/* 1. TOP BAR */}
       <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs flex flex-wrap gap-4 items-center justify-between">
         <div className="flex items-center gap-3.5">

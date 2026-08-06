@@ -1,82 +1,89 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Route } from 'react-router-dom';
 import DashboardLayout from '../components/layouts/DashboardLayout';
+import BrandLoader from '../components/common/BrandLoader';
 
-import PMDashboard from '../components/project-manager/dashboard/index';
-import PMProjects from '../components/project-manager/projects/index';
-import PMTasks from '../components/project-manager/tasks/index';
-import PMDrawings from '../components/project-manager/drawings/index';
-import PMTeam from '../components/project-manager/team/index';
-import PMCommunication from '../components/project-manager/client-communication/index';
-import PMReports from '../components/project-manager/reports/index';
-import LeavesPortal from '../components/common/LeavesPortal';
+const PMDashboard = lazy(() => import('../components/project-manager/dashboard/index'));
+const PMProjects = lazy(() => import('../components/project-manager/projects/index'));
+const PMTasks = lazy(() => import('../components/project-manager/tasks/index'));
+const PMDrawings = lazy(() => import('../components/project-manager/drawings/index'));
+const PMTeam = lazy(() => import('../components/project-manager/team/index'));
+const PMCommunication = lazy(() => import('../components/project-manager/client-communication/index'));
+const PMReports = lazy(() => import('../components/project-manager/reports/index'));
+const LeavesPortal = lazy(() => import('../components/common/LeavesPortal'));
+
+const LazyWrap = ({ children }) => (
+  <Suspense fallback={<BrandLoader message="Loading PM Workspace..." />}>
+    {children}
+  </Suspense>
+);
 
 export default function getPmRoutes(handleRoleChange) {
   return (
     <>
       <Route path="/project-manager" element={
         <DashboardLayout role="ProjectManager" onChangeRole={handleRoleChange} title="Project Manager">
-          <PMDashboard />
+          <LazyWrap><PMDashboard /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/project-manager/leaves" element={
         <DashboardLayout role="ProjectManager" onChangeRole={handleRoleChange} title="Leaves Portal">
-          <LeavesPortal role="ProjectManager" />
+          <LazyWrap><LeavesPortal role="ProjectManager" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/project-manager/projects" element={
         <DashboardLayout role="ProjectManager" onChangeRole={handleRoleChange} title="Projects">
-          <PMProjects />
+          <LazyWrap><PMProjects /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/project-manager/tasks" element={
         <DashboardLayout role="ProjectManager" onChangeRole={handleRoleChange} title="Tasks">
-          <PMTasks />
+          <LazyWrap><PMTasks /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/project-manager/tasks/overdue" element={
         <DashboardLayout role="ProjectManager" onChangeRole={handleRoleChange} title="Tasks">
-          <PMTasks />
+          <LazyWrap><PMTasks /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/project-manager/drawings" element={
         <DashboardLayout role="ProjectManager" onChangeRole={handleRoleChange} title="Drawings">
-          <PMDrawings />
+          <LazyWrap><PMDrawings /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/project-manager/drawings/approvals" element={
         <DashboardLayout role="ProjectManager" onChangeRole={handleRoleChange} title="Drawings">
-          <PMDrawings />
+          <LazyWrap><PMDrawings /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/project-manager/team" element={
         <DashboardLayout role="ProjectManager" onChangeRole={handleRoleChange} title="Team">
-          <PMTeam />
+          <LazyWrap><PMTeam /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/project-manager/team/performance" element={
         <DashboardLayout role="ProjectManager" onChangeRole={handleRoleChange} title="Team">
-          <PMTeam />
+          <LazyWrap><PMTeam /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/project-manager/chats" element={
         <DashboardLayout role="ProjectManager" onChangeRole={handleRoleChange} title="Chats">
-          <PMCommunication />
+          <LazyWrap><PMCommunication /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/project-manager/queries" element={
         <DashboardLayout role="ProjectManager" onChangeRole={handleRoleChange} title="Queries">
-          <PMCommunication />
+          <LazyWrap><PMCommunication /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/project-manager/reports/projects" element={
         <DashboardLayout role="ProjectManager" onChangeRole={handleRoleChange} title="Reports">
-          <PMReports />
+          <LazyWrap><PMReports /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/project-manager/reports/tasks" element={
         <DashboardLayout role="ProjectManager" onChangeRole={handleRoleChange} title="Reports">
-          <PMReports />
+          <LazyWrap><PMReports /></LazyWrap>
         </DashboardLayout>
       } />
     </>

@@ -18,8 +18,10 @@ import {
   getLeadInteractions,
   getLeadStatusHistory,
   convertToClientStub
-} from '../../../service/lead';
+} from '../../../service/crm/lead';
 import { getUsersList } from '../../../service/auth';
+import useSEO from '../../../hooks/useSEO';
+import StatusBadge from '../../common/StatusBadge';
 
 // Order of all lifecycle statuses matching backend schema
 const ALL_STATUSES = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL_SENT', 'NEGOTIATION', 'WON', 'LOST'];
@@ -203,6 +205,12 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
       return prev;
     });
   }, [isMobile]);
+
+  useSEO({
+    title: 'CRM Lead Management & Pipeline',
+    description: 'Track client inquiry leads, sales stages, site consultation follow-ups, and architectural project conversion pipeline.',
+    keywords: 'CRM Lead Pipeline, Architectural Leads, Project Inquiries, Sales Pipeline, Nirman Architects'
+  });
 
   // Filters & Sorting
   const [searchQuery, setSearchQuery] = useState('');
@@ -849,7 +857,7 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
 
       {/* 4. VIEW 1: KANBAN PIPELINE BOARD (100% RESPONSIVE - ZERO HORIZONTAL SCROLL ON MOBILE AND DESKTOP) */}
       {viewMode === 'pipeline' && (
-        <div className="w-full flex gap-1 sm:gap-3.5 items-start overflow-hidden pb-4 min-h-[550px] sm:min-h-[620px]">
+        <div className="w-full flex gap-1 sm:gap-3.5 items-start overflow-x-auto overflow-y-visible p-1 sm:p-2 pb-4 min-h-[550px] sm:min-h-[620px]">
           {ALL_STATUSES.map(statusKey => {
             const isOpen = openStatuses.includes(statusKey);
             const rawLeads = pipelineData[statusKey] || [];
@@ -901,7 +909,7 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
                 onDragOver={(e) => handleDragOver(e, statusKey)}
                 onDragLeave={(e) => handleDragLeave(e, statusKey)}
                 onDrop={(e) => handleDrop(e, statusKey)}
-                className={`flex-1 min-w-0 max-w-full sm:max-w-[340px] ${cfg.columnBg} p-2 sm:p-3.5 rounded-2xl border flex flex-col min-h-[520px] sm:min-h-[580px] space-y-2 sm:space-y-3 transition-all overflow-hidden ${
+                className={`flex-1 min-w-0 max-w-full sm:max-w-[340px] ${cfg.columnBg} p-2 sm:p-3.5 rounded-2xl border flex flex-col min-h-[520px] sm:min-h-[580px] space-y-2 sm:space-y-3 transition-all ${
                   isDropTarget ? 'ring-2 ring-indigo-500 bg-indigo-50/70 border-indigo-300 scale-[1.01]' : ''
                 }`}
               >
@@ -953,7 +961,7 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
                           onTouchMove={handleTouchMove}
                           onTouchEnd={handleTouchEnd}
                           onClick={() => handleOpenLeadDetails(lead._id || lead.id)}
-                          className={`bg-white p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/70 shadow-2xs hover:shadow-md transition-all cursor-grab active:cursor-grabbing space-y-2 sm:space-y-3 group relative select-none overflow-hidden ${
+                          className={`bg-white p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/70 shadow-2xs hover:shadow-md transition-all cursor-grab active:cursor-grabbing space-y-2 sm:space-y-3 group relative select-none ${
                             isBeingDragged ? 'opacity-30 scale-95 border-indigo-500 border-dashed' : ''
                           }`}
                         >
@@ -1509,27 +1517,32 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-end z-50 animate-in slide-in-from-right duration-200">
           <div className="bg-white w-full max-w-2xl h-full shadow-2xl overflow-y-auto p-6 space-y-6 flex flex-col justify-between">
             <div className="space-y-6">
-              {/* Header */}
+              
+              {/* Top Header */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full font-extrabold text-sm flex items-center justify-center border ${getAvatarColor(selectedLead.name)}`}>
+                  <div className={`w-11 h-11 rounded-2xl font-black text-sm flex items-center justify-center border shadow-3xs ${getAvatarColor(selectedLead.name)}`}>
                     {getInitials(selectedLead.name)}
                   </div>
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Lead Profile</span>
-                    <h2 className="text-xl font-extrabold text-slate-900">{selectedLead.name}</h2>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">Lead Profile</span>
+                    <h2 className="text-xl font-black text-slate-900 tracking-tight">{selectedLead.name}</h2>
                   </div>
                 </div>
-                <button onClick={() => setSelectedLead(null)} className="text-slate-400 hover:text-slate-600">
-                  <X className="w-6 h-6" />
+                <button 
+                  onClick={() => setSelectedLead(null)} 
+                  className="w-9 h-9 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-all cursor-pointer shadow-3xs"
+                  title="Close Profile"
+                >
+                  <X className="w-5 h-5 stroke-[2.5]" />
                 </button>
               </div>
 
               {/* Status & Quick Action Ribbon */}
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+              <div className="p-4 bg-slate-50/90 rounded-2xl border border-slate-200/90 flex flex-wrap items-center justify-between gap-3 shadow-3xs">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Current Lifecycle Status</span>
-                  <span className={`px-3 py-1 rounded-full text-xs font-black border ${STATUS_CONFIG[selectedLead.status]?.color}`}>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Current Lifecycle Status</span>
+                  <span className={`px-3 py-1 rounded-full text-xs font-black border inline-block mt-0.5 ${STATUS_CONFIG[selectedLead.status]?.color}`}>
                     {STATUS_CONFIG[selectedLead.status]?.label}
                   </span>
                 </div>
@@ -1537,55 +1550,70 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => { setTargetStatus('QUALIFIED'); setStatusChangeModal(true); }}
-                    className="px-3 py-1.5 bg-purple-50 text-purple-700 font-bold text-xs rounded-xl border border-purple-200 hover:bg-purple-100 transition-all"
+                    className="px-3.5 py-2 bg-brand-soft hover:bg-brand-primary text-slate-900 font-extrabold text-xs rounded-xl border border-brand-secondary/40 transition-all shadow-3xs cursor-pointer"
                   >
                     Change Status
                   </button>
                   <button
                     onClick={handleConvertToClient}
-                    className="px-3.5 py-1.5 bg-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-xs hover:bg-emerald-700 transition-all flex items-center gap-1.5"
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
                   >
-                    <Award className="w-3.5 h-3.5" />
-                    Convert to Client (WON)
+                    <Award className="w-4 h-4 text-white" />
+                    <span>Convert to Client (WON)</span>
                   </button>
                 </div>
               </div>
 
-              {/* Lead Details Grid */}
-              <div className="grid grid-cols-2 gap-4 text-xs">
-                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
-                  <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Contact Details</span>
-                  <div className="font-bold text-slate-900">{selectedLead.phone}</div>
-                  <div className="text-slate-500">{selectedLead.email || 'No email provided'}</div>
+              {/* Lead Details Grid Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-semibold">
+                <div className="p-4 bg-slate-50/90 rounded-2xl border border-slate-200/80 space-y-1.5 shadow-3xs">
+                  <span className="text-slate-400 font-black text-[10px] uppercase tracking-widest block">Contact Details</span>
+                  <div className="font-extrabold text-slate-900 text-sm flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{selectedLead.phone}</span>
+                  </div>
+                  <div className="text-slate-500 font-medium flex items-center gap-1.5 truncate">
+                    <Mail className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                    <span className="truncate">{selectedLead.email || 'No email provided'}</span>
+                  </div>
                 </div>
 
-                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
-                  <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Project & Value</span>
-                  <div className="font-bold text-slate-900">{selectedLead.projectType || 'Residential Project'}</div>
-                  <div className="text-emerald-700 font-extrabold">{formatCurrency(selectedLead.amount)}</div>
+                <div className="p-4 bg-slate-50/90 rounded-2xl border border-slate-200/80 space-y-1.5 shadow-3xs">
+                  <span className="text-slate-400 font-black text-[10px] uppercase tracking-widest block">Project & Value</span>
+                  <div className="font-extrabold text-slate-900 text-sm flex items-center gap-1.5">
+                    <Building className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{selectedLead.projectType || 'Residential Project'}</span>
+                  </div>
+                  <div className="text-emerald-600 font-black text-sm">
+                    {formatCurrency(selectedLead.amount)}
+                  </div>
                 </div>
               </div>
 
-              {/* Requirement Notes */}
-              <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 text-xs space-y-1">
-                <span className="font-bold text-indigo-900 text-[10px] uppercase tracking-wider">Requirement Notes</span>
-                <p className="text-slate-700 leading-relaxed">{selectedLead.requirementNotes || 'No notes specified.'}</p>
+              {/* Requirement Notes Panel */}
+              <div className="p-4 bg-brand-soft/70 rounded-2xl border border-brand-secondary/30 text-xs space-y-1 shadow-3xs">
+                <span className="font-black text-slate-900 text-[10px] uppercase tracking-widest block">Requirement Notes</span>
+                <p className="text-slate-700 leading-relaxed font-semibold">{selectedLead.requirementNotes || 'No specific notes recorded.'}</p>
               </div>
 
               {/* Log Touchpoint Interaction Form */}
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-                <h4 className="font-bold text-slate-900 text-xs flex items-center gap-2">
+              <div className="bg-white p-4.5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3.5">
+                <h4 className="font-black text-slate-900 text-xs flex items-center gap-2">
                   <MessageSquare className="w-4 h-4 text-indigo-600" />
-                  Log Interaction Touchpoint
+                  <span>Log Interaction Touchpoint</span>
                 </h4>
                 <form onSubmit={handleLogInteractionSubmit} className="space-y-3 text-xs">
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     {['Call', 'Meeting', 'Email', 'Note'].map(t => (
                       <button
                         key={t}
                         type="button"
                         onClick={() => setInteractionForm({ ...interactionForm, type: t })}
-                        className={`px-3 py-1.5 rounded-lg font-bold text-xs border transition-all ${interactionForm.type === t ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-600 border-slate-200'}`}
+                        className={`px-3.5 py-1.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer border ${
+                          interactionForm.type === t 
+                            ? 'bg-brand-primary text-slate-900 border-brand-secondary/60 shadow-3xs font-black' 
+                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                        }`}
                       >
                         {t}
                       </button>
@@ -1593,50 +1621,50 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
                   </div>
 
                   <textarea
-                    rows="2"
+                    rows="2.5"
                     required
                     placeholder="Log conversation summary, client feedback, or agreed action items..."
                     value={interactionForm.notes}
                     onChange={(e) => setInteractionForm({ ...interactionForm, notes: e.target.value })}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
+                    className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-xs font-semibold bg-white text-slate-800"
                   ></textarea>
 
                   <button
                     type="submit"
                     disabled={interactionSubmitting}
-                    className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2"
+                    className="w-full py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-extrabold text-xs rounded-xl transition-all flex items-center justify-center gap-2 shadow-2xs cursor-pointer"
                   >
-                    {interactionSubmitting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                    Save Touchpoint Log
+                    {interactionSubmitting ? <RefreshCw className="w-4 h-4 animate-spin text-slate-900" /> : <Check className="w-4 h-4 text-slate-900 stroke-[2.5]" />}
+                    <span>Save Touchpoint Log</span>
                   </button>
                 </form>
               </div>
 
               {/* Chronological Interactions Timeline */}
               <div className="space-y-3">
-                <h4 className="font-bold text-slate-900 text-xs flex items-center gap-2">
+                <h4 className="font-black text-slate-900 text-xs flex items-center gap-2">
                   <History className="w-4 h-4 text-indigo-600" />
-                  Interactions Timeline ({interactions.length})
+                  <span>Interactions Timeline ({interactions.length})</span>
                 </h4>
 
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-none">
                   {interactions.length > 0 ? (
                     interactions.map(item => (
-                      <div key={item._id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
+                      <div key={item._id} className="p-3 bg-slate-50/90 rounded-2xl border border-slate-200/80 text-xs space-y-1 shadow-3xs">
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded text-[10px]">
+                          <span className="font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2.5 py-0.5 rounded-lg text-[10px]">
                             {item.type}
                           </span>
                           <span className="text-[10px] text-slate-400 font-mono">
                             {new Date(item.loggedAt).toLocaleString()}
                           </span>
                         </div>
-                        <p className="text-slate-700 mt-1">{item.notes}</p>
-                        <div className="text-[10px] text-slate-400">By: {item.loggedBy?.name || 'Bhakti'}</div>
+                        <p className="text-slate-800 font-medium mt-1">{item.notes}</p>
+                        <div className="text-[10px] text-slate-400 font-semibold">Logged by: {item.loggedBy?.name || 'Bhakti'}</div>
                       </div>
                     ))
                   ) : (
-                    <div className="p-4 text-center text-slate-400 text-xs border border-dashed rounded-xl">
+                    <div className="p-4 text-center text-slate-400 text-xs font-semibold border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
                       No interaction touchpoints logged yet.
                     </div>
                   )}
@@ -1644,25 +1672,28 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
               </div>
 
               {/* Status Audit Trail */}
-              <div className="space-y-3">
-                <h4 className="font-bold text-slate-900 text-xs flex items-center gap-2">
+              <div className="space-y-3 pb-4">
+                <h4 className="font-black text-slate-900 text-xs flex items-center gap-2">
                   <ShieldAlert className="w-4 h-4 text-indigo-600" />
-                  Status Change Audit Trail ({statusHistory.length})
+                  <span>Status Change Audit Trail ({statusHistory.length})</span>
                 </h4>
 
-                <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-36 overflow-y-auto pr-1 scrollbar-none">
                   {statusHistory.map(h => (
-                    <div key={h._id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-[11px] flex items-center justify-between">
-                      <div>
-                        <span className="font-bold text-slate-600">{h.fromStatus || 'INIT'}</span>
-                        <ArrowRight className="w-3 h-3 inline mx-1 text-slate-400" />
-                        <span className="font-bold text-indigo-600">{h.toStatus}</span>
+                    <div key={h._id} className="p-3 bg-slate-50/90 rounded-xl border border-slate-200/80 text-xs flex items-center justify-between shadow-3xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-extrabold text-slate-600 bg-slate-200/60 px-2 py-0.5 rounded text-[10px]">{h.fromStatus || 'INIT'}</span>
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2 py-0.5 rounded text-[10px]">{h.toStatus}</span>
                       </div>
-                      <span className="text-slate-400 font-mono text-[10px]">{new Date(h.changedAt).toLocaleDateString()}</span>
+                      <span className="text-[10px] font-mono text-slate-400 font-bold">
+                        {new Date(h.changedAt || Date.now()).toLocaleDateString()}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
+
             </div>
           </div>
         </div>

@@ -142,13 +142,13 @@ export default function CustomerDrawings() {
     {
       header: "Action Queue",
       render: (row) => (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 whitespace-nowrap">
           <button
             onClick={() => setViewerDwg(row)}
-            className="px-3.5 py-1.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-extrabold rounded-xl text-xs transition-all shadow-3xs cursor-pointer flex items-center gap-1"
+            className="px-3.5 py-1.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-black rounded-xl text-xs transition-all shadow-3xs cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 border border-brand-secondary/40"
           >
-            <Eye className="w-3.5 h-3.5" />
-            <span>View & Sign</span>
+            <Eye className="w-4 h-4 shrink-0 stroke-[2.5]" />
+            <span className="whitespace-nowrap font-extrabold leading-none">View & Sign</span>
           </button>
         </div>
       )
@@ -284,10 +284,10 @@ export default function CustomerDrawings() {
                   </span>
                   <button
                     onClick={() => setViewerDwg(d)}
-                    className="px-3.5 py-1.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-extrabold rounded-xl text-xs transition-all flex items-center gap-1 cursor-pointer shadow-3xs"
+                    className="px-3.5 py-1.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-extrabold rounded-xl text-xs transition-all flex items-center gap-1 cursor-pointer shadow-3xs whitespace-nowrap shrink-0"
                   >
-                    <Eye className="w-3.5 h-3.5" />
-                    <span>View & Sign</span>
+                    <Eye className="w-3.5 h-3.5 shrink-0" />
+                    <span className="whitespace-nowrap">View & Sign</span>
                   </button>
                 </div>
               </div>
@@ -301,6 +301,7 @@ export default function CustomerDrawings() {
         <DrawingViewer
           drawing={viewerDwg}
           onClose={() => setViewerDwg(null)}
+          initialMarkupMode={true}
           onStatusChange={() => {
             loadDrawings();
           }}

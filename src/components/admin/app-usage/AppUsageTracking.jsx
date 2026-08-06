@@ -9,7 +9,7 @@ import {
   updateAppUsageConfig,
   getEmployeeAppUsage,
   exportEmployeeAppUsage
-} from '../../../service/appUsage';
+} from '../../../service/hrm/appUsage';
 import { getUsersList } from '../../../service/auth';
 
 import AppUsageStats from './AppUsageStats';

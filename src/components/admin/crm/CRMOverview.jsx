@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import { Users, UserCheck, MessageSquare, ShieldCheck, Database, Calendar, Star, ThumbsUp } from 'lucide-react';
 import Card from '../../common/Card';
-import { getFeedbackAggregateSummary } from '../../../service/feedback';
+import { getFeedbackAggregateSummary } from '../../../service/crm/feedback';
 
 const COLORS = ['#8FC9FF', '#34D399', '#FBBF24', '#A2D2FF'];
 

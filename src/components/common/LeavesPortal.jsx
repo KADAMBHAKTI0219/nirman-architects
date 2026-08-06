@@ -10,10 +10,10 @@ import {
   rejectLeaveRequest,
   getCompanyLeaves,
   parseIndexedObjectToArray
-} from '../../service/leave';
+} from '../../service/hrm/leave';
 import * as mockApi from '../../service/mockApi';
 
-export default function LeavesPortal({ role = "Employee" }) {
+export default function LeavesPortal({ role = "Employee", hideHeader = false }) {
   const [balances, setBalances] = useState([]);
   const [requests, setRequests] = useState([]);
   const [teamRequests, setTeamRequests] = useState([]);
@@ -265,6 +265,27 @@ export default function LeavesPortal({ role = "Employee" }) {
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       
+      {/* 0. TOP PAGE HEADER MATCHING DRAWINGS VAULT MANAGEMENT */}
+      {!hideHeader && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              Leave Approvals & Management Portal
+            </h1>
+            <p className="text-slate-500 text-xs sm:text-sm mt-0.5 font-medium">
+              Review, approve, and track employee leave applications, balances, and company holidays
+            </p>
+          </div>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="px-4.5 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-extrabold text-xs rounded-2xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0 border border-brand-secondary/40"
+          >
+            <Plus className="w-4 h-4 text-slate-900 stroke-[2.5]" />
+            <span>Apply For Leave</span>
+          </button>
+        </div>
+      )}
+
       {/* Tab bar header if ProjectManager/HR */}
       {isManager && (
         <div className="flex border-b border-slate-200 overflow-x-auto gap-2">

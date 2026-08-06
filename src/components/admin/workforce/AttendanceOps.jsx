@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend
@@ -13,6 +13,11 @@ import {
 
 import PageHeader from '../../common/PageHeader';
 import AttendanceCalendar from '../../common/AttendanceCalendar';
+import StatusBadge from '../../common/StatusBadge';
+import StatsKpiCard from '../../common/StatsKpiCard';
+import useSEO from '../../../hooks/useSEO';
+import { getAllAttendanceList } from '../../../service/hrm/attendance';
+import { parseIndexedObjectToArray } from '../../../service/hrm/leave';
 
 const DONUT_COLORS = ['#8FC9FF', '#A2D2FF', '#F87171', '#2484C6'];
 
@@ -20,8 +25,12 @@ export default function AttendanceOps({
   attendanceLogs = [],
   liveAlerts = [],
   onSelectEmployee,
-  selectedEmployee: propSelectedEmployee
+  selectedEmployee: propSelectedEmployee,
+  hideHeader = false
 }) {
+  const [apiLogs, setApiLogs] = useState([]);
+  const [loadingApi, setLoadingApi] = useState(false);
+
   // Navigation & Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All'); // All | Present | Late | Absent | On Leave
@@ -35,10 +44,55 @@ export default function AttendanceOps({
   const [inspectEmployee, setInspectEmployee] = useState(null);
   const [inspectDate, setInspectDate] = useState(new Date().toISOString().split('T')[0]);
 
+  useEffect(() => {
+    const fetchRealAttendance = async () => {
+      setLoadingApi(true);
+      try {
+        const dateObj = new Date(selectedDate);
+        const month = dateObj.getMonth() + 1;
+        const year = dateObj.getFullYear();
+        const res = await getAllAttendanceList({ month, year });
+        const list = parseIndexedObjectToArray(res);
+        if (list && list.length > 0) {
+          const mapped = list.map((log, idx) => {
+            const emp = typeof log.userId === 'object' ? log.userId : {};
+            const isSite = (log.deviceId || '').toLowerCase().includes('gps') || (log.deviceId || '').toLowerCase().includes('mobile');
+            const hoursStr = typeof log.workingHours === 'number' ? `${log.workingHours.toFixed(2)} hrs` : (log.workingHours || '8.50 hrs');
+            const timeInStr = log.clockInTime ? new Date(log.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '09:15 AM';
+            const timeOutStr = log.clockOutTime ? new Date(log.clockOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '06:00 PM';
+
+            return {
+              id: log._id || log.id || `att-${idx}`,
+              employeeId: emp._id || emp.id || `u-${idx}`,
+              name: emp.name || log.name || 'Staff Member',
+              role: emp.designation || emp.role || 'Staff Member',
+              department: emp.department || 'Operations',
+              timeIn: timeInStr,
+              timeOut: timeOutStr,
+              hours: hoursStr,
+              mode: isSite ? 'Site' : 'Office',
+              status: log.status || 'Present',
+              date: log.date ? log.date.split('T')[0] : (log.clockInTime ? log.clockInTime.split('T')[0] : selectedDate)
+            };
+          });
+          setApiLogs(mapped);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch real attendance list from API, using fallback data:", err);
+      } finally {
+        setLoadingApi(false);
+      }
+    };
+    fetchRealAttendance();
+  }, [selectedDate]);
+
   // Generate fallback employee attendance list if props are empty or minimal
   const sampleLogs = useMemo(() => {
     if (attendanceLogs && attendanceLogs.length > 0) {
       return attendanceLogs;
+    }
+    if (apiLogs && apiLogs.length > 0) {
+      return apiLogs;
     }
 
     return [
@@ -53,7 +107,7 @@ export default function AttendanceOps({
       { id: 'att-9', employeeId: 'u-8', name: 'Priya Sharma', role: 'Interior Designer', department: 'Architecture', timeIn: '09:30 AM', timeOut: '06:15 PM', hours: '8.75 hrs', mode: 'Office', status: 'Late', date: selectedDate },
       { id: 'att-10', employeeId: 'u-9', name: 'Aarav Shah', role: 'Structural Engineer', department: 'Engineering', timeIn: 'N/A', timeOut: 'N/A', hours: '0.00 hrs', mode: 'Office', status: 'Absent', date: selectedDate }
     ];
-  }, [attendanceLogs, selectedDate]);
+  }, [attendanceLogs, apiLogs, selectedDate]);
 
   // Group logs by employee so that 1 employee has 1 consolidated row for the selected date
   const groupedEmployeeSummary = useMemo(() => {
@@ -192,23 +246,31 @@ export default function AttendanceOps({
     }
   };
 
+  useSEO({
+    title: 'Attendance Operations & Punch Summary',
+    description: 'Monitor real-time biometric staff attendance, office/site punches, and daily working hours for Nirman Architects.',
+    keywords: 'Attendance Ops, Biometric Attendance, Staff Punch Logs, Workstation Tracker, Nirman Architects'
+  });
+
   return (
     <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
 
       {/* 1. TOP PAGE HEADER & EXPORT ACTION */}
-      <PageHeader
-        title="Attendance Operations & Summary"
-        subtitle="Monitor daily employee attendance summary, punches, biometric validation & date-wise punch timelines"
-        actions={
-          <button
-            onClick={() => alert(`Exporting Attendance Data for ${selectedDate}...`)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all cursor-pointer border border-brand-soft"
-          >
-            <Download className="w-4 h-4 text-brand-dark" />
-            Export Attendance Report
-          </button>
-        }
-      />
+      {!hideHeader && (
+        <PageHeader
+          title="Attendance Operations & Summary"
+          subtitle="Monitor daily employee attendance summary, punches, biometric validation & date-wise punch timelines"
+          actions={
+            <button
+              onClick={() => alert(`Exporting Attendance Data for ${selectedDate}...`)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all cursor-pointer border border-brand-soft"
+            >
+              <Download className="w-4 h-4 text-brand-dark" />
+              Export Attendance Report
+            </button>
+          }
+        />
+      )}
 
       {/* 2. TOP STAT CARDS (5 METRIC CARDS MATCHING APP-USAGE STYLE) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -438,9 +500,7 @@ export default function AttendanceOps({
 
                     {/* Status Badge */}
                     <td className="py-3.5 px-4">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-black border uppercase tracking-wider ${getStatusBadge(emp.status)}`}>
-                        {emp.status}
-                      </span>
+                      <StatusBadge status={emp.status} size="sm" />
                     </td>
 
                     {/* Punches Count Badge */}

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Send, ArrowRight, MessageSquare, AlertCircle, Clock, CheckCircle2, RefreshCw, UserCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../../common/Card';
-import { getAllTicketsInternal, respondToTicketStaff, updateTicketStatus } from '../../../service/ticket';
+import { getAllTicketsInternal, respondToTicketStaff, updateTicketStatus } from '../../../service/crm/ticket';
 
 export default function ClientQueriesPanel() {
   const navigate = useNavigate();

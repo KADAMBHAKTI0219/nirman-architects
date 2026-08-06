@@ -9,7 +9,7 @@ import {
   approveDeviceRequest, 
   assignDeviceToUser, 
   getDeviceStatus 
-} from '../../../service/device';
+} from '../../../service/hrm/device';
 
 import PageHeader from '../../common/PageHeader';
 

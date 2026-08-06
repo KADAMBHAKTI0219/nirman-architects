@@ -8,9 +8,9 @@ import AttendanceOps from './AttendanceOps';
 import EmployeesHR from './EmployeesHR';
 import DeviceBindingApprovals from './DeviceBindingApprovals';
 import AppUsageTracking from '../app-usage/AppUsageTracking';
-import { getAllAttendanceList } from '../../../service/attendance';
+import { getAllAttendanceList } from '../../../service/hrm/attendance';
 import { getRoles, registerUser, getUsersList, getUserById, updateUser, getPendingDeviceRequests, approveDevice } from '../../../service/auth';
-import { parseIndexedObjectToArray } from '../../../service/leave';
+import { parseIndexedObjectToArray } from '../../../service/hrm/leave';
 
 export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
   const navigate = useNavigate();

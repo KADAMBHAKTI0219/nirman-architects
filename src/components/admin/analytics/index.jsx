@@ -98,6 +98,27 @@ export default function Analytics({ defaultTab = 'projects' }) {
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       
+      {/* 0. TOP PAGE HEADER MATCHING DRAWINGS VAULT MANAGEMENT */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Project Reports & Performance Audits
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            Generate milestone progress reports, GFC release audits, productivity metrics & leave registries
+          </p>
+        </div>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <button
+            onClick={() => handleExport('CSV')}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-all cursor-pointer"
+          >
+            <Download className="w-4 h-4 text-slate-500" />
+            <span>Export CSV</span>
+          </button>
+        </div>
+      </div>
+
       {/* Tab Navigation header */}
       <div className="flex justify-between items-center border-b border-slate-100 pb-1 flex-wrap gap-4">
         <div className="flex items-center gap-6 overflow-x-auto scrollbar-none pb-1">

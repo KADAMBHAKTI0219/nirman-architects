@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Laptop, Clock, ArrowRight, ShieldCheck, Power, AlertCircle, RefreshCw, Activity, CheckCircle2 } from 'lucide-react';
 import Card from '../../common/Card';
-import { getMyAttendance } from '../../../service/attendance';
-import { parseIndexedObjectToArray } from '../../../service/leave';
-import { registerDevice, getDeviceStatus, sendDeviceHeartbeat } from '../../../service/device';
+import { getMyAttendance } from '../../../service/hrm/attendance';
+import { parseIndexedObjectToArray } from '../../../service/hrm/leave';
+import { registerDevice, getDeviceStatus, sendDeviceHeartbeat } from '../../../service/hrm/device';
 
 export default function AttendanceOffice() {
   const [sessionLogs, setSessionLogs] = useState([]);

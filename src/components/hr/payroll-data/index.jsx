@@ -7,8 +7,8 @@ import Card from '../../common/Card';
 import {
   getAllPayroll,
   downloadEmployeePayslip
-} from '../../../service/payroll';
-import { parseIndexedObjectToArray } from '../../../service/leave';
+} from '../../../service/hrm/payroll';
+import { parseIndexedObjectToArray } from '../../../service/hrm/leave';
 
 export default function PayrollData() {
   const [payroll, setPayroll] = useState([]);
@@ -94,8 +94,29 @@ export default function PayrollData() {
   const totalDeductions = payroll.reduce((acc, p) => acc + p.deductions, 0);
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
       
+      {/* 0. TOP PAGE HEADER MATCHING DRAWINGS VAULT MANAGEMENT & ADMIN DASHBOARD */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Payroll Processing & Salary Disbursal
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            Process monthly employee salaries, statutory tax deductions, and automated payslip releases
+          </p>
+        </div>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <button
+            onClick={() => alert("Initiating automated salary disbursal batch processing...")}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4.5 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 rounded-xl text-xs sm:text-sm font-extrabold shadow-md transition-all cursor-pointer border border-brand-secondary/40"
+          >
+            <Play className="w-4 h-4 text-slate-900 stroke-[2.5]" />
+            <span>Process Salary Batch</span>
+          </button>
+        </div>
+      </div>
+
       {/* 1. TOP BAR */}
       <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-2xs flex flex-wrap gap-4 items-center justify-between">
         <div className="flex items-center gap-3">

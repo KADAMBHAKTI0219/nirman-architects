@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Eye, AlertCircle, Check, Send, User, RefreshCw, LifeBuoy, Filter, ArrowRight, UserCheck, MessageSquare, Clock } from 'lucide-react';
 import Card from '../../common/Card';
+import BrandLoader from '../../common/BrandLoader';
+import { PageHeader, SearchFilterBar, StatusBadge } from '../../common';
 import {
   getAllTicketsInternal,
   respondToTicketStaff,
   updateTicketStatus,
   reassignTicket,
   getClientTicketDetail
-} from '../../../service/ticket';
+} from '../../../service/crm/ticket';
 import { getUsersList } from '../../../service/auth';
 
 const FALLBACK_MOCK_TICKETS = [
@@ -225,64 +227,38 @@ export default function CRMQueries() {
     <div className="space-y-6 animate-in fade-in duration-200">
 
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-2xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Client Support Tickets & Queries</h1>
-          </div>
-          <p className="text-slate-500 text-xs sm:text-sm mt-0.5 font-medium">
-            Internal PM & Staff Ticket Workspace: Address support queries, dispatch staff responses & track ticket lifecycles.
-          </p>
-        </div>
-
-        <button
-          onClick={fetchTickets}
-          className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          <span>Refresh</span>
-        </button>
-      </div>
+      <PageHeader
+        title="Client Support Tickets & Queries"
+        subtitle="Internal PM & Staff Ticket Workspace: Address support queries, dispatch staff responses & track ticket lifecycles."
+        actions={
+          <button
+            onClick={fetchTickets}
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+        }
+      />
 
       {/* Filter Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
-        <div className="relative flex-1 min-w-[220px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search tickets by subject, client name or project..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-xs font-semibold bg-white"
-          />
-        </div>
-
-        <div className="flex items-center gap-2 text-xs">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 border border-slate-200 rounded-xl bg-white font-extrabold text-slate-700 focus:outline-none"
-          >
-            <option value="">All Statuses</option>
-            <option value="OPEN">OPEN</option>
-            <option value="IN_PROGRESS">IN_PROGRESS</option>
-            <option value="RESOLVED">RESOLVED</option>
-            <option value="CLOSED">CLOSED</option>
-            <option value="CANCELLED">CANCELLED</option>
-          </select>
-
-          <select
-            value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value)}
-            className="px-3 py-2 border border-slate-200 rounded-xl bg-white font-extrabold text-slate-700 focus:outline-none"
-          >
-            <option value="">All Priorities</option>
-            <option value="High">High Priority</option>
-            <option value="Medium">Medium</option>
-            <option value="Low">Low</option>
-          </select>
-        </div>
-      </div>
+      <SearchFilterBar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search tickets by subject, client name or project..."
+        filterOptions={[
+          { label: 'All Statuses', value: '' },
+          { label: 'OPEN', value: 'OPEN' },
+          { label: 'IN_PROGRESS', value: 'IN_PROGRESS' },
+          { label: 'RESOLVED', value: 'RESOLVED' },
+          { label: 'CLOSED', value: 'CLOSED' },
+          { label: 'CANCELLED', value: 'CANCELLED' }
+        ]}
+        selectedFilter={statusFilter}
+        onFilterChange={setStatusFilter}
+        onRefresh={fetchTickets}
+        loading={loading}
+      />
 
       {/* Main Split: Ticket Table (2/3) + Selected Ticket Detail & Thread (1/3) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -302,7 +278,13 @@ export default function CRMQueries() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
-                {filteredTickets.length > 0 ? (
+                {loading ? (
+                  <tr>
+                    <td colSpan="6" className="px-4 py-12 text-center">
+                      <BrandLoader size="sm" text="Fetching Client Tickets..." />
+                    </td>
+                  </tr>
+                ) : filteredTickets.length > 0 ? (
                   filteredTickets.map(t => {
                     const isSelected = selectedTicketId === (t._id || t.id);
                     return (

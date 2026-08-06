@@ -4,6 +4,7 @@ import {
   ChevronRight, Calendar, AlertCircle, X, ShieldAlert, BarChart2
 } from 'lucide-react';
 import Card from '../../common/Card';
+import { SearchFilterBar, StatusBadge } from '../../common';
 
 export default function EmployeeTasks() {
   const [viewMode, setViewMode] = useState('list'); // list, kanban
@@ -151,10 +152,22 @@ export default function EmployeeTasks() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
       
+      {/* 0. TOP PAGE HEADER MATCHING DRAWINGS VAULT MANAGEMENT */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Employee Task Operations & Timesheet
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5 font-medium">
+            Track daily design deliverables, CAD elevation tasks, and log working hours
+          </p>
+        </div>
+      </div>
+
       {/* 1. Header controls */}
-      <div className="flex flex-wrap gap-4 items-center justify-between bg-white p-4 rounded-3xl border border-slate-100/90 shadow-2xs">
+      <div className="flex flex-wrap gap-4 items-center justify-between bg-white p-4 rounded-3xl border border-slate-200/90 shadow-2xs">
         
         <div className="flex items-center gap-3 flex-1 min-w-[200px]">
           <div className="relative flex-1">
@@ -209,10 +222,7 @@ export default function EmployeeTasks() {
                   <span className="px-2 py-0.5 bg-[#E5F0FA] text-[#2484C6] rounded text-[8px] font-black uppercase tracking-wider">
                     {t.project}
                   </span>
-                  <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${
-                    t.priority === 'Critical' ? 'bg-rose-50 text-rose-600' :
-                    t.priority === 'High' ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-500'
-                  }`}>{t.priority}</span>
+                  <StatusBadge status={t.priority} size="sm" />
                 </div>
                 <h4 className="text-xs font-black text-slate-805 mt-2 line-clamp-2 leading-snug">{t.title}</h4>
               </div>

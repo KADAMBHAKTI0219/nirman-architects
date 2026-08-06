@@ -15,7 +15,7 @@ import {
   createClientProjectLink,
   toggleProjectLinkVisibility,
   unlinkProject
-} from '../../../service/client';
+} from '../../../service/crm/client';
 
 export default function CRMClientProfile({
   client,

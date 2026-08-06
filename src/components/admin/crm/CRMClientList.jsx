@@ -3,8 +3,10 @@ import {
   Search, Eye, EyeOff, Plus, Building, Smartphone, Mail, MapPin, User, 
   ShieldCheck, AlertCircle, X, Key, CheckCircle, Ban, RefreshCw 
 } from 'lucide-react';
-import { createClient, deactivateClient } from '../../../service/client';
+import { createClient, deactivateClient } from '../../../service/crm/client';
 import CRMClientProfile from './CRMClientProfile';
+import BrandLoader from '../../common/BrandLoader';
+import { PageHeader, SearchFilterBar, StatusBadge } from '../../common';
 
 export default function CRMClientList({
   clients = [],
@@ -156,56 +158,35 @@ export default function CRMClientList({
     <div className="space-y-6 font-sans text-slate-800 w-full">
       
       {/* 1. Top Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Client Directory</h1>
-          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
-            Manage Client Accounts, Multi-User Contacts, Linked Projects & Portal Authentication
-          </p>
-        </div>
-
-        <button
-          onClick={() => { setModalError(''); setShowAddModal(true); }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
-        >
-          <Plus className="w-4 h-4 text-brand-dark" />
-          Create New Client Account
-        </button>
-      </div>
+      <PageHeader
+        title="Client Directory"
+        subtitle="Manage Client Accounts, Multi-User Contacts, Linked Projects & Portal Authentication"
+        actions={
+          <button
+            onClick={() => { setModalError(''); setShowAddModal(true); }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4 text-brand-dark" />
+            Create New Client Account
+          </button>
+        }
+      />
 
       {/* 2. Search & Filters Bar */}
-      <div className="bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-wrap gap-3 items-center justify-between w-full">
-        <div className="relative flex-1 min-w-[240px]">
-          <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
-          <input 
-            type="text" 
-            placeholder="Search by client name, company, phone, email..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs font-medium bg-slate-50/50"
-          />
-        </div>
-
-        <div className="flex gap-2.5 items-center flex-wrap">
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 bg-white font-bold"
-          >
-            <option value="All">All Client Accounts</option>
-            <option value="Active">Active Accounts</option>
-            <option value="Inactive">Deactivated Accounts</option>
-          </select>
-
-          <button
-            onClick={onRefreshClients}
-            className="p-2 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-500"
-            title="Refresh Client List"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-indigo-600' : ''}`} />
-          </button>
-        </div>
-      </div>
+      <SearchFilterBar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search by client name, company, phone, email..."
+        filterOptions={[
+          { label: 'All Client Accounts', value: 'All' },
+          { label: 'Active Accounts', value: 'Active' },
+          { label: 'Deactivated Accounts', value: 'Inactive' }
+        ]}
+        selectedFilter={filterStatus}
+        onFilterChange={setFilterStatus}
+        onRefresh={onRefreshClients}
+        loading={loading}
+      />
 
       {/* 3. Client Directory Table (FULL WIDTH) */}
       <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-2xs w-full">
@@ -224,9 +205,8 @@ export default function CRMClientList({
             <tbody className="divide-y divide-slate-100 font-medium">
               {loading ? (
                 <tr>
-                  <td colSpan="6" className="py-12 text-center text-slate-400">
-                    <RefreshCw className="w-6 h-6 animate-spin mx-auto text-indigo-500 mb-2" />
-                    <span>Loading clients directory...</span>
+                  <td colSpan="6" className="py-8 text-center">
+                    <BrandLoader size="sm" text="Loading Client Directory..." />
                   </td>
                 </tr>
               ) : filteredClients.length > 0 ? (

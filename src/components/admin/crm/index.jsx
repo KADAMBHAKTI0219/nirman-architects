@@ -5,7 +5,7 @@ import CRMClientList from './CRMClientList';
 import CRMClientProfile from './CRMClientProfile';
 import CRMQueries from './CRMQueries';
 import CRMApprovals from './CRMApprovals';
-import { getClients } from '../../../service/client';
+import { getClients } from '../../../service/crm/client';
 
 const INITIAL_QUERIES = [
   {
