@@ -251,8 +251,8 @@ export default function Sidebar({ role, onClose }) {
 
   return (
     <aside 
-      className={`bg-white text-slate-650 h-screen flex flex-col flex-shrink-0 shadow-xs sticky top-0 transition-all duration-300 ease-in-out border-r border-slate-100 ${
-        isCollapsed ? 'w-20' : 'w-64'
+      className={`bg-white text-slate-650 h-[100dvh] h-full flex flex-col flex-shrink-0 shadow-xs sticky top-0 transition-all duration-300 ease-in-out border-r border-slate-100 ${
+        isCollapsed ? 'w-20' : 'w-64 sm:w-72'
       }`}
     >
       {/* 1. Brand Logo Header & Toggle Button */}
@@ -303,7 +303,7 @@ export default function Sidebar({ role, onClose }) {
 
       {/* 2. Navigation List using original global brand colors */}
       <nav className={`flex-1 overflow-y-auto space-y-2 scrollbar-thin ${
-        isCollapsed ? 'px-2 py-4' : 'px-4 py-6'
+        isCollapsed ? 'px-2 pt-4 pb-16' : 'px-4 pt-5 pb-20'
       }`}>
         {items.map((item, idx) => {
           if (item.category) {
@@ -408,7 +408,7 @@ export default function Sidebar({ role, onClose }) {
       </nav>
 
       {/* 3. Sidebar Footer using original brand colors */}
-      <div className={`border-t border-slate-100 bg-slate-50/30 flex transition-all ${
+      <div className={`border-t border-slate-200/80 bg-white flex shrink-0 transition-all ${
         isCollapsed ? 'p-2 flex-col items-center gap-2' : 'p-4 items-center justify-between gap-3'
       }`}>
         <div className={`flex items-center gap-3 overflow-hidden ${isCollapsed ? 'justify-center' : ''}`}>
