@@ -1818,11 +1818,14 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
                     className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary bg-slate-50/50 cursor-pointer"
                   >
                     <option value="">Unassigned (General Pool)</option>
-                    {users.map(u => (
-                      <option key={u._id || u.id} value={u._id || u.id}>
-                        {u.name} ({u.roleId?.roleName || u.designation || 'Staff'})
-                      </option>
-                    ))}
+                    {users.map(u => {
+                      const roleDisplay = typeof u.role === 'object' ? (u.role?.roleName || u.role?.roleCode || u.role?.name || 'Staff') : (u.roleId?.roleName || u.role || u.designation || 'Staff');
+                      return (
+                        <option key={u._id || u.id} value={u._id || u.id}>
+                          {u.name} ({roleDisplay})
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 

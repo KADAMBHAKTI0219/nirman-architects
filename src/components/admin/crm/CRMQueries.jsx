@@ -401,11 +401,14 @@ export default function CRMQueries() {
                     className="text-[10px] font-bold px-2 py-0.5 border border-slate-200 rounded-lg bg-white text-slate-800 focus:outline-none"
                   >
                     <option value="">Select Staff Owner</option>
-                    {staffUsers.map(u => (
-                      <option key={u._id || u.id} value={u._id || u.id}>
-                        {u.name} ({u.role || u.designation || 'Staff'})
-                      </option>
-                    ))}
+                    {staffUsers.map(u => {
+                      const roleStr = typeof u.role === 'object' ? (u.role?.roleName || u.role?.roleCode || u.role?.name || 'Staff') : (u.role || u.designation || 'Staff');
+                      return (
+                        <option key={u._id || u.id} value={u._id || u.id}>
+                          {u.name} ({roleStr})
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               </div>
