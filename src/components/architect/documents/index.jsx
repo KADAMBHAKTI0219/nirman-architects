@@ -26,10 +26,10 @@ export default function Documents() {
     return matchesSearch && matchesCategory;
   });
 
-  const handleUpload = (e) => {
+  const handleUpload = async (e) => {
     e.preventDefault();
-    const title = prompt("Enter Document Title:");
-    if (!title) return;
+    const title = await window.prompt("Enter Document Title:", "", "Upload Architectural Document");
+    if (!title || !title.trim()) return;
     
     const newDoc = {
       name: title.endsWith('.pdf') ? title : `${title}.pdf`,

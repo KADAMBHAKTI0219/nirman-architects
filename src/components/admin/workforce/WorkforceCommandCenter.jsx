@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Laptop, ShieldAlert, Check, X, AlertCircle,
-  User, Mail, Phone, Lock, Shield, Briefcase, DollarSign, Plus
+  User, Mail, Phone, Lock, Shield, Briefcase, DollarSign, Plus, Eye, EyeOff
 } from 'lucide-react';
 import AttendanceOps from './AttendanceOps';
 import EmployeesHR from './EmployeesHR';
+import DeviceBindingApprovals from './DeviceBindingApprovals';
 import AppUsageTracking from '../app-usage/AppUsageTracking';
 import { getAllAttendanceList } from '../../../service/attendance';
 import { getRoles, registerUser, getUsersList, getUserById, updateUser, getPendingDeviceRequests, approveDevice } from '../../../service/auth';
@@ -181,6 +182,7 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showCreatePass, setShowCreatePass] = useState(false);
   const [roles, setRoles] = useState([]);
   const [rolesLoading, setRolesLoading] = useState(false);
   const [newEmployee, setNewEmployee] = useState({
@@ -219,25 +221,42 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
         try {
           setRolesLoading(true);
           const res = await getRoles();
-          if (res.success && Array.isArray(res.roles)) {
-            setRoles(res.roles);
-            // Default to EMPLOYEE role code or first available for the add modal
-            if (showAddModal) {
-              const defaultRole = res.roles.find(r => r.roleCode === 'EMPLOYEE') || res.roles[0];
-              if (defaultRole) {
-                setNewEmployee(prev => ({
-                  ...prev,
-                  roleId: defaultRole._id || defaultRole.id,
-                  role: defaultRole.roleCode,
-                  designation: defaultRole.roleName,
-                  department: 'Office Staff',
-                  baseSalary: '25000'
-                }));
-              }
+          let rolesList = (res.success && Array.isArray(res.roles) && res.roles.length > 0) ? res.roles : [];
+          if (rolesList.length === 0) {
+            rolesList = [
+              { _id: 'role-1', roleCode: 'ADMIN', roleName: 'Admin' },
+              { _id: 'role-2', roleCode: 'HR', roleName: 'HR Officer' },
+              { _id: 'role-3', roleCode: 'PROJECT_MANAGER', roleName: 'Project Manager' },
+              { _id: 'role-4', roleCode: 'ARCHITECT', roleName: 'Architect' },
+              { _id: 'role-5', roleCode: 'SITE_ENGINEER', roleName: 'Site Engineer' },
+              { _id: 'role-6', roleCode: 'EMPLOYEE', roleName: 'Employee' },
+            ];
+          }
+          setRoles(rolesList);
+          // Default to EMPLOYEE role code or first available for the add modal
+          if (showAddModal) {
+            const defaultRole = rolesList.find(r => r.roleCode === 'EMPLOYEE') || rolesList[0];
+            if (defaultRole) {
+              setNewEmployee(prev => ({
+                ...prev,
+                roleId: defaultRole._id || defaultRole.id,
+                role: defaultRole.roleCode,
+                designation: defaultRole.roleName,
+                department: 'Office Staff',
+                baseSalary: '25000'
+              }));
             }
           }
         } catch (err) {
           console.error("Failed to load roles for employee modal", err);
+          setRoles([
+            { _id: 'role-1', roleCode: 'ADMIN', roleName: 'Admin' },
+            { _id: 'role-2', roleCode: 'HR', roleName: 'HR Officer' },
+            { _id: 'role-3', roleCode: 'PROJECT_MANAGER', roleName: 'Project Manager' },
+            { _id: 'role-4', roleCode: 'ARCHITECT', roleName: 'Architect' },
+            { _id: 'role-5', roleCode: 'SITE_ENGINEER', roleName: 'Site Engineer' },
+            { _id: 'role-6', roleCode: 'EMPLOYEE', roleName: 'Employee' },
+          ]);
         } finally {
           setRolesLoading(false);
         }
@@ -285,19 +304,37 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
 
       const response = await registerUser(payload);
       if (response.success || response._id) {
-        // Save to local storage mock users list so it appears in the front-end list immediately
         const localUsers = JSON.parse(localStorage.getItem('nirman_users') || '[]');
         const localNewUser = {
           id: response._id || 'u_' + Math.random().toString(36).substr(2, 9),
+          _id: response._id || 'u_' + Math.random().toString(36).substr(2, 9),
           name: payload.name,
           email: payload.email,
-          role: payload.designation, // e.g. "Employee" or "Architect"
+          role: payload.designation,
           department: payload.department,
-          registeredDeviceId: payload.deviceId,
+          registeredDeviceId: payload.deviceId || 'GUID-MACHINE-123',
+          deviceId: payload.deviceId || 'GUID-MACHINE-123',
+          deviceStatus: 'PENDING',
           createdAt: new Date().toISOString()
         };
         localUsers.push(localNewUser);
         localStorage.setItem('nirman_users', JSON.stringify(localUsers));
+
+        // Create Pending Device Change Request
+        const localRequests = JSON.parse(localStorage.getItem('nirman_device_requests') || '[]');
+        const newReq = {
+          id: 'dreq-' + Date.now(),
+          requestId: 'dreq-' + Date.now(),
+          _id: 'dreq-' + Date.now(),
+          userId: localNewUser,
+          user: localNewUser,
+          oldDeviceId: 'None (New Employee)',
+          newDeviceId: payload.deviceId || 'GUID-MACHINE-123',
+          status: 'PENDING',
+          createdAt: new Date().toISOString()
+        };
+        localRequests.unshift(newReq);
+        localStorage.setItem('nirman_device_requests', JSON.stringify(localRequests));
 
         alert('Workforce employee added successfully!');
         setShowAddModal(false);
@@ -461,75 +498,7 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
         )}
 
         {activeTab === 'devices' && (
-          <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
-            {/* TOP PAGE HEADER */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                  Device Binding Approvals
-                </h1>
-                <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
-                  Approve secondary desktop device bindings, hardware changes & authorization requests
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
-            {deviceRequests.length === 0 ? (
-              <div className="p-8 text-center text-slate-400 font-bold text-xs bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                No pending device change requests found.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs text-left table-auto">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50/50">
-                      <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Employee Email</th>
-                      <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Old Device ID</th>
-                      <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Requested Device ID</th>
-                      <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Requested At</th>
-                      <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-55">
-                    {deviceRequests.map(req => (
-                      <tr key={req._id} className="hover:bg-slate-50/40">
-                        <td className="px-4 py-3.5 font-bold text-slate-805">
-                          {req.userId?.email || req.user?.email || req.userId?.name || req.user?.name || 'Unknown User'}
-                        </td>
-                        <td className="px-4 py-3.5 text-slate-500 font-mono text-[10px]" title={req.oldDeviceId}>
-                          {req.oldDeviceId}
-                        </td>
-                        <td className="px-4 py-3.5 text-rose-600 font-mono text-[10px]" title={req.newDeviceId}>
-                          {req.newDeviceId}
-                        </td>
-                        <td className="px-4 py-3.5 text-slate-500 font-semibold">
-                          {new Date(req.createdAt).toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3.5 text-right">
-                          <div className="flex gap-2 justify-end">
-                            <button
-                              onClick={() => handleDeviceAction(req._id, 'APPROVE')}
-                              className="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-705 border border-emerald-200 rounded-lg text-[9px] font-black uppercase transition-all shadow-3xs"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              onClick={() => handleDeviceAction(req._id, 'REJECT')}
-                              className="px-3 py-1 bg-rose-50 hover:bg-rose-100 text-rose-705 border border-rose-200 rounded-lg text-[9px] font-black uppercase transition-all shadow-3xs"
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-          </div>
+          <DeviceBindingApprovals employees={employees} onRefresh={loadData} />
         )}
       {/* Add Employee Modal overlay */}
       {showAddModal && (
@@ -594,21 +563,20 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Phone Number</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Phone Number (10 Digits)</label>
                   <div className="relative">
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
                       type="tel" 
                       required
+                      maxLength={10}
                       value={newEmployee.phone}
                       onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, '');
-                        if (val.length <= 10) {
-                          setNewEmployee(prev => ({ ...prev, phone: val }));
-                        }
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setNewEmployee(prev => ({ ...prev, phone: val }));
                       }}
                       placeholder="9876543210" 
-                      className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
+                      className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/20 font-semibold text-slate-800 font-mono"
                     />
                   </div>
                 </div>
@@ -616,17 +584,25 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
 
               {/* Password Field */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Password</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Password</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input 
-                    type="password" 
+                    type={showCreatePass ? 'text' : 'password'} 
                     required
                     value={newEmployee.password}
                     onChange={(e) => setNewEmployee(prev => ({ ...prev, password: e.target.value }))}
                     placeholder="••••••••••••" 
-                    className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
+                    className="w-full pl-9 pr-10 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/20 font-semibold text-slate-800"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowCreatePass(!showCreatePass)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                    title={showCreatePass ? "Hide password" : "Show password"}
+                  >
+                    {showCreatePass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
               </div>
 

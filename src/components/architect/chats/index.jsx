@@ -1,185 +1,159 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Send, Paperclip, MessageSquare, Users, Info, 
-  Phone, Video, CheckCheck, Check, Smile 
+  Phone, Video, CheckCheck, Check, RefreshCw 
 } from 'lucide-react';
 import Card from '../../common/Card';
+import { getInternalProjectChat, sendInternalChatMessage } from '../../../service/chat';
 
-const INITIAL_CHATS = [
-  { id: 1, name: "Central Office Tower", project: "Noida Sector 62", unread: 1, members: ["Sarah Connor (PM)", "Bob Johnson (Architect)", "Alice Smith (You)"], messages: [
-    { sender: "Sarah Connor (PM)", text: "Verify the column spacing revisions on section 2.1 before client presentation.", time: "11:00 AM", isSelf: false },
-    { sender: "Bob Johnson (Architect)", text: "Yes Sarah, I updated the DWG layout draft V1.2. Uploaded to drawings module.", time: "11:15 AM", isSelf: true }
-  ]},
-  { id: 2, name: "Smart City Mall", project: "Gurgaon Commercial", unread: 0, members: ["Sarah Connor (PM)", "Bob Johnson (Architect)"], messages: [
-    { sender: "Sarah Connor (PM)", text: "Is the HVAC draft completed?", time: "09:30 AM", isSelf: false }
-  ]}
-];
+export default function ArchitectChats() {
+  const [projectId, setProjectId] = useState('proj-1');
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [newMsgText, setNewMsgText] = useState('');
 
-export default function Chats() {
-  const [chats, setChats] = useState(INITIAL_CHATS);
-  const [activeChat, setActiveChat] = useState(INITIAL_CHATS[0]);
-  const [newMsg, setNewMsg] = useState('');
+  const fetchInternalChat = async () => {
+    setLoading(true);
+    try {
+      const res = await getInternalProjectChat(projectId);
+      if (res && res.messages) {
+        setMessages(res.messages);
+      }
+    } catch (err) {
+      console.error("Failed to load internal project chat history:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const handleSendMessage = (e) => {
+  useEffect(() => {
+    fetchInternalChat();
+  }, [projectId]);
+
+  const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMsg.trim()) return;
+    if (!newMsgText.trim()) return;
 
-    const messageObj = {
-      sender: "Bob Johnson (Architect)",
-      text: newMsg,
-      time: "Just now",
-      isSelf: true
-    };
-
-    const updatedMessages = [...activeChat.messages, messageObj];
-    const updatedChat = { ...activeChat, messages: updatedMessages, unread: 0 };
-
-    setChats(prev => prev.map(c => c.id === activeChat.id ? updatedChat : c));
-    setActiveChat(updatedChat);
-    setNewMsg('');
+    try {
+      const res = await sendInternalChatMessage(projectId, { messageText: newMsgText });
+      if (res && (res.messageObj || res.message)) {
+        const added = res.messageObj || res.message;
+        setMessages(prev => [...prev, added]);
+      }
+      setNewMsgText('');
+    } catch (err) {
+      alert(err.message || "Failed to send internal chat message.");
+    }
   };
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 items-start h-[calc(100vh-140px)] animate-in fade-in duration-200">
+    <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 items-start h-[calc(100vh-140px)] font-sans text-slate-800 animate-in fade-in duration-200">
       
-      {/* LEFT COLUMN: CHATROOMS LIST */}
-      <div className="xl:col-span-1 bg-white border border-slate-100 rounded-3xl p-4 flex flex-col gap-4 h-full shadow-2xs">
-        <div>
-          <h3 className="font-black text-slate-800 text-sm">Design Channels</h3>
-          <p className="text-[10px] text-slate-400 font-semibold">Discuss blueprints with PM & team</p>
+      {/* LEFT COLUMN: DESIGN CHANNELS */}
+      <div className="xl:col-span-1 bg-white border border-slate-200/90 rounded-3xl p-4 flex flex-col gap-4 h-full shadow-2xs">
+        <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+          <div>
+            <h3 className="font-extrabold text-slate-900 text-sm">Internal Project Chat</h3>
+            <p className="text-[10px] text-slate-500 font-medium">Unified client & team workspace</p>
+          </div>
+          <button 
+            onClick={fetchInternalChat}
+            className="p-1.5 hover:bg-slate-100 text-slate-500 rounded-lg"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
 
-        <div className="space-y-2 overflow-y-auto flex-1 pr-1 scrollbar-thin">
-          {chats.map(chat => (
+        <div className="space-y-2 overflow-y-auto flex-1 pr-1">
+          {[
+            { id: 'proj-1', name: 'Central Office Tower', code: 'PROJ-001' },
+            { id: 'proj-2', name: 'Oceanic Luxury Villas', code: 'PROJ-002' }
+          ].map(p => (
             <div 
-              key={chat.id}
-              onClick={() => {
-                setChats(prev => prev.map(c => c.id === chat.id ? { ...c, unread: 0 } : c));
-                setActiveChat({ ...chat, unread: 0 });
-              }}
-              className={`p-3.5 rounded-2xl cursor-pointer border transition-all flex flex-col gap-1.5 ${
-                activeChat.id === chat.id 
-                  ? 'bg-blue-50/50 border-blue-150 shadow-3xs' 
-                  : 'bg-slate-50/30 border-slate-100 hover:bg-slate-55'
+              key={p.id}
+              onClick={() => setProjectId(p.id)}
+              className={`p-3.5 rounded-2xl cursor-pointer border transition-all flex flex-col gap-1 ${
+                projectId === p.id 
+                  ? 'bg-indigo-50/80 border-indigo-200 shadow-2xs' 
+                  : 'bg-slate-50 border-slate-100 hover:bg-slate-100/60'
               }`}
             >
-              <div className="flex justify-between items-center">
-                <strong className="text-slate-805 block text-xs">{chat.name}</strong>
-                {chat.unread > 0 && (
-                  <span className="text-[8px] bg-[#2484C6] text-white px-1.5 py-0.5 rounded font-black uppercase">
-                    {chat.unread} New
-                  </span>
-                )}
-              </div>
-              <span className="text-[9px] font-bold text-slate-400 block uppercase leading-none">{chat.project}</span>
+              <strong className="text-slate-900 block text-xs font-extrabold">{p.name}</strong>
+              <span className="text-[10px] text-slate-400 font-mono">{p.code}</span>
             </div>
           ))}
         </div>
       </div>
 
       {/* CENTER COLUMN: MESSAGE THREAD */}
-      <div className="xl:col-span-2 bg-white border border-slate-100 rounded-3xl p-5 flex flex-col justify-between h-full shadow-2xs">
+      <div className="xl:col-span-2 bg-white border border-slate-200/90 rounded-3xl p-5 flex flex-col justify-between h-full shadow-2xs">
         
-        <div className="border-b border-slate-50 pb-3 flex justify-between items-center">
+        <div className="border-b border-slate-100 pb-3 flex justify-between items-center">
           <div>
-            <strong className="text-slate-800 text-sm block">{activeChat.name}</strong>
-            <span className="text-[10px] text-[#2484C6] block font-bold uppercase">{activeChat.project}</span>
-          </div>
-
-          <div className="flex gap-2 text-slate-400">
-            <button className="p-1.5 hover:bg-slate-50 rounded-xl transition-all" title="Call">
-              <Phone className="w-4 h-4 text-slate-450" />
-            </button>
-            <button className="p-1.5 hover:bg-slate-50 rounded-xl transition-all" title="Video Meeting">
-              <Video className="w-4 h-4 text-slate-450" />
-            </button>
+            <strong className="text-slate-900 text-sm block font-extrabold">Project Chat History (Internal View)</strong>
+            <span className="text-[10px] text-indigo-600 block font-bold uppercase tracking-wider">Channel: Central Office Tower</span>
           </div>
         </div>
 
         {/* Message Stream */}
-        <div className="flex-1 overflow-y-auto space-y-4 pr-1 py-4 scrollbar-thin">
-          {activeChat.messages.map((m, idx) => (
-            <div 
-              key={idx} 
-              className={`p-3.5 rounded-2xl max-w-lg border ${
-                m.isSelf 
-                  ? 'bg-blue-50/30 border-blue-100 ml-auto text-right text-slate-700' 
-                  : 'bg-slate-50 border-slate-105 mr-auto text-slate-655'
-              }`}
-            >
-              <div className="flex items-center justify-between gap-4 mb-1 text-[9px] font-black uppercase">
-                <span>{m.sender}</span>
-                <span className="text-slate-400">{m.time}</span>
-              </div>
-              <p className="text-xs leading-normal font-semibold">{m.text}</p>
-              
-              {m.isSelf && (
-                <div className="flex justify-end mt-1 text-slate-400">
-                  <CheckCheck className="w-3.5 h-3.5 text-[#2484C6]" />
+        <div className="flex-1 overflow-y-auto space-y-4 pr-1 py-4">
+          {messages.map((m, idx) => {
+            const isEmployee = m.authorType === 'EMPLOYEE' || m.formattedAuthorName?.includes('Architect') || m.formattedAuthorName?.includes('Team');
+            const authorName = m.formattedAuthorName || (m.authorId?.name ? `${m.authorId.name} (${m.authorId.designation || 'Staff'})` : 'Team Member');
+
+            return (
+              <div 
+                key={m._id || idx} 
+                className={`p-3.5 rounded-2xl max-w-lg border space-y-1 ${
+                  isEmployee 
+                    ? 'bg-indigo-50/60 border-indigo-100 ml-auto text-slate-900' 
+                    : 'bg-slate-50 border-slate-200 mr-auto text-slate-800'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-4 text-[10px] font-black uppercase text-slate-400">
+                  <span className="text-indigo-600">{authorName}</span>
+                  <span className="font-mono">{m.sentAt ? new Date(m.sentAt).toLocaleTimeString() : 'Just now'}</span>
                 </div>
-              )}
-            </div>
-          ))}
+                <p className="text-xs leading-relaxed font-medium">{m.messageText}</p>
+              </div>
+            );
+          })}
         </div>
 
         {/* Reply Box */}
-        <form onSubmit={handleSendMessage} className="pt-3 border-t border-slate-50 flex items-center gap-2">
-          <button 
-            type="button" 
-            onClick={() => alert("Upload schematic draft attachment...")}
-            className="p-2.5 bg-slate-50 border border-slate-205 text-slate-500 rounded-xl hover:bg-slate-100 transition-all"
-            title="Attach file"
-          >
-            <Paperclip className="w-4 h-4" />
-          </button>
-          
+        <form onSubmit={handleSendMessage} className="pt-3 border-t border-slate-100 flex items-center gap-2">
           <input
             type="text"
-            value={newMsg}
-            onChange={(e) => setNewMsg(e.target.value)}
-            placeholder="Type your message to design team..."
-            className="flex-1 text-xs border border-slate-205 rounded-xl px-4 py-2.5 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
+            value={newMsgText}
+            onChange={(e) => setNewMsgText(e.target.value)}
+            placeholder="Post internal message into project chat workspace..."
+            className="flex-1 text-xs border border-slate-200 rounded-xl px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-slate-900"
           />
           <button 
             type="submit"
-            className="p-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-905 rounded-xl transition-all shadow-3xs"
+            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer text-xs uppercase"
           >
-            <Send className="w-4 h-4" />
+            <Send className="w-4 h-4" /> Send
           </button>
         </form>
 
       </div>
 
-      {/* RIGHT COLUMN: CHANNEL INFORMATION & PARTICIPANTS */}
-      <div className="xl:col-span-1 bg-white border border-slate-100 rounded-3xl p-5 flex flex-col gap-5 h-full shadow-2xs overflow-y-auto scrollbar-thin">
+      {/* RIGHT COLUMN: CHANNEL INFO */}
+      <div className="xl:col-span-1 bg-white border border-slate-200/90 rounded-3xl p-5 flex flex-col gap-4 h-full shadow-2xs overflow-y-auto">
         <div>
-          <h3 className="font-black text-slate-800 text-sm">Channel Info</h3>
-          <p className="text-[10px] text-slate-405 font-bold uppercase mt-1">{activeChat.name}</p>
+          <h3 className="font-extrabold text-slate-900 text-sm">Channel Information</h3>
+          <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Central Office Tower</p>
         </div>
 
-        <div className="space-y-4 text-xs font-bold text-slate-655">
-          <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-2xl space-y-1.5">
-            <span className="text-[9px] font-bold text-slate-400 block uppercase">Project Info</span>
-            <p className="font-semibold text-slate-705 leading-normal">
-              Collaboration and design check stream for column layouts, MEP ducting and structural coordinates verification.
+        <div className="space-y-4 text-xs font-medium text-slate-700">
+          <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-1">
+            <span className="text-[9px] font-bold text-slate-400 uppercase block">Workspace Notes</span>
+            <p className="text-[11px] text-slate-600 leading-normal font-semibold">
+              Unified channel linking client contacts with architects and project managers.
             </p>
           </div>
-
-          <div className="space-y-2">
-            <span className="text-[9px] font-bold text-slate-400 block uppercase">Designers List ({activeChat.members.length})</span>
-            <div className="space-y-2 pt-1">
-              {activeChat.members.map(member => (
-                <div key={member} className="flex items-center gap-2.5 text-[11px] text-slate-700">
-                  <div className="w-6 h-6 rounded-full bg-blue-50 border border-blue-150 flex items-center justify-center font-bold text-[9px] text-[#2484C6]">
-                    {member.split(' ').map(n=>n[0]).join('')}
-                  </div>
-                  <span>{member}</span>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
-
       </div>
 
     </div>

@@ -49,7 +49,7 @@ export default function AppUsageTracking({ userRole = 'Admin' }) {
   const [toDate, setToDate] = useState('2025-05-25');
   const [selectedDepartment, setSelectedDepartment] = useState('All Departments');
   const [selectedDevice, setSelectedDevice] = useState('All Devices');
-  
+
   // API Data State
   const [loading, setLoading] = useState(false);
   const [apiData, setApiData] = useState(null);
@@ -294,6 +294,10 @@ export default function AppUsageTracking({ userRole = 'Admin' }) {
         onResetFilters={handleResetFilters}
       />
 
+      {/* 6. BOTTOM TABLE: APPLICATION USAGE DETAILS */}
+      <AppUsageDetailsTable appList={derivedTableApps} />
+
+
       {/* 4. MIDDLE ROW 1: ACTIVITY TIMELINE & TOP APPLICATIONS */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
         <div className="lg:col-span-7">
@@ -320,8 +324,7 @@ export default function AppUsageTracking({ userRole = 'Admin' }) {
         </div>
       </div>
 
-      {/* 6. BOTTOM TABLE: APPLICATION USAGE DETAILS */}
-      <AppUsageDetailsTable appList={derivedTableApps} />
+
     </div>
   );
 }

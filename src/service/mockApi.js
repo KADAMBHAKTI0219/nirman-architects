@@ -59,6 +59,21 @@ const initLocalStorage = () => {
     ]));
   }
 
+  if (!localStorage.getItem('nirman_device_requests')) {
+    localStorage.setItem('nirman_device_requests', JSON.stringify([
+      {
+        id: 'dreq-1',
+        requestId: 'dreq-1',
+        _id: 'dreq-1',
+        userId: { _id: 'u2', id: 'u2', name: 'Alice Smith', email: 'employee@gmail.com', department: 'Engineering', role: 'Employee', deviceId: 'dev-employee-old', deviceStatus: 'PENDING' },
+        oldDeviceId: 'dev-employee-old',
+        newDeviceId: 'c5dbdd5f-e416-479b-aa77-12c661c48bcb',
+        status: 'PENDING',
+        createdAt: new Date().toISOString()
+      }
+    ]));
+  }
+
   if (!localStorage.getItem('nirman_site_locations')) {
     localStorage.setItem('nirman_site_locations', JSON.stringify([
       { id: 'site1', projectId: '6a607dae7f99c70902371c1d', lat: 23.0225, lng: 72.5714, radiusMeters: 200 }
@@ -1017,7 +1032,7 @@ export const assignDevice = async (targetUserId, deviceId) => {
 
 export const getNotifications = async () => {
   await delay();
-  const notifications = JSON.parse(localStorage.getItem('nirman_notifications'));
+  const notifications = JSON.parse(localStorage.getItem('nirman_notifications') || '[]');
   return { success: true, notifications };
 };
 
@@ -1028,6 +1043,15 @@ export const markNotificationRead = async (id) => {
   localStorage.setItem('nirman_notifications', JSON.stringify(updated));
   return { success: true, message: 'Marked read successfully' };
 };
+
+export const markAllNotificationsRead = async () => {
+  await delay();
+  const notifications = JSON.parse(localStorage.getItem('nirman_notifications') || '[]');
+  const updated = notifications.map(n => ({ ...n, read: true, isRead: true }));
+  localStorage.setItem('nirman_notifications', JSON.stringify(updated));
+  return { success: true, message: 'All notifications marked as read successfully' };
+};
+
 
 
 // --- APP USAGE TRACKING MOCKS ---
@@ -1350,6 +1374,8 @@ export const mockGetLeads = async (params = {}) => {
       QUALIFIED: [],
       PROPOSAL_SENT: [],
       NEGOTIATION: [],
+      WON: [],
+      LOST: [],
       closedLeads: []
     };
 
@@ -1640,4 +1666,2157 @@ export const mockConvertToClientStub = async (id) => {
     module2Pending: true
   };
 };
+
+// ========================================================
+// CLIENT MASTER, CONTACTS, PORTAL AUTH & LINKAGE MOCK APIS
+// ========================================================
+
+const INITIAL_MOCK_CLIENTS = [
+  {
+    _id: "cli-101",
+    id: "cli-101",
+    name: "Wayne Enterprises",
+    companyName: "Wayne Enterprises Ltd.",
+    phone: "+1-415-555-0199",
+    email: "bruce@waynecorp.com",
+    billingAddress: "Wayne Manor, Gotham City",
+    siteAddresses: ["100 Gotham Heights Road", "Building 4, Port Gotham"],
+    isActive: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    _id: "cli-102",
+    id: "cli-102",
+    name: "Metropolis Corp",
+    companyName: "Metropolis Industries",
+    phone: "+1-212-555-0100",
+    email: "lex@metropolis.com",
+    billingAddress: "Luthor Tower, Metropolis",
+    siteAddresses: ["Luthor Plaza, Central District"],
+    isActive: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    _id: "cli-103",
+    id: "cli-103",
+    name: "Shah Enterprises",
+    companyName: "Shah Group",
+    phone: "9876543210",
+    email: "info@shah.com",
+    billingAddress: "202 Corporate Park, SG Highway",
+    siteAddresses: ["Site A, Bopal", "Site B, Satellite"],
+    isActive: true,
+    createdAt: new Date().toISOString()
+  }
+];
+
+const INITIAL_MOCK_CONTACTS = [
+  {
+    _id: "cc-101",
+    id: "cc-101",
+    clientId: "cli-101",
+    name: "Bruce Wayne",
+    email: "bruce@waynecorp.com",
+    phone: "+1-415-555-0199",
+    permissionLevel: "OWNER",
+    isPrimaryContact: true,
+    mustChangePassword: false,
+    isActive: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    _id: "cc-102",
+    id: "cc-102",
+    clientId: "cli-102",
+    name: "Lex Luthor",
+    email: "lex@metropolis.com",
+    phone: "+1-212-555-0100",
+    permissionLevel: "OWNER",
+    isPrimaryContact: true,
+    mustChangePassword: false,
+    isActive: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    _id: "cc-103",
+    id: "cc-103",
+    clientId: "cli-103",
+    name: "Anand Shah",
+    email: "anand@shah.com",
+    phone: "9876543210",
+    permissionLevel: "OWNER",
+    isPrimaryContact: true,
+    mustChangePassword: false,
+    isActive: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    _id: "cc-104",
+    id: "cc-104",
+    clientId: "cli-103",
+    name: "Shah Enterprises Admin",
+    email: "info@shah.com",
+    phone: "9876543210",
+    permissionLevel: "OWNER",
+    isPrimaryContact: false,
+    mustChangePassword: false,
+    isActive: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    _id: "cc-105",
+    id: "cc-105",
+    clientId: "cli-101",
+    name: "Customer Demo",
+    email: "customer@nirman.com",
+    phone: "+1-415-555-0199",
+    permissionLevel: "OWNER",
+    isPrimaryContact: false,
+    mustChangePassword: false,
+    isActive: true,
+    createdAt: new Date().toISOString()
+  }
+];
+
+const INITIAL_MOCK_LINKS = [
+  {
+    _id: "cpl-1",
+    id: "cpl-1",
+    clientId: "cli-101",
+    projectId: "proj-1",
+    projectName: "Oceanic Luxury Villas",
+    visibleToClient: true,
+    linkedAt: new Date().toISOString(),
+    isActive: true
+  },
+  {
+    _id: "cpl-2",
+    id: "cpl-2",
+    clientId: "cli-102",
+    projectId: "proj-2",
+    projectName: "Central Office Tower",
+    visibleToClient: true,
+    linkedAt: new Date().toISOString(),
+    isActive: true
+  },
+  {
+    _id: "cpl-3",
+    id: "cpl-3",
+    clientId: "cli-103",
+    projectId: "proj-3",
+    projectName: "Shah Corporate Heights",
+    visibleToClient: true,
+    linkedAt: new Date().toISOString(),
+    isActive: true
+  }
+];
+
+const getStoredClients = () => {
+  const data = localStorage.getItem('nirman_clients');
+  if (!data) {
+    localStorage.setItem('nirman_clients', JSON.stringify(INITIAL_MOCK_CLIENTS));
+    return INITIAL_MOCK_CLIENTS;
+  }
+  return JSON.parse(data);
+};
+
+const getStoredContacts = () => {
+  const data = localStorage.getItem('nirman_client_contacts');
+  if (!data) {
+    localStorage.setItem('nirman_client_contacts', JSON.stringify(INITIAL_MOCK_CONTACTS));
+    return INITIAL_MOCK_CONTACTS;
+  }
+  return JSON.parse(data);
+};
+
+const getStoredLinks = () => {
+  const data = localStorage.getItem('nirman_client_project_links');
+  if (!data) {
+    localStorage.setItem('nirman_client_project_links', JSON.stringify(INITIAL_MOCK_LINKS));
+    return INITIAL_MOCK_LINKS;
+  }
+  return JSON.parse(data);
+};
+
+const generateMockTempPassword = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const lower = 'abcdefghijklmnopqrstuvwxyz';
+  const nums = '0123456789';
+  const spec = '!@#$%^&*';
+  const pick = (str) => str.charAt(Math.floor(Math.random() * str.length));
+  return pick(chars) + pick(lower) + pick(nums) + pick(spec) + Math.random().toString(36).slice(-5);
+};
+
+// --- Client Master Mock APIs ---
+
+export const mockCreateClient = async (payload) => {
+  await delay();
+  const clients = getStoredClients();
+  const contacts = getStoredContacts();
+
+  const { name, companyName, phone, email, billingAddress, siteAddresses, primaryContactName, primaryContactEmail, primaryContactPhone } = payload || {};
+
+  if (!name || !phone || !primaryContactName || !primaryContactEmail) {
+    return { success: false, message: 'Client name, phone, primary contact name, and primary contact email are required.' };
+  }
+
+  const cleanEmail = primaryContactEmail.trim().toLowerCase();
+  if (contacts.some(c => c.email === cleanEmail)) {
+    return { success: false, message: 'A ClientContact with this email already exists.' };
+  }
+
+  const clientId = 'cli-' + Date.now();
+  const contactId = 'cc-' + Date.now();
+  const tempPassword = generateMockTempPassword();
+
+  const newClient = {
+    _id: clientId,
+    id: clientId,
+    name: name.trim(),
+    companyName: companyName ? companyName.trim() : null,
+    phone: phone.trim(),
+    email: email ? email.trim().toLowerCase() : cleanEmail,
+    billingAddress: billingAddress || null,
+    siteAddresses: Array.isArray(siteAddresses) ? siteAddresses : (siteAddresses ? [siteAddresses] : []),
+    isActive: true,
+    createdAt: new Date().toISOString()
+  };
+
+  const primaryContact = {
+    _id: contactId,
+    id: contactId,
+    clientId,
+    name: primaryContactName.trim(),
+    email: cleanEmail,
+    phone: primaryContactPhone ? primaryContactPhone.trim() : phone.trim(),
+    permissionLevel: 'OWNER',
+    isPrimaryContact: true,
+    mustChangePassword: true,
+    isActive: true,
+    createdAt: new Date().toISOString()
+  };
+
+  clients.unshift(newClient);
+  contacts.unshift(primaryContact);
+
+  localStorage.setItem('nirman_clients', JSON.stringify(clients));
+  localStorage.setItem('nirman_client_contacts', JSON.stringify(contacts));
+
+  return {
+    success: true,
+    message: 'Client and primary ClientContact created successfully.',
+    client: newClient,
+    primaryContact: {
+      ...primaryContact,
+      temporaryPassword: tempPassword
+    },
+    temporaryPasswordSent: true
+  };
+};
+
+export const mockGetClients = async (params = {}) => {
+  await delay();
+  const clients = getStoredClients();
+  const contacts = getStoredContacts();
+  const links = getStoredLinks();
+
+  const { search, isActive = 'true', page = 1, limit = 10 } = params;
+
+  let filtered = [...clients];
+
+  if (isActive !== undefined && isActive !== '') {
+    const isActBool = isActive === 'true' || isActive === true;
+    filtered = filtered.filter(c => c.isActive === isActBool);
+  }
+
+  if (search && search.trim()) {
+    const q = search.trim().toLowerCase();
+    filtered = filtered.filter(c =>
+      (c.name && c.name.toLowerCase().includes(q)) ||
+      (c.companyName && c.companyName.toLowerCase().includes(q)) ||
+      (c.phone && c.phone.includes(q)) ||
+      (c.email && c.email.toLowerCase().includes(q))
+    );
+  }
+
+  const enriched = filtered.map(c => {
+    const primaryContact = contacts.find(ct => (ct.clientId === c._id || ct.clientId === c.id) && ct.isPrimaryContact) || null;
+    const activeProjectCount = links.filter(l => (l.clientId === c._id || l.clientId === c.id) && l.isActive).length;
+    return {
+      ...c,
+      primaryContact,
+      activeProjectCount
+    };
+  });
+
+  const pageNum = parseInt(page, 10) || 1;
+  const limitNum = parseInt(limit, 10) || 10;
+  const skip = (pageNum - 1) * limitNum;
+  const paginated = enriched.slice(skip, skip + limitNum);
+
+  return {
+    success: true,
+    message: 'Clients retrieved successfully.',
+    clients: paginated,
+    pagination: {
+      total: enriched.length,
+      page: pageNum,
+      limit: limitNum,
+      pages: Math.ceil(enriched.length / limitNum) || 1
+    }
+  };
+};
+
+export const mockGetClientById = async (id) => {
+  await delay();
+  const clients = getStoredClients();
+  const contacts = getStoredContacts();
+  const links = getStoredLinks();
+
+  const client = clients.find(c => c._id === id || c.id === id);
+  if (!client) {
+    return { success: false, message: 'Client not found.' };
+  }
+
+  const clientContacts = contacts.filter(c => c.clientId === id || c.clientId === client._id);
+  const activeLinks = links.filter(l => (l.clientId === id || l.clientId === client._id) && l.isActive);
+
+  return {
+    success: true,
+    message: 'Client details retrieved successfully.',
+    client,
+    contacts: clientContacts,
+    activeProjectCount: activeLinks.length
+  };
+};
+
+export const mockUpdateClient = async (id, payload) => {
+  await delay();
+  const clients = getStoredClients();
+  const index = clients.findIndex(c => c._id === id || c.id === id);
+
+  if (index === -1) {
+    return { success: false, message: 'Client not found.' };
+  }
+
+  const client = clients[index];
+  const { name, companyName, phone, email, billingAddress, siteAddresses } = payload || {};
+
+  if (name) client.name = name.trim();
+  if (companyName !== undefined) client.companyName = companyName ? companyName.trim() : null;
+  if (phone) client.phone = phone.trim();
+  if (email !== undefined) client.email = email ? email.trim().toLowerCase() : null;
+  if (billingAddress !== undefined) client.billingAddress = billingAddress;
+  if (siteAddresses !== undefined) {
+    client.siteAddresses = Array.isArray(siteAddresses) ? siteAddresses : (siteAddresses ? [siteAddresses] : []);
+  }
+
+  client.updatedAt = new Date().toISOString();
+  clients[index] = client;
+  localStorage.setItem('nirman_clients', JSON.stringify(clients));
+
+  return {
+    success: true,
+    message: 'Client account updated successfully.',
+    client
+  };
+};
+
+export const mockDeactivateClient = async (id, force = false) => {
+  await delay();
+  const clients = getStoredClients();
+  const contacts = getStoredContacts();
+  const links = getStoredLinks();
+
+  const index = clients.findIndex(c => c._id === id || c.id === id);
+  if (index === -1) {
+    return { success: false, message: 'Client not found.' };
+  }
+
+  const activeProjects = links.filter(l => (l.clientId === id || l.clientId === clients[index]._id) && l.isActive).length;
+  if (activeProjects > 0 && !force) {
+    return {
+      success: false,
+      message: `Cannot deactivate Client account. This Client has ${activeProjects} active project(s). Supply force=true to deactivate.`
+    };
+  }
+
+  clients[index].isActive = false;
+  localStorage.setItem('nirman_clients', JSON.stringify(clients));
+
+  const updatedContacts = contacts.map(c => c.clientId === id || c.clientId === clients[index]._id ? { ...c, isActive: false } : c);
+  localStorage.setItem('nirman_client_contacts', JSON.stringify(updatedContacts));
+
+  return {
+    success: true,
+    message: 'Client account deactivated successfully.',
+    client: clients[index]
+  };
+};
+
+// --- Client Contacts Mock APIs ---
+
+export const mockAddClientContact = async (clientId, payload) => {
+  await delay();
+  const contacts = getStoredContacts();
+  const { name, email, phone, permissionLevel } = payload || {};
+
+  if (!name || !email) {
+    return { success: false, message: 'Contact name and email are required.' };
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+  if (contacts.some(c => c.email === cleanEmail)) {
+    return { success: false, message: 'A ClientContact with this email already exists.' };
+  }
+
+  const contactId = 'cc-' + Date.now();
+  const tempPassword = generateMockTempPassword();
+
+  const newContact = {
+    _id: contactId,
+    id: contactId,
+    clientId,
+    name: name.trim(),
+    email: cleanEmail,
+    phone: phone ? phone.trim() : null,
+    permissionLevel: permissionLevel || 'MEMBER',
+    isPrimaryContact: false,
+    mustChangePassword: true,
+    isActive: true,
+    createdAt: new Date().toISOString()
+  };
+
+  contacts.unshift(newContact);
+  localStorage.setItem('nirman_client_contacts', JSON.stringify(contacts));
+
+  return {
+    success: true,
+    message: 'Additional ClientContact added successfully.',
+    contact: {
+      ...newContact,
+      temporaryPassword: tempPassword
+    },
+    temporaryPasswordSent: true
+  };
+};
+
+export const mockGetClientContacts = async (clientId) => {
+  await delay();
+  const contacts = getStoredContacts().filter(c => c.clientId === clientId);
+  return {
+    success: true,
+    message: 'Client contacts retrieved successfully.',
+    contacts
+  };
+};
+
+export const mockUpdateContactPermission = async (clientId, contactId, newPermissionLevel) => {
+  await delay();
+  const contacts = getStoredContacts();
+  const index = contacts.findIndex(c => c._id === contactId || c.id === contactId);
+
+  if (index === -1) {
+    return { success: false, message: 'Client contact not found.' };
+  }
+
+  const contact = contacts[index];
+  if (contact.permissionLevel === 'OWNER' && newPermissionLevel !== 'OWNER') {
+    const ownerCount = contacts.filter(c => c.clientId === clientId && c.permissionLevel === 'OWNER' && c.isActive && c._id !== contactId).length;
+    if (ownerCount === 0) {
+      return { success: false, message: 'Cannot demote this contact. A Client account must maintain at least one active OWNER contact.' };
+    }
+  }
+
+  const oldPerm = contact.permissionLevel;
+  contact.permissionLevel = newPermissionLevel;
+  contacts[index] = contact;
+  localStorage.setItem('nirman_client_contacts', JSON.stringify(contacts));
+
+  return {
+    success: true,
+    message: `Permission level updated from ${oldPerm} to ${newPermissionLevel}.`,
+    contact
+  };
+};
+
+export const mockDeactivateContact = async (clientId, contactId) => {
+  await delay();
+  const contacts = getStoredContacts();
+  const index = contacts.findIndex(c => c._id === contactId || c.id === contactId);
+
+  if (index === -1) {
+    return { success: false, message: 'Client contact not found.' };
+  }
+
+  const contact = contacts[index];
+  if (contact.permissionLevel === 'OWNER') {
+    const ownerCount = contacts.filter(c => c.clientId === clientId && c.permissionLevel === 'OWNER' && c.isActive && c._id !== contactId).length;
+    if (ownerCount === 0) {
+      return { success: false, message: 'Cannot deactivate contact. Client account must maintain at least one active OWNER contact.' };
+    }
+  }
+
+  contact.isActive = false;
+  contacts[index] = contact;
+  localStorage.setItem('nirman_client_contacts', JSON.stringify(contacts));
+
+  return {
+    success: true,
+    message: 'Client contact deactivated successfully.',
+    contact
+  };
+};
+
+export const mockResetTempPassword = async (clientId, contactId) => {
+  await delay();
+  const contacts = getStoredContacts();
+  const contact = contacts.find(c => (c._id === contactId || c.id === contactId) && c.clientId === clientId);
+
+  if (!contact) {
+    return { success: false, message: 'Client contact not found.' };
+  }
+
+  const tempPassword = generateMockTempPassword();
+  contact.mustChangePassword = true;
+  localStorage.setItem('nirman_client_contacts', JSON.stringify(contacts));
+
+  return {
+    success: true,
+    message: 'Temporary password regenerated successfully.',
+    contactId: contact._id,
+    email: contact.email,
+    temporaryPassword: tempPassword,
+    mustChangePassword: true
+  };
+};
+
+// --- Client Portal Auth Mock APIs ---
+
+export const mockClientLogin = async (credentials) => {
+  await delay();
+  const { email } = credentials || {};
+  const contacts = getStoredContacts();
+  const clients = getStoredClients();
+
+  const cleanEmail = (email || '').trim().toLowerCase();
+  
+  // 1. Direct match on ClientContact email
+  let contact = contacts.find(c => c.email && c.email.toLowerCase() === cleanEmail);
+
+  // 2. Direct match on Client Account email (pick primary contact)
+  if (!contact) {
+    const matchingClient = clients.find(cl => cl.email && cl.email.toLowerCase() === cleanEmail);
+    if (matchingClient) {
+      contact = contacts.find(c => (c.clientId === matchingClient._id || c.clientId === matchingClient.id) && c.isPrimaryContact);
+      if (!contact) {
+        contact = contacts.find(c => (c.clientId === matchingClient._id || c.clientId === matchingClient.id));
+      }
+    }
+  }
+
+  // 3. Dynamic Auto-Fallback for any client email (so Client Portal Login NEVER fails)
+  if (!contact && cleanEmail) {
+    const defaultClient = clients[0] || INITIAL_MOCK_CLIENTS[0];
+    const contactId = 'cc-dyn-' + Date.now();
+    contact = {
+      _id: contactId,
+      id: contactId,
+      clientId: defaultClient._id || defaultClient.id,
+      name: cleanEmail.split('@')[0].toUpperCase(),
+      email: cleanEmail,
+      phone: defaultClient.phone,
+      permissionLevel: "OWNER",
+      isPrimaryContact: true,
+      mustChangePassword: false,
+      isActive: true,
+      createdAt: new Date().toISOString()
+    };
+    contacts.unshift(contact);
+    localStorage.setItem('nirman_client_contacts', JSON.stringify(contacts));
+  }
+
+  if (!contact) {
+    return { success: false, message: 'Invalid email or password.' };
+  }
+
+  const client = clients.find(c => c._id === contact.clientId || c.id === contact.clientId) || clients[0];
+
+  return {
+    success: true,
+    message: 'Client Portal login successful.',
+    token: 'mock-client-jwt-token-' + Date.now(),
+    contact,
+    client
+  };
+};
+
+export const mockClientChangePassword = async (payload) => {
+  await delay();
+  try {
+    const contacts = getStoredContacts();
+    if (contacts && contacts.length > 0) {
+      contacts.forEach(c => {
+        c.mustChangePassword = false;
+        c.isTemporaryPassword = false;
+      });
+      localStorage.setItem('nirman_client_contacts', JSON.stringify(contacts));
+    }
+  } catch (e) {}
+  return { success: true, message: 'Password updated successfully.', mustChangePassword: false };
+};
+
+export const mockClientForgotPassword = async (email) => {
+  await delay();
+  return { success: true, message: 'If an account exists with this email, a reset token has been generated.', resetTokenSent: true };
+};
+
+export const mockClientResetPassword = async () => {
+  await delay();
+  return { success: true, message: 'Password has been reset successfully.', mustChangePassword: false };
+};
+
+export const mockGetClientMe = async () => {
+  await delay();
+  const contacts = getStoredContacts();
+  const clients = getStoredClients();
+  const contact = contacts[0] || {};
+  const client = clients.find(c => c._id === contact.clientId || c.id === contact.clientId) || clients[0];
+  return { success: true, message: 'Client contact profile retrieved.', contact, client };
+};
+
+// --- Client Project Linkage Mock APIs ---
+
+export const mockCreateClientProjectLink = async (payload) => {
+  await delay();
+  const links = getStoredLinks();
+  const { clientId, projectId, visibleToClient = true } = payload || {};
+
+  if (!clientId || !projectId) {
+    return { success: false, message: 'Both clientId and projectId are required.' };
+  }
+
+  const existing = links.find(l => l.clientId === clientId && l.projectId === projectId && l.isActive);
+  if (existing) {
+    return { success: false, message: 'An active link already exists between this Client and Project.' };
+  }
+
+  const newLink = {
+    _id: 'cpl-' + Date.now(),
+    id: 'cpl-' + Date.now(),
+    clientId,
+    projectId,
+    projectName: payload.projectName || 'New Project Link',
+    visibleToClient: Boolean(visibleToClient),
+    linkedAt: new Date().toISOString(),
+    isActive: true
+  };
+
+  links.unshift(newLink);
+  localStorage.setItem('nirman_client_project_links', JSON.stringify(links));
+
+  return {
+    success: true,
+    message: 'Project successfully linked to Client account.',
+    link: newLink
+  };
+};
+
+export const mockGetLinksByClient = async (clientId) => {
+  await delay();
+  const links = getStoredLinks().filter(l => l.clientId === clientId && l.isActive);
+  return { success: true, message: 'Client project links retrieved successfully.', links };
+};
+
+export const mockGetLinksByProject = async (projectId) => {
+  await delay();
+  const links = getStoredLinks().filter(l => l.projectId === projectId && l.isActive);
+  return { success: true, message: 'Project client links retrieved successfully.', links };
+};
+
+export const mockToggleProjectLinkVisibility = async (id, visibleToClient) => {
+  await delay();
+  const links = getStoredLinks();
+  const index = links.findIndex(l => l._id === id || l.id === id);
+
+  if (index === -1) {
+    return { success: false, message: 'Active ClientProjectLink not found.' };
+  }
+
+  links[index].visibleToClient = Boolean(visibleToClient);
+  localStorage.setItem('nirman_client_project_links', JSON.stringify(links));
+
+  return {
+    success: true,
+    message: `Project visibility updated to ${Boolean(visibleToClient)}.`,
+    link: links[index]
+  };
+};
+
+export const mockUnlinkProject = async (id) => {
+  await delay();
+  const links = getStoredLinks();
+  const index = links.findIndex(l => l._id === id || l.id === id);
+
+  if (index === -1) {
+    return { success: false, message: 'Active ClientProjectLink not found.' };
+  }
+
+  links[index].isActive = false;
+  localStorage.setItem('nirman_client_project_links', JSON.stringify(links));
+
+  return {
+    success: true,
+    message: 'Project unlinked from Client account successfully.',
+    link: links[index]
+  };
+};
+
+export const mockGetMyClientProjects = async () => {
+  await delay();
+  const links = getStoredLinks().filter(l => l.isActive && l.visibleToClient);
+  return {
+    success: true,
+    count: links.length,
+    projects: links
+  };
+};
+
+// ========================================================
+// CRM MODULE 4 - CLIENT PORTAL CORE MOCK APIS
+// ========================================================
+
+export const mockGetClientDashboard = async () => {
+  await delay();
+  const user = getSessionUser() || {};
+  const links = getStoredLinks();
+
+  const userClientId = user.clientId || "cli-101";
+
+  const activeLinks = links.filter(l => (l.clientId === userClientId || l.clientId === "cli-101") && l.isActive && l.visibleToClient !== false);
+
+  const activeProjects = activeLinks.map(l => ({
+    projectId: l.projectId || "proj-1",
+    linkId: l._id || l.id,
+    name: l.projectName || "Shah Corporate Heights",
+    status: "In Progress",
+    progressPercent: 68,
+    thumbnailUrl: null,
+    startDate: "2026-01-15",
+    estimatedCompletion: "2026-11-30",
+    actualCompletion: null,
+    nextMilestone: {
+      title: "Basement Concrete Casting Signoff",
+      dueDate: "2026-08-25"
+    },
+    linkedAt: l.linkedAt || new Date().toISOString()
+  }));
+
+  const pastProjects = [
+    {
+      projectId: "proj-old-1",
+      linkId: "cpl-past-1",
+      name: "Oceanic Villa Phase 1",
+      status: "Completed",
+      progressPercent: 100,
+      thumbnailUrl: null,
+      startDate: "2025-02-10",
+      estimatedCompletion: "2026-02-10",
+      actualCompletion: "2026-02-05",
+      nextMilestone: null,
+      linkedAt: "2025-02-10T00:00:00.000Z"
+    }
+  ];
+
+  return {
+    success: true,
+    message: "Client dashboard retrieved successfully.",
+    activeProjects,
+    pastProjects,
+    totalProjectsCount: activeProjects.length + pastProjects.length,
+    contactPermissionLevel: user.permissionLevel || "OWNER"
+  };
+};
+
+export const mockGetClientProjectDetail = async (projectId) => {
+  await delay();
+  const links = getStoredLinks();
+  const link = links.find(l => (l.projectId === projectId || l.id === projectId || l.projectName === projectId) && l.isActive);
+
+  const projName = link ? link.projectName : "Shah Corporate Heights";
+
+  return {
+    success: true,
+    message: "Project details retrieved successfully.",
+    project: {
+      _id: projectId || "proj-3",
+      name: projName,
+      status: "In Progress",
+      progressPercent: 68,
+      startDate: "2026-01-15",
+      estimatedCompletion: "2026-11-30",
+      projectManager: {
+        name: "Sarah Connor",
+        email: "sarah.pm@nirman.com",
+        designation: "Senior Project Manager",
+        phone: "+91 98765 00001"
+      },
+      siteLocation: {
+        address: "Site A, Bopal, Ahmedabad",
+        coordinates: "23.0312, 72.4631"
+      },
+      linkId: link ? link._id : "cpl-3"
+    }
+  };
+};
+
+export const mockGetClientProjectMilestones = async (projectId) => {
+  await delay();
+  return {
+    success: true,
+    message: "Project milestones retrieved successfully.",
+    projectId: projectId || "proj-3",
+    projectName: "Shah Corporate Heights",
+    progressPercent: 68,
+    milestones: [
+      { _id: "m1", title: "Concept Layout & Material Palette", isCompleted: true, dueDate: "2026-02-15", completedDate: "2026-02-10" },
+      { _id: "m2", title: "Municipal Authority Site Approval", isCompleted: true, dueDate: "2026-04-20", completedDate: "2026-04-18" },
+      { _id: "m3", title: "Excavation & Rebar Reinforcement", isCompleted: true, dueDate: "2026-06-30", completedDate: "2026-06-28" },
+      { _id: "m4", title: "Basement Columns Casting", isCompleted: false, dueDate: "2026-08-25", completedDate: null },
+      { _id: "m5", title: "Structural Glass Facade Release", isCompleted: false, dueDate: "2026-10-15", completedDate: null }
+    ]
+  };
+};
+
+export const mockGetClientProjectTimeline = async (projectId) => {
+  await delay();
+  return {
+    success: true,
+    message: "Project timeline retrieved successfully.",
+    projectId: projectId || "proj-3",
+    projectName: "Shah Corporate Heights",
+    status: "In Progress",
+    timeline: [
+      { type: "START", title: "Project Initiated", date: "2026-01-15", isCompleted: true, description: "Official project kickoff and site survey." },
+      { type: "MILESTONE", title: "Concept Layout & Permits", date: "2026-02-15", isCompleted: true, description: "Schematic design and city permits signed off." },
+      { type: "MILESTONE", title: "Excavation Completed", date: "2026-06-30", isCompleted: true, description: "Sub-structure compaction and excavation finished." },
+      { type: "MILESTONE", title: "Basement Columns Casting", date: "2026-08-25", isCompleted: false, description: "Rebar reinforcement & concrete pouring active." },
+      { type: "TARGET_COMPLETION", title: "Estimated Completion Target", date: "2026-11-30", isCompleted: false, description: "Final interior fitouts and client handover." }
+    ]
+  };
+};
+
+export const mockUpdateClientProfile = async (payload) => {
+  await delay();
+  const { name, phone } = payload || {};
+  const user = getSessionUser() || {};
+
+  if (name) user.name = name.trim();
+  if (phone) user.phone = phone.trim();
+
+  localStorage.setItem('user', JSON.stringify(user));
+
+  return {
+    success: true,
+    message: "Profile updated successfully.",
+    contact: {
+      id: user.id || "cc-103",
+      name: user.name || "Anand Shah",
+      email: user.email || "anand@shah.com",
+      phone: user.phone || "9876543210",
+      permissionLevel: user.permissionLevel || "OWNER"
+    }
+  };
+};
+
+export const mockLogClientSessionLogin = async (platform = "WEB") => {
+  await delay();
+  return {
+    success: true,
+    message: "Client portal session logged successfully.",
+    session: {
+      id: "sess-" + Date.now(),
+      platform: platform.toUpperCase(),
+      loginAt: new Date().toISOString(),
+      lastActiveAt: new Date().toISOString()
+    }
+  };
+};
+
+export const mockSendClientSessionHeartbeat = async (sessionId = null) => {
+  await delay();
+  return {
+    success: true,
+    message: "Session heartbeat updated.",
+    lastActiveAt: new Date().toISOString(),
+    serverTimestamp: new Date().toISOString()
+  };
+};
+
+// Device Binding Mock Handlers
+export const getMockPendingDeviceRequests = async () => {
+  await delay();
+  initLocalStorage();
+  const rawReqs = JSON.parse(localStorage.getItem('nirman_device_requests') || '[]');
+  const users = JSON.parse(localStorage.getItem('nirman_users') || '[]');
+  
+  const pending = rawReqs
+    .filter(r => r.status === 'PENDING')
+    .map(r => {
+      const uObj = typeof r.userId === 'object' ? r.userId : (users.find(u => (u.id === r.userId || u._id === r.userId)) || { _id: r.userId, name: 'Employee User', email: 'user@nirman.com' });
+      return {
+        ...r,
+        _id: r.id || r._id || ('req-' + Math.random()),
+        userId: uObj,
+        user: uObj
+      };
+    });
+
+  return {
+    success: true,
+    message: "Pending device requests retrieved successfully.",
+    requests: pending
+  };
+};
+
+export const approveMockDeviceRequest = async (requestId, action) => {
+  await delay();
+  initLocalStorage();
+  const rawReqs = JSON.parse(localStorage.getItem('nirman_device_requests') || '[]');
+  const users = JSON.parse(localStorage.getItem('nirman_users') || '[]');
+
+  const reqIndex = rawReqs.findIndex(r => (r.id === requestId || r._id === requestId));
+  if (reqIndex === -1) {
+    return { success: false, message: "Device change request not found." };
+  }
+
+  const req = rawReqs[reqIndex];
+  const upperAction = (action || 'APPROVE').toUpperCase();
+
+  req.status = upperAction === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+  req.reviewedAt = new Date().toISOString();
+
+  const targetUserId = typeof req.userId === 'object' ? (req.userId.id || req.userId._id) : req.userId;
+  const userObj = users.find(u => u.id === targetUserId || u._id === targetUserId);
+  
+  if (userObj && upperAction === 'APPROVE') {
+    userObj.registeredDeviceId = req.newDeviceId;
+    userObj.deviceId = req.newDeviceId;
+    userObj.deviceStatus = 'APPROVED';
+  } else if (userObj) {
+    userObj.deviceStatus = 'REJECTED';
+  }
+
+  localStorage.setItem('nirman_device_requests', JSON.stringify(rawReqs));
+  localStorage.setItem('nirman_users', JSON.stringify(users));
+
+  return {
+    success: true,
+    message: upperAction === 'APPROVE' ? "Device change request approved successfully." : "Device change request rejected.",
+    requestId,
+    status: req.status
+  };
+};
+
+export const assignMockDevice = async (targetUserId, deviceId) => {
+  await delay();
+  initLocalStorage();
+  const users = JSON.parse(localStorage.getItem('nirman_users') || '[]');
+  const reqs = JSON.parse(localStorage.getItem('nirman_device_requests') || '[]');
+
+  const user = users.find(u => u.id === targetUserId || u._id === targetUserId || u.email === targetUserId);
+
+  if (user) {
+    const cleanId = deviceId.trim();
+    const oldDev = user.deviceId || user.registeredDeviceId || 'None';
+
+    user.registeredDeviceId = cleanId;
+    user.deviceId = cleanId;
+    user.deviceStatus = 'PENDING';
+
+    const newReq = {
+      id: 'dreq-' + Date.now(),
+      requestId: 'dreq-' + Date.now(),
+      _id: 'dreq-' + Date.now(),
+      userId: user,
+      user: user,
+      oldDeviceId: oldDev,
+      newDeviceId: cleanId,
+      status: 'PENDING',
+      createdAt: new Date().toISOString()
+    };
+    reqs.unshift(newReq);
+
+    localStorage.setItem('nirman_users', JSON.stringify(users));
+    localStorage.setItem('nirman_device_requests', JSON.stringify(reqs));
+  }
+
+  return {
+    success: true,
+    message: `Device binding request for ID ${deviceId} created and is now PENDING Admin/HR approval.`,
+    userId: targetUserId,
+    deviceId: deviceId.trim(),
+    deviceStatus: 'PENDING'
+  };
+};
+
+export const getMockDeviceStatus = async (targetUserId = 'u2', customDeviceId = null) => {
+  await delay();
+  initLocalStorage();
+  const users = JSON.parse(localStorage.getItem('nirman_users') || '[]');
+  const reqs = JSON.parse(localStorage.getItem('nirman_device_requests') || '[]');
+
+  const user = users.find(u => u.id === targetUserId || u._id === targetUserId) || {
+    _id: targetUserId,
+    id: targetUserId,
+    name: 'Workforce Member',
+    email: 'employee@gmail.com',
+    deviceId: customDeviceId || 'c5dbdd5f-e416-479b-aa77-12c661c48bcb',
+    deviceStatus: 'PENDING'
+  };
+
+  const pending = reqs.filter(r => (r.userId === targetUserId || r.userId?.id === targetUserId || r.userId?._id === targetUserId) && r.status === 'PENDING');
+
+  return {
+    success: true,
+    message: "Device status retrieved successfully.",
+    userId: user._id || user.id,
+    email: user.email,
+    deviceId: user.deviceId || user.registeredDeviceId || customDeviceId || 'c5dbdd5f-e416-479b-aa77-12c661c48bcb',
+    deviceStatus: user.deviceStatus || (pending.length > 0 ? 'PENDING' : 'PENDING'),
+    online: true,
+    lastSeen: new Date().toISOString(),
+    pendingRequests: pending
+  };
+};
+
+export const registerMockDevice = async (payload) => {
+  const { deviceId, userId } = payload || {};
+  return assignMockDevice(userId || 'u2', deviceId || 'GUID-MACHINE-123');
+};
+
+export const sendMockHeartbeat = async (payload) => {
+  await delay();
+  return {
+    success: true,
+    message: "Heartbeat received.",
+    lastSeen: new Date().toISOString(),
+    status: "ONLINE",
+    online: true
+  };
+};
+
+// ----------------------------------------------------
+// Mock Drawing Approval Workflow & Client Log Handlers
+// ----------------------------------------------------
+
+export const getMockClientProjectDrawings = async (projectId) => {
+  await delay();
+  initLocalStorage();
+  const drawings = JSON.parse(localStorage.getItem('nirman_drawings') || '[]');
+  
+  if (drawings.length === 0) {
+    const sampleDrawings = [
+      {
+        _id: 'drg-101',
+        projectId: projectId || 'proj-1',
+        title: 'Main Ground Floor Architectural Layout Plan',
+        drawingNumber: 'AR-GF-001',
+        category: 'Working',
+        currentVersion: 2,
+        fileUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
+        thumbnailUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=400&q=80',
+        status: 'PENDING_CLIENT_APPROVAL',
+        visibleToClient: true,
+        versions: [
+          { versionNumber: 1, fileUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c', notes: 'Initial Layout Draft', uploadedAt: '2026-07-15T10:00:00Z' },
+          { versionNumber: 2, fileUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c', notes: 'V2 with revised column positioning', uploadedAt: '2026-07-20T14:30:00Z' }
+        ],
+        createdAt: '2026-07-15T10:00:00Z'
+      },
+      {
+        _id: 'drg-102',
+        projectId: projectId || 'proj-1',
+        title: 'Master Bedroom Structural Details & Beam Section',
+        drawingNumber: 'ST-MB-002',
+        category: 'GFC',
+        currentVersion: 1,
+        fileUrl: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80',
+        thumbnailUrl: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=400&q=80',
+        status: 'APPROVED',
+        visibleToClient: true,
+        versions: [
+          { versionNumber: 1, fileUrl: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c', notes: 'Approved GFC details', uploadedAt: '2026-07-18T11:00:00Z' }
+        ],
+        createdAt: '2026-07-18T11:00:00Z'
+      },
+      {
+        _id: 'drg-103',
+        projectId: projectId || 'proj-1',
+        title: 'Living Room 3D False Ceiling & Elevation',
+        drawingNumber: 'INT-LR-003',
+        category: 'Interior',
+        currentVersion: 3,
+        fileUrl: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&q=80',
+        thumbnailUrl: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=400&q=80',
+        status: 'CHANGES_REQUESTED',
+        visibleToClient: true,
+        versions: [
+          { versionNumber: 1, fileUrl: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6', notes: 'Initial 3D Render', uploadedAt: '2026-07-10T09:00:00Z' },
+          { versionNumber: 2, fileUrl: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6', notes: 'Cove light adjustment', uploadedAt: '2026-07-16T15:00:00Z' },
+          { versionNumber: 3, fileUrl: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6', notes: 'V3 pending client sign off', uploadedAt: '2026-07-22T16:45:00Z' }
+        ],
+        createdAt: '2026-07-10T09:00:00Z'
+      }
+    ];
+    localStorage.setItem('nirman_drawings', JSON.stringify(sampleDrawings));
+    return {
+      success: true,
+      pendingApproval: sampleDrawings.filter(d => d.status === 'PENDING_CLIENT_APPROVAL'),
+      approved: sampleDrawings.filter(d => d.status === 'APPROVED'),
+      changesRequested: sampleDrawings.filter(d => d.status === 'CHANGES_REQUESTED'),
+      allDrawings: sampleDrawings
+    };
+  }
+
+  const list = drawings.filter(d => !projectId || d.projectId === projectId || d.projectId === 'proj-1');
+  return {
+    success: true,
+    pendingApproval: list.filter(d => d.status === 'PENDING_CLIENT_APPROVAL'),
+    approved: list.filter(d => d.status === 'APPROVED'),
+    changesRequested: list.filter(d => d.status === 'CHANGES_REQUESTED'),
+    allDrawings: list
+  };
+};
+
+export const getMockDrawingDetails = async (drawingId) => {
+  await delay();
+  const drawings = JSON.parse(localStorage.getItem('nirman_drawings') || '[]');
+  const found = drawings.find(d => d._id === drawingId || d.id === drawingId);
+  if (found) {
+    return { success: true, drawing: found };
+  }
+  return {
+    success: true,
+    drawing: {
+      _id: drawingId,
+      title: 'Architectural Working Drawing',
+      drawingNumber: 'AR-101',
+      category: 'Working',
+      currentVersion: 1,
+      fileUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c',
+      status: 'PENDING_CLIENT_APPROVAL',
+      visibleToClient: true,
+      versions: [
+        { versionNumber: 1, fileUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c', notes: 'Initial Version', uploadedAt: new Date().toISOString() }
+      ]
+    }
+  };
+};
+
+export const getMockDrawingVersions = async (drawingId) => {
+  await delay();
+  const details = await getMockDrawingDetails(drawingId);
+  return {
+    success: true,
+    drawingId,
+    versions: details.drawing?.versions || []
+  };
+};
+
+export const getMockCompareDrawingVersions = async (drawingId, v1, v2) => {
+  await delay();
+  const details = await getMockDrawingDetails(drawingId);
+  const versions = details.drawing?.versions || [];
+  const ver1 = versions.find(v => String(v.versionNumber) === String(v1)) || versions[0] || {};
+  const ver2 = versions.find(v => String(v.versionNumber) === String(v2)) || versions[versions.length - 1] || {};
+  return {
+    success: true,
+    drawingId,
+    version1: ver1,
+    version2: ver2
+  };
+};
+
+export const approveMockDrawing = async (drawingId, comments = '') => {
+  await delay();
+  initLocalStorage();
+  let drawings = JSON.parse(localStorage.getItem('nirman_drawings') || '[]');
+  let logs = JSON.parse(localStorage.getItem('nirman_client_approval_logs') || '[]');
+
+  let updatedDrawing = null;
+  drawings = drawings.map(d => {
+    if (d._id === drawingId || d.id === drawingId) {
+      d.status = 'APPROVED';
+      updatedDrawing = d;
+    }
+    return d;
+  });
+
+  if (!updatedDrawing) {
+    updatedDrawing = {
+      _id: drawingId,
+      title: 'Approved Drawing',
+      status: 'APPROVED',
+      comments
+    };
+    drawings.push(updatedDrawing);
+  }
+
+  localStorage.setItem('nirman_drawings', JSON.stringify(drawings));
+
+  const newLog = {
+    _id: 'log_' + Date.now(),
+    drawingId,
+    projectId: updatedDrawing.projectId || 'proj-1',
+    action: 'APPROVED',
+    comments: comments || 'Approved by client contact',
+    actedAt: new Date().toISOString(),
+    contactId: { name: 'Kadam Bhakti (Client Owner)', email: 'bhakti@gmail.com', permissionLevel: 'OWNER' },
+    clientId: { name: 'Nirman Client Account', companyName: 'Nirman Heights' }
+  };
+
+  logs.unshift(newLog);
+  localStorage.setItem('nirman_client_approval_logs', JSON.stringify(logs));
+
+  return {
+    success: true,
+    message: 'Drawing approved successfully.',
+    drawing: updatedDrawing,
+    approvalLog: newLog
+  };
+};
+
+export const requestMockDrawingChanges = async (drawingId, comments) => {
+  await delay();
+  initLocalStorage();
+  let drawings = JSON.parse(localStorage.getItem('nirman_drawings') || '[]');
+  let logs = JSON.parse(localStorage.getItem('nirman_client_approval_logs') || '[]');
+
+  let updatedDrawing = null;
+  drawings = drawings.map(d => {
+    if (d._id === drawingId || d.id === drawingId) {
+      d.status = 'CHANGES_REQUESTED';
+      updatedDrawing = d;
+    }
+    return d;
+  });
+
+  if (!updatedDrawing) {
+    updatedDrawing = {
+      _id: drawingId,
+      title: 'Drawing under change request',
+      status: 'CHANGES_REQUESTED',
+      comments
+    };
+    drawings.push(updatedDrawing);
+  }
+
+  localStorage.setItem('nirman_drawings', JSON.stringify(drawings));
+
+  const newLog = {
+    _id: 'log_' + Date.now(),
+    drawingId,
+    projectId: updatedDrawing.projectId || 'proj-1',
+    action: 'CHANGES_REQUESTED',
+    comments: comments || 'Requested modifications on column layout.',
+    actedAt: new Date().toISOString(),
+    contactId: { name: 'Kadam Bhakti (Client Member)', email: 'bhakti@gmail.com', permissionLevel: 'MEMBER' },
+    clientId: { name: 'Nirman Client Account', companyName: 'Nirman Heights' }
+  };
+
+  logs.unshift(newLog);
+  localStorage.setItem('nirman_client_approval_logs', JSON.stringify(logs));
+
+  return {
+    success: true,
+    message: 'Drawing change request submitted successfully.',
+    drawing: updatedDrawing,
+    approvalLog: newLog
+  };
+};
+
+export const postMockDrawingComment = async (drawingId, commentData) => {
+  await delay();
+  initLocalStorage();
+  let comments = JSON.parse(localStorage.getItem('nirman_drawing_comments') || '[]');
+  const newCommentObj = {
+    _id: 'cmt_' + Date.now(),
+    drawingId,
+    author: commentData.author || 'Project Architect',
+    text: commentData.text || commentData.comments || '',
+    isDraft: commentData.isDraft || false,
+    actedAt: new Date().toISOString()
+  };
+  comments.unshift(newCommentObj);
+  localStorage.setItem('nirman_drawing_comments', JSON.stringify(comments));
+
+  return {
+    success: true,
+    message: 'Comment posted successfully.',
+    comment: newCommentObj
+  };
+};
+
+export const getMockDrawingComments = async (drawingId) => {
+  await delay();
+  const comments = JSON.parse(localStorage.getItem('nirman_drawing_comments') || '[]');
+  const filtered = comments.filter(c => c.drawingId === drawingId);
+  return {
+    success: true,
+    drawingId,
+    comments: filtered.length > 0 ? filtered : [
+      { _id: 'cmt-1', drawingId, author: 'Architect Sarah', text: 'Column dimensions updated per load calculations.', actedAt: '2026-07-20T14:00:00Z' },
+      { _id: 'cmt-2', drawingId, author: 'PM Lax Savani', text: 'Sent to client for final sign-off.', actedAt: '2026-07-21T09:30:00Z' }
+    ]
+  };
+};
+
+export const getMockClientApprovalLog = async (drawingId) => {
+  await delay();
+  initLocalStorage();
+  const logs = JSON.parse(localStorage.getItem('nirman_client_approval_logs') || '[]');
+  const filtered = logs.filter(l => !drawingId || l.drawingId === drawingId);
+  
+  if (filtered.length > 0) {
+    return {
+      success: true,
+      message: 'Client approval log retrieved successfully.',
+      drawingId,
+      title: 'Architectural Drawing',
+      status: 'PENDING_CLIENT_APPROVAL',
+      logs: filtered
+    };
+  }
+
+  const sampleLog = [
+    {
+      _id: 'log-101',
+      drawingId: drawingId || 'drg-101',
+      projectId: 'proj-1',
+      action: 'APPROVED',
+      comments: 'All Ground Floor structural details look good.',
+      actedAt: '2026-07-21T11:30:00Z',
+      contactId: { name: 'Kadam Bhakti', email: 'bhakti@gmail.com', permissionLevel: 'OWNER', isPrimaryContact: true },
+      clientId: { name: 'Client Owner', companyName: 'Nirman Architects Client Portal' }
+    }
+  ];
+
+  return {
+    success: true,
+    message: 'Client approval log retrieved successfully.',
+    drawingId,
+    title: 'Ground Floor Structural Plan',
+    status: 'APPROVED',
+    logs: sampleLog
+  };
+};
+
+// ----------------------------------------------------
+// CRM Module 6 - Client Document Access Mock Handlers
+// ----------------------------------------------------
+
+export const getMockClientProjectDocuments = async (projectId, { folder = '', search = '' } = {}) => {
+  await delay();
+  initLocalStorage();
+  let documents = JSON.parse(localStorage.getItem('nirman_client_documents') || '[]');
+
+  if (documents.length === 0) {
+    const sampleDocs = [
+      {
+        _id: 'doc-101',
+        projectId: projectId || 'proj-1',
+        fileName: 'Client Agreement & Architectural Contract V1.pdf',
+        filePath: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+        fileType: 'PDF',
+        fileSize: 4200000,
+        category: 'Contracts',
+        uploadedBy: { name: 'Admin Sarah' },
+        version: 1,
+        visibleToClient: true,
+        isDeleted: false,
+        createdAt: '2026-07-01T10:00:00Z'
+      },
+      {
+        _id: 'doc-102',
+        projectId: projectId || 'proj-1',
+        fileName: 'Approved GFC Structural Plan Set.pdf',
+        filePath: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
+        fileType: 'PDF',
+        fileSize: 12500000,
+        category: 'Approved Drawings PDFs',
+        uploadedBy: { name: 'PM Lax Savani' },
+        version: 2,
+        visibleToClient: true,
+        isDeleted: false,
+        createdAt: '2026-07-15T14:30:00Z'
+      },
+      {
+        _id: 'doc-103',
+        projectId: projectId || 'proj-1',
+        fileName: 'Site Excavation & Foundation Progress.png',
+        filePath: 'https://images.unsplash.com/photo-1541888946425-d0fbb186a5b3?auto=format&fit=crop&w=1200&q=80',
+        fileType: 'PNG',
+        fileSize: 3400000,
+        category: 'Photos',
+        uploadedBy: { name: 'Site Supervisor' },
+        version: 1,
+        visibleToClient: true,
+        isDeleted: false,
+        createdAt: '2026-07-18T09:15:00Z'
+      },
+      {
+        _id: 'doc-104',
+        projectId: projectId || 'proj-1',
+        fileName: 'Milestone 2 Foundation Stage Invoice #INV-2026-04.pdf',
+        filePath: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+        fileType: 'PDF',
+        fileSize: 1800000,
+        category: 'Invoices',
+        uploadedBy: { name: 'Accounts Department' },
+        version: 1,
+        visibleToClient: true,
+        isDeleted: false,
+        createdAt: '2026-07-20T11:00:00Z'
+      },
+      {
+        _id: 'doc-105',
+        projectId: projectId || 'proj-1',
+        fileName: 'Material Specifications & Brand Catalog.pdf',
+        filePath: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+        fileType: 'PDF',
+        fileSize: 8900000,
+        category: 'Other Shared Documents',
+        uploadedBy: { name: 'Interior Designer' },
+        version: 1,
+        visibleToClient: true,
+        isDeleted: false,
+        createdAt: '2026-07-22T16:00:00Z'
+      }
+    ];
+    localStorage.setItem('nirman_client_documents', JSON.stringify(sampleDocs));
+    documents = sampleDocs;
+  }
+
+  let filtered = documents.filter(d => d.visibleToClient && !d.isDeleted);
+  if (projectId) {
+    filtered = filtered.filter(d => d.projectId === projectId || d.projectId === 'proj-1');
+  }
+  if (folder) {
+    filtered = filtered.filter(d => d.category === folder);
+  }
+  if (search) {
+    filtered = filtered.filter(d => d.fileName.toLowerCase().includes(search.toLowerCase()));
+  }
+
+  const documentsByFolder = {
+    'Contracts': filtered.filter(d => d.category === 'Contracts'),
+    'Approved Drawings PDFs': filtered.filter(d => d.category === 'Approved Drawings PDFs'),
+    'Photos': filtered.filter(d => d.category === 'Photos'),
+    'Invoices': filtered.filter(d => d.category === 'Invoices'),
+    'Other Shared Documents': filtered.filter(d => d.category === 'Other Shared Documents')
+  };
+
+  return {
+    success: true,
+    message: 'Client project documents retrieved successfully.',
+    totalCount: filtered.length,
+    documentsByFolder,
+    allDocuments: filtered
+  };
+};
+
+export const previewMockDocument = async (documentId) => {
+  await delay();
+  initLocalStorage();
+  const docs = JSON.parse(localStorage.getItem('nirman_client_documents') || '[]');
+  const doc = docs.find(d => d._id === documentId || d.id === documentId);
+
+  if (!doc || doc.isDeleted) {
+    throw new Error("404: Document not found or no longer available.");
+  }
+
+  if (!doc.visibleToClient) {
+    throw new Error("403: Access denied. Document is not shared with client portal.");
+  }
+
+  let accessLogs = JSON.parse(localStorage.getItem('nirman_client_doc_access_logs') || '[]');
+  const log = {
+    _id: 'dlog_' + Date.now(),
+    clientId: 'client-1',
+    contactId: { name: 'Kadam Bhakti', email: 'bhakti@gmail.com', permissionLevel: 'OWNER' },
+    documentId,
+    projectId: doc.projectId || 'proj-1',
+    action: 'VIEW',
+    accessedAt: new Date().toISOString()
+  };
+  accessLogs.unshift(log);
+  localStorage.setItem('nirman_client_doc_access_logs', JSON.stringify(accessLogs));
+
+  return {
+    success: true,
+    message: "Document preview retrieved successfully.",
+    document: doc,
+    previewUrl: doc.filePath,
+    fileType: doc.fileType,
+    accessLog: log
+  };
+};
+
+export const downloadMockDocument = async (documentId) => {
+  await delay();
+  initLocalStorage();
+  const docs = JSON.parse(localStorage.getItem('nirman_client_documents') || '[]');
+  const doc = docs.find(d => d._id === documentId || d.id === documentId);
+
+  if (!doc) {
+    throw new Error("404: Document not found.");
+  }
+
+  if (doc.isDeleted) {
+    const err = new Error("HTTP 410: This document is soft-deleted and no longer available.");
+    err.response = { status: 410 };
+    throw err;
+  }
+
+  if (!doc.visibleToClient) {
+    throw new Error("403: Access denied. Document is not shared with client portal.");
+  }
+
+  let accessLogs = JSON.parse(localStorage.getItem('nirman_client_doc_access_logs') || '[]');
+  const log = {
+    _id: 'dlog_' + Date.now(),
+    clientId: 'client-1',
+    contactId: { name: 'Kadam Bhakti', email: 'bhakti@gmail.com', permissionLevel: 'OWNER' },
+    documentId,
+    projectId: doc.projectId || 'proj-1',
+    action: 'DOWNLOAD',
+    accessedAt: new Date().toISOString()
+  };
+  accessLogs.unshift(log);
+  localStorage.setItem('nirman_client_doc_access_logs', JSON.stringify(accessLogs));
+
+  return {
+    success: true,
+    message: "Document download initiated successfully.",
+    downloadUrl: doc.filePath,
+    fileName: doc.fileName,
+    accessLog: log
+  };
+};
+
+export const getMockDocumentAccessLog = async (documentId) => {
+  await delay();
+  initLocalStorage();
+  const accessLogs = JSON.parse(localStorage.getItem('nirman_client_doc_access_logs') || '[]');
+  const filtered = accessLogs.filter(l => !documentId || l.documentId === documentId);
+
+  if (filtered.length > 0) {
+    return {
+      success: true,
+      message: 'Client document access logs retrieved successfully.',
+      documentId,
+      accessLogs: filtered
+    };
+  }
+
+  const sampleLogs = [
+    {
+      _id: 'dlog-1',
+      clientId: 'client-1',
+      contactId: { name: 'Kadam Bhakti', email: 'bhakti@gmail.com', permissionLevel: 'OWNER' },
+      documentId: documentId || 'doc-101',
+      projectId: 'proj-1',
+      action: 'VIEW',
+      accessedAt: '2026-07-21T10:15:00Z'
+    },
+    {
+      _id: 'dlog-2',
+      clientId: 'client-1',
+      contactId: { name: 'Kadam Bhakti', email: 'bhakti@gmail.com', permissionLevel: 'OWNER' },
+      documentId: documentId || 'doc-101',
+      projectId: 'proj-1',
+      action: 'DOWNLOAD',
+      accessedAt: '2026-07-21T10:18:00Z'
+    }
+  ];
+
+  return {
+    success: true,
+    message: 'Client document access logs retrieved successfully.',
+    documentId,
+    accessLogs: sampleLogs
+  };
+};
+
+export const getMockClientEngagementSummary = async (clientId) => {
+  await delay();
+  initLocalStorage();
+  const docs = JSON.parse(localStorage.getItem('nirman_client_documents') || '[]');
+  const logs = JSON.parse(localStorage.getItem('nirman_client_doc_access_logs') || '[]');
+
+  const sharedDocs = docs.filter(d => d.visibleToClient && !d.isDeleted);
+  const accessedDocIds = new Set(logs.map(l => l.documentId));
+
+  const totalShared = sharedDocs.length || 5;
+  const totalEngaged = sharedDocs.filter(d => accessedDocIds.has(d._id)).length || 3;
+  const unopenedShared = sharedDocs.filter(d => !accessedDocIds.has(d._id));
+
+  return {
+    success: true,
+    message: 'Client document engagement summary retrieved successfully.',
+    clientId: clientId || 'client-1',
+    summary: {
+      totalSharedDocuments: totalShared,
+      totalEngagedDocuments: totalEngaged,
+      engagementRatePercent: totalShared > 0 ? Math.round((totalEngaged / totalShared) * 100) : 60,
+      unopenedDocuments: unopenedShared.length > 0 ? unopenedShared : [
+        { _id: 'doc-105', fileName: 'Material Specifications & Brand Catalog.pdf', category: 'Other Shared Documents', createdAt: '2026-07-22T16:00:00Z' }
+      ]
+    }
+  };
+};
+
+// ----------------------------------------------------
+// CRM Module 7 - Client Chat System Mock Handlers
+// ----------------------------------------------------
+
+export const getMockUnreadCounts = async () => {
+  await delay();
+  initLocalStorage();
+  const readStatus = JSON.parse(localStorage.getItem('nirman_client_chat_read_status') || '{}');
+  const messages = JSON.parse(localStorage.getItem('nirman_client_chat_messages') || '[]');
+
+  const lastRead = readStatus['proj-1'] || '2026-07-20T10:00:00Z';
+  const unreadCount = messages.filter(m => (m.projectId === 'proj-1' || !m.projectId) && m.sentAt > lastRead).length;
+
+  return {
+    success: true,
+    message: 'Unread message counts retrieved successfully.',
+    unreadCounts: [
+      { projectId: 'proj-1', projectName: 'Central Office Tower', unreadCount: unreadCount || 1 },
+      { projectId: 'proj-2', projectName: 'Oceanic Luxury Villas', unreadCount: 0 }
+    ]
+  };
+};
+
+export const getMockProjectChat = async (projectId = 'proj-1', since = '') => {
+  await delay();
+  initLocalStorage();
+  let messages = JSON.parse(localStorage.getItem('nirman_client_chat_messages') || '[]');
+
+  if (messages.length === 0) {
+    const sampleMsgs = [
+      {
+        _id: 'msg-1',
+        projectId: projectId || 'proj-1',
+        authorType: 'EMPLOYEE',
+        authorId: { name: 'Sarah Connor', designation: 'Lead Architect' },
+        formattedAuthorName: 'Sarah Connor (Lead Architect)',
+        messageText: 'Hello! I have uploaded the revised Ground Floor column layout blueprint for your review.',
+        sentAt: '2026-07-20T09:30:00Z'
+      },
+      {
+        _id: 'msg-2',
+        projectId: projectId || 'proj-1',
+        authorType: 'CLIENT_CONTACT',
+        authorId: { name: 'Kadam Bhakti', permissionLevel: 'OWNER' },
+        formattedAuthorName: 'Kadam Bhakti (OWNER)',
+        messageText: 'Thank you Sarah, checking the balcony widths and column alignments now.',
+        sentAt: '2026-07-20T10:15:00Z'
+      },
+      {
+        _id: 'msg-3',
+        projectId: projectId || 'proj-1',
+        authorType: 'EMPLOYEE',
+        authorId: { name: 'Lax Savani', designation: 'Project Manager' },
+        formattedAuthorName: 'Lax Savani (Project Manager)',
+        messageText: 'Please let us know if you need any adjustments before we release GFC drawings to site.',
+        sentAt: '2026-07-20T11:00:00Z'
+      }
+    ];
+    localStorage.setItem('nirman_client_chat_messages', JSON.stringify(sampleMsgs));
+    messages = sampleMsgs;
+  }
+
+  let filtered = messages.filter(m => !projectId || m.projectId === projectId || m.projectId === 'proj-1');
+  if (since) {
+    filtered = filtered.filter(m => new Date(m.sentAt) > new Date(since));
+  }
+
+  return {
+    success: true,
+    message: 'Project chat history retrieved successfully.',
+    projectId,
+    messages: filtered,
+    unreadCount: 0,
+    totalCount: filtered.length
+  };
+};
+
+export const sendMockClientMessage = async (projectId = 'proj-1', { messageText, mentionedIds = [], replyToMessageId = null }) => {
+  await delay();
+  initLocalStorage();
+  let messages = JSON.parse(localStorage.getItem('nirman_client_chat_messages') || '[]');
+
+  const newMsg = {
+    _id: 'msg_' + Date.now(),
+    projectId,
+    authorType: 'CLIENT_CONTACT',
+    authorId: { name: 'Kadam Bhakti', permissionLevel: 'OWNER' },
+    formattedAuthorName: 'Kadam Bhakti (OWNER)',
+    messageText: messageText.trim(),
+    mentionedIds: Array.isArray(mentionedIds) ? mentionedIds : [],
+    replyToMessageId: replyToMessageId || null,
+    sentAt: new Date().toISOString()
+  };
+
+  messages.push(newMsg);
+  localStorage.setItem('nirman_client_chat_messages', JSON.stringify(messages));
+
+  return {
+    success: true,
+    message: 'Message sent successfully.',
+    messageObj: newMsg,
+    message: newMsg
+  };
+};
+
+export const syncMockOfflineMessages = async (projectId = 'proj-1', offlineMsgs = []) => {
+  await delay();
+  initLocalStorage();
+  let messages = JSON.parse(localStorage.getItem('nirman_client_chat_messages') || '[]');
+  const synced = [];
+
+  for (const m of offlineMsgs) {
+    if (!m.messageText || !m.messageText.trim()) continue;
+    const newM = {
+      _id: 'msg_' + Date.now() + Math.floor(Math.random() * 1000),
+      projectId,
+      authorType: 'CLIENT_CONTACT',
+      authorId: { name: 'Kadam Bhakti', permissionLevel: 'OWNER' },
+      formattedAuthorName: 'Kadam Bhakti (OWNER)',
+      messageText: m.messageText.trim(),
+      isOfflineSync: true,
+      sentAt: m.localComposedAt || new Date().toISOString()
+    };
+    messages.push(newM);
+    synced.push(newM);
+  }
+
+  localStorage.setItem('nirman_client_chat_messages', JSON.stringify(messages));
+
+  return {
+    success: true,
+    message: 'Offline messages synced successfully.',
+    syncedCount: synced.length,
+    messages: synced
+  };
+};
+
+export const markMockChatRead = async (projectId = 'proj-1') => {
+  await delay();
+  initLocalStorage();
+  let readStatus = JSON.parse(localStorage.getItem('nirman_client_chat_read_status') || '{}');
+  readStatus[projectId] = new Date().toISOString();
+  localStorage.setItem('nirman_client_chat_read_status', JSON.stringify(readStatus));
+
+  return {
+    success: true,
+    message: 'Chat marked as read.',
+    projectId,
+    lastReadMessageAt: readStatus[projectId]
+  };
+};
+
+export const getMockInternalChat = async (projectId = 'proj-1') => {
+  return await getMockProjectChat(projectId);
+};
+
+export const sendMockInternalMessage = async (projectId = 'proj-1', { messageText, mentionedIds = [], replyToMessageId = null }) => {
+  await delay();
+  initLocalStorage();
+  let messages = JSON.parse(localStorage.getItem('nirman_client_chat_messages') || '[]');
+
+  const newMsg = {
+    _id: 'msg_' + Date.now(),
+    projectId,
+    authorType: 'EMPLOYEE',
+    authorId: { name: 'Admin / Architect', designation: 'Internal Team' },
+    formattedAuthorName: 'Nirman Team (Admin/Architect)',
+    messageText: messageText.trim(),
+    mentionedIds: Array.isArray(mentionedIds) ? mentionedIds : [],
+    replyToMessageId: replyToMessageId || null,
+    sentAt: new Date().toISOString()
+  };
+
+  messages.push(newMsg);
+  localStorage.setItem('nirman_client_chat_messages', JSON.stringify(messages));
+
+  return {
+    success: true,
+    message: 'Internal team message posted into project chat workspace.',
+    messageObj: newMsg,
+    message: newMsg
+  };
+};
+
+/* ==========================================================================
+   CRM MODULE 8 - CLIENT TICKETING (QUERY/SUPPORT) MOCK HANDLERS
+   ========================================================================== */
+
+const INITIAL_MOCK_TICKETS = [
+  {
+    _id: 'tck-101',
+    clientId: 'client-1',
+    projectId: 'proj-1',
+    projectName: 'Oceanic Luxury Villas',
+    subject: 'Drawing discrepancy on Column C3',
+    description: 'Column dimensions on structural page 2 need immediate engineering review.',
+    priority: 'High',
+    status: 'OPEN',
+    raisedBy: { name: 'Anand Shah', email: 'anand@shah.com', permissionLevel: 'OWNER' },
+    formattedRaisedBy: 'Anand Shah (OWNER)',
+    assignedTo: { _id: 'u-1', name: 'Sarah Connor', designation: 'Senior PM' },
+    formattedAssignedTo: 'Sarah Connor (Senior PM)',
+    createdAt: '2026-08-05T10:00:00.000Z',
+    reopenedCount: 0,
+    responses: [
+      {
+        _id: 'tr-1',
+        authorType: 'CLIENT_CONTACT',
+        authorId: { name: 'Anand Shah' },
+        formattedAuthorName: 'Anand Shah (OWNER)',
+        message: 'Column dimensions on structural page 2 need immediate engineering review.',
+        respondedAt: '2026-08-05T10:00:00.000Z'
+      }
+    ]
+  },
+  {
+    _id: 'tck-102',
+    clientId: 'client-1',
+    projectId: 'proj-2',
+    projectName: 'Smart City Commercial Mall',
+    subject: 'HVAC Ducting Clearance Verification',
+    description: 'Ceiling height clearance under beam B4 needs check before casting.',
+    priority: 'Medium',
+    status: 'IN_PROGRESS',
+    raisedBy: { name: 'Vikram Mehta', email: 'vikram@shah.com', permissionLevel: 'MEMBER' },
+    formattedRaisedBy: 'Vikram Mehta (MEMBER)',
+    assignedTo: { _id: 'u-2', name: 'Rohit Kumar', designation: 'Project Engineer' },
+    formattedAssignedTo: 'Rohit Kumar (Project Engineer)',
+    createdAt: '2026-08-04T14:30:00.000Z',
+    reopenedCount: 0,
+    responses: [
+      {
+        _id: 'tr-2',
+        authorType: 'CLIENT_CONTACT',
+        authorId: { name: 'Vikram Mehta' },
+        formattedAuthorName: 'Vikram Mehta (MEMBER)',
+        message: 'Ceiling height clearance under beam B4 needs check before casting.',
+        respondedAt: '2026-08-04T14:30:00.000Z'
+      },
+      {
+        _id: 'tr-3',
+        authorType: 'EMPLOYEE',
+        authorId: { name: 'Rohit Kumar' },
+        formattedAuthorName: 'Rohit Kumar (Project Engineer)',
+        message: 'HVAC layout clearance verified at 2.8m net headroom. Proceeding with casting.',
+        respondedAt: '2026-08-05T09:15:00.000Z'
+      }
+    ]
+  }
+];
+
+const getStoredTickets = () => {
+  initLocalStorage();
+  const raw = localStorage.getItem('nirman_client_tickets');
+  if (!raw) {
+    localStorage.setItem('nirman_client_tickets', JSON.stringify(INITIAL_MOCK_TICKETS));
+    return INITIAL_MOCK_TICKETS;
+  }
+  return JSON.parse(raw);
+};
+
+const saveTickets = (tickets) => {
+  localStorage.setItem('nirman_client_tickets', JSON.stringify(tickets));
+};
+
+export const mockCreateTicket = async ({ projectId, subject, description, priority = 'Medium' }) => {
+  await delay();
+  const tickets = getStoredTickets();
+  const newTicket = {
+    _id: 'tck-' + Date.now(),
+    clientId: 'client-1',
+    projectId: projectId || 'proj-1',
+    projectName: 'Oceanic Luxury Villas',
+    subject: subject.trim(),
+    description: description.trim(),
+    priority: ['Low', 'Medium', 'High'].includes(priority) ? priority : 'Medium',
+    status: 'OPEN',
+    raisedBy: { name: 'Client Contact', permissionLevel: 'OWNER' },
+    formattedRaisedBy: 'Client Contact (OWNER)',
+    assignedTo: { _id: 'u-1', name: 'Sarah Connor', designation: 'Senior PM' },
+    formattedAssignedTo: 'Sarah Connor (Senior PM)',
+    createdAt: new Date().toISOString(),
+    reopenedCount: 0,
+    responses: [
+      {
+        _id: 'tr-' + Date.now(),
+        authorType: 'CLIENT_CONTACT',
+        authorId: { name: 'Client Contact' },
+        formattedAuthorName: 'Client Contact (OWNER)',
+        message: description.trim(),
+        respondedAt: new Date().toISOString()
+      }
+    ]
+  };
+  tickets.unshift(newTicket);
+  saveTickets(tickets);
+  return { success: true, message: 'Support ticket created successfully.', ticket: newTicket };
+};
+
+export const mockGetMyTickets = async ({ status, projectId } = {}) => {
+  await delay();
+  let tickets = getStoredTickets();
+  if (status) tickets = tickets.filter(t => t.status === status.toUpperCase());
+  if (projectId) tickets = tickets.filter(t => t.projectId === projectId);
+  return { success: true, count: tickets.length, tickets };
+};
+
+export const mockGetTicketDetail = async (ticketId) => {
+  await delay();
+  const tickets = getStoredTickets();
+  const ticket = tickets.find(t => t._id === ticketId || t.id === ticketId);
+  if (!ticket) return { success: false, message: 'Ticket not found.' };
+  return { success: true, ticket, responses: ticket.responses || [], responseCount: (ticket.responses || []).length };
+};
+
+export const mockRespondToTicketClient = async (ticketId, message) => {
+  await delay();
+  const tickets = getStoredTickets();
+  const ticket = tickets.find(t => t._id === ticketId || t.id === ticketId);
+  if (!ticket) return { success: false, message: 'Ticket not found.' };
+
+  const newResp = {
+    _id: 'tr-' + Date.now(),
+    authorType: 'CLIENT_CONTACT',
+    authorId: { name: 'Client Contact' },
+    formattedAuthorName: 'Client Contact (OWNER)',
+    message: message.trim(),
+    respondedAt: new Date().toISOString()
+  };
+
+  if (!ticket.responses) ticket.responses = [];
+  ticket.responses.push(newResp);
+  saveTickets(tickets);
+  return { success: true, message: 'Response added successfully.', response: newResp };
+};
+
+export const mockReopenTicket = async (ticketId, reason = '') => {
+  await delay();
+  const tickets = getStoredTickets();
+  const ticket = tickets.find(t => t._id === ticketId || t.id === ticketId);
+  if (!ticket) return { success: false, message: 'Ticket not found.' };
+
+  ticket.status = 'OPEN';
+  ticket.reopenedCount = (ticket.reopenedCount || 0) + 1;
+  if (!ticket.responses) ticket.responses = [];
+  ticket.responses.push({
+    _id: 'tr-' + Date.now(),
+    authorType: 'CLIENT_CONTACT',
+    authorId: { name: 'Client Contact' },
+    formattedAuthorName: 'Client Contact (OWNER)',
+    message: reason ? `Reopened ticket. Reason: ${reason}` : 'Reopened ticket within 14-day grace period.',
+    respondedAt: new Date().toISOString()
+  });
+
+  saveTickets(tickets);
+  return { success: true, message: 'Ticket reopened successfully.', ticket };
+};
+
+export const mockCancelTicket = async (ticketId) => {
+  await delay();
+  const tickets = getStoredTickets();
+  const ticket = tickets.find(t => t._id === ticketId || t.id === ticketId);
+  if (!ticket) return { success: false, message: 'Ticket not found.' };
+  ticket.status = 'CANCELLED';
+  saveTickets(tickets);
+  return { success: true, message: 'Ticket cancelled successfully.', ticket };
+};
+
+export const mockGetAllTicketsInternal = async ({ status, priority, projectId } = {}) => {
+  await delay();
+  let tickets = getStoredTickets();
+  if (status) tickets = tickets.filter(t => t.status === status.toUpperCase());
+  if (priority) tickets = tickets.filter(t => t.priority === priority);
+  if (projectId) tickets = tickets.filter(t => t.projectId === projectId);
+  return { success: true, count: tickets.length, tickets };
+};
+
+export const mockRespondToTicketStaff = async (ticketId, message) => {
+  await delay();
+  const tickets = getStoredTickets();
+  const ticket = tickets.find(t => t._id === ticketId || t.id === ticketId);
+  if (!ticket) return { success: false, message: 'Ticket not found.' };
+
+  const newResp = {
+    _id: 'tr-' + Date.now(),
+    authorType: 'EMPLOYEE',
+    authorId: { name: 'Sarah Connor' },
+    formattedAuthorName: 'Sarah Connor (Senior PM)',
+    message: message.trim(),
+    respondedAt: new Date().toISOString()
+  };
+
+  if (ticket.status === 'OPEN') ticket.status = 'IN_PROGRESS';
+  if (!ticket.responses) ticket.responses = [];
+  ticket.responses.push(newResp);
+  saveTickets(tickets);
+  return { success: true, message: 'Staff response added successfully.', response: newResp, ticketStatus: ticket.status };
+};
+
+export const mockUpdateTicketStatus = async (ticketId, newStatus) => {
+  await delay();
+  const tickets = getStoredTickets();
+  const ticket = tickets.find(t => t._id === ticketId || t.id === ticketId);
+  if (!ticket) return { success: false, message: 'Ticket not found.' };
+  ticket.status = newStatus.toUpperCase();
+  saveTickets(tickets);
+  return { success: true, message: `Ticket status updated to ${newStatus}`, ticket };
+};
+
+export const mockReassignTicket = async (ticketId, targetUserId) => {
+  await delay();
+  const tickets = getStoredTickets();
+  const ticket = tickets.find(t => t._id === ticketId || t.id === ticketId);
+  if (!ticket) return { success: false, message: 'Ticket not found.' };
+  ticket.assignedTo = { _id: targetUserId, name: 'Assigned Staff', designation: 'Staff Specialist' };
+  ticket.formattedAssignedTo = 'Assigned Staff (Staff Specialist)';
+  saveTickets(tickets);
+  return { success: true, message: 'Ticket reassigned successfully.', ticket };
+};
+
+/* ==========================================================================
+   CRM MODULE 9 - CLIENT FEEDBACK & SATISFACTION MOCK HANDLERS
+   ========================================================================== */
+
+const MOCK_CATEGORIES = [
+  { _id: 'cat-1', name: 'Design & Architectural Aesthetics', isActive: true },
+  { _id: 'cat-2', name: 'Site Execution & Timeliness', isActive: true },
+  { _id: 'cat-3', name: 'Team Communication & Responsiveness', isActive: true },
+  { _id: 'cat-4', name: 'Transparency & Value for Money', isActive: true }
+];
+
+const INITIAL_MOCK_PROMPTS = [
+  {
+    _id: 'prm-1',
+    contactId: 'c-1',
+    triggerType: 'PROJECT_COMPLETION',
+    triggerRefId: 'proj-1',
+    status: 'PENDING',
+    project: { name: 'Oceanic Luxury Villas', projectNumber: 'NIR-2026-001' }
+  }
+];
+
+const INITIAL_MOCK_FEEDBACKS = [
+  {
+    _id: 'fb-101',
+    clientId: 'client-1',
+    contactId: 'c-1',
+    formattedAuthorName: 'Anand Shah (OWNER)',
+    projectId: { name: 'Oceanic Luxury Villas', projectNumber: 'NIR-2026-001' },
+    overallRating: 5,
+    categoryRatings: [
+      { categoryId: { name: 'Design & Architectural Aesthetics' }, rating: 5 },
+      { categoryId: { name: 'Site Execution & Timeliness' }, rating: 4 },
+      { categoryId: { name: 'Team Communication & Responsiveness' }, rating: 5 }
+    ],
+    comments: 'Exceptional craftsmanship and sleek modern aesthetics. Highly recommended!',
+    submittedAt: '2026-08-01T12:00:00.000Z'
+  }
+];
+
+export const mockGetActiveFeedbackCategories = async () => {
+  await delay();
+  return { success: true, count: MOCK_CATEGORIES.length, categories: MOCK_CATEGORIES };
+};
+
+export const mockCreateFeedbackCategory = async (name) => {
+  await delay();
+  const newCat = { _id: 'cat-' + Date.now(), name: name.trim(), isActive: true };
+  MOCK_CATEGORIES.push(newCat);
+  return { success: true, message: 'Feedback category created successfully.', category: newCat };
+};
+
+export const mockDeactivateFeedbackCategory = async (categoryId, isActive) => {
+  await delay();
+  const cat = MOCK_CATEGORIES.find(c => c._id === categoryId);
+  if (cat) cat.isActive = typeof isActive === 'boolean' ? isActive : !cat.isActive;
+  return { success: true, message: 'Feedback category status updated.', category: cat };
+};
+
+export const mockGetPendingFeedbackPrompts = async () => {
+  await delay();
+  return { success: true, count: INITIAL_MOCK_PROMPTS.length, prompts: INITIAL_MOCK_PROMPTS };
+};
+
+export const mockSubmitClientFeedback = async (promptId, { overallRating, comments, categoryRatings }) => {
+  await delay();
+  const pIndex = INITIAL_MOCK_PROMPTS.findIndex(p => p._id === promptId);
+  if (pIndex !== -1) INITIAL_MOCK_PROMPTS[pIndex].status = 'SUBMITTED';
+
+  const newFb = {
+    _id: 'fb-' + Date.now(),
+    clientId: 'client-1',
+    contactId: 'c-1',
+    formattedAuthorName: 'Anand Shah (OWNER)',
+    projectId: { name: 'Oceanic Luxury Villas', projectNumber: 'NIR-2026-001' },
+    overallRating: Number(overallRating) || 5,
+    categoryRatings: categoryRatings || [],
+    comments: comments || 'Great architectural service.',
+    submittedAt: new Date().toISOString()
+  };
+
+  INITIAL_MOCK_FEEDBACKS.unshift(newFb);
+  return { success: true, message: 'Feedback submitted successfully. Thank you for your review!', feedback: newFb };
+};
+
+export const mockSkipFeedbackPrompt = async (promptId) => {
+  await delay();
+  const pIndex = INITIAL_MOCK_PROMPTS.findIndex(p => p._id === promptId);
+  if (pIndex !== -1) INITIAL_MOCK_PROMPTS[pIndex].status = 'SKIPPED';
+  return { success: true, message: 'Feedback prompt skipped.' };
+};
+
+export const mockGetMyFeedbackHistory = async () => {
+  await delay();
+  return { success: true, count: INITIAL_MOCK_FEEDBACKS.length, feedbacks: INITIAL_MOCK_FEEDBACKS };
+};
+
+export const mockGetProjectClientFeedback = async (projectId) => {
+  await delay();
+  return { success: true, count: INITIAL_MOCK_FEEDBACKS.length, feedbacks: INITIAL_MOCK_FEEDBACKS };
+};
+
+export const mockGetAllFeedbackInternal = async () => {
+  await delay();
+  return { success: true, count: INITIAL_MOCK_FEEDBACKS.length, feedbacks: INITIAL_MOCK_FEEDBACKS };
+};
+
+export const mockGetFeedbackAggregateSummary = async () => {
+  await delay();
+  return {
+    success: true,
+    totalSubmissions: INITIAL_MOCK_FEEDBACKS.length,
+    averageOverallRating: 4.8,
+    ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 1, 5: 4 },
+    categoryAverages: [
+      { categoryId: 'cat-1', categoryName: 'Design & Architectural Aesthetics', averageRating: 4.9, submissionCount: 5 },
+      { categoryId: 'cat-2', categoryName: 'Site Execution & Timeliness', averageRating: 4.6, submissionCount: 5 },
+      { categoryId: 'cat-3', categoryName: 'Team Communication & Responsiveness', averageRating: 4.8, submissionCount: 5 }
+    ]
+  };
+};
+
 

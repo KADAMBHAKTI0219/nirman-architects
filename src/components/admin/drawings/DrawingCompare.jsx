@@ -1,114 +1,162 @@
 import React, { useState } from 'react';
-import { ArrowLeft, GitCompare, RefreshCw } from 'lucide-react';
+import { ArrowLeft, GitCompare, FileText, CheckCircle, Clock } from 'lucide-react';
 import Card from '../../common/Card';
+import { getCachedDrawingFile } from '../../../service/drawing';
 
 export default function DrawingCompare({
   drawing,
   onBack
 }) {
-  const [versionA, setVersionA] = useState(drawing.versions[0]?.version || 'V1.0');
-  const [versionB, setVersionB] = useState(drawing.versions[drawing.versions.length - 1]?.version || 'V2.1');
+  const versions = drawing?.versions || [
+    { version: 'V1.0', date: '2026-07-10', uploader: 'Sarah Connor', changeLog: 'Initial layout draft PDF', fileUrl: drawing?.fileUrl },
+    { version: 'V2.1', date: '2026-07-20', uploader: 'Sarah Connor', changeLog: 'Revised column & elevator shaft PDF', fileUrl: drawing?.fileUrl }
+  ];
 
-  const detailsA = drawing.versions.find(v => v.version === versionA) || drawing.versions[0];
-  const detailsB = drawing.versions.find(v => v.version === versionB) || drawing.versions[drawing.versions.length - 1];
+  const [versionA, setVersionA] = useState(versions[0]?.version || versions[0]?.versionNumber || 'V1.0');
+  const [versionB, setVersionB] = useState(versions[versions.length - 1]?.version || versions[versions.length - 1]?.versionNumber || 'V2.1');
+
+  const detailsA = versions.find(v => (v.version || `V${v.versionNumber}`) === versionA) || versions[0] || {};
+  const detailsB = versions.find(v => (v.version || `V${v.versionNumber}`) === versionB) || versions[versions.length - 1] || {};
+
+  const renderFilePreview = (url, title) => {
+    const cached = getCachedDrawingFile(drawing?._id || drawing?.id || drawing?.drawingNumber);
+    const targetUrl = cached || url || drawing?.fileUrl;
+
+    if (!targetUrl) {
+      return (
+        <div className="h-56 flex flex-col items-center justify-center p-4 bg-slate-950/60 rounded-2xl border border-slate-800 text-slate-400 text-xs">
+          <FileText className="w-8 h-8 mb-2 text-indigo-400" />
+          <span>No File Attached for {title}</span>
+        </div>
+      );
+    }
+
+    const isPdf = typeof targetUrl === 'string' && (targetUrl.startsWith('data:application/pdf') || targetUrl.endsWith('.pdf') || targetUrl.includes('.pdf') || targetUrl.includes('cloudinary'));
+    if (isPdf) {
+      return (
+        <iframe
+          src={targetUrl.includes('#') ? targetUrl : `${targetUrl}#toolbar=1&navpanes=1`}
+          title={title}
+          className="w-full h-56 rounded-2xl border border-slate-800 bg-white"
+        />
+      );
+    }
+
+    return (
+      <div className="h-56 flex items-center justify-center p-2 bg-slate-950/60 rounded-2xl border border-slate-800">
+        <img
+          src={targetUrl}
+          alt={title}
+          className="w-full h-full object-contain rounded-xl select-none"
+        />
+      </div>
+    );
+  };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-6 font-sans text-slate-800 animate-in fade-in duration-200">
       
       {/* Header */}
       <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
         <button 
           onClick={onBack}
-          className="p-1.5 hover:bg-slate-150 bg-white border border-slate-205 text-slate-600 rounded-xl transition-all shadow-3xs"
+          className="p-2 hover:bg-slate-100 bg-white border border-slate-200 text-slate-700 rounded-xl transition-all shadow-3xs cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div>
-          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{drawing.id} Compare Revisions</span>
-          <h2 className="text-base font-black text-slate-905 tracking-tight leading-none mt-0.5">{drawing.name}</h2>
+          <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest block">Side-by-Side Revision Comparison</span>
+          <h2 className="text-base font-extrabold text-slate-900 tracking-tight leading-none mt-0.5">{drawing?.name || drawing?.title}</h2>
         </div>
       </div>
 
       {/* Version Dropdown Selectors */}
-      <div className="bg-white p-4 rounded-3xl border border-slate-100/90 shadow-xs flex items-center justify-between gap-4 flex-wrap">
+      <div className="bg-white p-4 rounded-3xl border border-slate-200/90 shadow-2xs flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <GitCompare className="w-5 h-5 text-[#2484C6]" />
-          <span className="text-xs font-bold text-slate-600">Select Revisions to compare:</span>
+          <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100">
+            <GitCompare className="w-5 h-5" />
+          </div>
+          <div>
+            <strong className="text-xs font-bold text-slate-800 block">Compare First vs Current Revision Files</strong>
+            <span className="text-[10px] text-slate-500">Select two drawing PDF/Image versions to inspect visual changes</span>
+          </div>
         </div>
+
         <div className="flex items-center gap-4 flex-wrap">
           <div>
-            <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Version A</label>
+            <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Version A (First/Previous)</label>
             <select
               value={versionA}
               onChange={(e) => setVersionA(e.target.value)}
-              className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-700 bg-white font-semibold"
+              className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 bg-white font-bold cursor-pointer"
             >
-              {drawing.versions.map(v => (
-                <option key={v.version} value={v.version}>{v.version} ({v.date})</option>
-              ))}
+              {versions.map((v, idx) => {
+                const label = v.version || `V${v.versionNumber || (idx + 1)}.0`;
+                return <option key={label} value={label}>{label} ({v.date || 'Initial'})</option>;
+              })}
             </select>
           </div>
-          <span className="text-slate-400 font-extrabold text-xs pt-4">&larr; vs &rarr;</span>
+
+          <span className="text-indigo-600 font-extrabold text-xs pt-4">&larr; VS &rarr;</span>
+
           <div>
-            <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Version B</label>
+            <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Version B (Latest Revised)</label>
             <select
               value={versionB}
               onChange={(e) => setVersionB(e.target.value)}
-              className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-700 bg-white font-semibold"
+              className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 bg-white font-bold cursor-pointer"
             >
-              {drawing.versions.map(v => (
-                <option key={v.version} value={v.version}>{v.version} ({v.date})</option>
-              ))}
+              {versions.map((v, idx) => {
+                const label = v.version || `V${v.versionNumber || (idx + 1)}.0`;
+                return <option key={label} value={label}>{label} ({v.date || 'Recent'})</option>;
+              })}
             </select>
           </div>
         </div>
       </div>
 
-      {/* Side-by-side Comparative Blueprint Visuals */}
+      {/* Side-by-Side Comparative PDF & Image Blueprint Visuals */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
-        {/* Version A Card */}
-        <div className="bg-[#0B1E33] border border-slate-800 rounded-3xl p-5 shadow-sm space-y-4">
-          <div className="flex justify-between items-center border-b border-slate-800/80 pb-2">
-            <span className="text-xs font-black text-sky-400">Revision {versionA}</span>
-            <span className="text-[9px] text-slate-400 font-semibold">Uploaded by {detailsA?.uploader}</span>
+        {/* Version A Card (First Revision PDF/Image) */}
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-sm space-y-4 text-white">
+          <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black text-sky-400 uppercase">Revision {versionA}</span>
+              <span className="px-2 py-0.5 bg-sky-500/20 text-sky-300 text-[9px] font-bold rounded-md">First Draft</span>
+            </div>
+            <span className="text-[10px] text-slate-400 font-mono">By: {detailsA?.uploader || 'Sarah Connor'}</span>
           </div>
-          <div className="h-56 flex items-center justify-center relative p-4 bg-slate-950/20 rounded-2xl border border-slate-900">
-            <svg viewBox="0 0 400 300" className="w-full h-full stroke-sky-400 fill-none stroke-[1.5] opacity-80">
-              <rect width="100%" height="100%" fill="none" />
-              {/* Outer boundary */}
-              <rect x="50" y="50" width="300" height="200" strokeWidth="2.5" stroke="#2484C6" />
-              <line x1="150" y1="50" x2="150" y2="250" />
-              <text x="70" y="90" fill="#38BDF8" fontSize="12" stroke="none" fontWeight="bold">LOBBY DRAFT</text>
-            </svg>
-          </div>
-          <div className="text-xs font-semibold text-slate-400 space-y-1">
-            <span>Change log:</span>
-            <p className="text-slate-300 bg-slate-900/60 p-3 rounded-xl border border-slate-800/60">{detailsA?.changeLog}</p>
+
+          {/* Actual PDF / Image Embed for Version A */}
+          {renderFilePreview(detailsA?.fileUrl || drawing?.fileUrl, `Revision ${versionA}`)}
+
+          <div className="text-xs font-medium text-slate-300 space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase block">Version Notes & Change Log:</span>
+            <p className="text-slate-200 bg-slate-950/70 p-3 rounded-2xl border border-slate-800/80 text-[11px] leading-relaxed italic">
+              "{detailsA?.changeLog || detailsA?.notes || 'Initial architectural layout release'}"
+            </p>
           </div>
         </div>
 
-        {/* Version B Card */}
-        <div className="bg-[#0D253F] border border-slate-800 rounded-3xl p-5 shadow-sm space-y-4">
-          <div className="flex justify-between items-center border-b border-slate-800/80 pb-2">
-            <span className="text-xs font-black text-[#2484C6]">Revision {versionB}</span>
-            <span className="text-[9px] text-slate-400 font-semibold">Uploaded by {detailsB?.uploader}</span>
+        {/* Version B Card (Current Revised PDF/Image) */}
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-sm space-y-4 text-white">
+          <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black text-indigo-400 uppercase">Revision {versionB}</span>
+              <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 text-[9px] font-bold rounded-md">Latest Revision</span>
+            </div>
+            <span className="text-[10px] text-slate-400 font-mono">By: {detailsB?.uploader || 'Sarah Connor'}</span>
           </div>
-          <div className="h-56 flex items-center justify-center relative p-4 bg-slate-950/20 rounded-2xl border border-slate-900">
-            <svg viewBox="0 0 400 300" className="w-full h-full stroke-sky-300 fill-none stroke-[1.5]">
-              <rect width="100%" height="100%" fill="none" />
-              {/* Outer boundary */}
-              <rect x="50" y="50" width="300" height="200" strokeWidth="2.5" stroke="#38BDF8" />
-              <line x1="150" y1="50" x2="150" y2="250" />
-              {/* New revisions overlay */}
-              <line x1="150" y1="150" x2="350" y2="150" stroke="#F43F5E" strokeDasharray="3 3" />
-              <text x="70" y="90" fill="#E2E8F0" fontSize="12" stroke="none" fontWeight="bold">LOBBY V2</text>
-              <text x="210" y="100" fill="#F43F5E" fontSize="9" stroke="none" fontWeight="bold">+ ADDED PARTITION</text>
-            </svg>
-          </div>
-          <div className="text-xs font-semibold text-slate-400 space-y-1">
-            <span>Change log:</span>
-            <p className="text-slate-300 bg-slate-900/60 p-3 rounded-xl border border-slate-800/60">{detailsB?.changeLog}</p>
+
+          {/* Actual PDF / Image Embed for Version B */}
+          {renderFilePreview(detailsB?.fileUrl || drawing?.fileUrl, `Revision ${versionB}`)}
+
+          <div className="text-xs font-medium text-slate-300 space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase block">Version Notes & Change Log:</span>
+            <p className="text-slate-200 bg-slate-950/70 p-3 rounded-2xl border border-slate-800/80 text-[11px] leading-relaxed italic">
+              "{detailsB?.changeLog || detailsB?.notes || 'Updated columns & beam clearances revision'}"
+            </p>
           </div>
         </div>
 

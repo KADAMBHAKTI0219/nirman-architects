@@ -9,12 +9,19 @@ const api = axios.create({
   },
 });
 
-// Automatically inject JWT Token if it exists in localStorage
+export const isMockSession = () => {
+  const token = localStorage.getItem('token') || localStorage.getItem('clientToken') || '';
+  return !token || token.startsWith('mock-') || token.startsWith('mock_');
+};
+
+// Automatically inject JWT Token if it exists in localStorage (only real tokens, not mock tokens)
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      // Use Bearer token pattern
+    const token = localStorage.getItem('token') || localStorage.getItem('clientToken');
+    const requestUrl = config.url || '';
+    const isLoginEndpoint = requestUrl.includes('/auth/login') || requestUrl.includes('/client-auth/login');
+    if (token && !token.startsWith('mock-') && !token.startsWith('mock_') && !isLoginEndpoint) {
+      // Use Bearer token pattern for real backend JWT tokens
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -24,15 +31,21 @@ api.interceptors.request.use(
   }
 );
 
-// Automatically clear session and redirect to login on 401 Unauthorized responses
+// Automatically clear session and redirect to login on 401 Unauthorized responses (excluding in-app background data calls & login endpoints)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
+    const token = localStorage.getItem('token') || '';
+    const isMockToken = token.startsWith('mock-');
+    const requestUrl = error.config?.url || '';
+    const isLoginEndpoint = requestUrl.includes('/auth/login') || requestUrl.includes('/client-auth/login');
+    const isDataEndpoint = requestUrl.includes('/drawings') || requestUrl.includes('/documents') || requestUrl.includes('/client/');
+    
+    if (error.response && error.response.status === 401 && !isLoginEndpoint && !isMockToken && !isDataEndpoint) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
+      if (typeof window !== 'undefined' && window.location.pathname !== '/' && !window.location.pathname.includes('/login')) {
+        window.location.href = '/';
       }
     }
     return Promise.reject(error);

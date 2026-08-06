@@ -145,7 +145,7 @@ export default function LeavesHolidays({ defaultTab = 'company' }) {
   };
 
   const handleReject = async (id) => {
-    const reason = prompt("Enter rejection reason for this leave request:", "Scheduling conflict");
+    const reason = await window.prompt("Enter rejection reason for this leave request:", "Scheduling conflict", "Leave Rejection Reason");
     if (reason === null) return;
     try {
       const res = await rejectLeaveRequest(id, reason);

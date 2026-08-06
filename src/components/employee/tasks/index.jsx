@@ -138,8 +138,9 @@ export default function EmployeeTasks() {
     setCommentInput('');
   };
 
-  const handleLogHours = () => {
-    const hrs = parseFloat(prompt("Enter working hours to log on timesheet:"));
+  const handleLogHours = async () => {
+    const hrsInput = await window.prompt("Enter working hours to log on timesheet:", "2", "Log Working Hours");
+    const hrs = parseFloat(hrsInput);
     if (!isNaN(hrs) && hrs > 0) {
       setTasks(prev => prev.map(t => 
         t.id === selectedTask.id ? { ...t, actualTime: t.actualTime + hrs } : t

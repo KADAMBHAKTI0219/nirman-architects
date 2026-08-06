@@ -5,56 +5,7 @@ import CRMClientList from './CRMClientList';
 import CRMClientProfile from './CRMClientProfile';
 import CRMQueries from './CRMQueries';
 import CRMApprovals from './CRMApprovals';
-
-// Mock DB Initial Data
-const INITIAL_CLIENTS = [
-  {
-    id: "CLI-101",
-    name: "Mr. Bruce Wayne",
-    company: "Wayne Enterprises",
-    phone: "+1-415-555-0199",
-    email: "bruce@waynecorp.com",
-    address: "Wayne Manor, Gotham City",
-    status: "Active",
-    queriesCount: 1,
-    pendingApprovals: 1,
-    internalNotes: "VIP client. Critical underground parking concrete load calculations.",
-    projects: [
-      { projectName: "Oceanic Luxury Villas", progress: 75, startDate: "2025-10-10", timeline: "12 months" }
-    ],
-    sharedFiles: [
-      { name: "Underground_Parking_Concept.pdf", type: "PDF", date: "2026-07-15" },
-      { name: "Foundation_compaction_report.xlsx", type: "XLSX", date: "2026-07-20" }
-    ],
-    queries: [
-      { title: "Layout of underground parking 3D render", description: "Requesting detailed 3D elevations of the cave structural layout under the garage.", assignedStaff: "John Wick", status: "Open" }
-    ],
-    chats: [
-      { sender: "Bruce Wayne", message: "Any updates on the cave concrete loading calculations?", time: "10:15 AM" },
-      { sender: "Alice Smith (You)", message: "Starting deadweight calculations check now.", time: "11:20 AM" }
-    ]
-  },
-  {
-    id: "CLI-102",
-    name: "Lex Luthor",
-    company: "Metropolis Corp",
-    phone: "+1-212-555-0100",
-    email: "lex@metropolis.com",
-    address: "Luthor Tower, Metropolis",
-    status: "Active",
-    queriesCount: 0,
-    pendingApprovals: 0,
-    internalNotes: "High profile corporate client. Prefers weekly phone summaries.",
-    projects: [
-      { projectName: "Central Office Tower", progress: 60, startDate: "2026-01-15", timeline: "24 months" }
-    ],
-    sharedFiles: [
-      { name: "Electrical_Schematics_GFC.dwg", type: "DWG", date: "2026-07-20" }
-    ],
-    queries: [],
-    chats: []
-  }
-];
+import { getClients } from '../../../service/client';
 
 const INITIAL_QUERIES = [
   {
@@ -103,18 +54,44 @@ export default function CRM({ defaultTab = 'overview' }) {
     setActiveTab(defaultTab);
   }, [defaultTab]);
 
-  const [clients, setClients] = useState(INITIAL_CLIENTS);
+  const [clients, setClients] = useState([]);
+  const [clientsLoading, setClientsLoading] = useState(false);
+  const [selectedClient, setSelectedClient] = useState(null);
+
   const [queriesList, setQueriesList] = useState(INITIAL_QUERIES);
   const [approvalsList, setApprovalsList] = useState(INITIAL_APPROVALS);
 
-  // Selector state
-  const [selectedClient, setSelectedClient] = useState(INITIAL_CLIENTS[0]);
+  useEffect(() => {
+    fetchClientsList();
+  }, []);
+
+  const fetchClientsList = async () => {
+    setClientsLoading(true);
+    try {
+      const res = await getClients();
+      if (res?.success) {
+        const clientList = res.clients || [];
+        setClients(clientList);
+        if (clientList.length > 0) {
+          setSelectedClient(prev => {
+            if (!prev) return clientList[0];
+            const updated = clientList.find(c => (c._id || c.id) === (prev._id || prev.id));
+            return updated || clientList[0];
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load clients list:", err);
+    } finally {
+      setClientsLoading(false);
+    }
+  };
 
   const handleUpdateClientNotes = (clientId, newNotes) => {
     setClients(prev => prev.map(c => 
-      c.id === clientId ? { ...c, internalNotes: newNotes } : c
+      (c._id || c.id) === clientId ? { ...c, internalNotes: newNotes } : c
     ));
-    if (selectedClient && selectedClient.id === clientId) {
+    if (selectedClient && (selectedClient._id || selectedClient.id) === clientId) {
       setSelectedClient(prev => ({ ...prev, internalNotes: newNotes }));
     }
   };
@@ -123,17 +100,6 @@ export default function CRM({ defaultTab = 'overview' }) {
     setQueriesList(prev => prev.map(q => 
       q.id === queryId ? { ...q, status: 'Resolved' } : q
     ));
-    // update client side query count representation
-    setClients(prev => prev.map(c => {
-      if (c.queries.some(q => q.title === INITIAL_QUERIES.find(iq => iq.id === queryId)?.title)) {
-        return {
-          ...c,
-          queriesCount: Math.max(0, c.queriesCount - 1),
-          queries: c.queries.map(q => q.title === INITIAL_QUERIES.find(iq => iq.id === queryId)?.title ? { ...q, status: 'Resolved' } : q)
-        };
-      }
-      return c;
-    }));
     alert("Query marked resolved!");
   };
 
@@ -162,41 +128,13 @@ export default function CRM({ defaultTab = 'overview' }) {
     alert("Client approval release rejected.");
   };
 
-  const handleAddClientSubmit = () => {
-    const name = prompt("Enter Client Name:");
-    const company = prompt("Enter Company Name:");
-    const phone = prompt("Enter Contact Phone:");
-    
-    if (name && company && phone) {
-      const newId = `CLI-${100 + clients.length + 1}`;
-      const newClient = {
-        id: newId,
-        name,
-        company,
-        phone,
-        email: `${name.toLowerCase().replace(' ', '')}@company.com`,
-        address: "HQ Corporate Office, New Delhi",
-        status: "Active",
-        queriesCount: 0,
-        pendingApprovals: 0,
-        internalNotes: "Newly registered client.",
-        projects: [],
-        sharedFiles: [],
-        queries: [],
-        chats: []
-      };
-      setClients(prev => [...prev, newClient]);
-      alert(`Client ${newId} registered successfully!`);
-    }
+  const handleAddApproval = (newApprovalDoc) => {
+    setApprovalsList(prev => [newApprovalDoc, ...prev]);
   };
 
-
-
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-6 animate-in fade-in duration-200 font-sans">
       
-
-
       {/* Render selected CRM module section */}
       <div>
         {activeTab === 'overview' && (
@@ -212,27 +150,15 @@ export default function CRM({ defaultTab = 'overview' }) {
         )}
 
         {activeTab === 'clients' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              <CRMClientList 
-                clients={clients}
-                selectedClient={selectedClient}
-                onSelectClient={setSelectedClient}
-                onAddClientClick={handleAddClientSubmit}
-              />
-            </div>
-            <div>
-              {selectedClient ? (
-                <CRMClientProfile 
-                  client={selectedClient}
-                  onUpdateClientNotes={handleUpdateClientNotes}
-                />
-              ) : (
-                <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-2xs text-center text-slate-400">
-                  Select a client from the directory table to inspect their linked projects, files, and chats.
-                </div>
-              )}
-            </div>
+          <div className="w-full">
+            <CRMClientList 
+              clients={clients}
+              loading={clientsLoading}
+              selectedClient={selectedClient}
+              onSelectClient={setSelectedClient}
+              onRefreshClients={fetchClientsList}
+              onUpdateClientNotes={handleUpdateClientNotes}
+            />
           </div>
         )}
 
@@ -249,6 +175,7 @@ export default function CRM({ defaultTab = 'overview' }) {
             approvalsList={approvalsList}
             onApproveRelease={handleApproveRelease}
             onRejectRelease={handleRejectRelease}
+            onAddApproval={handleAddApproval}
           />
         )}
       </div>

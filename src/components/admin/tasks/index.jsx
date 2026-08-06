@@ -193,6 +193,20 @@ export default function Tasks({ filter = 'all' }) {
     }
   };
 
+  const handleStatusChange = (taskId, newStatus) => {
+    setTasks(prev => prev.map(t => {
+      if (t.id === taskId) {
+        const isCompleted = newStatus === 'Completed';
+        return {
+          ...t,
+          status: newStatus,
+          progress: isCompleted ? 100 : (newStatus === 'In Progress' ? 50 : t.progress)
+        };
+      }
+      return t;
+    }));
+  };
+
   return (
     <div className="space-y-6">
       
@@ -226,6 +240,7 @@ export default function Tasks({ filter = 'all' }) {
           priorityFilter={priorityFilter}
           setPriorityFilter={setPriorityFilter}
           onSelectTask={handleSelectTask}
+          onStatusChange={handleStatusChange}
           onCreateTaskClick={() => setIsCreateModalOpen(true)}
         />
       )}

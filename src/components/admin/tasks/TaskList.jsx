@@ -1,16 +1,17 @@
 import React from 'react';
 import { 
   Search, Filter, CheckSquare, Clock, AlertTriangle, CheckCircle, 
-  Plus, Eye, ListFilter, Kanban, TableProperties, BarChart3, Calendar
+  Plus, Eye, ListFilter, Kanban, TableProperties, BarChart3, Calendar,
+  User, Building, RefreshCw, ChevronRight, AlertCircle, ArrowUpRight, Sparkles
 } from 'lucide-react';
 
 const STATUS_COLUMNS = [
-  { id: 'Pending', label: 'Pending', dotColor: 'bg-slate-400' },
-  { id: 'Accepted', label: 'Accepted', dotColor: 'bg-blue-400' },
-  { id: 'In Progress', label: 'In Progress', dotColor: 'bg-indigo-500 animate-pulse' },
-  { id: 'Review', label: 'Review', dotColor: 'bg-amber-500' },
-  { id: 'Approved', label: 'Approved', dotColor: 'bg-sky-400' },
-  { id: 'Completed', label: 'Completed', dotColor: 'bg-emerald-500' }
+  { id: 'Pending', label: 'Pending', dotColor: 'bg-slate-400', badgeStyle: 'bg-slate-100 text-slate-700 border-slate-200' },
+  { id: 'Accepted', label: 'Accepted', dotColor: 'bg-blue-500', badgeStyle: 'bg-blue-50 text-blue-700 border-blue-200' },
+  { id: 'In Progress', label: 'In Progress', dotColor: 'bg-indigo-600 animate-pulse', badgeStyle: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+  { id: 'Review', label: 'Review', dotColor: 'bg-amber-500', badgeStyle: 'bg-amber-50 text-amber-700 border-amber-200' },
+  { id: 'Approved', label: 'Approved', dotColor: 'bg-sky-500', badgeStyle: 'bg-sky-50 text-sky-700 border-sky-200' },
+  { id: 'Completed', label: 'Completed', dotColor: 'bg-emerald-500', badgeStyle: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
 ];
 
 export default function TaskList({
@@ -26,8 +27,10 @@ export default function TaskList({
   priorityFilter,
   setPriorityFilter,
   onSelectTask,
+  onStatusChange,
   onCreateTaskClick
 }) {
+  const [dragOverCol, setDragOverCol] = React.useState(null);
   
   // Calculate KPIs
   const totalTasks = tasks.length;
@@ -39,8 +42,8 @@ export default function TaskList({
 
   // Filter Tasks
   const filteredTasks = tasks.filter(t => {
-    const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          t.id.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = (t.title || '').toLowerCase().includes((searchQuery || '').toLowerCase()) || 
+                          (t.id || '').toLowerCase().includes((searchQuery || '').toLowerCase());
     const matchesProject = projectFilter === 'All' || t.project === projectFilter;
     const matchesDept = deptFilter === 'All' || t.dept === deptFilter;
     const matchesPriority = priorityFilter === 'All' || t.priority === priorityFilter;
@@ -48,113 +51,120 @@ export default function TaskList({
   });
 
   return (
-    <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
+    <div className="space-y-6 font-sans text-slate-800 pb-16 animate-in fade-in duration-200 w-full">
       
-      {/* Header */}
+      {/* 1. TOP HEADER */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
             Task Operations Center
           </h1>
           <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
             Roster assignments, workflow status tracking, time analysis, and sign-offs
           </p>
         </div>
+
         <div className="flex items-center gap-3">
           {/* View switcher */}
-          <div className="bg-white p-1 rounded-xl border border-slate-100 flex items-center gap-1 shadow-3xs">
+          <div className="bg-white p-1 rounded-2xl border border-slate-200 flex items-center gap-1 shadow-3xs">
             <button
               onClick={() => setViewMode('kanban')}
-              className={`p-1.5 rounded-lg transition-all ${
-                viewMode === 'kanban' ? 'bg-brand-tint text-slate-900' : 'text-slate-400 hover:text-slate-650'
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                viewMode === 'kanban' ? 'bg-brand-primary text-slate-900 shadow-3xs' : 'text-slate-500 hover:text-slate-900'
               }`}
-              title="Kanban Board"
+              title="Kanban Board View"
             >
               <Kanban className="w-4 h-4" />
+              <span>Kanban</span>
             </button>
             <button
               onClick={() => setViewMode('table')}
-              className={`p-1.5 rounded-lg transition-all ${
-                viewMode === 'table' ? 'bg-brand-tint text-slate-900' : 'text-slate-400 hover:text-slate-650'
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                viewMode === 'table' ? 'bg-brand-primary text-slate-900 shadow-3xs' : 'text-slate-500 hover:text-slate-900'
               }`}
-              title="Table view"
+              title="Table View"
             >
               <TableProperties className="w-4 h-4" />
+              <span>Table</span>
             </button>
             <button
               onClick={() => setViewMode('reports')}
-              className={`p-1.5 rounded-lg transition-all ${
-                viewMode === 'reports' ? 'bg-brand-tint text-slate-900' : 'text-slate-400 hover:text-slate-650'
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                viewMode === 'reports' ? 'bg-brand-primary text-slate-900 shadow-3xs' : 'text-slate-500 hover:text-slate-900'
               }`}
-              title="Task Analytics"
+              title="Analytics View"
             >
               <BarChart3 className="w-4 h-4" />
+              <span>Analytics</span>
             </button>
           </div>
 
           <button
             onClick={onCreateTaskClick}
-            className="flex items-center gap-1.5 px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-905 font-black rounded-xl text-xs transition-all shadow-sm"
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-extrabold rounded-2xl text-xs transition-all shadow-2xs cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            Create Task
+            <span>Create Task</span>
           </button>
         </div>
       </div>
 
-      {/* KPI stats bar */}
+      {/* 2. KPI STATS RIBBON (Executive Cards) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
         {[
-          { label: 'Total Tasks', value: totalTasks, icon: CheckSquare, color: 'text-slate-700' },
-          { label: 'Pending', value: pendingTasks, icon: Clock, color: 'text-slate-400' },
-          { label: 'In Progress', value: inProgressTasks, icon: Kanban, color: 'text-indigo-650' },
-          { label: 'Review Queue', value: reviewTasks, icon: ListFilter, color: 'text-amber-500' },
-          { label: 'Overdue At-Risk', value: overdueTasks, icon: AlertTriangle, color: 'text-rose-600' },
-          { label: 'Completed', value: completedTasks, icon: CheckCircle, color: 'text-emerald-600' }
+          { label: 'Total Tasks', value: totalTasks, icon: CheckSquare, style: 'border-slate-200 bg-white text-slate-900', iconColor: 'text-slate-700' },
+          { label: 'Pending', value: pendingTasks, icon: Clock, style: 'border-slate-200 bg-slate-50/70 text-slate-800', iconColor: 'text-slate-500' },
+          { label: 'In Progress', value: inProgressTasks, icon: Kanban, style: 'border-indigo-200 bg-indigo-50/60 text-indigo-900', iconColor: 'text-indigo-600' },
+          { label: 'Review Queue', value: reviewTasks, icon: ListFilter, style: 'border-amber-200 bg-amber-50/60 text-amber-900', iconColor: 'text-amber-600' },
+          { label: 'Overdue At-Risk', value: overdueTasks, icon: AlertTriangle, style: 'border-rose-200 bg-rose-50/70 text-rose-900', iconColor: 'text-rose-600' },
+          { label: 'Completed', value: completedTasks, icon: CheckCircle, style: 'border-emerald-200 bg-emerald-50/60 text-emerald-900', iconColor: 'text-emerald-600' }
         ].map((kpi, idx) => {
           const Icon = kpi.icon;
           return (
-            <div key={idx} className="bg-white p-3.5 rounded-2xl border border-slate-100/90 shadow-3xs flex flex-col justify-between h-20">
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">{kpi.label}</span>
+            <div key={idx} className={`p-4 rounded-3xl border shadow-2xs flex flex-col justify-between h-24 ${kpi.style}`}>
+              <span className="text-[10px] font-black uppercase tracking-wider block opacity-70">{kpi.label}</span>
               <div className="flex justify-between items-end">
-                <span className="text-lg font-black text-slate-800 leading-none">{kpi.value}</span>
-                <Icon className={`w-4 h-4 ${kpi.color}`} />
+                <span className="text-2xl font-black tracking-tight">{kpi.value}</span>
+                <div className={`p-2 rounded-xl bg-white/80 border border-slate-200/50 shadow-3xs ${kpi.iconColor}`}>
+                  <Icon className="w-4 h-4" />
+                </div>
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Filtering Row */}
+      {/* 3. FILTERING & SEARCH CONTROL STRIP */}
       {viewMode !== 'reports' && (
-        <div className="bg-white p-4 rounded-3xl border border-slate-100/90 shadow-xs flex flex-wrap gap-4 items-center justify-between">
-          <div className="flex items-center gap-3 flex-1 min-w-[220px]">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input 
-                type="text"
-                placeholder="Search tasks by title or ID..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-xs font-semibold bg-white"
-              />
-            </div>
+        <div className="bg-white p-4 rounded-3xl border border-slate-200/90 shadow-2xs flex flex-col md:flex-row gap-3.5 items-stretch md:items-center justify-between">
+          
+          <div className="relative flex-1 min-w-[220px]">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input 
+              type="text"
+              placeholder="Search tasks by title, assignee, or ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs font-semibold bg-white text-slate-800"
+            />
           </div>
-          <div className="flex items-center gap-3 flex-wrap">
+
+          <div className="flex items-center gap-2.5 flex-wrap">
             <select
               value={projectFilter}
               onChange={(e) => setProjectFilter(e.target.value)}
-              className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-700 bg-white font-semibold"
+              className="px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl bg-white font-semibold text-slate-700 cursor-pointer"
             >
               <option value="All">All Projects</option>
               <option value="Central Office Tower">Central Office Tower</option>
               <option value="Oceanic Luxury Villas">Oceanic Luxury Villas</option>
               <option value="Smart City Mall">Smart City Mall</option>
             </select>
+
             <select
               value={deptFilter}
               onChange={(e) => setDeptFilter(e.target.value)}
-              className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-700 bg-white font-semibold"
+              className="px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl bg-white font-semibold text-slate-700 cursor-pointer"
             >
               <option value="All">All Departments</option>
               <option value="Architecture">Architecture</option>
@@ -162,10 +172,11 @@ export default function TaskList({
               <option value="Procurement">Procurement</option>
               <option value="Quality Control">Quality Control</option>
             </select>
+
             <select
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
-              className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-700 bg-white font-semibold"
+              className="px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl bg-white font-semibold text-slate-700 cursor-pointer"
             >
               <option value="All">All Priorities</option>
               <option value="Critical">Critical</option>
@@ -174,77 +185,129 @@ export default function TaskList({
               <option value="Low">Low</option>
             </select>
           </div>
+
         </div>
       )}
 
-      {/* -------------------- KANBAN VIEW PANEL -------------------- */}
+      {/* 4. KANBAN BOARD VIEW (FLUID RESPONSIVE GRID + REAL-TIME DRAG & DROP) */}
       {viewMode === 'kanban' && (
-        <div className="flex gap-5 overflow-x-auto pb-4 scrollbar-thin">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 w-full items-start">
           {STATUS_COLUMNS.map((col) => {
             const columnTasks = filteredTasks.filter(t => t.status === col.id);
+            const isHoveredOver = dragOverCol === col.id;
+
             return (
-              <div key={col.id} className="w-72 flex-shrink-0 bg-[#F8FAFC]/80 p-3 rounded-2xl flex flex-col h-[500px] border border-slate-100/50">
+              <div 
+                key={col.id} 
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  if (dragOverCol !== col.id) setDragOverCol(col.id);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  if (dragOverCol === col.id) setDragOverCol(null);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOverCol(null);
+                  const taskId = e.dataTransfer.getData('text/plain');
+                  if (taskId && onStatusChange) {
+                    onStatusChange(taskId, col.id);
+                  }
+                }}
+                className={`w-full p-3.5 rounded-3xl flex flex-col min-h-[480px] border transition-all duration-200 ${
+                  isHoveredOver 
+                    ? 'bg-indigo-50/80 border-indigo-400 ring-2 ring-indigo-400/30 scale-[1.01] shadow-md' 
+                    : 'bg-slate-50/90 border-slate-200/80 shadow-3xs'
+                }`}
+              >
                 
-                {/* Column header */}
-                <div className="flex justify-between items-center mb-3.5 px-1">
+                {/* Column Header */}
+                <div className="flex justify-between items-center mb-3.5 pb-2 border-b border-slate-200/70 px-1">
                   <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${col.dotColor}`}></span>
-                    <span className="font-bold text-slate-700 text-xs tracking-tight">
+                    <span className={`w-2.5 h-2.5 rounded-full ${col.dotColor}`}></span>
+                    <span className="font-extrabold text-slate-900 text-xs tracking-tight">
                       {col.label}
                     </span>
                   </div>
-                  <span className="text-[10px] text-slate-500 font-bold bg-slate-100 px-2 py-0.5 rounded-full">
+                  <span className={`text-[10px] font-mono font-black px-2.5 py-0.5 rounded-full border ${col.badgeStyle}`}>
                     {columnTasks.length}
                   </span>
                 </div>
 
-                {/* Column cards container */}
-                <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-                  {columnTasks.map((t) => (
-                    <div
-                      key={t.id}
-                      onClick={() => onSelectTask(t)}
-                      className={`bg-white p-4 rounded-xl border border-slate-150 shadow-2xs hover:shadow-md hover:border-brand-primary/45 hover:-translate-y-0.5 transition-all duration-300 cursor-pointer flex flex-col justify-between gap-3 ${
-                        t.delayFlag ? 'border-rose-100 bg-rose-50/5' : ''
-                      }`}
-                    >
-                      <div>
-                        {/* Tags row */}
-                        <div className="flex justify-between items-start gap-2">
-                          <span className="px-2 py-0.5 bg-[#E5F0FA] text-[#2484C6] rounded-md text-[8px] font-black uppercase tracking-wider truncate max-w-[150px]">
-                            {t.project}
-                          </span>
-                          <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded flex-shrink-0 ${
-                            t.priority === 'Critical' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
-                            t.priority === 'High' ? 'bg-amber-50 text-amber-600 border border-amber-100' : 'bg-slate-50 text-slate-550 border border-slate-100'
-                          }`}>{t.priority}</span>
-                        </div>
-                        
-                        {/* Task Title */}
-                        <h4 className="text-[11px] font-bold text-slate-800 leading-snug mt-2 line-clamp-2">{t.title}</h4>
-                        <span className="text-[9px] font-black text-slate-400 block mt-1">{t.id}</span>
-                      </div>
-
-                      {/* Details row info */}
-                      <div className="pt-2 border-t border-slate-50 flex items-center justify-between text-[9px] text-slate-500 font-bold">
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-5 h-5 rounded-full bg-brand-tint border border-white flex items-center justify-center text-[7px] font-black uppercase">
-                            {t.assignee.split(' ').map(n=>n[0]).join('')}
+                {/* Column Task Cards */}
+                <div className="flex-1 overflow-y-auto space-y-3 pr-0.5 scrollbar-none">
+                  {columnTasks.map((t) => {
+                    const isCritical = t.priority === 'Critical';
+                    const isHigh = t.priority === 'High';
+                    
+                    return (
+                      <div
+                        key={t.id}
+                        draggable={true}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('text/plain', t.id);
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
+                        onClick={() => onSelectTask(t)}
+                        className={`bg-white p-3.5 rounded-2xl border transition-all duration-200 cursor-grab active:cursor-grabbing flex flex-col justify-between gap-3 shadow-3xs hover:shadow-md hover:border-indigo-400 hover:-translate-y-0.5 ${
+                          t.delayFlag ? 'border-rose-300 bg-rose-50/20' : 'border-slate-200/90'
+                        }`}
+                      >
+                        <div className="space-y-2">
+                          {/* Project Tag & Priority Badge */}
+                          <div className="flex justify-between items-center gap-2">
+                            <span className="px-2 py-0.5 bg-brand-soft text-brand-dark rounded-md text-[8px] font-black uppercase tracking-wider truncate max-w-[110px] border border-brand-secondary/30">
+                              {t.project}
+                            </span>
+                            <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+                              isCritical ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                              isHigh ? 'bg-amber-50 text-amber-700 border-amber-200' : 
+                              'bg-slate-100 text-slate-700 border-slate-200'
+                            }`}>
+                              {t.priority}
+                            </span>
                           </div>
-                          <span className="text-[9px] text-slate-650 font-bold">{t.assignee}</span>
+
+                          {/* Task Title */}
+                          <h4 className="text-xs font-extrabold text-slate-900 leading-snug hover:text-indigo-600 transition-colors line-clamp-2">
+                            {t.title}
+                          </h4>
+
+                          {/* Task ID */}
+                          <span className="text-[9px] font-mono font-extrabold text-slate-400 block">
+                            {t.id}
+                          </span>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-slate-400" />
-                          <span>{t.estTime}h</span>
-                          {t.delayFlag && <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>}
+
+                        {/* Assignee & Time Footer */}
+                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] font-semibold text-slate-600">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-4.5 h-4.5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[7px] font-black uppercase shadow-3xs">
+                              {(t.assignee || 'User').split(' ').map(n=>n[0]).join('')}
+                            </div>
+                            <span className="font-bold text-slate-700 truncate max-w-[85px]">{t.assignee}</span>
+                          </div>
+
+                          <div className="flex items-center gap-1 font-mono font-bold text-slate-500">
+                            <Clock className="w-3 h-3 text-slate-400" />
+                            <span>{t.estTime || '8'}h</span>
+                            {t.delayFlag && (
+                              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" title="Overdue Alert"></span>
+                            )}
+                          </div>
                         </div>
+
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
 
                   {columnTasks.length === 0 && (
-                    <div className="py-8 text-center bg-white/40 border border-dashed border-slate-200 rounded-xl">
-                      <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">No tasks in stage</span>
+                    <div className="py-10 text-center bg-white/60 border border-dashed border-slate-200/90 rounded-2xl">
+                      <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">
+                        {isHoveredOver ? 'Drop Here' : 'No tasks in stage'}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -255,61 +318,112 @@ export default function TaskList({
         </div>
       )}
 
-      {/* -------------------- TABLE VIEW PANEL -------------------- */}
+      {/* 5. TABLE VIEW */}
       {viewMode === 'table' && (
-        <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-xs">
+        <div className="bg-white border border-slate-200/90 rounded-3xl overflow-hidden shadow-2xs">
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left">
               <thead>
-                <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider bg-slate-50/50">
-                  <th className="px-4 py-3">ID</th>
-                  <th className="px-4 py-3">Task Details</th>
-                  <th className="px-4 py-3">Project</th>
-                  <th className="px-4 py-3">Assignee</th>
-                  <th className="px-4 py-3">Department</th>
-                  <th className="px-4 py-3">Priority</th>
-                  <th className="px-4 py-3">Workflow Stage</th>
-                  <th className="px-4 py-3">Deadline</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                <tr className="border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-wider bg-slate-50/80">
+                  <th className="px-5 py-3.5">Task ID</th>
+                  <th className="px-5 py-3.5">Task Details</th>
+                  <th className="px-5 py-3.5">Project</th>
+                  <th className="px-5 py-3.5">Assignee</th>
+                  <th className="px-5 py-3.5">Department</th>
+                  <th className="px-5 py-3.5">Priority</th>
+                  <th className="px-5 py-3.5">Workflow Stage</th>
+                  <th className="px-5 py-3.5">Est. Hours</th>
+                  <th className="px-5 py-3.5 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
                 {filteredTasks.map((t) => (
-                  <tr key={t.id} className="hover:bg-slate-50/40">
-                    <td className="px-4 py-3.5 font-black text-slate-500 uppercase">{t.id}</td>
-                    <td className="px-4 py-3.5">
+                  <tr key={t.id} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="px-5 py-4 font-mono font-extrabold text-slate-500">{t.id}</td>
+                    <td className="px-5 py-4">
                       <div>
-                        <span className="font-bold text-slate-800 block">{t.title}</span>
-                        {t.delayFlag && <span className="text-[9px] font-bold text-rose-600 block mt-0.5 uppercase tracking-wider">Overdue Risk Alert</span>}
+                        <span className="font-extrabold text-slate-900 block hover:text-indigo-600 cursor-pointer" onClick={() => onSelectTask(t)}>
+                          {t.title}
+                        </span>
+                        {t.delayFlag && (
+                          <span className="text-[9px] font-bold text-rose-600 block mt-0.5 uppercase tracking-wider">
+                            ⚠️ Overdue Risk Alert
+                          </span>
+                        )}
                       </div>
                     </td>
-                    <td className="px-4 py-3.5 text-slate-550 font-bold">{t.project}</td>
-                    <td className="px-4 py-3.5 font-bold text-slate-700">{t.assignee}</td>
-                    <td className="px-4 py-3.5 text-slate-450 font-semibold">{t.dept}</td>
-                    <td className="px-4 py-3.5">
-                      <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded ${
-                        t.priority === 'Critical' ? 'bg-rose-50 text-rose-600' :
-                        t.priority === 'High' ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-500'
-                      }`}>{t.priority}</span>
+                    <td className="px-5 py-4 font-bold text-slate-800">{t.project}</td>
+                    <td className="px-5 py-4 font-bold text-slate-700">{t.assignee}</td>
+                    <td className="px-5 py-4 text-slate-500">{t.dept || 'Engineering'}</td>
+                    <td className="px-5 py-4">
+                      <span className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
+                        t.priority === 'Critical' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                        t.priority === 'High' ? 'bg-amber-50 text-amber-700 border-amber-200' : 
+                        'bg-slate-100 text-slate-700 border-slate-200'
+                      }`}>
+                        {t.priority}
+                      </span>
                     </td>
-                    <td className="px-4 py-3.5">
-                      <span className="text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 bg-brand-tint text-brand-dark rounded-full">
+                    <td className="px-5 py-4">
+                      <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 bg-brand-primary text-slate-900 rounded-full shadow-3xs">
                         {t.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 font-semibold text-slate-500">{t.deadline}</td>
-                    <td className="px-4 py-3.5 text-right">
+                    <td className="px-5 py-4 font-mono text-slate-600">{t.estTime || '8'} hrs</td>
+                    <td className="px-5 py-4 text-right">
                       <button 
                         onClick={() => onSelectTask(t)}
-                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-705 text-[10px] font-bold rounded-lg transition-all"
+                        className="px-3.5 py-1.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 text-xs font-extrabold rounded-xl transition-all shadow-3xs cursor-pointer flex items-center gap-1 ml-auto"
                       >
-                        Inspect
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Inspect</span>
                       </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* 6. ANALYTICS / REPORTS VIEW */}
+      {viewMode === 'reports' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white p-6 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Departmental Task Breakdown</h3>
+            <div className="space-y-3 pt-2">
+              {[
+                { dept: 'Architecture', pct: 45, count: '8 Tasks' },
+                { dept: 'Engineering', pct: 70, count: '14 Tasks' },
+                { dept: 'Procurement', pct: 30, count: '5 Tasks' },
+                { dept: 'Quality Control', pct: 85, count: '12 Tasks' }
+              ].map((d, i) => (
+                <div key={i} className="space-y-1">
+                  <div className="flex justify-between text-xs font-bold text-slate-700">
+                    <span>{d.dept}</span>
+                    <span className="font-mono text-slate-500">{d.count}</span>
+                  </div>
+                  <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                    <div className="bg-indigo-600 h-full rounded-full" style={{ width: `${d.pct}%` }}></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Priority Risk Index</h3>
+            <div className="grid grid-cols-2 gap-3 text-center pt-2">
+              <div className="p-4 bg-rose-50 rounded-2xl border border-rose-200">
+                <span className="text-2xl font-black text-rose-700">1</span>
+                <span className="text-[10px] font-extrabold text-rose-900 uppercase block mt-1">Critical Overdue</span>
+              </div>
+              <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200">
+                <span className="text-2xl font-black text-amber-700">2</span>
+                <span className="text-[10px] font-extrabold text-amber-900 uppercase block mt-1">High Priority Pending</span>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -28,9 +28,10 @@ async function runSuite() {
     registerDevice,
     getDeviceStatus,
     getNotifications,
+    markAllNotificationsRead,
     saveSiteLocation,
     getSiteLocations
-  } = await import('./src/mockApi.js');
+  } = await import('./src/service/mockApi.js');
 
   console.log("=================================================");
   console.log("  Nirman Architects - Automated Module Testing   ");
@@ -124,6 +125,11 @@ async function runSuite() {
   await assert('Notifications: Fetch Alerts', async () => {
     const res = await getNotifications();
     if (!res.success || !Array.isArray(res.notifications)) throw new Error("Fetch notifications failed");
+  });
+
+  await assert('Notifications: Mark All as Read', async () => {
+    const res = await markAllNotificationsRead();
+    if (!res.success) throw new Error("Mark all read failed");
   });
 
   console.log(`\n=================================================`);

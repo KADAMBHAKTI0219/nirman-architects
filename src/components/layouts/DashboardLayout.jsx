@@ -21,7 +21,7 @@ export default function DashboardLayout({ role, onChangeRole, title, children })
       )}
 
       {/* Dynamic Slide-in Sidebar (Drawer on mobile/tablet, inline on large desktop) */}
-      <div className={`fixed inset-y-0 left-0 z-50 lg:relative lg:translate-x-0 transition-transform duration-300 ease-out transform ${
+      <div className={`fixed inset-y-0 left-0 z-50 lg:relative lg:translate-x-0 transition-all duration-300 ease-in-out transform ${
         isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
       } lg:flex flex-shrink-0`}>
         <Sidebar role={role} onClose={() => setIsMobileSidebarOpen(false)} />

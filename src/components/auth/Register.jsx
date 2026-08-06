@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { 
   User, Mail, Phone, Lock, Shield, Laptop, 
   ArrowLeft, CheckCircle2, AlertCircle, Clock,
-  Briefcase, DollarSign
+  Briefcase, DollarSign, Eye, EyeOff
 } from 'lucide-react';
 import { registerUser, getRoles } from '../../service/auth';
 
@@ -27,8 +27,7 @@ export default function Register() {
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [rolesLoading, setRolesLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Load available roles from backend API
   useEffect(() => {
@@ -246,16 +245,17 @@ export default function Register() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Phone Number</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Phone Number (10 Digits)</label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input 
                     type="tel" 
                     name="phone" 
+                    maxLength={10}
                     value={formData.phone}
                     onChange={handleChange}
                     placeholder="9876543210" 
-                    className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
+                    className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/20 font-semibold text-slate-800 font-mono"
                   />
                 </div>
               </div>
@@ -263,17 +263,25 @@ export default function Register() {
 
             {/* Password Field */}
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Password</label>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Password</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input 
-                  type="password" 
+                  type={showPassword ? 'text' : 'password'}
                   name="password" 
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="••••••••••••" 
-                  className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
+                  className="w-full pl-9 pr-10 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/20 font-semibold text-slate-800"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                  title={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 

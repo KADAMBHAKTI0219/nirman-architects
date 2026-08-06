@@ -3,6 +3,7 @@ import AttendanceCheckIn from './AttendanceCheckIn';
 import AttendanceOffice from './AttendanceOffice';
 import AttendanceSite from './AttendanceSite';
 import AttendanceReports from './AttendanceReports';
+import AttendanceCalendar from '../../common/AttendanceCalendar';
 import { getMyAttendance } from '../../../service/attendance';
 import { ShieldCheck, Info, MapPin } from 'lucide-react';
 
@@ -177,6 +178,13 @@ export default function Attendance() {
 
       {/* Render Active Sub-Module */}
       <div className="space-y-6">
+        {activeTab === 'calendar' && (
+          <AttendanceCalendar 
+            employeeName="My Attendance & Leave Calendar" 
+            employeeRole="Personal Roster Audit" 
+          />
+        )}
+
         {activeTab === 'biometric' && (
           <AttendanceCheckIn 
             isCheckedIn={isCheckedIn}

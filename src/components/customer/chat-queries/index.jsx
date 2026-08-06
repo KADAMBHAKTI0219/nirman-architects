@@ -1,206 +1,509 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Send, Paperclip, MessageSquare, Users, Info, 
-  Check, CheckCheck, Smile, Phone, Video, HelpCircle 
+  Check, CheckCheck, Smile, Phone, Video, HelpCircle, 
+  RefreshCw, WifiOff, CornerUpLeft, Bell, ShieldCheck, Lock,
+  Search, Moon, Circle, MoreVertical, ChevronDown, X
 } from 'lucide-react';
-import Card from '../../common/Card';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  getUnreadCounts, 
+  getProjectChat, 
+  sendClientChatMessage, 
+  syncOfflineChatMessages, 
+  markChatAsRead 
+} from '../../../service/chat';
 
-const INITIAL_THREADS = [
-  { id: 1, subject: "Lobby Material Specs", project: "Central Office Tower", unread: 1, resolved: false, messages: [
-    { sender: "Sarah Connor (Lead PM)", text: "Hello Bruce, we uploaded the central lobby 3D renders. Let us know if the marble tiling materials fit your expectations.", time: "2 hours ago", isSelf: false },
-    { sender: "Bruce Wayne (You)", text: "The Italian white marble matches our specs. Please lock this selection.", time: "1 hour ago", isSelf: true }
-  ]},
-  { id: 2, subject: "Basement Waterlogging Status", project: "Central Office Tower", unread: 0, resolved: true, messages: [
-    { sender: "Frank Castle (Site Engineer)", text: "Pumping operations completed. Slab concrete casting rescheduled for tomorrow morning.", time: "Yesterday", isSelf: false }
-  ]}
-];
+export default function CustomerChatQueries({ userPermissionLevel = 'OWNER' }) {
+  const [projectId, setProjectId] = useState('proj-1');
+  const [messages, setMessages] = useState([]);
+  const [unreadCounts, setUnreadCounts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [newMsgText, setNewMsgText] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Reply & Mention states
+  const [replyToMsg, setReplyToMsg] = useState(null);
+  const [offlineQueue, setOfflineQueue] = useState([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [showBanner, setShowBanner] = useState(true);
+  const [showInfoDrawer, setShowInfoDrawer] = useState(false);
 
-export default function ChatQueries() {
-  const [threads, setThreads] = useState(INITIAL_THREADS);
-  const [activeThread, setActiveThread] = useState(INITIAL_THREADS[0]);
-  const [newMsg, setNewMsg] = useState('');
+  const messagesEndRef = useRef(null);
 
-  const handleSendMessage = (e) => {
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const fetchChatData = async () => {
+    setLoading(true);
+    try {
+      const [unreadRes, chatRes] = await Promise.all([
+        getUnreadCounts(),
+        getProjectChat(projectId)
+      ]);
+
+      if (unreadRes && unreadRes.unreadCounts) {
+        setUnreadCounts(unreadRes.unreadCounts);
+      }
+      if (chatRes && chatRes.messages) {
+        setMessages(chatRes.messages);
+      }
+      // Endpoint 19.5: Automatically mark project chat as read
+      await markChatAsRead(projectId);
+    } catch (err) {
+      console.error("Failed to load project chat history:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchChatData();
+  }, [projectId]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMsg.trim()) return;
+    if (!newMsgText.trim()) return;
 
-    const messageObj = {
-      sender: "Bruce Wayne (You)",
-      text: newMsg,
-      time: "Just now",
-      isSelf: true
+    if (userPermissionLevel === 'VIEW_ONLY') {
+      alert("HTTP 403 Forbidden: VIEW_ONLY contact level cannot post chat messages.");
+      return;
+    }
+
+    const payload = {
+      messageText: newMsgText,
+      replyToMessageId: replyToMsg?._id || replyToMsg?.id || null,
+      mentionedIds: []
     };
 
-    const updatedMessages = [...activeThread.messages, messageObj];
-    const updatedThread = { ...activeThread, messages: updatedMessages, unread: 0 };
+    // Endpoint 19.4: Batch sync messages composed while offline
+    if (!navigator.onLine) {
+      const offlineItem = {
+        messageText: newMsgText,
+        localComposedAt: new Date().toISOString(),
+        replyToMessageId: replyToMsg?._id || replyToMsg?.id || null
+      };
+      setOfflineQueue(prev => [...prev, offlineItem]);
+      setMessages(prev => [...prev, {
+        _id: 'off_' + Date.now(),
+        projectId,
+        formattedAuthorName: 'You (Offline Draft)',
+        messageText: newMsgText,
+        sentAt: new Date().toISOString(),
+        isOfflineSync: true
+      }]);
+      setNewMsgText('');
+      setReplyToMsg(null);
+      return;
+    }
 
-    setThreads(prev => prev.map(t => t.id === activeThread.id ? updatedThread : t));
-    setActiveThread(updatedThread);
-    setNewMsg('');
+    try {
+      const res = await sendClientChatMessage(projectId, payload);
+      if (res && (res.messageObj || res.message)) {
+        const added = res.messageObj || res.message;
+        setMessages(prev => [...prev, added]);
+      } else {
+        fetchChatData();
+      }
+      setNewMsgText('');
+      setReplyToMsg(null);
+    } catch (err) {
+      alert(err.message || "Failed to send chat message.");
+    }
   };
 
-  const handleMarkResolved = (id) => {
-    setThreads(prev => prev.map(t => t.id === id ? { ...t, resolved: true } : t));
-    setActiveThread(prev => prev.id === id ? { ...prev, resolved: true } : prev);
-    alert("Query marked as resolved!");
+  const handleSyncOfflineQueue = async () => {
+    if (offlineQueue.length === 0) return;
+    setIsSyncing(true);
+    try {
+      const res = await syncOfflineChatMessages(projectId, offlineQueue);
+      alert(`Batch sync completed: ${res.syncedCount || offlineQueue.length} messages synced to project workspace!`);
+      setOfflineQueue([]);
+      fetchChatData();
+    } catch (err) {
+      alert(err.message || "Failed to sync offline messages.");
+    } finally {
+      setIsSyncing(false);
+    }
   };
+
+  const projectChannels = [
+    { id: 'proj-1', name: 'Central Office Tower', code: 'PROJ-001', pm: 'Sarah Connor (Lead PM)', avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80' },
+    { id: 'proj-2', name: 'Oceanic Luxury Villas', code: 'PROJ-002', pm: 'Bruce Wayne (Arch Lead)', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80' },
+    { id: 'proj-3', name: 'Smart City Mall', code: 'PROJ-003', pm: 'Lex Luthor (MEP Lead)', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80' }
+  ];
+
+  const currentChannel = projectChannels.find(p => p.id === projectId) || projectChannels[0];
+
+  const filteredChannels = projectChannels.filter(p => 
+    p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    p.code.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 items-start h-[calc(100vh-140px)] animate-in fade-in duration-200">
+    <div className="flex h-[calc(100vh-130px)] rounded-2xl overflow-hidden border border-slate-200/90 shadow-lg bg-[#f0f2f5] font-sans text-slate-800 antialiased animate-in fade-in duration-200">
       
-      {/* LEFT COLUMN: ACTIVE QUERIES */}
-      <div className="xl:col-span-1 bg-white border border-slate-100 rounded-3xl p-4 flex flex-col gap-4 h-full shadow-2xs">
-        <div>
-          <h3 className="font-black text-slate-800 text-sm">Direct Support Queries</h3>
-          <p className="text-[10px] text-slate-400 font-semibold">Direct channels with your design team</p>
+      {/* 1. WHATSAPP WEB LEFT SIDEBAR */}
+      <div className="w-80 md:w-96 bg-white border-r border-[#e9edef] flex flex-col shrink-0">
+        
+        {/* Sidebar Header */}
+        <div className="h-16 bg-[#f0f2f5] px-4 flex items-center justify-between border-b border-[#e9edef]">
+          <div className="flex items-center gap-3">
+            <img
+              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80"
+              alt="Client Avatar"
+              className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-200 cursor-pointer"
+            />
+            <div>
+              <strong className="text-slate-900 font-bold text-xs block">Client Portal</strong>
+              <span className="text-[10px] text-emerald-600 font-bold uppercase">{userPermissionLevel} ACCESS</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 text-[#54656f]">
+            <button onClick={fetchChatData} className="hover:text-slate-900 transition-colors p-1 cursor-pointer" title="Refresh Channel">
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+            <button className="hover:text-slate-900 transition-colors p-1 cursor-pointer" title="Menu">
+              <MoreVertical className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
-        <div className="space-y-2 overflow-y-auto flex-1 pr-1 scrollbar-thin">
-          {threads.map(thread => (
-            <div 
-              key={thread.id}
-              onClick={() => {
-                setThreads(prev => prev.map(t => t.id === thread.id ? { ...t, unread: 0 } : t));
-                setActiveThread({ ...thread, unread: 0 });
-              }}
-              className={`p-3.5 rounded-2xl cursor-pointer border transition-all flex flex-col gap-1.5 ${
-                activeThread.id === thread.id 
-                  ? 'bg-blue-50/50 border-blue-150 shadow-3xs' 
-                  : 'bg-slate-50/30 border-slate-100 hover:bg-slate-55'
-              }`}
+        {/* Offline Queue Sync Indicator */}
+        {offlineQueue.length > 0 && (
+          <div className="bg-slate-100 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between text-xs text-slate-800">
+            <div className="flex items-center gap-1.5 font-bold">
+              <WifiOff className="w-4 h-4 text-indigo-600 shrink-0" />
+              <span>{offlineQueue.length} Offline Drafts</span>
+            </div>
+            <button
+              onClick={handleSyncOfflineQueue}
+              disabled={isSyncing}
+              className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-2xs cursor-pointer"
             >
-              <div className="flex justify-between items-center">
-                <strong className="text-slate-805 block text-xs">{thread.subject}</strong>
-                {thread.unread > 0 && (
-                  <span className="text-[8px] bg-[#2484C6] text-white px-1.5 py-0.5 rounded font-black uppercase">
-                    New
+              {isSyncing ? 'Syncing...' : 'Sync Now'}
+            </button>
+          </div>
+        )}
+
+        {/* Search Bar */}
+        <div className="p-2 bg-[#f0f2f5] border-b border-[#e9edef]">
+          <div className="relative bg-white rounded-lg flex items-center px-3 py-1.5 shadow-2xs">
+            <Search className="w-4 h-4 text-[#54656f] shrink-0 mr-2" />
+            <input
+              type="text"
+              placeholder="Search project channels..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full text-xs text-slate-800 placeholder-[#54656f] bg-transparent focus:outline-none"
+            />
+          </div>
+        </div>
+
+        {/* Project Channels List */}
+        <div className="flex-1 overflow-y-auto divide-y divide-[#f0f2f5] bg-white">
+          {filteredChannels.map((p) => {
+            const isSelected = projectId === p.id;
+            const unreadInfo = unreadCounts.find(u => u.projectId === p.id);
+            const count = unreadInfo?.unreadCount || 0;
+
+            return (
+              <div
+                key={p.id}
+                onClick={() => setProjectId(p.id)}
+                className={`px-4 py-3.5 cursor-pointer transition-all flex items-center gap-3 relative ${
+                  isSelected ? 'bg-[#f0f2f5]' : 'hover:bg-[#f5f6f6]'
+                }`}
+              >
+                {/* PM Avatar */}
+                <div className="relative shrink-0">
+                  <img
+                    src={p.avatar}
+                    alt={p.name}
+                    className="w-11 h-11 rounded-full object-cover ring-2 ring-slate-100"
+                  />
+                  <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-[#25d366] border-2 border-white" />
+                </div>
+
+                {/* Details */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-baseline mb-0.5">
+                    <strong className="text-slate-900 font-bold text-xs truncate">
+                      {p.name}
+                    </strong>
+                    <span className="text-[10px] text-[#8696a0] font-mono shrink-0 ml-1">
+                      {p.code}
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-[#667781] truncate font-normal">
+                    Assigned: {p.pm}
+                  </p>
+                </div>
+
+                {/* Green Circular Unread Counter Badge */}
+                {count > 0 && (
+                  <span className="w-5 h-5 bg-[#25d366] text-white font-bold text-[10px] rounded-full flex items-center justify-center shrink-0 ml-2 shadow-2xs">
+                    {count}
                   </span>
                 )}
               </div>
-              <div className="flex justify-between items-center text-[9px] font-bold text-slate-400">
-                <span className="uppercase">{thread.project}</span>
-                <span className={thread.resolved ? 'text-emerald-600' : 'text-amber-500'}>
-                  {thread.resolved ? 'Resolved' : 'Active'}
+            );
+          })}
+        </div>
+
+      </div>
+
+      {/* 2. MAIN WHATSAPP WEB CHAT CONTAINER */}
+      <div className="flex-1 flex flex-col justify-between overflow-hidden bg-[#efeae2] relative">
+        
+        {/* Chat Top Header */}
+        <div className="h-16 bg-[#f0f2f5] px-4 flex items-center justify-between border-b border-[#e9edef] shrink-0 z-10">
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setShowInfoDrawer(prev => !prev)}>
+            <img
+              src={currentChannel.avatar}
+              alt={currentChannel.name}
+              className="w-10 h-10 rounded-full object-cover"
+            />
+            <div>
+              <h4 className="font-semibold text-sm text-slate-900 leading-tight">{currentChannel.name}</h4>
+              <span className="text-[11px] text-[#667781] block">{currentChannel.pm} &bull; Socket.io Live</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 text-[#54656f]">
+            {userPermissionLevel === 'VIEW_ONLY' && (
+              <span className="px-3 py-1 bg-slate-100 text-slate-800 text-xs font-bold rounded-full border border-slate-200 flex items-center gap-1">
+                <Lock className="w-3.5 h-3.5 text-slate-600" /> Read Only
+              </span>
+            )}
+            <button className="hover:text-slate-900 transition-colors p-1 cursor-pointer" title="Search Channel">
+              <Search className="w-5 h-5" />
+            </button>
+            <button className="hover:text-slate-900 transition-colors p-1 cursor-pointer" title="Menu" onClick={() => setShowInfoDrawer(prev => !prev)}>
+              <MoreVertical className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Chat Stream Wallpaper (#efeae2) */}
+        <div className="flex-1 p-6 overflow-y-auto space-y-4 bg-[#efeae2] bg-[radial-gradient(#dcd6cd_1px,transparent_1px)] [background-size:16px_16px] relative">
+          
+          {/* Encryption Notice Banner */}
+          <div className="bg-[#ffeecd] text-[#54656f] text-[11px] px-4 py-2 rounded-lg max-w-xl mx-auto text-center shadow-2xs font-medium flex items-center justify-center gap-1.5">
+            <Lock className="w-3.5 h-3.5 text-[#54656f] shrink-0" />
+            <span>Messages are end-to-end encrypted. No one outside of this chat, not even WhatsApp, can read or listen to them.</span>
+          </div>
+
+          {/* Floating Date Badge */}
+          <div className="text-center my-2">
+            <span className="bg-white text-[#54656f] text-[11px] font-semibold px-3 py-1 rounded-md shadow-2xs uppercase tracking-wider">
+              TODAY
+            </span>
+          </div>
+
+          {/* Message Stream */}
+          {messages.map((m, idx) => {
+            const isMe = m.authorType === 'CLIENT_CONTACT' || m.formattedAuthorName?.includes('OWNER') || m.isOfflineSync;
+            const authorName = m.formattedAuthorName || (m.authorId?.name ? `${m.authorId.name}` : 'Project Team');
+            const timeStr = m.sentAt || m.createdAt ? new Date(m.sentAt || m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '10:00';
+
+            return (
+              <div
+                key={m._id || m.id || idx}
+                className={`flex flex-col group ${isMe ? 'items-end' : 'items-start'}`}
+              >
+                {/* Speech Bubble */}
+                <div
+                  className={`relative max-w-md px-3.5 py-2 rounded-lg shadow-2xs transition-all group/bubble text-xs ${
+                    m.isInternal 
+                      ? 'bg-amber-100 text-amber-950 border border-amber-300 w-full max-w-lg mx-auto text-center' 
+                      : (isMe 
+                          ? 'bg-[#d9fdd3] text-slate-900 rounded-tr-none' 
+                          : 'bg-white text-slate-900 rounded-tl-none')
+                  }`}
+                >
+                  {/* Quick Reply Button */}
+                  <button
+                    onClick={() => setReplyToMsg(m)}
+                    className={`absolute top-1.5 p-1 rounded opacity-0 group-hover/bubble:opacity-100 transition-opacity cursor-pointer ${
+                      isMe ? '-left-7 text-[#54656f] bg-white shadow-2xs' : '-right-7 text-[#54656f] bg-white shadow-2xs'
+                    }`}
+                    title="Reply"
+                  >
+                    <CornerUpLeft className="w-3.5 h-3.5" />
+                  </button>
+
+                  {/* Author Title */}
+                  <div className={`text-[10px] font-bold mb-1 ${isMe ? 'text-[#008069]' : 'text-indigo-600'}`}>
+                    {authorName}
+                  </div>
+
+                  {/* Quoted Message */}
+                  {m.replyToMessageId && (
+                    <div className="p-2 rounded bg-black/5 border-l-4 border-[#008069] mb-1.5 text-[11px]">
+                      <strong className="block font-bold text-[#008069]">Quoted Message</strong>
+                      <p className="truncate text-slate-600 italic">Replying to previous discussion</p>
+                    </div>
+                  )}
+
+                  {/* Text Message Content */}
+                  <p className="text-xs leading-relaxed font-normal whitespace-pre-wrap pr-12">
+                    {m.messageText || m.text}
+                  </p>
+
+                  {/* Timestamp & Double Checkmarks inside bubble bottom-right */}
+                  <div className="flex items-center gap-1 text-[10px] text-[#667781] font-normal absolute bottom-1 right-2.5">
+                    <span>{timeStr}</span>
+                    {isMe && (
+                      <CheckCheck className="w-4 h-4 text-[#53bdeb]" />
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          <div ref={messagesEndRef} />
+
+          {/* Floating Scroll to Bottom Arrow Button */}
+          <button
+            onClick={scrollToBottom}
+            className="fixed bottom-20 right-8 w-9 h-9 bg-white text-[#54656f] rounded-full shadow-md flex items-center justify-center hover:bg-slate-50 transition-all cursor-pointer z-10"
+            title="Scroll to bottom"
+          >
+            <ChevronDown className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* 3. BOTTOM INPUT BAR */}
+        <div className="bg-[#f0f2f5] px-4 py-2.5 border-t border-[#e9edef] shrink-0 z-10">
+          
+          {/* Quote Reply Banner */}
+          <AnimatePresence>
+            {replyToMsg && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mb-2 p-2 bg-white border-l-4 border-[#008069] rounded-lg flex items-center justify-between gap-3 text-xs shadow-2xs"
+              >
+                <div>
+                  <span className="text-[10px] font-bold text-[#008069] block">
+                    Replying to {replyToMsg.formattedAuthorName || 'Message'}
+                  </span>
+                  <p className="text-slate-700 text-xs truncate max-w-md font-normal">
+                    "{replyToMsg.messageText || replyToMsg.text}"
+                  </p>
+                </div>
+                <button
+                  onClick={() => setReplyToMsg(null)}
+                  className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <form onSubmit={handleSendMessage} className="flex items-center gap-3">
+            
+            {/* Attachment & Emoji Buttons */}
+            <button
+              type="button"
+              onClick={() => alert("Upload Attachment: Blueprint file attachment supported")}
+              className="text-[#54656f] hover:text-slate-900 transition-colors p-1 cursor-pointer shrink-0"
+              title="Attach File"
+            >
+              <Paperclip className="w-5 h-5" />
+            </button>
+
+            <button
+              type="button"
+              className="text-[#54656f] hover:text-slate-900 transition-colors p-1 cursor-pointer shrink-0"
+              title="Emoji"
+            >
+              <Smile className="w-5 h-5" />
+            </button>
+
+            {/* Input Box */}
+            <input
+              type="text"
+              value={newMsgText}
+              disabled={userPermissionLevel === 'VIEW_ONLY'}
+              onChange={(e) => setNewMsgText(e.target.value)}
+              placeholder={
+                userPermissionLevel === 'VIEW_ONLY' 
+                  ? "VIEW_ONLY contact level: Posting messages disabled" 
+                  : "Type a message here .."
+              }
+              className="flex-1 bg-white border-0 rounded-lg px-4 py-2.5 text-xs text-slate-800 placeholder-[#54656f] focus:outline-none shadow-2xs font-normal disabled:bg-slate-100 disabled:cursor-not-allowed"
+            />
+
+            {/* Send Button */}
+            <button
+              type="submit"
+              disabled={userPermissionLevel === 'VIEW_ONLY'}
+              className="text-[#54656f] hover:text-[#008069] transition-colors p-1 cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Send Message"
+            >
+              <Send className="w-5 h-5 text-[#54656f] hover:text-[#008069]" />
+            </button>
+          </form>
+        </div>
+
+      </div>
+
+      {/* 4. RIGHT SIDEBAR CHANNEL DRAWER */}
+      <AnimatePresence>
+        {showInfoDrawer && (
+          <motion.div
+            initial={{ opacity: 0, width: 0 }}
+            animate={{ opacity: 1, width: 320 }}
+            exit={{ opacity: 0, width: 0 }}
+            className="bg-white border-l border-[#e9edef] p-5 flex flex-col gap-5 shadow-xs overflow-y-auto shrink-0 z-20"
+          >
+            <div className="flex items-center justify-between border-b border-[#f0f2f5] pb-3">
+              <h3 className="font-bold text-slate-900 text-sm">Channel Info</h3>
+              <button
+                onClick={() => setShowInfoDrawer(false)}
+                className="p-1 hover:bg-slate-100 rounded text-slate-400 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* PM Avatar */}
+            <div className="text-center space-y-2">
+              <img
+                src={currentChannel.avatar}
+                alt={currentChannel.name}
+                className="w-24 h-24 rounded-full object-cover mx-auto ring-4 ring-slate-100"
+              />
+              <div>
+                <strong className="text-slate-900 font-bold text-base block">{currentChannel.name}</strong>
+                <span className="text-xs text-slate-500 block">{currentChannel.pm}</span>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-xs border-t border-[#f0f2f5] pt-4">
+              <span className="text-[10px] font-bold text-slate-400 uppercase block">Permission Status</span>
+              <div className="p-3 bg-[#f0f2f5] rounded-xl space-y-1">
+                <strong className="text-slate-900 font-bold block">{userPermissionLevel} ACCESS</strong>
+                <span className="text-[11px] text-slate-600 block">
+                  {userPermissionLevel === 'VIEW_ONLY' ? 'Read-only access to channel stream' : 'Full posting privileges enabled'}
                 </span>
               </div>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* CENTER COLUMN: CONVERSATION THREAD */}
-      <div className="xl:col-span-2 bg-white border border-slate-100 rounded-3xl p-5 flex flex-col justify-between h-full shadow-2xs">
-        
-        <div className="border-b border-slate-50 pb-3 flex justify-between items-center">
-          <div>
-            <strong className="text-slate-800 text-sm block">{activeThread.subject}</strong>
-            <span className="text-[10px] text-[#2484C6] block font-bold uppercase">{activeThread.project}</span>
-          </div>
-
-          <div className="flex gap-2">
-            {!activeThread.resolved && (
-              <button 
-                onClick={() => handleMarkResolved(activeThread.id)}
-                className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100 rounded-xl text-[10px] font-black uppercase transition-all"
-              >
-                Mark Resolved
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Message Stream */}
-        <div className="flex-1 overflow-y-auto space-y-4 pr-1 py-4 scrollbar-thin">
-          {activeThread.messages.map((m, idx) => (
-            <div 
-              key={idx} 
-              className={`p-3.5 rounded-2xl max-w-lg border ${
-                m.isSelf 
-                  ? 'bg-blue-50/30 border-blue-100 ml-auto text-right text-slate-700' 
-                  : 'bg-slate-50 border-slate-105 mr-auto text-slate-655'
-              }`}
-            >
-              <div className="flex items-center justify-between gap-4 mb-1 text-[9px] font-black uppercase">
-                <span>{m.sender}</span>
-                <span className="text-slate-400">{m.time}</span>
-              </div>
-              <p className="text-xs leading-normal font-semibold">{m.text}</p>
-              
-              {m.isSelf && (
-                <div className="flex justify-end mt-1 text-slate-400">
-                  <CheckCheck className="w-3.5 h-3.5 text-[#2484C6]" />
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Reply Box */}
-        <form onSubmit={handleSendMessage} className="pt-3 border-t border-slate-50 flex items-center gap-2">
-          <button 
-            type="button" 
-            onClick={() => alert("Upload file/screenshot attachment...")}
-            className="p-2.5 bg-slate-50 border border-slate-205 text-slate-500 rounded-xl hover:bg-slate-100 transition-all"
-            title="Attach file"
-          >
-            <Paperclip className="w-4 h-4" />
-          </button>
-          
-          <input
-            type="text"
-            value={newMsg}
-            onChange={(e) => setNewMsg(e.target.value)}
-            placeholder="Type your message to project managers..."
-            className="flex-1 text-xs border border-slate-205 rounded-xl px-4 py-2.5 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
-          />
-          <button 
-            type="submit"
-            className="p-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-905 rounded-xl transition-all shadow-3xs"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </form>
-
-      </div>
-
-      {/* RIGHT COLUMN: PROJECT CONTEXT & RESPONSIBLE TEAM */}
-      <div className="xl:col-span-1 bg-white border border-slate-100 rounded-3xl p-5 flex flex-col gap-5 h-full shadow-2xs overflow-y-auto scrollbar-thin">
-        <div>
-          <h3 className="font-black text-slate-800 text-sm">Responsible Team</h3>
-          <p className="text-[10px] text-slate-405 font-bold uppercase mt-1">Central Office Tower</p>
-        </div>
-
-        <div className="space-y-4 text-xs font-bold text-slate-655">
-          <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-2xl space-y-1.5">
-            <span className="text-[9px] font-bold text-slate-400 block uppercase">Project Info</span>
-            <p className="font-semibold text-slate-705 leading-normal">
-              Direct escalation channel for Bruce Wayne with lead project coordinators and architects.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <span className="text-[9px] font-bold text-slate-400 block uppercase">Team Contacts</span>
-            <div className="space-y-2.5 pt-1.5">
-              {[
-                { name: "Sarah Connor", role: "Lead Project Manager" },
-                { name: "Bob Johnson", role: "Lead Architect" },
-                { name: "Frank Castle", role: "Site Supervisor" }
-              ].map(member => (
-                <div key={member.name} className="flex items-center gap-2 text-[11px] text-slate-700">
-                  <div className="w-6 h-6 rounded-full bg-blue-50 border border-blue-150 flex items-center justify-center font-bold text-[9px] text-[#2484C6]">
-                    {member.name.split(' ').map(n=>n[0]).join('')}
-                  </div>
-                  <div>
-                    <span className="block font-black leading-none">{member.name}</span>
-                    <span className="text-[8px] text-slate-400 font-bold block mt-0.5 uppercase">{member.role}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-      </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

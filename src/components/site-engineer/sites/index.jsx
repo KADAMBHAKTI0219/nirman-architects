@@ -25,8 +25,8 @@ export default function Sites() {
     return matchesSearch && matchesStatus && matchesPriority;
   });
 
-  const handleUpdateProgress = (id) => {
-    const newProgress = prompt("Enter new physical progress percentage (0 - 100):");
+  const handleUpdateProgress = async (id) => {
+    const newProgress = await window.prompt("Enter new physical progress percentage (0 - 100):", "50", "Update Site Progress");
     const num = parseFloat(newProgress);
     if (!isNaN(num) && num >= 0 && num <= 100) {
       setSites(prev => prev.map(s => s.id === id ? { ...s, progress: num } : s));
@@ -74,24 +74,26 @@ export default function Sites() {
         </div>
 
         <button
-          onClick={() => {
-            const name = prompt("Enter Site Name:");
-            const project = prompt("Enter Project Name:");
-            const location = prompt("Enter Location:");
+          onClick={async () => {
+            const name = await window.prompt("Enter Site Name:", "", "Add New Construction Site");
+            if (!name) return;
+            const project = await window.prompt("Enter Project Name:", "", "Add New Construction Site");
+            if (!project) return;
+            const location = await window.prompt("Enter Location:", "", "Add New Construction Site");
             if (name && project && location) {
               const newSite = {
                 id: Date.now(),
                 name,
                 project,
                 location,
+                status: 'Active',
+                priority: 'Medium',
                 progress: 0,
-                status: "Active",
-                manpower: 0,
-                issues: 0,
-                priority: "Medium"
+                lead: 'Site Lead',
+                workers: 10
               };
-              setSites([...sites, newSite]);
-              alert("New site registered successfully!");
+              setSites(prev => [newSite, ...prev]);
+              alert(`Site '${name}' registered successfully!`);
             }
           }}
           className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-905 rounded-xl text-xs font-black uppercase transition-all shadow-sm flex items-center gap-1"

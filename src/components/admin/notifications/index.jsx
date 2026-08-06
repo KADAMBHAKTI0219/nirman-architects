@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Bell, ShieldAlert, Award, FileText, CheckCircle2, MessageSquare, 
-  Trash2, Mail, Smartphone, RefreshCw, Pin, Eye, Settings, Clock, X
+  Trash2, Mail, Smartphone, RefreshCw, Pin, Eye, Settings, Clock, X, CheckCheck
 } from 'lucide-react';
 import Card from '../../common/Card';
-import { getMyNotifications, markNotificationAsRead } from '../../../service/notification';
+import { getMyNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../../../service/notification';
 
 export default function Notifications() {
   const [notifications, setNotifications] = useState([]);
@@ -68,6 +68,8 @@ export default function Notifications() {
     return activeCategory === 'All' || n.category === activeCategory;
   });
 
+  const unreadCount = notifications.filter(n => !n.read).length;
+
   const handleMarkRead = async (id) => {
     try {
       await markNotificationAsRead(id);
@@ -77,6 +79,23 @@ export default function Notifications() {
       }
     } catch (err) {
       console.error("Failed to mark read:", err);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    if (unreadCount === 0) return;
+    try {
+      setLoading(true);
+      await markAllNotificationsAsRead();
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      if (selectedNotification) {
+        setSelectedNotification(prev => prev ? { ...prev, read: true } : null);
+      }
+      await fetchNotifications();
+    } catch (err) {
+      console.error("Failed to mark all notifications as read:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -113,6 +132,15 @@ export default function Notifications() {
             Manage communication channels, broadcast alerts, and process system notifications
           </p>
         </div>
+
+        <button
+          onClick={handleMarkAllRead}
+          disabled={loading || unreadCount === 0}
+          className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-950 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-black uppercase rounded-2xl transition-all shadow-2xs flex items-center gap-2"
+        >
+          <CheckCheck className="w-4 h-4" />
+          Mark All as Read {unreadCount > 0 ? `(${unreadCount})` : ''}
+        </button>
       </div>
 
       {/* Top statistics banner */}
@@ -194,6 +222,22 @@ export default function Notifications() {
 
         {/* Center Side: Notification List (2/4 width) */}
         <div className="lg:col-span-2 space-y-3">
+          <div className="flex items-center justify-between px-2 pb-1">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              {activeCategory} Alerts ({filteredNotifications.length})
+            </span>
+            {unreadCount > 0 && (
+              <button
+                onClick={handleMarkAllRead}
+                disabled={loading}
+                className="text-xs font-black text-slate-700 hover:text-brand-dark flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <CheckCheck className="w-4 h-4 text-brand-primary" />
+                Mark All Read
+              </button>
+            )}
+          </div>
+
           {filteredNotifications.map(item => (
             <div 
               key={item.id}

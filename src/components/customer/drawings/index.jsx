@@ -1,195 +1,311 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Search, Eye, Download, Check, X, MessageSquare, 
-  Layers, ChevronDown, CheckCircle, AlertTriangle 
+  Layers, ChevronDown, CheckCircle, AlertTriangle, RefreshCw, ShieldCheck,
+  FileText, LayoutGrid, List, CheckCircle2
 } from 'lucide-react';
 import Card from '../../common/Card';
+import DataTable from '../../common/DataTable';
+import DrawingViewer from '../../common/DrawingViewer';
+import { 
+  getProjectDrawings, 
+  approveDrawing, 
+  requestDrawingChanges, 
+  getClientApprovalLog 
+} from '../../../service/drawing';
 
-const INITIAL_DRAWINGS = [
-  { id: "DWG-101", name: "Central Lobby 3D Architectural Render", project: "Central Office Tower", version: "V2.1", date: "2026-07-22", status: "Awaiting Approval", comments: 2 },
-  { id: "DWG-102", name: "Ground Floor Wall Layout Blueprint", project: "Central Office Tower", version: "V1.0", date: "2026-07-20", status: "Approved", comments: 0 },
-  { id: "DWG-103", name: "L3 Electrical & Power Routing Blueprint", project: "Central Office Tower", version: "V1.1", date: "2026-07-21", status: "Awaiting Approval", comments: 1 }
-];
-
-export default function Drawings() {
-  const [drawings, setDrawings] = useState(INITIAL_DRAWINGS);
+export default function CustomerDrawings() {
+  const [drawings, setDrawings] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('All');
-  const [selectedDwg, setSelectedDwg] = useState(INITIAL_DRAWINGS[0]);
+  const [viewMode, setViewMode] = useState('table'); // 'table' or 'grid' (Table view matches Admin panel!)
+  
+  // Selected Drawing for Details / Full Screen Viewer
+  const [selectedDwg, setSelectedDwg] = useState(null);
+  const [viewerDwg, setViewerDwg] = useState(null);
   const [commentText, setCommentText] = useState('');
 
-  const filteredDrawings = drawings.filter(d => {
-    const matchesSearch = d.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = selectedStatus === 'All' || d.status === selectedStatus;
+  const loadDrawings = async () => {
+    setLoading(true);
+    try {
+      const res = await getProjectDrawings('proj-1');
+      if (res && res.allDrawings) {
+        setDrawings(res.allDrawings);
+        if (!selectedDwg && res.allDrawings.length > 0) {
+          setSelectedDwg(res.allDrawings[0]);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load customer drawings:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDrawings();
+  }, []);
+
+  const filteredDrawings = (drawings || []).filter(d => {
+    if (!d) return false;
+    const title = (d.title || d.name || '').toLowerCase();
+    const queryStr = (searchQuery || '').toLowerCase();
+    const matchesSearch = title.includes(queryStr);
+    const matchesStatus = !selectedStatus || selectedStatus === 'All' || d.status === selectedStatus;
     return matchesSearch && matchesStatus;
   });
 
-  const handleApprove = (id) => {
-    setDrawings(prev => prev.map(d => d.id === id ? { ...d, status: 'Approved' } : d));
-    if (selectedDwg && selectedDwg.id === id) {
-      setSelectedDwg(prev => ({ ...prev, status: 'Approved' }));
+  const handleApprove = async (id) => {
+    try {
+      const res = await approveDrawing(id, "Approved by client via Client Portal");
+      alert(res.message || "Drawing approved successfully!");
+      loadDrawings();
+    } catch (err) {
+      alert("Error approving drawing.");
     }
-    alert("Drawing approved successfully!");
   };
 
-  const handleReject = (id) => {
-    setDrawings(prev => prev.map(d => d.id === id ? { ...d, status: 'Revisions Requested' } : d));
-    if (selectedDwg && selectedDwg.id === id) {
-      setSelectedDwg(prev => ({ ...prev, status: 'Revisions Requested' }));
+  const handleReject = async (id) => {
+    const reason = commentText.trim() || await window.prompt("Please enter mandatory change request notes:", "", "Request Revisions");
+    if (!reason || !reason.trim()) return;
+
+    try {
+      const res = await requestDrawingChanges(id, reason);
+      alert(res.message || "Change request submitted to Architect!");
+      setCommentText('');
+      loadDrawings();
+    } catch (err) {
+      alert("Error submitting change request.");
     }
-    alert("Revisions requested for this drawing.");
   };
+
+  // Columns definition for Admin-style Approvals Queue DataTable
+  const drawingColumns = [
+    {
+      header: "Drawing Title & ID",
+      accessor: "title",
+      render: (row) => (
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+            <FileText className="w-4 h-4" />
+          </div>
+          <div>
+            <span 
+              className="font-extrabold text-slate-900 block cursor-pointer hover:text-brand-accent transition-colors text-xs"
+              onClick={() => setViewerDwg(row)}
+            >
+              {row.title || row.name || 'Architectural Layout'}
+            </span>
+            <span className="text-[10px] text-slate-400 font-mono block">
+              {row.drawingNumber || row._id || 'DWG-101'} &bull; {row.category || 'Working'}
+            </span>
+          </div>
+        </div>
+      )
+    },
+    {
+      header: "Revision Version",
+      accessor: "currentVersion",
+      render: (row) => (
+        <span className="px-2.5 py-1 bg-slate-100 text-slate-700 font-extrabold text-[10px] rounded-lg font-mono">
+          V{row.currentVersion || 1}.0
+        </span>
+      )
+    },
+    {
+      header: "Architect Uploader",
+      accessor: "uploader",
+      render: (row) => (
+        <span className="text-xs text-slate-700 font-bold">
+          {row.uploadedBy?.name || 'Sarah Connor (Architect)'}
+        </span>
+      )
+    },
+    {
+      header: "Approval Stage",
+      accessor: "status",
+      render: (row) => {
+        const isApproved = row.status === 'APPROVED';
+        const isPending = row.status === 'PENDING_CLIENT_APPROVAL' || row.status?.includes('Pending');
+        return (
+          <span className={`text-[10px] px-3 py-1 rounded-full font-black uppercase tracking-wider ${
+            isApproved ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+            isPending ? 'bg-sky-50 text-sky-700 border border-sky-200' :
+            'bg-rose-50 text-rose-700 border border-rose-200'
+          }`}>
+            {isApproved ? 'APPROVED' : isPending ? 'PENDING SIGN-OFF' : 'REVISIONS REQUESTED'}
+          </span>
+        );
+      }
+    },
+    {
+      header: "Action Queue",
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setViewerDwg(row)}
+            className="px-3.5 py-1.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-extrabold rounded-xl text-xs transition-all shadow-3xs cursor-pointer flex items-center gap-1"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            <span>View & Sign</span>
+          </button>
+        </div>
+      )
+    }
+  ];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-6 font-sans text-slate-800 animate-in fade-in duration-200 w-full pb-12">
       
-      {/* 1. FILTER CONTROLS */}
-      <div className="bg-white p-5 rounded-3xl border border-slate-105 shadow-2xs flex flex-wrap gap-4 items-center justify-between">
-        <div className="flex gap-3 flex-wrap items-center flex-1">
-          <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Search drawings..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-slate-205 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-xs font-semibold bg-white text-slate-805"
-            />
+      {/* 1. TOP HEADER */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            Client Drawing Approvals Hub
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            Review architectural blueprints, sign-off GFC releases, and submit design revision notes
+          </p>
+        </div>
+
+        {/* View Switcher & Refresh */}
+        <div className="flex items-center gap-3">
+          <div className="p-1 bg-white border border-slate-200 rounded-xl flex gap-1 shadow-3xs">
+            <button
+              onClick={() => setViewMode('table')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                viewMode === 'table' ? 'bg-brand-primary text-slate-900' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <List className="w-4 h-4" />
+              <span>Approvals Queue</span>
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                viewMode === 'grid' ? 'bg-brand-primary text-slate-900' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              <span>Cards Grid</span>
+            </button>
           </div>
 
+          <button
+            onClick={loadDrawings}
+            className="p-2.5 bg-white hover:bg-slate-50 text-slate-700 rounded-xl transition-all border border-slate-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-3xs"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-brand-accent' : ''}`} />
+          </button>
+        </div>
+      </div>
+
+      {/* 2. RESPONSIVE SEARCH & STATUS FILTER STRIP */}
+      <div className="bg-white p-4 rounded-3xl border border-slate-200/90 shadow-2xs flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+        <div className="relative flex-1 max-w-full sm:max-w-xs">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input 
+            type="text" 
+            placeholder="Search project drawings..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs font-semibold bg-white text-slate-800"
+          />
+        </div>
+
+        <div className="flex items-center gap-3">
           <select
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
-            className="px-3 py-2 text-xs border border-slate-205 rounded-xl bg-white font-semibold text-slate-707"
+            className="w-full sm:w-auto px-3.5 py-2 text-xs border border-slate-200 rounded-xl bg-white font-semibold text-slate-700 cursor-pointer"
           >
             <option value="All">All Statuses</option>
-            <option value="Awaiting Approval">Awaiting Approval</option>
-            <option value="Approved">Approved</option>
-            <option value="Revisions Requested">Revisions Requested</option>
+            <option value="PENDING_CLIENT_APPROVAL">Pending Approval</option>
+            <option value="APPROVED">Approved</option>
+            <option value="CHANGES_REQUESTED">Revisions Requested</option>
           </select>
         </div>
       </div>
 
-      {/* 2. MAIN LAYOUT AND DETAIL DRAWER */}
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 items-start">
-        
-        {/* Gallery Grid (3/4 width) */}
-        <div className="xl:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6">
-          {filteredDrawings.map(d => (
-            <div 
-              key={d.id}
-              onClick={() => setSelectedDwg(d)}
-              className={`bg-white rounded-3xl border transition-all cursor-pointer overflow-hidden hover:border-[#2484C6]/40 flex flex-col justify-between ${
-                selectedDwg?.id === d.id ? 'border-[#2484C6] shadow-3xs' : 'border-slate-150'
-              }`}
-            >
-              {/* Simulated Thumbnail */}
-              <div className="bg-[#0A192F] p-4 h-24 flex items-center justify-center relative select-none">
-                <svg viewBox="0 0 100 80" className="w-16 h-16 stroke-sky-500 fill-none stroke-[0.8] opacity-60">
-                  <rect x="10" y="10" width="80" height="60" stroke="#1D4ED8" />
-                  <circle cx="50" cy="40" r="8" />
-                </svg>
-                <span className="absolute bottom-2 right-2 bg-slate-900/60 px-1.5 py-0.5 rounded text-[8px] font-black uppercase text-sky-400">
-                  {d.version}
-                </span>
-              </div>
+      {/* 3. ADMIN-STYLE DRAWING APPROVALS QUEUE TABLE VIEW / GRID VIEW */}
+      {viewMode === 'table' ? (
+        <Card title="Approvals Queue" subtitle="Drawing revisions requiring final GFC/Client release signatures (Matches Admin Command Format)">
+          <DataTable 
+            columns={drawingColumns} 
+            data={filteredDrawings} 
+            searchPlaceholder="Search project drawings..."
+            exportTitle="Client Drawing Approvals Queue"
+          />
+        </Card>
+      ) : (
+        /* CLEAN CARDS GRID VIEW */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredDrawings.map(d => {
+            const dwgId = d._id || d.id;
+            const isApproved = d.status === 'APPROVED';
+            const isPending = d.status === 'PENDING_CLIENT_APPROVAL' || d.status?.includes('Pending');
 
-              <div className="p-4 space-y-3">
-                <div>
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wide">{d.id} &bull; {d.project}</span>
-                  <strong className="text-slate-850 block text-xs truncate mt-0.5" title={d.name}>{d.name}</strong>
-                </div>
-
-                <div className="flex justify-between items-center border-t border-slate-50 pt-2.5">
-                  <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${
-                    d.status === 'Approved' ? 'bg-emerald-50 text-emerald-605 border-emerald-100' :
-                    d.status === 'Awaiting Approval' ? 'bg-amber-50 text-amber-605 border-amber-100' :
-                    'bg-rose-50 text-rose-600 border-rose-100'
-                  }`}>{d.status}</span>
-
-                  <span className="flex items-center gap-1 text-[10px] text-slate-400">
-                    <MessageSquare className="w-3.5 h-3.5" />
-                    {d.comments}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Right Details Panel (1/4 width) */}
-        {selectedDwg && (
-          <div className="xl:col-span-1 bg-white p-5 rounded-3xl border border-slate-100 shadow-2xs space-y-4">
-            <div className="border-b border-slate-50 pb-2">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{selectedDwg.id} &bull; {selectedDwg.project}</span>
-              <strong className="text-slate-805 block text-xs mt-1">{selectedDwg.name}</strong>
-            </div>
-
-            <div className="space-y-4 text-xs font-bold text-slate-550">
-              <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl space-y-1.5 text-[10px]">
-                <span className="text-slate-400 block uppercase">Active Version</span>
-                <strong className="text-slate-700">{selectedDwg.version} (Uploaded: {selectedDwg.date})</strong>
-              </div>
-
-              {selectedDwg.status === 'Awaiting Approval' ? (
-                <div className="space-y-2">
-                  <span className="text-[9px] text-slate-405 block uppercase">Review Decision</span>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleApprove(selectedDwg.id)}
-                      className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black uppercase text-center shadow-3xs flex items-center justify-center gap-1"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => handleReject(selectedDwg.id)}
-                      className="flex-1 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 rounded-xl font-bold uppercase text-center"
-                    >
-                      Request Revisions
-                    </button>
+            return (
+              <div 
+                key={dwgId}
+                className="bg-white rounded-3xl border border-slate-200/90 hover:border-indigo-300 transition-all p-5 shadow-2xs space-y-4 flex flex-col justify-between"
+              >
+                <div className="space-y-3">
+                  <div className="p-4 bg-brand-soft/60 rounded-2xl border border-brand-secondary/30 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <FileText className="w-5 h-5 text-indigo-600" />
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-wide font-mono">
+                        V{d.currentVersion || 1}.0 &bull; {d.category || 'Architectural'}
+                      </span>
+                    </div>
+                    <span className={`text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full border ${
+                      isApproved ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                      isPending ? 'bg-sky-50 text-sky-700 border-sky-200' :
+                      'bg-rose-50 text-rose-700 border-rose-200'
+                    }`}>
+                      {isApproved ? 'APPROVED' : isPending ? 'PENDING' : 'REVISIONS'}
+                    </span>
                   </div>
-                </div>
-              ) : (
-                <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex items-center gap-2">
-                  {selectedDwg.status === 'Approved' ? (
-                    <CheckCircle className="w-5 h-5 text-emerald-500" />
-                  ) : (
-                    <AlertTriangle className="w-5 h-5 text-rose-500" />
-                  )}
+
                   <div>
-                    <span className="text-[9px] text-slate-400 block uppercase">Approval Status</span>
-                    <strong className="text-slate-700 block mt-0.5">{selectedDwg.status}</strong>
+                    <strong className="text-slate-900 block text-sm font-extrabold truncate" title={d.title}>
+                      {d.title || d.name}
+                    </strong>
+                    <span className="text-[11px] text-slate-400 font-mono block mt-0.5">
+                      {d.drawingNumber || dwgId}
+                    </span>
                   </div>
                 </div>
-              )}
 
-              {/* Comment Input */}
-              <div className="space-y-2.5 pt-2 border-t border-slate-50">
-                <span className="text-[9px] text-slate-400 block uppercase">Add Design Correction Notes</span>
-                <textarea
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  placeholder="Type any structural correction details or checklist reviews..."
-                  className="w-full px-3 py-2 border border-slate-205 rounded-xl bg-white text-[10px] font-semibold text-slate-705 h-20 focus:outline-none"
-                />
-                <button
-                  onClick={() => {
-                    if (commentText.trim()) {
-                      alert("Review comment posted to design channel!");
-                      setCommentText('');
-                    }
-                  }}
-                  className="w-full py-1.5 bg-brand-primary text-slate-905 rounded-xl text-center shadow-3xs font-black uppercase"
-                >
-                  Submit Notes
-                </button>
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[10px] text-slate-500 font-semibold">
+                    {d.uploadedBy?.name || 'Sarah Connor (Architect)'}
+                  </span>
+                  <button
+                    onClick={() => setViewerDwg(d)}
+                    className="px-3.5 py-1.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-extrabold rounded-xl text-xs transition-all flex items-center gap-1 cursor-pointer shadow-3xs"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>View & Sign</span>
+                  </button>
+                </div>
               </div>
+            );
+          })}
+        </div>
+      )}
 
-            </div>
-          </div>
-        )}
-
-      </div>
+      {/* FULL SCREEN INTERACTIVE DRAWING VIEWER MODAL */}
+      {viewerDwg && (
+        <DrawingViewer
+          drawing={viewerDwg}
+          onClose={() => setViewerDwg(null)}
+          onStatusChange={() => {
+            loadDrawings();
+          }}
+        />
+      )}
 
     </div>
   );

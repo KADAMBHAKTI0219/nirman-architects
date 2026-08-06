@@ -704,3 +704,12 @@ Content-Type: application/json
 - **HTTP Method**: `PUT`
 - **URL Path**: `/notifications/:id/read`
 - **Access Level**: Authenticated
+
+---
+
+### 11.3 Mark All Notifications as Read
+- **HTTP Method**: `PUT`
+- **URL Path**: `/notifications/read-all`
+- **Access Level**: Authenticated
+- **Response**: `{ "success": true, "message": "All notifications marked as read" }`
+

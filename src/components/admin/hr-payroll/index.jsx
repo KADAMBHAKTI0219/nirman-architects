@@ -251,8 +251,8 @@ export default function HRPayroll({ defaultTab = 'overview' }) {
     }
   };
 
-  const handleRejectLeavePrompt = (reqId) => {
-    const reason = prompt("Enter rejection reason for this leave request:", "Scheduling conflict / staffing shortage");
+  const handleRejectLeavePrompt = async (reqId) => {
+    const reason = await window.prompt("Enter rejection reason for this leave request:", "Scheduling conflict / staffing shortage", "Reject Leave Request");
     if (reason === null) return;
     handleRejectLeave(reqId, reason);
   };

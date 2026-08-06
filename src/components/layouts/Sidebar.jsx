@@ -1,8 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import * as Icons from 'lucide-react';
 import logoImg from '../../assets/images/logo.png';
-
 
 const SIDEBAR_ITEMS = {
   Admin: [
@@ -118,25 +117,25 @@ const SIDEBAR_ITEMS = {
     { label: "Shift Rosters", path: "/hr/shifts", icon: "Clock3" },
     { category: "Operations & Reviews" },
     { label: "Payroll", path: "/hr/payroll", icon: "Briefcase" },
-    { label: "Performance Reviews", path: "/hr/reviews", icon: "Award" },
-    { label: "HR Documents", path: "/hr/docs", icon: "FolderOpen" }
+    { label: "Performance", path: "/hr/performance", icon: "Award" },
+    { label: "Notifications", path: "/hr/notifications", icon: "Bell" }
   ],
   ProjectManager: [
     { label: "Dashboard", path: "/project-manager", icon: "LayoutDashboard" },
-    { category: "Project Delivery" },
-    { label: "Projects", path: "/project-manager/projects", icon: "Building2" },
-    { label: "Tasks", path: "/project-manager/tasks", icon: "CheckSquare" },
-    { label: "Drawings", path: "/project-manager/drawings", icon: "FileCode" },
-    { category: "Collaboration" },
-    { label: "Team Roster", path: "/project-manager/team", icon: "Users" },
-    { label: "Client Communication", path: "/project-manager/chats", icon: "MessageSquare" },
-    { label: "Leaves Portal", path: "/project-manager/leaves", icon: "Calendar" },
-    { label: "Reports", path: "/project-manager/reports/projects", icon: "BarChart3" }
+    { category: "Project Operations" },
+    { label: "Projects Directory", path: "/project-manager/projects", icon: "Building2" },
+    { label: "Task Board", path: "/project-manager/tasks", icon: "CheckSquare" },
+    { label: "Drawing Approvals", path: "/project-manager/drawings", icon: "FileCode" },
+    { label: "Leaves Approvals", path: "/project-manager/leaves", icon: "Calendar" },
+    { category: "Team & Communication" },
+    { label: "Client Communication", path: "/project-manager/client-communication", icon: "MessageSquare" },
+    { label: "Team Directory", path: "/project-manager/team", icon: "Users" },
+    { label: "Reports & Audits", path: "/project-manager/reports", icon: "BarChart3" }
   ],
   Architect: [
     { label: "Dashboard", path: "/architect", icon: "LayoutDashboard" },
-    { category: "My Workspace" },
-    { label: "My Tasks", path: "/architect/tasks", icon: "CheckSquare" },
+    { category: "Design Studio" },
+    { label: "My Projects", path: "/architect/projects", icon: "Building2" },
     { label: "My Drawings", path: "/architect/drawings", icon: "DraftingCompass" },
     { label: "Time Tracking", path: "/architect/time", icon: "Clock3" },
     { label: "Leaves Portal", path: "/architect/leaves", icon: "Calendar" },
@@ -203,7 +202,20 @@ export default function Sidebar({ role, onClose }) {
   const items = SIDEBAR_ITEMS[role] || [];
   const location = useLocation();
 
-  const [expandedMenus, setExpandedMenus] = React.useState(() => {
+  // Persistent Mini-Sidebar / Icon-Only Collapsed State
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    return localStorage.getItem('nirman_sidebar_collapsed') === 'true';
+  });
+
+  const toggleCollapse = () => {
+    setIsCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('nirman_sidebar_collapsed', String(next));
+      return next;
+    });
+  };
+
+  const [expandedMenus, setExpandedMenus] = useState(() => {
     const activeObj = {};
     items.forEach((item, idx) => {
       if (item.subItems) {
@@ -217,6 +229,10 @@ export default function Sidebar({ role, onClose }) {
   });
 
   const toggleMenu = (idx) => {
+    if (isCollapsed) {
+      setIsCollapsed(false);
+      localStorage.setItem('nirman_sidebar_collapsed', 'false');
+    }
     setExpandedMenus(prev => ({
       ...prev,
       [idx]: !prev[idx]
@@ -240,39 +256,73 @@ export default function Sidebar({ role, onClose }) {
 
   const renderIcon = (name) => {
     const IconComponent = Icons[name] || Icons.HelpCircle;
-    return <IconComponent className="w-4 h-4" />;
+    return <IconComponent className="w-5 h-5 flex-shrink-0" />;
   };
 
   return (
-    <aside className="w-64 bg-white text-slate-650 h-screen flex flex-col flex-shrink-0 shadow-xs sticky top-0">
-      {/* Brand Profile */}
-      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-center relative bg-white">
-        <Link to="/" className="flex items-center justify-center transition-opacity hover:opacity-90">
-          <img 
-            src={logoImg} 
-            alt="Nirman Architects Logo" 
-            className="h-11 sm:h-12 w-auto object-contain mx-auto"
-          />
-        </Link>
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="lg:hidden absolute right-3 top-1/2 -translate-y-1/2 p-1.5 hover:bg-slate-100 text-slate-500 hover:text-slate-700 rounded-lg transition-colors"
-            title="Close Menu"
-          >
-            <Icons.X className="w-4.5 h-4.5" />
-          </button>
+    <aside 
+      className={`bg-white text-slate-650 h-screen flex flex-col flex-shrink-0 shadow-xs sticky top-0 transition-all duration-300 ease-in-out border-r border-slate-100 ${
+        isCollapsed ? 'w-20' : 'w-64'
+      }`}
+    >
+      {/* 1. Brand Logo Header & Toggle Button */}
+      <div className={`py-4 border-b border-slate-100 flex items-center justify-between relative bg-white ${
+        isCollapsed ? 'px-3 justify-center' : 'px-5'
+      }`}>
+        {!isCollapsed ? (
+          <Link to="/" className="flex items-center transition-opacity hover:opacity-90 min-w-0">
+            <img 
+              src={logoImg} 
+              alt="Nirman Architects Logo" 
+              className="h-11 sm:h-12 w-auto object-contain mx-auto"
+            />
+          </Link>
+        ) : (
+          <Link to="/" className="flex items-center justify-center p-1" title="Nirman Architects">
+            <div className="w-9 h-9 rounded-xl bg-brand-tint text-brand-dark border border-slate-200 font-black text-xs flex items-center justify-center shadow-3xs">
+              N
+            </div>
+          </Link>
         )}
+
+        <div className="flex items-center gap-1">
+          {/* Toggle Expand / Collapse Icon Button */}
+          <button
+            onClick={toggleCollapse}
+            className="hidden lg:flex p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-xl transition-all border border-slate-200/60 cursor-pointer"
+            title={isCollapsed ? "Expand Sidebar" : "Collapse to Icons Only"}
+          >
+            {isCollapsed ? (
+              <Icons.PanelLeftOpen className="w-4 h-4 text-slate-600" />
+            ) : (
+              <Icons.PanelLeftClose className="w-4 h-4 text-slate-500" />
+            )}
+          </button>
+
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="lg:hidden p-1.5 hover:bg-slate-100 text-slate-500 hover:text-slate-700 rounded-lg transition-colors"
+              title="Close Menu"
+            >
+              <Icons.X className="w-4.5 h-4.5" />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Navigation List - Clean, Flat List with Category Headings */}
-      <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-2">
+      {/* 2. Navigation List using original global brand colors */}
+      <nav className={`flex-1 overflow-y-auto space-y-2 scrollbar-thin ${
+        isCollapsed ? 'px-2 py-4' : 'px-4 py-6'
+      }`}>
         {items.map((item, idx) => {
           if (item.category) {
-            return (
+            return !isCollapsed ? (
               <div key={`cat-${idx}`} className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-5 mb-2.5 px-4 block">
                 {item.category}
               </div>
+            ) : (
+              <div key={`cat-${idx}`} className="w-8 h-0.5 bg-slate-100 mx-auto my-3 rounded-full" />
             );
           }
 
@@ -289,7 +339,10 @@ export default function Sidebar({ role, onClose }) {
               <div key={idx} className="space-y-1">
                 <button
                   onClick={() => toggleMenu(idx)}
-                  className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  title={isCollapsed ? item.label : undefined}
+                  className={`w-full flex items-center rounded-xl text-xs font-bold transition-all ${
+                    isCollapsed ? 'justify-center p-3' : 'justify-between px-4 py-2.5'
+                  } ${
                     hasActiveSub
                       ? 'bg-brand-tint text-slate-900 font-extrabold border-l-4 border-brand-primary'
                       : 'hover:bg-slate-50 hover:text-slate-900 text-slate-550'
@@ -297,15 +350,18 @@ export default function Sidebar({ role, onClose }) {
                 >
                   <div className="flex items-center gap-3">
                     {renderIcon(item.icon)}
-                    <span>{item.label}</span>
+                    {!isCollapsed && <span>{item.label}</span>}
                   </div>
-                  {isExpanded ? (
-                    <Icons.ChevronDown className="w-3.5 h-3.5 transition-transform text-slate-400" />
-                  ) : (
-                    <Icons.ChevronRight className="w-3.5 h-3.5 transition-transform text-slate-400" />
+                  {!isCollapsed && (
+                    isExpanded ? (
+                      <Icons.ChevronDown className="w-3.5 h-3.5 transition-transform text-slate-400" />
+                    ) : (
+                      <Icons.ChevronRight className="w-3.5 h-3.5 transition-transform text-slate-400" />
+                    )
                   )}
                 </button>
-                {isExpanded && (
+                
+                {isExpanded && !isCollapsed && (
                   <div className="pl-3.5 pr-1 py-1 space-y-1 border-l border-slate-100 ml-5">
                     {item.subItems.map((sub, sIdx) => {
                       const isSubActive = hasExactSubMatch 
@@ -342,36 +398,46 @@ export default function Sidebar({ role, onClose }) {
             <Link
               key={idx}
               to={item.path}
+              title={isCollapsed ? item.label : undefined}
               onClick={() => {
                 if (onClose) onClose();
               }}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              className={`flex items-center rounded-xl text-xs font-bold transition-all ${
+                isCollapsed ? 'justify-center p-3' : 'gap-3 px-4 py-2.5'
+              } ${
                 isActive
                   ? 'bg-brand-tint text-slate-900 font-extrabold border-l-4 border-brand-primary shadow-xs'
                   : 'hover:bg-slate-50 hover:text-slate-900 text-slate-550'
               }`}
             >
               {renderIcon(item.icon)}
-              <span>{item.label}</span>
+              {!isCollapsed && <span>{item.label}</span>}
             </Link>
           );
         })}
       </nav>
 
-      {/* Sidebar Footer: Profile Card matching mockup */}
-      <div className="p-4 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 overflow-hidden">
-          <div className="w-9 h-9 bg-brand-tint rounded-xl flex items-center justify-center text-brand-dark font-black text-[11px] shadow-xs border border-white flex-shrink-0">
+      {/* 3. Sidebar Footer using original brand colors */}
+      <div className={`border-t border-slate-100 bg-slate-50/30 flex transition-all ${
+        isCollapsed ? 'p-2 flex-col items-center gap-2' : 'p-4 items-center justify-between gap-3'
+      }`}>
+        <div className={`flex items-center gap-3 overflow-hidden ${isCollapsed ? 'justify-center' : ''}`}>
+          <div 
+            className="w-9 h-9 bg-brand-tint text-brand-dark rounded-xl flex items-center justify-center font-black text-[11px] shadow-xs border border-white flex-shrink-0"
+            title={isCollapsed ? `${name} (${roleLabel})` : undefined}
+          >
             {initials}
           </div>
-          <div className="overflow-hidden">
-            <span className="text-xs font-black text-slate-800 block truncate leading-tight">
-              {name}
-            </span>
-            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mt-0.5 leading-none">
-              {roleLabel}
-            </span>
-          </div>
+          {!isCollapsed && (
+            <div className="overflow-hidden">
+              <span className="text-xs font-black text-slate-800 block truncate leading-tight">
+                {name}
+              </span>
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mt-0.5 leading-none">
+                {roleLabel}
+              </span>
+            </div>
+          )}
         </div>
 
         <button 
@@ -379,7 +445,9 @@ export default function Sidebar({ role, onClose }) {
             localStorage.clear();
             window.location.href = '/';
           }}
-          className="p-1.5 hover:bg-slate-100 text-slate-450 hover:text-rose-600 rounded-lg transition-colors flex-shrink-0"
+          className={`hover:bg-slate-100 text-slate-450 hover:text-rose-600 rounded-lg transition-colors flex-shrink-0 cursor-pointer ${
+            isCollapsed ? 'p-2' : 'p-1.5'
+          }`}
           title="Sign Out"
         >
           <Icons.LogOut className="w-4 h-4" />

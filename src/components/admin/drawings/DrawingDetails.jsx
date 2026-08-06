@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getCachedDrawingFile } from '../../../service/drawing';
 import { 
   ArrowLeft, Lock, Unlock, ZoomIn, ZoomOut, Maximize2, Plus, 
   MessageSquare, FileText, Send, Clock, CheckCircle, ShieldAlert, Layers,
@@ -13,7 +14,7 @@ export default function DrawingDetails({
   onUpdateDrawing,
   onCompareTrigger
 }) {
-  const [isFullMarkupMode, setIsFullMarkupMode] = useState(true);
+  const [isFullMarkupMode, setIsFullMarkupMode] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [commentText, setCommentText] = useState('');
   const [newPinMessage, setNewPinMessage] = useState('');
@@ -194,40 +195,29 @@ export default function DrawingDetails({
                 className="transition-transform duration-200 ease-out absolute inset-0 flex items-center justify-center p-8"
                 style={{ transform: `scale(${zoomLevel})` }}
               >
-                {/* Simulated Blueprint SVG drawing */}
-                <svg viewBox="0 0 400 300" className="w-full h-full stroke-sky-400/80 fill-none stroke-[1.5] max-w-lg">
-                  {/* Grid Lines */}
-                  <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-                    <path d="M 20 0 L 0 0 0 20" stroke="#0f3458" strokeWidth="0.5" />
-                  </pattern>
-                  <rect width="100%" height="100%" fill="url(#grid)" stroke="#0e2f50" strokeWidth="1" />
-
-                  {/* Outer Wall Boundary */}
-                  <rect x="50" y="50" width="300" height="200" strokeWidth="3" stroke="#2484C6" />
-                  
-                  {/* Internal Rooms Partition */}
-                  <line x1="150" y1="50" x2="150" y2="250" />
-                  <line x1="150" y1="150" x2="350" y2="150" />
-                  <line x1="250" y1="150" x2="250" y2="250" />
-
-                  {/* Doors Arc Indicator */}
-                  <path d="M 150 110 A 40 40 0 0 1 110 150" strokeDasharray="3 3" />
-                  <line x1="150" y1="110" x2="150" y2="150" />
-
-                  <path d="M 250 210 A 40 40 0 0 1 210 250" strokeDasharray="3 3" />
-                  <line x1="250" y1="210" x2="250" y2="250" />
-
-                  {/* Columns Indicator */}
-                  <rect x="47" y="47" width="6" height="6" fill="#2484C6" />
-                  <rect x="347" y="47" width="6" height="6" fill="#2484C6" />
-                  <rect x="47" y="247" width="6" height="6" fill="#2484C6" />
-                  <rect x="347" y="247" width="6" height="6" fill="#2484C6" />
-                  
-                  {/* Structural labels */}
-                  <text x="70" y="90" fill="#38BDF8" fontSize="8" stroke="none" fontWeight="bold">ROOM A (Lobby)</text>
-                  <text x="210" y="100" fill="#38BDF8" fontSize="8" stroke="none" fontWeight="bold">OFFICE SUITE B</text>
-                  <text x="200" y="200" fill="#38BDF8" fontSize="8" stroke="none" fontWeight="bold">CONFERENCE ROOM</text>
-                </svg>
+                {(() => {
+                  const cached = getCachedDrawingFile(drawing._id || drawing.id || drawing.drawingNumber);
+                  const targetUrl = cached || drawing.fileUrl || drawing.pdfUrl;
+                  const rawUrl = typeof targetUrl === 'string' ? targetUrl : (targetUrl instanceof File || targetUrl instanceof Blob ? URL.createObjectURL(targetUrl) : '');
+                  const isPdf = typeof rawUrl === 'string' && (rawUrl.startsWith('data:application/pdf') || rawUrl.endsWith('.pdf') || rawUrl.includes('.pdf') || rawUrl.includes('cloudinary'));
+                  if (isPdf && rawUrl) {
+                    const iframeSrc = rawUrl.includes('#') ? rawUrl : `${rawUrl}#toolbar=1&navpanes=1`;
+                    return (
+                      <iframe
+                        src={iframeSrc}
+                        title={drawing.name || drawing.title}
+                        className="w-full h-full min-h-[480px] rounded-2xl border border-slate-800 bg-white shadow-xl"
+                      />
+                    );
+                  }
+                  return (
+                    <img 
+                      src={rawUrl || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80"} 
+                      alt={drawing.name || drawing.title} 
+                      className="w-full h-full object-contain rounded-2xl select-none"
+                    />
+                  );
+                })()}
 
                 {/* Render existing pins */}
                 {drawing.pins.map(pin => (

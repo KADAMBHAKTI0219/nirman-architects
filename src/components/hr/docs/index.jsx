@@ -24,10 +24,12 @@ export default function Docs() {
     d.employee.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleUploadDocument = () => {
-    const name = prompt("Enter Document File Name:");
-    const employee = prompt("Enter Employee Name:");
-    const category = prompt("Enter Category (Contracts, ID Proofs, Certificates):");
+  const handleUploadDocument = async () => {
+    const name = await window.prompt("Enter Document File Name:", "", "Upload HR Document");
+    if (!name) return;
+    const employee = await window.prompt("Enter Employee Name:", "", "Upload HR Document");
+    if (!employee) return;
+    const category = await window.prompt("Enter Category (Contracts, ID Proofs, Certificates):", "Contracts", "Upload HR Document");
 
     if (name && employee && category) {
       const newDoc = {

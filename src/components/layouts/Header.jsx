@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Search, RefreshCw, User, HardHat, Hammer, FileCheck, Menu, LayoutDashboard } from 'lucide-react';
+import { Bell, Search, RefreshCw, User, HardHat, Hammer, FileCheck, Menu, LayoutDashboard, CheckCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getMyNotifications, markNotificationAsRead } from '../../service/notification';
+import { getMyNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../../service/notification';
 
 export default function Header({ currentRole, onChangeRole, title = "Dashboard", onToggleSidebar }) {
   const [showNotifications, setShowNotifications] = useState(false);
@@ -48,6 +48,15 @@ export default function Header({ currentRole, onChangeRole, title = "Dashboard",
       fetchNotifications();
     } catch (err) {
       console.error("Failed to mark notification as read:", err);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllNotificationsAsRead();
+      fetchNotifications();
+    } catch (err) {
+      console.error("Failed to mark all as read in header:", err);
     }
   };
 
@@ -106,9 +115,17 @@ export default function Header({ currentRole, onChangeRole, title = "Dashboard",
               <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex justify-between items-center text-xs font-bold text-slate-700">
                 <span>Notifications</span>
                 {unreadCount > 0 && (
-                  <span className="text-[9px] text-rose-600 bg-rose-50 border border-rose-100 font-black px-2 py-0.5 rounded-full">
-                    {unreadCount} New alerts
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] text-rose-600 bg-rose-50 border border-rose-100 font-black px-2 py-0.5 rounded-full">
+                      {unreadCount} New alerts
+                    </span>
+                    <button
+                      onClick={handleMarkAllRead}
+                      className="text-[10px] text-brand-dark hover:underline font-extrabold flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <CheckCheck className="w-3 h-3 text-brand-primary" /> Read all
+                    </button>
+                  </div>
                 )}
               </div>
               <div className="divide-y divide-slate-50 max-h-64 overflow-y-auto">

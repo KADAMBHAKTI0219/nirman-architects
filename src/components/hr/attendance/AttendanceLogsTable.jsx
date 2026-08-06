@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, MapPin, ChevronRight } from 'lucide-react';
+import { Search, MapPin, Eye } from 'lucide-react';
 
 export default function AttendanceLogsTable({
   logs,
@@ -89,9 +89,10 @@ export default function AttendanceLogsTable({
                   <td className="px-4 py-3.5 text-right align-middle">
                     <button
                       onClick={() => onSelectLog(log)}
-                      className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all shadow-3xs"
+                      className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all shadow-3xs"
+                      title="View Log Details"
                     >
-                      <ChevronRight className="w-3.5 h-3.5 text-slate-550" />
+                      <Eye className="w-3.5 h-3.5 text-slate-550" />
                     </button>
                   </td>
                 </tr>

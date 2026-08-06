@@ -2,27 +2,53 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import loginHero from '../../assets/images/login/loginpage.png';
 import logoImg from '../../assets/images/logo.png';
-import { Ruler, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Ruler, ArrowRight, Eye, EyeOff, ShieldCheck, User, Building, Lock, Key, AlertCircle, CheckCircle, RefreshCw, X } from 'lucide-react';
 import { loginUser } from '../../service/auth';
+import { clientLogin, clientChangePassword, clientForgotPassword, clientResetPassword } from '../../service/client';
 
-
-const EMAIL_ROLE_MAP = {
+const STAFF_DEMO_ACCOUNTS = {
   'admin@nirman.com': 'Admin',
   'kadambhakti@gmail.com': 'Admin',
   'hr@nirman.com': 'HR',
   'pm@nirman.com': 'ProjectManager',
   'architect@nirman.com': 'Architect',
   'engineer@nirman.com': 'SiteEngineer',
-  'employee@gmail.com': 'Employee',
-  'customer@nirman.com': 'Customer'
+  'employee@gmail.com': 'Employee'
+};
+
+const CLIENT_DEMO_ACCOUNTS = {
+  'anand@shah.com': 'Shah Enterprises (Anand Shah)',
+  'info@shah.com': 'Shah Group Admin (info@shah.com)',
+  'bruce@waynecorp.com': 'Wayne Enterprises (Bruce Wayne)',
+  'lex@metropolis.com': 'Metropolis Corp (Lex Luthor)',
+  'customer@nirman.com': 'Customer Portal Demo'
 };
 
 export default function Login({ onLogin }) {
+  const [authType, setAuthType] = useState('staff'); // 'staff' or 'client'
   const [email, setEmail] = useState('admin@nirman.com');
   const [password, setPassword] = useState('••••••••');
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Force Password Change Modal (CRM Module 2 Requirement: mustChangePassword)
+  const [showForcePasswordModal, setShowForcePasswordModal] = useState(false);
+  const [pendingClientContact, setPendingClientContact] = useState(null);
+  const [newPasswordForm, setNewPasswordForm] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
+  const [passwordChangeError, setPasswordChangeError] = useState('');
+  const [passwordChanging, setPasswordChanging] = useState(false);
+
+  // Forgot Password Modal
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [newResetPassword, setNewResetPassword] = useState('');
+  const [forgotStep, setForgotStep] = useState(1); // 1: enter email, 2: enter token & new password
+  const [forgotMessage, setForgotMessage] = useState('');
+  const [forgotError, setForgotError] = useState('');
+  const [forgotSubmitting, setForgotSubmitting] = useState(false);
 
   const normalizeRole = (role) => {
     if (!role) return 'Employee';
@@ -33,83 +59,239 @@ export default function Login({ onLogin }) {
     if (r.includes('site') || r.includes('engineer')) return 'SiteEngineer';
     if (r.includes('manager') || r.includes('pm')) return 'ProjectManager';
     if (r.includes('architect')) return 'Architect';
-    if (r.includes('customer')) return 'Customer';
+    if (r.includes('customer') || r.includes('client')) return 'Customer';
     return 'Employee';
+  };
+
+  const handleTabSwitch = (type) => {
+    setAuthType(type);
+    setError('');
+    if (type === 'client') {
+      setEmail('bruce@waynecorp.com');
+      setPassword('Password123!');
+    } else {
+      setEmail('admin@nirman.com');
+      setPassword('Admin123!');
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const cleanEmail = email.trim().toLowerCase();
-    
-    try {
-      setError('');
-      const response = await loginUser(cleanEmail, password);
-      
-      const token = response.token || response.data?.token;
-      // Extremely robust success flag resolution: checks explicit flag, presence of token, or success message.
-      const success = response.success === true || !!token || response.data?.success === true || String(response.message).toLowerCase().includes('success');
-      
-      if (success) {
-        // Extract user data from response or nested data object
-        const userObj = response.user || response.data?.user || response.data || response;
-        const user = {
-          id: userObj.id || userObj._id || cleanEmail.split('@')[0],
-          name: userObj.name || cleanEmail.split('@')[0].toUpperCase(),
-          email: userObj.email || cleanEmail,
-          role: userObj.role,
-          roleCode: userObj.roleCode,
-          roleId: userObj.roleId,
-          deviceId: userObj.deviceId
-        };
-        
-        if (token) {
-          localStorage.setItem('token', token);
-        }
-        
-        // Prioritize roleCode for normalisation
-        const roleToNormalize = user.roleCode || user.role || 'SUPER_ADMIN';
-        const normRole = normalizeRole(roleToNormalize);
-        
-        // Save details inside localStorage user metadata for route checks
-        const updatedUser = { ...user, role: normRole };
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        
+    setError('');
+    setLoading(true);
 
-        onLogin(normRole);
+    try {
+      if (authType === 'client') {
+        // Explicit Client Portal Login Endpoint: POST /api/client-auth/login
+        const res = await clientLogin({ email: cleanEmail, password });
+        if (res?.success) {
+          handleClientLoginSuccess(res, cleanEmail);
+          return;
+        } else {
+          setError(res?.message || 'Invalid Client Portal credentials.');
+        }
       } else {
-        setError(response.message || 'Invalid login credentials.');
+        // Staff Login Endpoint: POST /api/auth/login
+        try {
+          const response = await loginUser(cleanEmail, password);
+          const token = response.token || response.data?.token;
+          const success = response.success === true || !!token || response.data?.success === true || String(response.message).toLowerCase().includes('success');
+          
+          if (success) {
+            const userObj = response.user || response.data?.user || response.data || response;
+            const user = {
+              id: userObj.id || userObj._id || cleanEmail.split('@')[0],
+              name: userObj.name || cleanEmail.split('@')[0].toUpperCase(),
+              email: userObj.email || cleanEmail,
+              role: userObj.role,
+              roleCode: userObj.roleCode,
+              roleId: userObj.roleId,
+              deviceId: userObj.deviceId
+            };
+            
+            if (token) localStorage.setItem('token', token);
+            const roleToNormalize = user.roleCode || user.role || 'SUPER_ADMIN';
+            const normRole = normalizeRole(roleToNormalize);
+            
+            const updatedUser = { ...user, role: normRole };
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            onLogin(normRole);
+            return;
+          }
+        } catch (staffErr) {
+          // Automatic Smart Fallback: Try Client Portal Login if staff login fails
+          console.log("Staff login failed, attempting Client Portal login fallback...");
+          const clientRes = await clientLogin({ email: cleanEmail, password });
+          if (clientRes?.success) {
+            handleClientLoginSuccess(clientRes, cleanEmail);
+            return;
+          }
+          setError(staffErr.response?.data?.message || staffErr.message || 'Invalid login credentials.');
+        }
       }
     } catch (err) {
-      setError(
-        err.response?.data?.message || 
-        err.message || 
-        'Login failed. Please check your credentials or network.'
-      );
+      setError(err.response?.data?.message || err.message || 'Login failed. Please check network/credentials.');
+    } finally {
+      setLoading(false);
     }
   };
 
+  const handleClientLoginSuccess = (res, cleanEmail) => {
+    const contact = res.contact || {};
+    const client = res.client || {};
+    const token = res.token || 'mock-client-jwt-token';
 
-  const fillQuickCredentials = (demoEmail) => {
-    setEmail(demoEmail);
-    if (demoEmail === 'admin@nirman.com') {
-      setPassword('Admin123!');
-    } else if (demoEmail === 'kadambhakti@gmail.com') {
-      setPassword('Password123!');
-    } else {
-      setPassword('Password123!');
+    const isTemp = contact.mustChangePassword || 
+                   contact.isTemporaryPassword || 
+                   res.mustChangePassword || 
+                   res.isTemporaryPassword || 
+                   (password && password.startsWith('TempPass'));
+
+    if (isTemp) {
+      setPendingClientContact({ ...contact, token, client });
+      setNewPasswordForm({ oldPassword: password, newPassword: '', confirmPassword: '' });
+      setShowForcePasswordModal(true);
+      setLoading(false);
+      return;
     }
+
+    localStorage.setItem('token', token);
+    const clientUser = {
+      id: contact._id || contact.id || cleanEmail.split('@')[0],
+      name: contact.name || 'Client Contact',
+      email: contact.email || cleanEmail,
+      role: 'Customer',
+      isClientPortal: true,
+      permissionLevel: contact.permissionLevel || 'OWNER',
+      clientId: contact.clientId,
+      clientName: client.name || client.companyName || 'Client'
+    };
+
+    localStorage.setItem('user', JSON.stringify(clientUser));
+    onLogin('Customer');
+  };
+
+  // Submit Force Password Change on First Login
+  const handleForcePasswordChangeSubmit = async (e) => {
+    e.preventDefault();
+    setPasswordChangeError('');
+
+    if (newPasswordForm.newPassword.length < 6) {
+      setPasswordChangeError('New password must be at least 6 characters long.');
+      return;
+    }
+
+    if (newPasswordForm.newPassword !== newPasswordForm.confirmPassword) {
+      setPasswordChangeError('New password and confirm password do not match.');
+      return;
+    }
+
+    setPasswordChanging(true);
+    try {
+      const res = await clientChangePassword({
+        oldPassword: newPasswordForm.oldPassword,
+        newPassword: newPasswordForm.newPassword
+      });
+
+      if (res?.success) {
+        alert("Password updated successfully! Redirecting to Client Portal...");
+        setShowForcePasswordModal(false);
+        
+        const contact = pendingClientContact;
+        localStorage.setItem('token', contact.token);
+        const clientUser = {
+          id: contact._id || contact.id,
+          name: contact.name,
+          email: contact.email,
+          role: 'Customer',
+          isClientPortal: true,
+          permissionLevel: contact.permissionLevel || 'OWNER',
+          clientId: contact.clientId,
+          clientName: contact.client?.name || contact.client?.companyName || 'Client'
+        };
+
+        localStorage.setItem('user', JSON.stringify(clientUser));
+        onLogin('Customer');
+      } else {
+        setPasswordChangeError(res?.message || 'Failed to update password.');
+      }
+    } catch (err) {
+      setPasswordChangeError(err.message || 'Error updating password.');
+    } finally {
+      setPasswordChanging(false);
+    }
+  };
+
+  // Submit Forgot Password Email Token Request
+  const handleForgotSubmit = async (e) => {
+    e.preventDefault();
+    setForgotError('');
+    setForgotMessage('');
+
+    if (forgotStep === 1) {
+      if (!forgotEmail.trim()) {
+        setForgotError('Please enter your registered email address.');
+        return;
+      }
+      setForgotSubmitting(true);
+      try {
+        const res = await clientForgotPassword(forgotEmail.trim());
+        if (res?.success) {
+          setForgotMessage(res.message);
+          setForgotStep(2);
+        } else {
+          setForgotError(res?.message || 'Failed to request reset token.');
+        }
+      } catch (err) {
+        setForgotError(err.message || 'Error sending reset request.');
+      } finally {
+        setForgotSubmitting(false);
+      }
+    } else {
+      if (!resetToken.trim() || !newResetPassword.trim()) {
+        setForgotError('Please provide both the reset token and your new password.');
+        return;
+      }
+      setForgotSubmitting(true);
+      try {
+        const res = await clientResetPassword({
+          email: forgotEmail.trim(),
+          token: resetToken.trim(),
+          newPassword: newResetPassword.trim()
+        });
+
+        if (res?.success) {
+          alert("Password has been reset successfully! You can now log in.");
+          setShowForgotModal(false);
+          setForgotStep(1);
+        } else {
+          setForgotError(res?.message || 'Failed to reset password.');
+        }
+      } catch (err) {
+        setForgotError(err.message || 'Error resetting password.');
+      } finally {
+        setForgotSubmitting(false);
+      }
+    }
+  };
+
+  const fillQuickCredentials = (demoEmail, type = 'staff') => {
+    setAuthType(type);
+    setEmail(demoEmail);
+    if (demoEmail === 'admin@nirman.com') setPassword('Admin123!');
+    else if (demoEmail === 'kadambhakti@gmail.com') setPassword('Password123!');
+    else setPassword('Password123!');
   };
 
   return (
-    <div className="w-full min-h-screen flex flex-col md:flex-row bg-white text-left">
+    <div className="w-full min-h-screen flex flex-col md:flex-row bg-white text-left font-sans">
       
-      {/* Left Column: Graphic & Centered Branding - Clean Solid Gradient Background */}
+      {/* Left Column: Graphic & Centered Branding */}
       <div className="w-full md:w-1/2 bg-gradient-to-tr from-brand-light via-brand-soft to-brand-secondary p-8 flex flex-col justify-between items-center text-brand-dark min-h-[300px] md:min-h-screen">
         
         {/* Centered Graphic & Brand Package */}
         <div className="my-auto flex flex-col items-center space-y-4 md:space-y-8">
-          
-          {/* Logo & Typography Group (Centered) */}
           <div className="flex flex-col items-center justify-center text-center space-y-2">
             <img 
               src={logoImg} 
@@ -119,34 +301,32 @@ export default function Login({ onLogin }) {
             <div className="w-12 h-0.5 bg-brand-primary mx-auto rounded-full mt-2"></div>
           </div>
 
-          {/* Graphic Frame */}
-          <div className="w-32 h-32 md:w-80 md:h-80 overflow-hidden rounded-2xl">
+          <div className="w-32 h-32 md:w-80 md:h-80 overflow-hidden rounded-2xl shadow-md border border-white/40">
             <img 
               src={loginHero} 
               alt="Architect Graphic illustration" 
               className="w-full h-full object-cover"
             />
           </div>
-
         </div>
 
-        {/* Footer branding */}
         <div className="text-[10px] tracking-widest font-black text-slate-500 uppercase mt-4 md:mt-0">
           powered by Nex Alliance
         </div>
       </div>
 
       {/* Right Column: Form Panel */}
-      <div className="w-full md:w-1/2 p-6 md:p-16 flex flex-col justify-center bg-white min-h-[450px] md:min-h-screen">
+      <div className="w-full md:w-1/2 p-6 md:p-14 flex flex-col justify-center bg-white min-h-[450px] md:min-h-screen">
         <div className="max-w-md w-full mx-auto space-y-6">
+          
           <div className="space-y-1">
             <h2 className="text-3xl font-black text-slate-900 tracking-tight">Welcome Back!</h2>
-            <p className="text-xs text-slate-400">Enter your credentials to enter the workspace simulation.</p>
+            <p className="text-xs text-slate-500">Log in with your email & password to access your portal workspace.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-[10px] font-black text-slate-400 block mb-1.5 uppercase tracking-wider">
+              <label className="text-[10px] font-black text-slate-500 block mb-1.5 uppercase tracking-wider">
                 Email Address
               </label>
               <input 
@@ -154,13 +334,13 @@ export default function Login({ onLogin }) {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@nirman.com"
+                placeholder="name@company.com"
                 className="w-full px-4 py-3 text-xs font-semibold text-slate-800 bg-slate-50/50 border border-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all bg-white"
               />
             </div>
 
             <div>
-              <label className="text-[10px] font-black text-slate-400 block mb-1.5 uppercase tracking-wider">
+              <label className="text-[10px] font-black text-slate-500 block mb-1.5 uppercase tracking-wider">
                 Password
               </label>
               <div className="relative">
@@ -193,86 +373,260 @@ export default function Login({ onLogin }) {
                 />
                 Remember me
               </label>
-              <a href="#" className="font-bold text-brand-dark hover:underline" onClick={(e) => { e.preventDefault(); alert("Password reset is not active in this simulation."); }}>
+
+              <button
+                type="button"
+                onClick={() => { setForgotEmail(email); setForgotError(''); setForgotMessage(''); setForgotStep(1); setShowForgotModal(true); }}
+                className="font-bold text-brand-dark hover:underline cursor-pointer"
+              >
                 Forgot password?
-              </a>
+              </button>
             </div>
 
             {error && (
-              <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl text-[10px] font-bold border border-rose-100">
-                {error}
+              <div className="p-3 bg-rose-50 text-rose-700 rounded-2xl text-xs font-bold border border-rose-200 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{error}</span>
               </div>
             )}
 
-            {/* Login button - Using Brand Color Combination (bg-brand-primary) */}
             <button 
               type="submit"
-              className="w-full py-3 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-extrabold rounded-full text-xs transition-all shadow-sm hover:shadow active:scale-98"
+              disabled={loading}
+              className="w-full py-3 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-extrabold rounded-full text-xs transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
             >
-              Login
+              {loading ? <RefreshCw className="w-4 h-4 animate-spin text-slate-900" /> : <ShieldCheck className="w-4 h-4 text-slate-900" />}
+              Login to Workspace
             </button>
           </form>
 
-          <div className="relative text-center">
-            <div className="absolute inset-y-1/2 left-0 right-0 border-t border-slate-200"></div>
-            <span className="relative bg-white px-3 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-              or continue with
-            </span>
-          </div>
+          {/* Quick Demo Credentials Switcher */}
+          <div className="pt-4 border-t border-slate-100 space-y-3">
+            <div>
+              <span className="text-[10px] font-black text-slate-400 uppercase block mb-1.5 tracking-wider">
+                Staff Quick Demo Accounts:
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {Object.keys(STAFF_DEMO_ACCOUNTS).map((demoEmail) => (
+                  <button
+                    key={demoEmail}
+                    type="button"
+                    onClick={() => fillQuickCredentials(demoEmail, 'staff')}
+                    className="text-[9px] px-2.5 py-1 bg-slate-50 hover:bg-indigo-50 border border-slate-200 text-slate-600 hover:text-indigo-700 rounded-full font-bold transition-all"
+                  >
+                    {demoEmail.split('@')[0].toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-          {/* Social logins */}
-          <div className="grid grid-cols-3 gap-3">
-            <button 
-              onClick={() => alert("Google sign-in is simulated.")}
-              className="py-2.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-full flex items-center justify-center text-slate-600 transition-colors"
-              title="Google Login"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12.24 10.285V13.4h6.887c-.275 1.565-1.88 4.604-6.887 4.604-4.33 0-7.859-3.578-7.859-8s3.53-8 7.859-8c2.46 0 4.105 1.025 5.047 1.926l2.427-2.334C17.955 2.192 15.34 1 12.24 1 5.92 1 12 5.92 12 12s4.92 11 11.24 11c6.6 0 11-4.65 11-11.2 0-.756-.08-1.333-.18-1.815H12.24z"/>
-              </svg>
-            </button>
-            <button 
-              onClick={() => alert("GitHub sign-in is simulated.")}
-              className="py-2.5 bg-white hover:bg-slate-50 border border-slate-202 rounded-full flex items-center justify-center text-slate-605 transition-colors"
-              title="GitHub Login"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.137 20.162 22 16.418 22 12c0-5.523-4.477-10-10-10z"/>
-              </svg>
-            </button>
-            <button 
-              onClick={() => alert("Apple sign-in is simulated.")}
-              className="py-2.5 bg-white hover:bg-slate-50 border border-slate-205 rounded-full flex items-center justify-center text-slate-605 transition-colors"
-              title="Apple Login"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 4.17c.66-.81 1.11-1.93.99-3.06-1 .04-2.21.67-2.93 1.49-.62.69-1.16 1.84-1.01 2.96 1.12.09 2.27-.56 2.95-1.39z"/>
-              </svg>
-            </button>
-          </div>
-
-
-          {/* Helper quick switch buttons for easy testing */}
-          <div className="pt-4 border-t border-slate-100">
-            <span className="text-[10px] font-black text-slate-400 uppercase block mb-2 tracking-wider">
-              Quick Demo Accounts (Click to Fill)
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {Object.keys(EMAIL_ROLE_MAP).map((demoEmail) => (
-                <button
-                  key={demoEmail}
-                  type="button"
-                  onClick={() => fillQuickCredentials(demoEmail)}
-                  className="text-[9px] px-2.5 py-1 bg-slate-50 hover:bg-brand-tint border border-slate-200 text-slate-600 hover:text-slate-800 rounded-full font-bold transition-all"
-                >
-                  {demoEmail.split('@')[0].toUpperCase()}
-                </button>
-              ))}
+            <div>
+              <span className="text-[10px] font-black text-slate-400 uppercase block mb-1.5 tracking-wider">
+                Client Portal Quick Demo Accounts:
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {Object.keys(CLIENT_DEMO_ACCOUNTS).map((demoEmail) => (
+                  <button
+                    key={demoEmail}
+                    type="button"
+                    onClick={() => fillQuickCredentials(demoEmail, 'client')}
+                    className="text-[9px] px-2.5 py-1 bg-amber-50/80 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-full font-bold transition-all"
+                  >
+                    {CLIENT_DEMO_ACCOUNTS[demoEmail]}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
         </div>
       </div>
+
+      {/* MODAL 1: FORCE PASSWORD CHANGE ON FIRST LOGIN (CRM Module 2) */}
+      {showForcePasswordModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 text-left">
+            <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+              <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
+                <Lock className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">First-Time Password Change Required</h3>
+                <p className="text-xs text-slate-500">Please set a secure password for your Client Portal account.</p>
+              </div>
+            </div>
+
+            {passwordChangeError && (
+              <div className="p-3 bg-rose-50 text-rose-700 rounded-xl text-xs font-bold border border-rose-200">
+                {passwordChangeError}
+              </div>
+            )}
+
+            <form onSubmit={handleForcePasswordChangeSubmit} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Temporary / Current Password *</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={newPasswordForm.oldPassword}
+                    onChange={(e) => setNewPasswordForm({ ...newPasswordForm, oldPassword: e.target.value })}
+                    className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">New Secure Password *</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="At least 6 characters"
+                    value={newPasswordForm.newPassword}
+                    onChange={(e) => setNewPasswordForm({ ...newPasswordForm, newPassword: e.target.value })}
+                    className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Confirm New Password *</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Re-enter new password"
+                    value={newPasswordForm.confirmPassword}
+                    onChange={(e) => setNewPasswordForm({ ...newPasswordForm, confirmPassword: e.target.value })}
+                    className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="submit"
+                  disabled={passwordChanging}
+                  className="w-full py-2.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold rounded-xl shadow-xs flex items-center justify-center gap-1.5"
+                >
+                  {passwordChanging ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Key className="w-4 h-4" />}
+                  Update Password & Enter Portal
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: CLIENT FORGOT / RESET PASSWORD */}
+      {showForgotModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 text-left">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-base font-black text-slate-900">Reset Client Portal Password</h3>
+              <button onClick={() => setShowForgotModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {forgotError && (
+              <div className="p-3 bg-rose-50 text-rose-700 rounded-xl text-xs font-bold border border-rose-200">
+                {forgotError}
+              </div>
+            )}
+
+            {forgotMessage && (
+              <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-bold border border-emerald-200">
+                {forgotMessage}
+              </div>
+            )}
+
+            <form onSubmit={handleForgotSubmit} className="space-y-3 text-xs">
+              {forgotStep === 1 ? (
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Registered Client Email Address *</label>
+                  <input
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="bruce@waynecorp.com"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
+                    required
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    We will issue a reset token for this email address.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">Reset Token *</label>
+                    <input
+                      type="text"
+                      value={resetToken}
+                      onChange={(e) => setResetToken(e.target.value)}
+                      placeholder="Enter reset token from email"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white font-mono"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">New Password *</label>
+                    <input
+                      type="password"
+                      value={newResetPassword}
+                      onChange={(e) => setNewResetPassword(e.target.value)}
+                      placeholder="Enter new secure password"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
+                      required
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotModal(false)}
+                  className="px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={forgotSubmitting}
+                  className="px-5 py-2 bg-indigo-600 text-white font-extrabold rounded-xl shadow-xs flex items-center gap-1.5"
+                >
+                  {forgotSubmitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                  {forgotStep === 1 ? 'Request Reset Token' : 'Reset Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

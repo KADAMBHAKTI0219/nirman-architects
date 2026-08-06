@@ -3,94 +3,11 @@ import DocumentList from './DocumentList';
 import DocumentDetails from './DocumentDetails';
 import DocumentUploadModal from './DocumentUploadModal';
 import DocumentReports from './DocumentReports';
+import { getProjectDocuments, createDocument } from '../../../service/document';
 
-const INITIAL_DOCUMENTS = [
-  {
-    id: "DOC-101",
-    name: "Structural Load Analysis.pdf",
-    project: "Central Office Tower",
-    folder: "Reports",
-    type: "PDF",
-    version: "V1.2",
-    uploadedBy: "Sarah Connor",
-    uploadedDate: "2026-07-15",
-    accessLevel: "Admin & PM Only",
-    confidential: true,
-    locked: false,
-    fileSize: "4.2 MB",
-    versions: [
-      { version: "V1.0", date: "2026-07-01", uploader: "Sarah Connor", changeLog: "Initial draft load checks" },
-      { version: "V1.1", date: "2026-07-08", uploader: "Alice Smith", changeLog: "Corrected staircase support deadweight" },
-      { version: "V1.2", date: "2026-07-15", uploader: "Sarah Connor", changeLog: "Final approved structural analysis release" }
-    ],
-    downloadHistory: [
-      { user: "John Wick", role: "Project Manager", date: "2 hours ago", version: "V1.2" },
-      { user: "Bob Johnson", role: "Site Engineer", date: "Yesterday", version: "V1.1" }
-    ]
-  },
-  {
-    id: "DOC-102",
-    name: "Land Survey compaction report.xlsx",
-    project: "Smart City Mall",
-    folder: "Site Photos",
-    type: "XLSX",
-    version: "V1.0",
-    uploadedBy: "Bob Johnson",
-    uploadedDate: "2026-07-10",
-    accessLevel: "Public & Staff",
-    confidential: false,
-    locked: false,
-    fileSize: "2.1 MB",
-    versions: [
-      { version: "V1.0", date: "2026-07-10", uploader: "Bob Johnson", changeLog: "Compaction trial pits logs complete" }
-    ],
-    downloadHistory: [
-      { user: "Sarah Connor", role: "Lead Architect", date: "2 days ago", version: "V1.0" }
-    ]
-  },
-  {
-    id: "DOC-103",
-    name: "Facade brackets drawings catalog.zip",
-    project: "Smart City Mall",
-    folder: "Drawings",
-    type: "ZIP",
-    version: "V2.0",
-    uploadedBy: "John Wick",
-    uploadedDate: "2026-07-20",
-    accessLevel: "Admin Only",
-    confidential: true,
-    locked: true,
-    fileSize: "18.5 MB",
-    versions: [
-      { version: "V1.0", date: "2026-07-12", uploader: "John Wick", changeLog: "Bracket elevation dwg drafts" },
-      { version: "V2.0", date: "2026-07-20", uploader: "John Wick", changeLog: "Locked production-ready brackets drawings" }
-    ],
-    downloadHistory: [
-      { user: "Frank Castle", role: "Supervisor", date: "Yesterday", version: "V2.0" }
-    ]
-  },
-  {
-    id: "DOC-104",
-    name: "Client Billing Milestone Contract.pdf",
-    project: "Oceanic Luxury Villas",
-    folder: "Contracts",
-    type: "PDF",
-    version: "V1.0",
-    uploadedBy: "Sarah Connor",
-    uploadedDate: "2026-07-18",
-    accessLevel: "Admin Only",
-    confidential: true,
-    locked: false,
-    fileSize: "1.2 MB",
-    versions: [
-      { version: "V1.0", date: "2026-07-18", uploader: "Sarah Connor", changeLog: "Signed contract stage billing agreements" }
-    ],
-    downloadHistory: []
-  }
-];
-
-export default function Documents({ defaultTab = 'vault' }) {
-  const [documents, setDocuments] = useState(INITIAL_DOCUMENTS);
+export default function AdminDocuments({ defaultTab = 'vault' }) {
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [viewMode, setViewMode] = useState('list'); // list, details
   const [viewReports, setViewReports] = useState(defaultTab === 'reports');
@@ -105,33 +22,86 @@ export default function Documents({ defaultTab = 'vault' }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
 
+  // Load documents directly from backend DB
+  const fetchBackendDocuments = async () => {
+    setLoading(true);
+    try {
+      const res = await getProjectDocuments('proj-1', { folder: '', search: '' });
+      if (res && res.allDocuments && res.allDocuments.length > 0) {
+        const mapped = res.allDocuments.map(d => ({
+          id: d._id || d.id,
+          _id: d._id || d.id,
+          name: d.fileName,
+          project: d.projectId?.name || "Central Office Tower",
+          folder: d.category || "Other Shared Documents",
+          type: d.fileType || "PDF",
+          version: `V${d.version || 1}.0`,
+          uploadedBy: d.uploadedBy?.name || "Admin Sarah",
+          uploadedDate: d.createdAt ? new Date(d.createdAt).toISOString().split('T')[0] : "2026-07-15",
+          accessLevel: d.visibleToClient ? "Public & Staff" : "Admin Only",
+          confidential: !d.visibleToClient,
+          locked: false,
+          fileSize: "4.2 MB",
+          versions: [
+            { version: `V${d.version || 1}.0`, date: "2026-07-15", uploader: d.uploadedBy?.name || "Admin", changeLog: "Initial upload" }
+          ],
+          downloadHistory: []
+        }));
+        setDocuments(mapped);
+      } else {
+        setDocuments([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch documents from backend:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBackendDocuments();
+  }, []);
+
   // Modal State
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
-  const handleUploadDocumentSubmit = (formData) => {
-    const newId = `DOC-${100 + documents.length + 1}`;
-    const newDoc = {
-      id: newId,
-      name: formData.name,
-      project: formData.project,
-      folder: formData.folder,
-      type: formData.type,
-      version: formData.version,
-      uploadedBy: "Super Admin",
-      uploadedDate: new Date().toISOString().split('T')[0],
-      accessLevel: formData.accessLevel,
-      confidential: formData.confidential,
-      locked: false,
-      fileSize: formData.fileSize,
-      versions: [
-        { version: formData.version, date: new Date().toISOString().split('T')[0], uploader: "Super Admin", changeLog: formData.changeLog }
-      ],
-      downloadHistory: []
+  const handleUploadDocumentSubmit = async (formData) => {
+    const payload = {
+      projectId: 'proj-1',
+      fileName: formData.name,
+      filePath: formData.filePath || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+      fileType: formData.type || 'PDF',
+      fileSize: 4200000,
+      category: formData.folder || 'Other Shared Documents',
+      visibleToClient: formData.accessLevel ? formData.accessLevel.includes("Public") : true
     };
 
-    setDocuments(prev => [newDoc, ...prev]);
-    setIsUploadModalOpen(false);
-    alert(`Document ${newId} registered successfully in ${formData.folder}!`);
+    try {
+      await createDocument(payload);
+      alert(`Document "${formData.name}" saved to Backend Database!`);
+      setIsUploadModalOpen(false);
+      fetchBackendDocuments();
+    } catch (err) {
+      console.warn("Backend save notice:", err.message);
+      const newDoc = {
+        id: `DOC-${100 + documents.length + 1}`,
+        name: formData.name,
+        project: formData.project || "Central Office Tower",
+        folder: formData.folder || "Other Shared Documents",
+        type: formData.type || "PDF",
+        version: formData.version || "V1.0",
+        uploadedBy: "Admin",
+        uploadedDate: new Date().toISOString().split('T')[0],
+        accessLevel: formData.accessLevel || "Admin Only",
+        confidential: formData.confidential || false,
+        locked: false,
+        fileSize: formData.fileSize || "4.2 MB",
+        versions: [{ version: "V1.0", date: new Date().toISOString().split('T')[0], uploader: "Admin", changeLog: "Uploaded document" }],
+        downloadHistory: []
+      };
+      setDocuments(prev => [newDoc, ...prev]);
+      setIsUploadModalOpen(false);
+    }
   };
 
   const handleUpdateDocument = (updatedDoc) => {
@@ -145,7 +115,6 @@ export default function Documents({ defaultTab = 'vault' }) {
     setDocuments(prev => prev.map(d => 
       d.id === docId ? { ...d, locked: !d.locked } : d
     ));
-    // Sync active drawer lock state
     if (selectedDocument && selectedDocument.id === docId) {
       setSelectedDocument(prev => ({ ...prev, locked: !prev.locked }));
     }
@@ -163,10 +132,10 @@ export default function Documents({ defaultTab = 'vault' }) {
     setViewMode('details');
   };
 
-  const handleCreateFolderClick = () => {
-    const folderName = prompt("Enter new directory folder name:");
-    if (folderName) {
-      alert(`Directory folder '${folderName}' created successfully!`);
+  const handleCreateFolderClick = async () => {
+    const folderName = await window.prompt("Enter new directory folder name:", "", "Create Directory Folder");
+    if (folderName && folderName.trim()) {
+      alert(`Directory folder '${folderName.trim()}' created successfully!`);
     }
   };
 
@@ -182,7 +151,7 @@ export default function Documents({ defaultTab = 'vault' }) {
             </div>
             <button
               onClick={() => setViewReports(false)}
-              className="px-4 py-2 border border-slate-205 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-3xs"
+              className="px-4 py-2 border border-slate-205 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-3xs cursor-pointer"
             >
               Back to Document Vault
             </button>

@@ -245,7 +245,7 @@ export default function LeavesPortal({ role = "Employee" }) {
   };
 
   const handleRejectTeamRequest = async (reqId) => {
-    const reason = prompt("Enter rejection reason for this leave request:", "Scheduling conflict");
+    const reason = await window.prompt("Enter rejection reason for this leave request:", "Scheduling conflict", "Leave Rejection Reason");
     if (reason === null) return;
     try {
       const res = await rejectLeaveRequest(reqId, reason);
