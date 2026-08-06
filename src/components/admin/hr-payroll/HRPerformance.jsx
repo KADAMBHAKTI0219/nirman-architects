@@ -142,7 +142,7 @@ export default function HRPerformance({
       {/* Ratios Comparison Chart */}
       <Card title="Productivity & Task Completion Ratios" subtitle="Comparison of completion ratios across department groups">
         <div className="h-64">
-          <ResponsiveContainer width="100%" height="105%">
+          <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
               <XAxis dataKey="name" stroke="#94A3B8" fontSize={9} fontWeight="bold" />

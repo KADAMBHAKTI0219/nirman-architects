@@ -73,7 +73,7 @@ export default function DrawingReports({ drawings }) {
       {/* Bar Chart: Drawings by Category */}
       <Card title="Drawings by Category" subtitle="File volume by discipline types">
         <div className="h-64">
-          <ResponsiveContainer width="100%" height="105%">
+          <ResponsiveContainer width="100%" height="100%">
             <BarChart data={categoryData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
               <XAxis dataKey="name" stroke="#94A3B8" fontSize={9} fontWeight="bold" />
@@ -92,7 +92,7 @@ export default function DrawingReports({ drawings }) {
       {/* Bar Chart: Project-wise Drawing Count */}
       <Card title="Drawings volume by Project" subtitle="Total uploaded contracts per structural site">
         <div className="h-64">
-          <ResponsiveContainer width="100%" height="105%">
+          <ResponsiveContainer width="100%" height="100%">
             <BarChart data={projectData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
               <XAxis dataKey="name" stroke="#94A3B8" fontSize={10} fontWeight="bold" />
@@ -107,7 +107,7 @@ export default function DrawingReports({ drawings }) {
       {/* Line Chart: Uploads timeline frequency */}
       <Card title="Blueprint Upload frequency" subtitle="Revision upload trends velocity over time">
         <div className="h-64">
-          <ResponsiveContainer width="100%" height="105%">
+          <ResponsiveContainer width="100%" height="100%">
             <LineChart data={[
               { date: 'Jul 10', uploads: 2 },
               { date: 'Jul 15', uploads: 4 },

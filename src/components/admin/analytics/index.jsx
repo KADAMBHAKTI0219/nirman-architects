@@ -169,7 +169,7 @@ export default function Analytics({ defaultTab = 'projects' }) {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card title="Projects Progress comparison" subtitle="Average milestone completions ratio across projects" className="lg:col-span-2">
               <div className="h-60">
-                <ResponsiveContainer width="100%" height="105%">
+                <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={projectsReportData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                     <XAxis dataKey="projectName" stroke="#94A3B8" fontSize={9} fontWeight="bold" />
@@ -252,7 +252,7 @@ export default function Analytics({ defaultTab = 'projects' }) {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card title="Task Completion Rate comparison" subtitle="Staff completion ratios mapped against milestones deadlines" className="lg:col-span-2">
               <div className="h-60">
-                <ResponsiveContainer width="100%" height="105%">
+                <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={productivityReportData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                     <XAxis dataKey="name" stroke="#94A3B8" fontSize={9} fontWeight="bold" />
@@ -266,7 +266,7 @@ export default function Analytics({ defaultTab = 'projects' }) {
 
             <Card title="Focus Hours summary" subtitle="Total focus hours logged inside projects tasks">
               <div className="h-60">
-                <ResponsiveContainer width="100%" height="105%">
+                <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={[
                     { name: 'Alice', hours: 36 },
                     { name: 'Bob', hours: 42 },

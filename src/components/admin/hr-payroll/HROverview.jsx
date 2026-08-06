@@ -91,7 +91,7 @@ export default function HROverview({
         {/* Leave Cost Trends */}
         <Card title="Leave Velocity Trend" subtitle="Monthly count of requested leave days over time" className="lg:col-span-2">
           <div className="h-56">
-            <ResponsiveContainer width="100%" height="105%">
+            <ResponsiveContainer width="100%" height="100%">
               <LineChart data={leaveTrendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                 <XAxis dataKey="month" stroke="#94A3B8" fontSize={9} fontWeight="bold" />

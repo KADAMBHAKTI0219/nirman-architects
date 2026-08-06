@@ -63,7 +63,7 @@ export default function TaskReports({ tasks }) {
       {/* Chart 1: Status Distribution Bar Chart */}
       <Card title="Task Count by Stage" subtitle="Roster metrics of current task states">
         <div className="h-64">
-          <ResponsiveContainer width="100%" height="105%">
+          <ResponsiveContainer width="100%" height="100%">
             <BarChart data={statusData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
               <XAxis dataKey="name" stroke="#94A3B8" fontSize={10} fontWeight="bold" />
@@ -109,7 +109,7 @@ export default function TaskReports({ tasks }) {
       {/* Chart 3: Estimated vs Actual Hours spent by Department */}
       <Card title="Hours Analysis by Department" subtitle="Estimated vs actual logged timesheets comparison">
         <div className="h-64">
-          <ResponsiveContainer width="100%" height="105%">
+          <ResponsiveContainer width="100%" height="100%">
             <BarChart data={workloadData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
               <XAxis dataKey="name" stroke="#94A3B8" fontSize={10} fontWeight="bold" />
@@ -126,7 +126,7 @@ export default function TaskReports({ tasks }) {
       {/* Chart 4: Completion Wave line chart */}
       <Card title="Timesheet Completion Wave" subtitle="Average progress velocity matching active schedules">
         <div className="h-64">
-          <ResponsiveContainer width="100%" height="105%">
+          <ResponsiveContainer width="100%" height="100%">
             <LineChart data={[
               { week: 'Week 1', completed: 2 },
               { week: 'Week 2', completed: 5 },

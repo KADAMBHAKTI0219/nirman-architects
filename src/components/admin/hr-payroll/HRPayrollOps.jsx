@@ -357,7 +357,7 @@ export default function HRPayrollOps() {
         {/* Cost Trend */}
         <Card title="Monthly Payroll Expenses" subtitle="Total salary costs over recent months">
           <div className="h-48">
-            <ResponsiveContainer width="100%" height="105%">
+            <ResponsiveContainer width="100%" height="100%">
               <LineChart data={monthlyTrendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                 <XAxis dataKey="month" stroke="#94A3B8" fontSize={9} fontWeight="bold" />
@@ -372,7 +372,7 @@ export default function HRPayrollOps() {
         {/* Dept expense */}
         <Card title="Expense by Department" subtitle="Payroll cost weights by business team groups">
           <div className="h-48">
-            <ResponsiveContainer width="100%" height="105%">
+            <ResponsiveContainer width="100%" height="100%">
               <BarChart data={deptCostData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                 <XAxis dataKey="name" stroke="#94A3B8" fontSize={9} fontWeight="bold" />

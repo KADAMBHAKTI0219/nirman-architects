@@ -153,7 +153,7 @@ export default function CRMOverview({
         {/* Project progress by client */}
         <Card title="Project Progress by Client" subtitle="Average milestone progress percentage by client link" className="lg:col-span-2">
           <div className="h-56">
-            <ResponsiveContainer width="100%" height="105%">
+            <ResponsiveContainer width="100%" height="100%">
               <BarChart data={progressData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                 <XAxis dataKey="name" stroke="#94A3B8" fontSize={9} fontWeight="bold" />

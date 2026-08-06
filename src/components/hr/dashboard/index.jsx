@@ -263,7 +263,7 @@ export default function HRDashboard() {
         {/* Attendance trend (Line Chart) */}
         <Card title="Attendance Rates Trend" subtitle="Daily attendance rates logged during the week">
           <div className="h-56">
-            <ResponsiveContainer width="100%" height="105%">
+            <ResponsiveContainer width="100%" height="100%">
               <LineChart data={attendanceTrendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                 <XAxis dataKey="day" stroke="#94A3B8" fontSize={9} fontWeight="bold" />
@@ -278,7 +278,7 @@ export default function HRDashboard() {
         {/* Department-wise Strength (Bar Chart) */}
         <Card title="Department-wise Strength" subtitle="Staff distribution counts across teams">
           <div className="h-56">
-            <ResponsiveContainer width="100%" height="105%">
+            <ResponsiveContainer width="100%" height="100%">
               <BarChart data={deptStrengthData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                 <XAxis dataKey="name" stroke="#94A3B8" fontSize={9} fontWeight="bold" />

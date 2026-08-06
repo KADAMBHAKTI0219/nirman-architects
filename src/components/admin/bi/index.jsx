@@ -97,7 +97,7 @@ export default function BI() {
           {/* Timeline predictive forecast */}
           <Card title="Completion Timeline Predictive Forecast" subtitle="Actual progress vs AI projected week-wise milestones timeline">
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="105%">
+              <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={timelineForecastData}>
                   <defs>
                     <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">

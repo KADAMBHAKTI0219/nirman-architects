@@ -165,7 +165,7 @@ export default function DocumentReports({ documents = [] }) {
         {/* Chart 1: Project-wise Documents Count */}
         <Card title="Document Count by Project" subtitle="Volume of archived files inside project-wise repositories">
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="105%">
+            <ResponsiveContainer width="100%" height="100%">
               <BarChart data={projectData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                 <XAxis dataKey="name" stroke="#94A3B8" fontSize={10} fontWeight="bold" />

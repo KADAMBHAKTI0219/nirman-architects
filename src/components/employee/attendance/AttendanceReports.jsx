@@ -57,7 +57,7 @@ export default function AttendanceReports({ logs }) {
         {/* Line Chart: Attendance Shift hours trend */}
         <Card title="Shift Hours Velocity Trend" subtitle="Daily logged working hours against standard 8.0h shift targets">
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="105%">
+            <ResponsiveContainer width="100%" height="100%">
               <LineChart data={weeklyTrendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                 <XAxis dataKey="name" stroke="#94A3B8" fontSize={10} fontWeight="bold" />
@@ -101,7 +101,7 @@ export default function AttendanceReports({ logs }) {
         {/* Stacked Bar Chart: Office vs Site attendance */}
         <Card title="Office vs Site Check-In Ratio" subtitle="Weekly distribution of office laptop boots vs mobile GPS check-ins">
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="105%">
+            <ResponsiveContainer width="100%" height="100%">
               <BarChart data={ratioData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                 <XAxis dataKey="name" stroke="#94A3B8" fontSize={10} fontWeight="bold" />
