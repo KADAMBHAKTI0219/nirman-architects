@@ -47,6 +47,53 @@ const INITIAL_APPROVALS = [
   }
 ];
 
+const INITIAL_MOCK_CLIENTS = [
+  {
+    _id: "CLI-901",
+    id: "CLI-901",
+    name: "Lex Luthor",
+    companyName: "Luthor Corp Real Estate",
+    phone: "9898989898",
+    email: "lex@luthorcorp.com",
+    billingAddress: "77 Metropolis Tower Way",
+    status: "Active",
+    createdAt: "2026-01-10",
+    assignedProjects: ["Central Office Tower"],
+    contacts: [
+      {
+        _id: "cnt-1",
+        contactName: "Lex Luthor",
+        contactEmail: "lex@luthorcorp.com",
+        contactPhone: "9898989898",
+        roleTag: "OWNER",
+        mustChangePassword: true
+      }
+    ]
+  },
+  {
+    _id: "CLI-902",
+    id: "CLI-902",
+    name: "Mr. Bruce Wayne",
+    companyName: "Wayne Enterprises Ltd",
+    phone: "9876543210",
+    email: "bruce@wayneent.com",
+    billingAddress: "Wayne Manor, Gotham City",
+    status: "Active",
+    createdAt: "2026-02-15",
+    assignedProjects: ["Oceanic Luxury Villas"],
+    contacts: [
+      {
+        _id: "cnt-2",
+        contactName: "Mr. Bruce Wayne",
+        contactEmail: "bruce@wayneent.com",
+        contactPhone: "9876543210",
+        roleTag: "OWNER",
+        mustChangePassword: false
+      }
+    ]
+  }
+];
+
 export default function CRM({ defaultTab = 'overview' }) {
   const [activeTab, setActiveTab] = useState(defaultTab);
 
@@ -54,9 +101,9 @@ export default function CRM({ defaultTab = 'overview' }) {
     setActiveTab(defaultTab);
   }, [defaultTab]);
 
-  const [clients, setClients] = useState([]);
+  const [clients, setClients] = useState(INITIAL_MOCK_CLIENTS);
   const [clientsLoading, setClientsLoading] = useState(false);
-  const [selectedClient, setSelectedClient] = useState(null);
+  const [selectedClient, setSelectedClient] = useState(INITIAL_MOCK_CLIENTS[0]);
 
   const [queriesList, setQueriesList] = useState(INITIAL_QUERIES);
   const [approvalsList, setApprovalsList] = useState(INITIAL_APPROVALS);
@@ -69,8 +116,8 @@ export default function CRM({ defaultTab = 'overview' }) {
     setClientsLoading(true);
     try {
       const res = await getClients();
-      if (res?.success) {
-        const clientList = res.clients || [];
+      if (res?.success && Array.isArray(res.clients) && res.clients.length > 0) {
+        const clientList = res.clients;
         setClients(clientList);
         if (clientList.length > 0) {
           setSelectedClient(prev => {
@@ -79,9 +126,14 @@ export default function CRM({ defaultTab = 'overview' }) {
             return updated || clientList[0];
           });
         }
+      } else {
+        setClients(INITIAL_MOCK_CLIENTS);
+        setSelectedClient(INITIAL_MOCK_CLIENTS[0]);
       }
     } catch (err) {
-      console.error("Failed to load clients list:", err);
+      console.warn("Backend client API offline - Using fallback INITIAL_MOCK_CLIENTS", err);
+      setClients(INITIAL_MOCK_CLIENTS);
+      setSelectedClient(INITIAL_MOCK_CLIENTS[0]);
     } finally {
       setClientsLoading(false);
     }

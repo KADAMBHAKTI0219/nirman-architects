@@ -1,6 +1,6 @@
 import React from 'react';
-import { 
-  Search, Filter, CheckSquare, Clock, AlertTriangle, CheckCircle, 
+import {
+  Search, Filter, CheckSquare, Clock, AlertTriangle, CheckCircle,
   Plus, Eye, ListFilter, Kanban, TableProperties, BarChart3, Calendar,
   User, Building, RefreshCw, ChevronRight, AlertCircle, ArrowUpRight, Sparkles
 } from 'lucide-react';
@@ -31,7 +31,7 @@ export default function TaskList({
   onCreateTaskClick
 }) {
   const [dragOverCol, setDragOverCol] = React.useState(null);
-  
+
   // Calculate KPIs
   const totalTasks = tasks.length;
   const pendingTasks = tasks.filter(t => t.status === 'Pending').length;
@@ -42,8 +42,8 @@ export default function TaskList({
 
   // Filter Tasks
   const filteredTasks = tasks.filter(t => {
-    const matchesSearch = (t.title || '').toLowerCase().includes((searchQuery || '').toLowerCase()) || 
-                          (t.id || '').toLowerCase().includes((searchQuery || '').toLowerCase());
+    const matchesSearch = (t.title || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+      (t.id || '').toLowerCase().includes((searchQuery || '').toLowerCase());
     const matchesProject = projectFilter === 'All' || t.project === projectFilter;
     const matchesDept = deptFilter === 'All' || t.dept === deptFilter;
     const matchesPriority = priorityFilter === 'All' || t.priority === priorityFilter;
@@ -52,7 +52,7 @@ export default function TaskList({
 
   return (
     <div className="space-y-6 font-sans text-slate-800 pb-16 animate-in fade-in duration-200 w-full">
-      
+
       {/* 1. TOP HEADER */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -69,9 +69,8 @@ export default function TaskList({
           <div className="bg-white p-1 rounded-2xl border border-slate-200 flex items-center gap-1 shadow-3xs">
             <button
               onClick={() => setViewMode('kanban')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
-                viewMode === 'kanban' ? 'bg-brand-primary text-slate-900 shadow-3xs' : 'text-slate-500 hover:text-slate-900'
-              }`}
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${viewMode === 'kanban' ? 'bg-brand-primary text-slate-900 shadow-3xs' : 'text-slate-500 hover:text-slate-900'
+                }`}
               title="Kanban Board View"
             >
               <Kanban className="w-4 h-4" />
@@ -79,9 +78,8 @@ export default function TaskList({
             </button>
             <button
               onClick={() => setViewMode('table')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
-                viewMode === 'table' ? 'bg-brand-primary text-slate-900 shadow-3xs' : 'text-slate-500 hover:text-slate-900'
-              }`}
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${viewMode === 'table' ? 'bg-brand-primary text-slate-900 shadow-3xs' : 'text-slate-500 hover:text-slate-900'
+                }`}
               title="Table View"
             >
               <TableProperties className="w-4 h-4" />
@@ -89,9 +87,8 @@ export default function TaskList({
             </button>
             <button
               onClick={() => setViewMode('reports')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
-                viewMode === 'reports' ? 'bg-brand-primary text-slate-900 shadow-3xs' : 'text-slate-500 hover:text-slate-900'
-              }`}
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${viewMode === 'reports' ? 'bg-brand-primary text-slate-900 shadow-3xs' : 'text-slate-500 hover:text-slate-900'
+                }`}
               title="Analytics View"
             >
               <BarChart3 className="w-4 h-4" />
@@ -109,38 +106,13 @@ export default function TaskList({
         </div>
       </div>
 
-      {/* 2. KPI STATS RIBBON (Executive Cards) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
-        {[
-          { label: 'Total Tasks', value: totalTasks, icon: CheckSquare, style: 'border-slate-200 bg-white text-slate-900', iconColor: 'text-slate-700' },
-          { label: 'Pending', value: pendingTasks, icon: Clock, style: 'border-slate-200 bg-slate-50/70 text-slate-800', iconColor: 'text-slate-500' },
-          { label: 'In Progress', value: inProgressTasks, icon: Kanban, style: 'border-indigo-200 bg-indigo-50/60 text-indigo-900', iconColor: 'text-indigo-600' },
-          { label: 'Review Queue', value: reviewTasks, icon: ListFilter, style: 'border-amber-200 bg-amber-50/60 text-amber-900', iconColor: 'text-amber-600' },
-          { label: 'Overdue At-Risk', value: overdueTasks, icon: AlertTriangle, style: 'border-rose-200 bg-rose-50/70 text-rose-900', iconColor: 'text-rose-600' },
-          { label: 'Completed', value: completedTasks, icon: CheckCircle, style: 'border-emerald-200 bg-emerald-50/60 text-emerald-900', iconColor: 'text-emerald-600' }
-        ].map((kpi, idx) => {
-          const Icon = kpi.icon;
-          return (
-            <div key={idx} className={`p-4 rounded-3xl border shadow-2xs flex flex-col justify-between h-24 ${kpi.style}`}>
-              <span className="text-[10px] font-black uppercase tracking-wider block opacity-70">{kpi.label}</span>
-              <div className="flex justify-between items-end">
-                <span className="text-2xl font-black tracking-tight">{kpi.value}</span>
-                <div className={`p-2 rounded-xl bg-white/80 border border-slate-200/50 shadow-3xs ${kpi.iconColor}`}>
-                  <Icon className="w-4 h-4" />
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
       {/* 3. FILTERING & SEARCH CONTROL STRIP */}
       {viewMode !== 'reports' && (
         <div className="bg-white p-4 rounded-3xl border border-slate-200/90 shadow-2xs flex flex-col md:flex-row gap-3.5 items-stretch md:items-center justify-between">
-          
+
           <div className="relative flex-1 min-w-[220px]">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input 
+            <input
               type="text"
               placeholder="Search tasks by title, assignee, or ID..."
               value={searchQuery}
@@ -197,8 +169,8 @@ export default function TaskList({
             const isHoveredOver = dragOverCol === col.id;
 
             return (
-              <div 
-                key={col.id} 
+              <div
+                key={col.id}
                 onDragOver={(e) => {
                   e.preventDefault();
                   e.dataTransfer.dropEffect = 'move';
@@ -216,13 +188,12 @@ export default function TaskList({
                     onStatusChange(taskId, col.id);
                   }
                 }}
-                className={`w-full p-3.5 rounded-3xl flex flex-col min-h-[480px] border transition-all duration-200 ${
-                  isHoveredOver 
-                    ? 'bg-indigo-50/80 border-indigo-400 ring-2 ring-indigo-400/30 scale-[1.01] shadow-md' 
-                    : 'bg-slate-50/90 border-slate-200/80 shadow-3xs'
-                }`}
+                className={`w-full p-3.5 rounded-3xl flex flex-col min-h-[480px] border transition-all duration-200 ${isHoveredOver
+                  ? 'bg-indigo-50/80 border-indigo-400 ring-2 ring-indigo-400/30 scale-[1.01] shadow-md'
+                  : 'bg-slate-50/90 border-slate-200/80 shadow-3xs'
+                  }`}
               >
-                
+
                 {/* Column Header */}
                 <div className="flex justify-between items-center mb-3.5 pb-2 border-b border-slate-200/70 px-1">
                   <div className="flex items-center gap-2">
@@ -241,7 +212,7 @@ export default function TaskList({
                   {columnTasks.map((t) => {
                     const isCritical = t.priority === 'Critical';
                     const isHigh = t.priority === 'High';
-                    
+
                     return (
                       <div
                         key={t.id}
@@ -251,9 +222,8 @@ export default function TaskList({
                           e.dataTransfer.effectAllowed = 'move';
                         }}
                         onClick={() => onSelectTask(t)}
-                        className={`bg-white p-3.5 rounded-2xl border transition-all duration-200 cursor-grab active:cursor-grabbing flex flex-col justify-between gap-3 shadow-3xs hover:shadow-md hover:border-indigo-400 hover:-translate-y-0.5 ${
-                          t.delayFlag ? 'border-rose-300 bg-rose-50/20' : 'border-slate-200/90'
-                        }`}
+                        className={`bg-white p-3.5 rounded-2xl border transition-all duration-200 cursor-grab active:cursor-grabbing flex flex-col justify-between gap-3 shadow-3xs hover:shadow-md hover:border-indigo-400 hover:-translate-y-0.5 ${t.delayFlag ? 'border-rose-300 bg-rose-50/20' : 'border-slate-200/90'
+                          }`}
                       >
                         <div className="space-y-2">
                           {/* Project Tag & Priority Badge */}
@@ -261,11 +231,10 @@ export default function TaskList({
                             <span className="px-2 py-0.5 bg-brand-soft text-brand-dark rounded-md text-[8px] font-black uppercase tracking-wider truncate max-w-[110px] border border-brand-secondary/30">
                               {t.project}
                             </span>
-                            <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${
-                              isCritical ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                              isHigh ? 'bg-amber-50 text-amber-700 border-amber-200' : 
-                              'bg-slate-100 text-slate-700 border-slate-200'
-                            }`}>
+                            <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${isCritical ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                              isHigh ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                'bg-slate-100 text-slate-700 border-slate-200'
+                              }`}>
                               {t.priority}
                             </span>
                           </div>
@@ -285,7 +254,7 @@ export default function TaskList({
                         <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] font-semibold text-slate-600">
                           <div className="flex items-center gap-1.5">
                             <div className="w-4.5 h-4.5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[7px] font-black uppercase shadow-3xs">
-                              {(t.assignee || 'User').split(' ').map(n=>n[0]).join('')}
+                              {(t.assignee || 'User').split(' ').map(n => n[0]).join('')}
                             </div>
                             <span className="font-bold text-slate-700 truncate max-w-[85px]">{t.assignee}</span>
                           </div>
@@ -356,11 +325,10 @@ export default function TaskList({
                     <td className="px-5 py-4 font-bold text-slate-700">{t.assignee}</td>
                     <td className="px-5 py-4 text-slate-500">{t.dept || 'Engineering'}</td>
                     <td className="px-5 py-4">
-                      <span className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
-                        t.priority === 'Critical' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                        t.priority === 'High' ? 'bg-amber-50 text-amber-700 border-amber-200' : 
-                        'bg-slate-100 text-slate-700 border-slate-200'
-                      }`}>
+                      <span className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${t.priority === 'Critical' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                        t.priority === 'High' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                          'bg-slate-100 text-slate-700 border-slate-200'
+                        }`}>
                         {t.priority}
                       </span>
                     </td>
@@ -371,7 +339,7 @@ export default function TaskList({
                     </td>
                     <td className="px-5 py-4 font-mono text-slate-600">{t.estTime || '8'} hrs</td>
                     <td className="px-5 py-4 text-right">
-                      <button 
+                      <button
                         onClick={() => onSelectTask(t)}
                         className="px-3.5 py-1.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 text-xs font-extrabold rounded-xl transition-all shadow-3xs cursor-pointer flex items-center gap-1 ml-auto"
                       >

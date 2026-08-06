@@ -17,20 +17,13 @@ const SIDEBAR_ITEMS = {
     },
     { 
       label: "Tasks", 
-      icon: "CheckSquare",
-      subItems: [
-        { label: "Task Directory", path: "/admin/tasks" },
-        { label: "Overdue Tasks", path: "/admin/tasks/overdue" }
-      ]
+      path: "/admin/tasks",
+      icon: "CheckSquare"
     },
     { 
       label: "Drawings", 
-      icon: "FileCode",
-      subItems: [
-        { label: "Drawings Directory", path: "/admin/drawings" },
-        { label: "Drawings Approvals", path: "/admin/drawings/approvals" },
-        { label: "GFC Releases", path: "/admin/drawings/gfc" }
-      ]
+      path: "/admin/drawings",
+      icon: "FileCode"
     },
     { 
       label: "Documents", 

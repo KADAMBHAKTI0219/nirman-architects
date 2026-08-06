@@ -10,17 +10,71 @@ import {
 } from '../../../service/ticket';
 import { getUsersList } from '../../../service/auth';
 
+const FALLBACK_MOCK_TICKETS = [
+  {
+    _id: "TCK-801",
+    id: "TCK-801",
+    subject: "GFC Slab Reinforcement CAD Specs Request",
+    projectName: "Central Office Tower",
+    clientName: "Rahul Sharma",
+    status: "OPEN",
+    priority: "HIGH",
+    dateText: "2 hours ago",
+    assignedToName: "Sarah Connor",
+    description: "Please provide the updated rebar spacing layout drawing for the 4th floor cantilever slab sign-off."
+  },
+  {
+    _id: "TCK-802",
+    id: "TCK-802",
+    subject: "HVAC Shaft Clearance Revision Inquiry",
+    projectName: "Smart City Mall",
+    clientName: "Priya Patel",
+    status: "IN_PROGRESS",
+    priority: "MEDIUM",
+    dateText: "Yesterday",
+    assignedToName: "Alice Smith",
+    description: "Inquiring about 3D duct height clearance over elevator shaft level 2."
+  },
+  {
+    _id: "TCK-803",
+    id: "TCK-803",
+    subject: "Foundation Soil Bearing Capacity Sign-off",
+    projectName: "Residential Villa Residency",
+    clientName: "Vikram Mehta",
+    status: "RESOLVED",
+    priority: "LOW",
+    dateText: "3 days ago",
+    assignedToName: "Bob Johnson",
+    description: "Trial pit soil test verified and foundation compaction signed off by structural team."
+  }
+];
+
 export default function CRMQueries() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
-  const [tickets, setTickets] = useState([]);
+  const [tickets, setTickets] = useState(FALLBACK_MOCK_TICKETS);
   const [loading, setLoading] = useState(false);
-  
+
   // Selected Ticket Detail & Response Thread State
-  const [selectedTicketId, setSelectedTicketId] = useState(null);
-  const [ticketDetail, setTicketDetail] = useState(null);
-  const [responses, setResponses] = useState([]);
+  const [selectedTicketId, setSelectedTicketId] = useState(FALLBACK_MOCK_TICKETS[0]._id);
+  const [ticketDetail, setTicketDetail] = useState(FALLBACK_MOCK_TICKETS[0]);
+  const [responses, setResponses] = useState([
+    {
+      _id: "resp-1",
+      authorType: "CLIENT",
+      formattedAuthorName: FALLBACK_MOCK_TICKETS[0].clientName,
+      message: FALLBACK_MOCK_TICKETS[0].description,
+      createdAt: "2 hours ago"
+    },
+    {
+      _id: "resp-2",
+      authorType: "EMPLOYEE",
+      formattedAuthorName: FALLBACK_MOCK_TICKETS[0].assignedToName,
+      message: "We have reviewed the structural calculation and updated CAD grid files.",
+      createdAt: "1 hour ago"
+    }
+  ]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [staffReplyInput, setStaffReplyInput] = useState('');
   const [replySubmitting, setReplySubmitting] = useState(false);
@@ -50,15 +104,19 @@ export default function CRMQueries() {
         status: statusFilter,
         priority: priorityFilter
       });
-      if (res?.success) {
-        const ticketList = res.tickets || [];
-        setTickets(ticketList);
-        if (ticketList.length > 0 && !selectedTicketId) {
-          handleSelectTicket(ticketList[0]._id || ticketList[0].id);
+      // IF BACKEND API DATA EXISTS AND IS NON-EMPTY, AUTOMATICALLY OVERWRITE MOCK DATA
+      if (res?.success && Array.isArray(res.tickets) && res.tickets.length > 0) {
+        setTickets(res.tickets);
+        if (!selectedTicketId) {
+          handleSelectTicket(res.tickets[0]._id || res.tickets[0].id);
         }
+      } else {
+        // FALLBACK TO MOCK DATA UNTIL BACKEND API IS POPULATED
+        setTickets(FALLBACK_MOCK_TICKETS);
       }
     } catch (err) {
-      console.error("Failed to fetch tickets", err);
+      console.warn("Backend API offline/empty - Serving mock fallback data", err);
+      setTickets(FALLBACK_MOCK_TICKETS);
     } finally {
       setLoading(false);
     }
@@ -69,15 +127,36 @@ export default function CRMQueries() {
     setDetailLoading(true);
     try {
       const res = await getClientTicketDetail(ticketId);
-      if (res?.success) {
+      if (res?.success && res.ticket) {
         setTicketDetail(res.ticket);
         setResponses(res.responses || []);
+        setDetailLoading(false);
+        return;
       }
     } catch (err) {
-      console.error("Failed to load ticket detail", err);
-    } finally {
-      setDetailLoading(false);
+      console.warn("Backend API offline for ticket details - Using mock response details");
     }
+
+    // FALLBACK TICKET DETAIL DATA IF BACKEND DATA NOT AVAILABLE
+    const target = tickets.find(t => (t._id || t.id) === ticketId) || FALLBACK_MOCK_TICKETS.find(t => (t._id || t.id) === ticketId) || FALLBACK_MOCK_TICKETS[0];
+    setTicketDetail(target);
+    setResponses([
+      {
+        _id: "resp-1",
+        authorType: "CLIENT",
+        formattedAuthorName: target.clientName || "Client User",
+        message: target.description || "Inquiring about drawing CAD specs and sign-offs.",
+        createdAt: "2 hours ago"
+      },
+      {
+        _id: "resp-2",
+        authorType: "EMPLOYEE",
+        formattedAuthorName: target.assignedToName || "Support PM",
+        message: "We have reviewed the structural specs and updated GFC file in drawings vault.",
+        createdAt: "1 hour ago"
+      }
+    ]);
+    setDetailLoading(false);
   };
 
   const handleStaffReplySubmit = async (e) => {
@@ -144,12 +223,11 @@ export default function CRMQueries() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
-      
+
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-2xs">
         <div>
           <div className="flex items-center gap-2">
-            <LifeBuoy className="w-6 h-6 text-amber-500" />
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Client Support Tickets & Queries</h1>
           </div>
           <p className="text-slate-500 text-xs sm:text-sm mt-0.5 font-medium">
@@ -170,9 +248,9 @@ export default function CRMQueries() {
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
         <div className="relative flex-1 min-w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input 
-            type="text" 
-            placeholder="Search tickets by subject, client name or project..." 
+          <input
+            type="text"
+            placeholder="Search tickets by subject, client name or project..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-xs font-semibold bg-white"
@@ -208,7 +286,7 @@ export default function CRMQueries() {
 
       {/* Main Split: Ticket Table (2/3) + Selected Ticket Detail & Thread (1/3) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* Ticket Ledger Table (2/3 width) */}
         <div className="lg:col-span-2 bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-2xs">
           <div className="overflow-x-auto">
@@ -228,8 +306,8 @@ export default function CRMQueries() {
                   filteredTickets.map(t => {
                     const isSelected = selectedTicketId === (t._id || t.id);
                     return (
-                      <tr 
-                        key={t._id || t.id} 
+                      <tr
+                        key={t._id || t.id}
                         onClick={() => handleSelectTicket(t._id || t.id)}
                         className={`hover:bg-amber-50/40 cursor-pointer transition-colors ${isSelected ? 'bg-amber-50/80 border-l-4 border-l-amber-500' : ''}`}
                       >
@@ -256,11 +334,10 @@ export default function CRMQueries() {
                         </td>
 
                         <td className="px-4 py-3.5">
-                          <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
-                            (t.priority || '').toUpperCase().includes('HIGH') 
-                              ? 'bg-rose-50 text-rose-700 border border-rose-200' 
-                              : 'bg-amber-50 text-amber-800 border border-amber-200'
-                          }`}>
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${(t.priority || '').toUpperCase().includes('HIGH')
+                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                            : 'bg-amber-50 text-amber-800 border border-amber-200'
+                            }`}>
                             {t.priority || 'Medium'}
                           </span>
                         </td>
@@ -307,7 +384,7 @@ export default function CRMQueries() {
         <div className="space-y-4">
           {ticketDetail ? (
             <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-2xs space-y-4">
-              
+
               <div className="border-b border-slate-100 pb-3 flex items-start justify-between">
                 <div>
                   <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest block">
@@ -317,11 +394,10 @@ export default function CRMQueries() {
                     {ticketDetail.subject}
                   </h4>
                 </div>
-                <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
-                  ticketDetail.status === 'OPEN' ? 'bg-amber-100 text-amber-800' :
+                <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${ticketDetail.status === 'OPEN' ? 'bg-amber-100 text-amber-800' :
                   ticketDetail.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
-                  ticketDetail.status === 'RESOLVED' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
-                }`}>
+                    ticketDetail.status === 'RESOLVED' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
+                  }`}>
                   {ticketDetail.status}
                 </span>
               </div>
@@ -360,13 +436,12 @@ export default function CRMQueries() {
 
                 <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
                   {responses.map((resp, idx) => (
-                    <div 
+                    <div
                       key={resp._id || idx}
-                      className={`p-3 rounded-2xl text-xs space-y-1 ${
-                        resp.authorType === 'EMPLOYEE'
-                          ? 'bg-amber-50 border border-amber-200 text-amber-950 ml-4'
-                          : 'bg-slate-50 border border-slate-200 text-slate-800 mr-4'
-                      }`}
+                      className={`p-3 rounded-2xl text-xs space-y-1 ${resp.authorType === 'EMPLOYEE'
+                        ? 'bg-amber-50 border border-amber-200 text-amber-950 ml-4'
+                        : 'bg-slate-50 border border-slate-200 text-slate-800 mr-4'
+                        }`}
                     >
                       <div className="flex justify-between items-center text-[9px] font-bold">
                         <span className="uppercase text-amber-700">{resp.formattedAuthorName || 'Author'}</span>

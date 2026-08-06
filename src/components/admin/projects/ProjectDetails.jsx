@@ -178,76 +178,95 @@ export default function ProjectDetails({
   return (
     <div className="space-y-6 animate-in fade-in duration-200 font-sans text-slate-800">
 
-      {/* Header breadcrumb bar */}
-      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="p-1.5 hover:bg-slate-150 bg-white border border-slate-200 text-slate-600 rounded-xl transition-all shadow-3xs"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div>
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{project.code}</span>
-            <h2 className="text-base font-black text-slate-900 tracking-tight leading-none mt-0.5">{project.name}</h2>
+      {/* 0. GLASSMORPHIC TOP HEADER */}
+      <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onBack}
+              className="p-2.5 hover:bg-slate-100 bg-slate-50 border border-slate-200 text-slate-700 rounded-2xl transition-all shadow-3xs cursor-pointer"
+              title="Return to Projects Directory"
+            >
+              <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
+            </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 bg-brand-soft text-brand-dark border border-brand-secondary/40 rounded-md text-[10px] font-black uppercase tracking-wider">
+                  {project.code || 'PRJ-CP-101'}
+                </span>
+                <span className="text-xs font-bold text-slate-400">
+                  {project.category || 'Commercial Building'}
+                </span>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-snug mt-1">
+                {project.name || 'Central Office Tower'}
+              </h1>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className={`text-[11px] px-3.5 py-1.5 rounded-full font-black uppercase tracking-wider border flex items-center gap-1.5 shadow-3xs ${
+              project.delayFlag 
+                ? 'bg-rose-50 text-rose-700 border-rose-200' 
+                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+            }`}>
+              <span className={`w-2 h-2 rounded-full ${project.delayFlag ? 'bg-rose-500 animate-ping' : 'bg-emerald-500'}`}></span>
+              {project.delayFlag ? 'At Risk / Delayed' : 'Active / On Schedule'}
+            </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className={`text-[10px] px-2.5 py-1 rounded-full font-black uppercase tracking-wider ${project.delayFlag ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
-            }`}>
-            {project.delayFlag ? 'At Risk / Delayed' : 'Active / On Schedule'}
-          </span>
+        {/* 1. PILL NAVIGATION TAB BAR */}
+        <div className="flex border-t border-slate-100 pt-3 overflow-x-auto gap-2 scrollbar-none">
+          {[
+            { id: 'overview', label: 'Overview' },
+            { id: 'timeline', label: 'Timeline & Milestones' },
+            { id: 'tasks', label: 'Tasks' },
+            { id: 'drawings', label: 'Drawings & GFC' },
+            { id: 'clients', label: `Linked Clients (${clientLinks.length})` },
+            { id: 'team', label: 'Team Matrix' },
+            { id: 'documents', label: 'Documents' },
+            { id: 'chat', label: 'Client Chat' },
+            { id: 'approvals', label: `Approvals (${project.pendingApprovals || 0})` },
+            { id: 'reports', label: 'Visual Reports' }
+          ].map(t => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`py-2 px-4 rounded-xl text-xs font-extrabold tracking-tight transition-all whitespace-nowrap cursor-pointer ${
+                activeTab === t.id
+                  ? 'bg-brand-primary text-slate-900 shadow-2xs ring-1 ring-brand-secondary/50 font-black'
+                  : 'bg-slate-50 text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200/60'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Detail Tab Navigation bar */}
-      <div className="flex border-b border-slate-200 overflow-x-auto gap-2">
-        {[
-          { id: 'overview', label: 'Overview' },
-          { id: 'timeline', label: 'Timeline & Milestones' },
-          { id: 'tasks', label: 'Tasks' },
-          { id: 'drawings', label: 'Drawings & GFC' },
-          { id: 'clients', label: `Linked Clients (${clientLinks.length})` },
-          { id: 'team', label: 'Team Matrix' },
-          { id: 'documents', label: 'Documents' },
-          { id: 'chat', label: 'Client Chat' },
-          { id: 'approvals', label: `Approvals (${project.pendingApprovals || 0})` },
-          { id: 'reports', label: 'Visual Reports' }
-        ].map(t => (
-          <button
-            key={t.id}
-            onClick={() => setActiveTab(t.id)}
-            className={`pb-2.5 px-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all whitespace-nowrap cursor-pointer ${activeTab === t.id
-              ? 'border-brand-primary text-slate-900 font-extrabold'
-              : 'border-transparent text-slate-400 hover:text-slate-700'
-              }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab Panels */}
+      {/* 2. TAB PANELS CONTAINER */}
       <div className="space-y-6">
 
         {/* OVERVIEW PANEL */}
         {activeTab === 'overview' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* Left 2 Columns: Executive Summary & Project Specs Grid */}
             <div className="lg:col-span-2 space-y-6">
-
-              <Card title="Executive Project Summary" subtitle="Overview of scope and general contractor charter">
+              
+              <Card title="Executive Project Summary" subtitle="Scope description and general contractor charter">
                 <div className="space-y-4 text-xs">
-                  <p className="text-slate-600 leading-relaxed">
-                    The {project.name} is a marquee development designed to client specifications. Operations span planning, engineering, architectural sign-off, and interior fitouts. This project adheres strictly to standard regulatory policies.
+                  <p className="text-slate-700 leading-relaxed font-medium">
+                    The {project.name || 'Central Office Tower'} is a flagship architectural development built to client specifications. Operations span structural planning, MEP engineering, CAD drawing sign-offs, and high-fidelity interior fitouts. This project adheres strictly to standard municipal safety codes and quality assurance protocols.
                   </p>
                   {project.delayFlag && (
-                    <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-start gap-3">
+                    <div className="p-4 bg-rose-50/80 border border-rose-200 rounded-2xl flex items-start gap-3">
                       <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
                       <div>
-                        <strong className="text-rose-900 font-black block">Schedule Risk Warning</strong>
-                        <p className="text-rose-700 mt-0.5 leading-normal">
-                          Milestone target dates are experiencing delays due to pending client drawing approvals or site material inspections.
+                        <strong className="text-rose-900 font-black text-xs block">Schedule Risk Warning</strong>
+                        <p className="text-rose-700 text-xs mt-0.5 leading-normal font-medium">
+                          Milestone target dates are experiencing delay risks due to pending client drawing approvals or site material inspections.
                         </p>
                       </div>
                     </div>
@@ -255,29 +274,84 @@ export default function ProjectDetails({
                 </div>
               </Card>
 
+              {/* 2-Column Specification Grid */}
+              <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
+                <h3 className="text-sm font-black text-slate-900">Project Technical Specifications</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-semibold">
+                  <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-2xl space-y-1">
+                    <span className="text-[10px] text-slate-400 font-black uppercase">Project Category</span>
+                    <strong className="text-slate-900 block text-xs">{project.category || 'Commercial High-Rise'}</strong>
+                  </div>
+
+                  <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-2xl space-y-1">
+                    <span className="text-[10px] text-slate-400 font-black uppercase">Site Location</span>
+                    <strong className="text-slate-900 block text-xs">{project.location || 'Ahmedabad, Gujarat'}</strong>
+                  </div>
+
+                  <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-2xl space-y-1">
+                    <span className="text-[10px] text-slate-400 font-black uppercase">Client Organization</span>
+                    <strong className="text-slate-900 block text-xs">{project.client || 'Luthor Corp Real Estate'}</strong>
+                  </div>
+
+                  <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-2xl space-y-1">
+                    <span className="text-[10px] text-slate-400 font-black uppercase">Lead Project Manager</span>
+                    <strong className="text-slate-900 block text-xs">{project.manager || 'Sarah Connor'}</strong>
+                  </div>
+
+                  <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-2xl space-y-1">
+                    <span className="text-[10px] text-slate-400 font-black uppercase">Start Date</span>
+                    <strong className="text-slate-900 block text-xs">{project.startDate || '12 Jan 2026'}</strong>
+                  </div>
+
+                  <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-2xl space-y-1">
+                    <span className="text-[10px] text-slate-400 font-black uppercase">Target Completion</span>
+                    <strong className="text-slate-900 block text-xs">{project.estCompletion || '25 Dec 2026'}</strong>
+                  </div>
+                </div>
+              </div>
+
             </div>
 
-            {/* Quick Metrics */}
+            {/* Right 1 Column: Health & Progress Cards */}
             <div className="space-y-6">
               <Card title="Project Health Metrics">
                 <div className="space-y-4 text-xs font-bold">
-                  <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-1">
-                    <span className="text-[10px] text-slate-400 font-black uppercase">Overall Progress</span>
+                  
+                  {/* Overall Progress Gauge */}
+                  <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-lg font-black text-slate-900">{project.progress || 68}%</span>
-                      <div className="w-24 bg-slate-200 h-2 rounded-full overflow-hidden">
-                        <div className="bg-brand-primary h-full" style={{ width: `${project.progress || 68}%` }}></div>
-                      </div>
+                      <span className="text-[10px] text-slate-400 font-black uppercase">Overall Progress</span>
+                      <span className="text-base font-black text-slate-900">{project.progress || 71}%</span>
+                    </div>
+                    <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
+                      <div className="bg-gradient-to-r from-brand-secondary to-indigo-600 h-full rounded-full" style={{ width: `${project.progress || 71}%` }}></div>
                     </div>
                   </div>
 
-                  <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-1">
-                    <span className="text-[10px] text-slate-400 font-black uppercase">Assigned Project Manager</span>
-                    <strong className="text-slate-900 block text-xs">{project.manager || 'Sarah Connor'}</strong>
+                  {/* Health Score */}
+                  <div className="p-4 bg-emerald-50/60 border border-emerald-200/80 rounded-2xl flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-emerald-700 font-black uppercase block">Health Score</span>
+                      <strong className="text-lg font-black text-emerald-900">92 / 100</strong>
+                    </div>
+                    <CheckCircle2 className="w-8 h-8 text-emerald-600" />
                   </div>
+
+                  {/* Manager Avatar Card */}
+                  <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-slate-900 text-white font-black flex items-center justify-center text-xs">
+                      SC
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-black uppercase block">Project Manager</span>
+                      <strong className="text-slate-900 block text-xs">{project.manager || 'Sarah Connor'}</strong>
+                    </div>
+                  </div>
+
                 </div>
               </Card>
             </div>
+
           </div>
         )}
 
@@ -441,8 +515,8 @@ export default function ProjectDetails({
                     <div className="flex justify-between items-center text-xs">
                       <span className="font-extrabold text-slate-900">{m.name}</span>
                       <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${m.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                          m.status === 'IN_PROGRESS' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                            'bg-slate-100 text-slate-500'
+                        m.status === 'IN_PROGRESS' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                          'bg-slate-100 text-slate-500'
                         }`}>
                         {m.status}
                       </span>

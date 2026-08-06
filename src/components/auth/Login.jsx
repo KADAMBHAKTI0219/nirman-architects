@@ -97,7 +97,7 @@ export default function Login({ onLogin }) {
           const response = await loginUser(cleanEmail, password);
           const token = response.token || response.data?.token;
           const success = response.success === true || !!token || response.data?.success === true || String(response.message).toLowerCase().includes('success');
-          
+
           if (success) {
             const userObj = response.user || response.data?.user || response.data || response;
             const user = {
@@ -109,11 +109,11 @@ export default function Login({ onLogin }) {
               roleId: userObj.roleId,
               deviceId: userObj.deviceId
             };
-            
+
             if (token) localStorage.setItem('token', token);
             const roleToNormalize = user.roleCode || user.role || 'SUPER_ADMIN';
             const normRole = normalizeRole(roleToNormalize);
-            
+
             const updatedUser = { ...user, role: normRole };
             localStorage.setItem('user', JSON.stringify(updatedUser));
             onLogin(normRole);
@@ -142,11 +142,11 @@ export default function Login({ onLogin }) {
     const client = res.client || {};
     const token = res.token || 'mock-client-jwt-token';
 
-    const isTemp = contact.mustChangePassword || 
-                   contact.isTemporaryPassword || 
-                   res.mustChangePassword || 
-                   res.isTemporaryPassword || 
-                   (password && password.startsWith('TempPass'));
+    const isTemp = contact.mustChangePassword ||
+      contact.isTemporaryPassword ||
+      res.mustChangePassword ||
+      res.isTemporaryPassword ||
+      (password && password.startsWith('TempPass'));
 
     if (isTemp) {
       setPendingClientContact({ ...contact, token, client });
@@ -197,7 +197,7 @@ export default function Login({ onLogin }) {
       if (res?.success) {
         alert("Password updated successfully! Redirecting to Client Portal...");
         setShowForcePasswordModal(false);
-        
+
         const contact = pendingClientContact;
         localStorage.setItem('token', contact.token);
         const clientUser = {
@@ -286,39 +286,39 @@ export default function Login({ onLogin }) {
 
   return (
     <div className="w-full min-h-screen flex flex-col md:flex-row bg-white text-left font-sans">
-      
+
       {/* Left Column: Graphic & Centered Branding */}
       <div className="w-full md:w-1/2 bg-gradient-to-tr from-brand-light via-brand-soft to-brand-secondary p-8 flex flex-col justify-between items-center text-brand-dark min-h-[300px] md:min-h-screen">
-        
+
         {/* Centered Graphic & Brand Package */}
         <div className="my-auto flex flex-col items-center space-y-4 md:space-y-8">
           <div className="flex flex-col items-center justify-center text-center space-y-2">
-            <img 
-              src={logoImg} 
-              alt="Nirman Architects Logo" 
+            <img
+              src={logoImg}
+              alt="Nirman Architects Logo"
               className="h-12 md:h-14 w-auto object-contain mx-auto"
             />
             <div className="w-12 h-0.5 bg-brand-primary mx-auto rounded-full mt-2"></div>
           </div>
 
-          <div className="w-32 h-32 md:w-80 md:h-80 overflow-hidden rounded-2xl shadow-md border border-white/40">
-            <img 
-              src={loginHero} 
-              alt="Architect Graphic illustration" 
+          <div className="w-32 h-32 md:w-80 md:h-80 overflow-hidden rounded-2xl border border-white/40">
+            <img
+              src={loginHero}
+              alt="Architect Graphic illustration"
               className="w-full h-full object-cover"
             />
           </div>
         </div>
 
         <div className="text-[10px] tracking-widest font-black text-slate-500 uppercase mt-4 md:mt-0">
-          powered by Nex Alliance
+          powered by Nex Alliance IT SOLUTIONS
         </div>
       </div>
 
       {/* Right Column: Form Panel */}
       <div className="w-full md:w-1/2 p-6 md:p-14 flex flex-col justify-center bg-white min-h-[450px] md:min-h-screen">
         <div className="max-w-md w-full mx-auto space-y-6">
-          
+
           <div className="space-y-1">
             <h2 className="text-3xl font-black text-slate-900 tracking-tight">Welcome Back!</h2>
             <p className="text-xs text-slate-500">Log in with your email & password to access your portal workspace.</p>
@@ -329,7 +329,7 @@ export default function Login({ onLogin }) {
               <label className="text-[10px] font-black text-slate-500 block mb-1.5 uppercase tracking-wider">
                 Email Address
               </label>
-              <input 
+              <input
                 type="email"
                 required
                 value={email}
@@ -344,7 +344,7 @@ export default function Login({ onLogin }) {
                 Password
               </label>
               <div className="relative">
-                <input 
+                <input
                   type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
@@ -365,7 +365,7 @@ export default function Login({ onLogin }) {
 
             <div className="flex items-center justify-between text-xs pt-1">
               <label className="flex items-center gap-2 font-bold text-slate-500 cursor-pointer">
-                <input 
+                <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
@@ -390,7 +390,7 @@ export default function Login({ onLogin }) {
               </div>
             )}
 
-            <button 
+            <button
               type="submit"
               disabled={loading}
               className="w-full py-3 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-extrabold rounded-full text-xs transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
