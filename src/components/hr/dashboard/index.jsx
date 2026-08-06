@@ -184,69 +184,75 @@ export default function HRDashboard() {
       )}
       
       {/* ================= ZONE 1: TOP SECTION (KPIs) ================= */}
-      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3 sm:gap-3.5">
         
-        <div className="premium-stat-box p-4 flex flex-col justify-between h-20">
-          <span className="text-[9px] font-black text-slate-405 uppercase tracking-wider block">Total Employees</span>
-          <div className="flex items-center justify-between">
-            <strong className="text-base font-black text-slate-800">{totalEmployees}</strong>
-            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+        <div className="premium-stat-box p-3.5 flex flex-col justify-between min-h-[88px]">
+          <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block truncate" title="Total Employees">Total Employees</span>
+          <div className="flex items-center justify-between mt-2">
+            <strong className="text-lg font-black text-slate-800">{totalEmployees}</strong>
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-2xs"></span>
           </div>
         </div>
 
-        <div className="premium-stat-box p-4 flex flex-col justify-between h-20">
-          <span className="text-[9px] font-black text-slate-405 uppercase tracking-wider block">Present Today</span>
-          <div className="flex items-center justify-between">
-            <strong className="text-base font-black text-emerald-600">{presentToday}</strong>
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+        <div className="premium-stat-box p-3.5 flex flex-col justify-between min-h-[88px]">
+          <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block truncate" title="Present Today">Present Today</span>
+          <div className="flex items-center justify-between mt-2">
+            <strong className="text-lg font-black text-emerald-600">{presentToday}</strong>
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-2xs"></span>
           </div>
         </div>
 
-        <div className="premium-stat-box p-4 flex flex-col justify-between h-20">
-          <span className="text-[9px] font-black text-slate-405 uppercase tracking-wider block">On Leave (Offline)</span>
-          <div className="flex items-center justify-between">
-            <strong className="text-base font-black text-rose-500">{onLeave}</strong>
-            <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+        <div className="premium-stat-box p-3.5 flex flex-col justify-between min-h-[88px]">
+          <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block truncate" title="On Leave (Offline)">On Leave</span>
+          <div className="flex items-center justify-between mt-2">
+            <strong className="text-lg font-black text-rose-500">{onLeave}</strong>
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-2xs"></span>
           </div>
         </div>
 
-        <div className="premium-stat-box p-4 flex flex-col justify-between h-20">
-          <span className="text-[9px] font-black text-slate-405 uppercase tracking-wider block">Late Arrivals</span>
-          <div className="flex items-center justify-between">
-            <strong className="text-base font-black text-amber-500">2</strong>
-            <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+        <div className="premium-stat-box p-3.5 flex flex-col justify-between min-h-[88px]">
+          <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block truncate" title="Late Arrivals">Late Arrivals</span>
+          <div className="flex items-center justify-between mt-2">
+            <strong className="text-lg font-black text-amber-500">2</strong>
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-2xs"></span>
           </div>
         </div>
 
-        <div className="premium-stat-box p-4 flex flex-col justify-between h-20">
-          <span className="text-[9px] font-black text-slate-405 uppercase tracking-wider block">New Joiners</span>
-          <div className="flex items-center justify-between">
-            <strong className="text-base font-black text-slate-700">3</strong>
-            <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+        <div className="premium-stat-box p-3.5 flex flex-col justify-between min-h-[88px]">
+          <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block truncate" title="New Joiners">New Joiners</span>
+          <div className="flex items-center justify-between mt-2">
+            <strong className="text-lg font-black text-slate-700">3</strong>
+            <span className="w-2.5 h-2.5 rounded-full bg-slate-400 shadow-2xs"></span>
           </div>
         </div>
 
-        <div className="premium-stat-box p-4 flex flex-col justify-between h-20">
-          <span className="text-[9px] font-black text-slate-405 uppercase tracking-wider block">Pending Corrections</span>
-          <div className="flex items-center justify-between">
-            <strong className="text-base font-black text-amber-600">{corrections} Requests</strong>
-            <span className="w-2 h-2 rounded-full bg-amber-650"></span>
+        <div className="premium-stat-box p-3.5 flex flex-col justify-between min-h-[88px]">
+          <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block truncate" title="Pending Corrections">Pending Corrections</span>
+          <div className="flex items-center justify-between mt-2">
+            <div className="flex items-baseline gap-1">
+              <strong className="text-lg font-black text-amber-600">{corrections}</strong>
+              <span className="text-[10px] font-bold text-slate-400">Reqs</span>
+            </div>
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-2xs"></span>
           </div>
         </div>
 
-        <div className="premium-stat-box p-4 flex flex-col justify-between h-20">
-          <span className="text-[9px] font-black text-slate-405 uppercase tracking-wider block">Payroll Ready</span>
-          <div className="flex items-center justify-between">
-            <strong className="text-base font-black text-slate-700">June</strong>
-            <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+        <div className="premium-stat-box p-3.5 flex flex-col justify-between min-h-[88px]">
+          <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block truncate" title="Payroll Ready">Payroll Ready</span>
+          <div className="flex items-center justify-between mt-2">
+            <strong className="text-sm font-extrabold text-indigo-600">June</strong>
+            <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-2xs"></span>
           </div>
         </div>
 
-        <div className="premium-stat-box p-4 flex flex-col justify-between h-20">
-          <span className="text-[9px] font-black text-slate-405 tracking-wider uppercase block">Security Alerts</span>
-          <div className="flex items-center justify-between">
-            <strong className="text-base font-black text-[#2484C6]">{alerts} Alerts</strong>
-            <span className="w-2 h-2 rounded-full bg-[#2484C6]"></span>
+        <div className="premium-stat-box p-3.5 flex flex-col justify-between min-h-[88px]">
+          <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block truncate" title="Security Alerts">Security Alerts</span>
+          <div className="flex items-center justify-between mt-2">
+            <div className="flex items-baseline gap-1">
+              <strong className="text-lg font-black text-[#2484C6]">{alerts}</strong>
+              <span className="text-[10px] font-bold text-slate-400">Alerts</span>
+            </div>
+            <span className="w-2.5 h-2.5 rounded-full bg-[#2484C6] shadow-2xs"></span>
           </div>
         </div>
       </div>
