@@ -75,22 +75,22 @@ export const downloadDocument = async (documentId) => {
 
 // 18.4 GET /api/documents/:documentId/client-access-log
 export const getDocumentAccessLog = async (documentId) => {
+  if (!documentId) return { success: true, accessLogs: [] };
   try {
     const response = await api.get(`/documents/${documentId}/client-access-log`);
     return response.data;
   } catch (err) {
-    console.error("getDocumentAccessLog API error:", err);
     return { success: false, accessLogs: [] };
   }
 };
 
 // 18.5 GET /api/documents/client-engagement/:clientId
 export const getClientEngagementSummary = async (clientId = 'client-1') => {
+  if (!clientId || clientId === 'undefined') return { success: true, summary: { totalSharedDocuments: 0, totalEngagedDocuments: 0, engagementRatePercent: 0, unopenedDocuments: [] } };
   try {
     const response = await api.get(`/documents/client-engagement/${clientId}`);
     return response.data;
   } catch (err) {
-    console.error("getClientEngagementSummary API error:", err);
     return {
       success: false,
       summary: {

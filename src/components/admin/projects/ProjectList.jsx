@@ -1,3 +1,8 @@
+import React from 'react';
+import { 
+  Search, Filter, Plus, Calendar, Clock, AlertCircle, 
+  Building2, AlertTriangle, FileText, DollarSign, ChevronRight, MoreHorizontal 
+} from 'lucide-react';
 import { PageHeader, StatsKpiCard, SearchFilterBar, StatusBadge } from '../../common';
 
 export default function ProjectList({

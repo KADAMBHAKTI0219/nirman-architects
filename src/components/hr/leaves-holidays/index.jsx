@@ -60,10 +60,12 @@ export default function LeavesHolidays({ defaultTab = 'company' }) {
         const mapped = list.map(req => {
           const fromDateStr = req.fromDate ? new Date(req.fromDate).toLocaleDateString() : '';
           const toDateStr = req.toDate ? new Date(req.toDate).toLocaleDateString() : '';
+          const rawRole = req.userId?.designation || req.user?.roleCode || req.user?.role || "Staff";
+          const roleStr = typeof rawRole === 'object' ? (rawRole.roleName || rawRole.roleCode || "Staff") : rawRole;
           return {
             id: req._id || req.id,
             name: req.userId?.name || req.user?.name || req.employeeName || "Nirman Staff",
-            role: req.userId?.designation || req.user?.role || "Staff",
+            role: roleStr,
             type: req.leaveTypeId?.name || req.leaveType?.name || req.leaveTypeName || "Leave",
             dates: `${fromDateStr} - ${toDateStr}`,
             reason: req.reason || "N/A",
@@ -85,10 +87,12 @@ export default function LeavesHolidays({ defaultTab = 'company' }) {
         const mapped = list.map(req => {
           const fromDateStr = req.fromDate ? new Date(req.fromDate).toLocaleDateString() : '';
           const toDateStr = req.toDate ? new Date(req.toDate).toLocaleDateString() : '';
+          const rawRole = req.userId?.designation || req.user?.roleCode || req.user?.role || "Staff";
+          const roleStr = typeof rawRole === 'object' ? (rawRole.roleName || rawRole.roleCode || "Staff") : rawRole;
           return {
             id: req._id || req.id,
             name: req.userId?.name || req.user?.name || req.employeeName || "Nirman Staff",
-            role: req.userId?.designation || req.user?.role || "Staff",
+            role: roleStr,
             type: req.leaveTypeId?.name || req.leaveType?.name || req.leaveTypeName || "Leave",
             dates: `${fromDateStr} - ${toDateStr}`,
             reason: req.reason || "N/A",
@@ -360,11 +364,14 @@ export default function LeavesHolidays({ defaultTab = 'company' }) {
                   className="w-full px-3.5 py-2 border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-805 font-semibold"
                 >
                   <option value="">Choose Staff Account</option>
-                  {usersList.map(u => (
-                    <option key={u.id || u._id} value={u.id || u._id}>
-                      {u.name || u.firstName || u.email} ({u.role})
-                    </option>
-                  ))}
+                  {usersList.map(u => {
+                    const roleDisplay = typeof u.role === 'object' ? (u.role?.roleName || u.role?.roleCode || u.role?.name || 'Employee') : (u.role || 'Employee');
+                    return (
+                      <option key={u.id || u._id} value={u.id || u._id}>
+                        {u.name || u.firstName || u.email} ({roleDisplay})
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
