@@ -1,14 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-  ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend
-} from 'recharts';
-import {
   Search, Eye, Clock, MapPin, Laptop, ShieldCheck, Smartphone,
   Download, ArrowRight, UserCheck, AlertTriangle, Users, Calendar,
   Filter, CheckCircle2, XCircle, ChevronLeft, ChevronRight, X,
   RotateCcw, SlidersHorizontal, History, User, TrendingUp, Coffee,
-  CheckCircle, AlertCircle
+  CheckCircle, AlertCircle, RefreshCw
 } from 'lucide-react';
 
 import PageHeader from '../../common/PageHeader';
@@ -44,49 +40,90 @@ export default function AttendanceOps({
   const [inspectEmployee, setInspectEmployee] = useState(null);
   const [inspectDate, setInspectDate] = useState(new Date().toISOString().split('T')[0]);
 
+  const formatBackendTime = (timeVal) => {
+    if (!timeVal) return null;
+    const d = new Date(timeVal);
+    if (isNaN(d.getTime())) return typeof timeVal === 'string' ? timeVal : null;
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+  };
+
+  const toYMD = (dateVal) => {
+    if (!dateVal) return new Date().toISOString().split('T')[0];
+    if (typeof dateVal === 'string') {
+      const trimmed = dateVal.trim();
+      const parts = trimmed.split(/[-/]/);
+      if (parts.length === 3) {
+        if (parts[0].length === 4) return `${parts[0]}-${String(parts[1]).padStart(2, '0')}-${String(parts[2]).padStart(2, '0')}`;
+        if (parts[2].length === 4) return `${parts[2]}-${String(parts[1]).padStart(2, '0')}-${String(parts[0]).padStart(2, '0')}`;
+      }
+    }
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return new Date().toISOString().split('T')[0];
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   useEffect(() => {
     const fetchRealAttendance = async () => {
       setLoadingApi(true);
       try {
-        const dateObj = new Date(selectedDate);
-        const month = dateObj.getMonth() + 1;
-        const year = dateObj.getFullYear();
-        const res = await getAllAttendanceList({ month, year });
+        const res = await getAllAttendanceList();
         const list = parseIndexedObjectToArray(res);
         if (list && list.length > 0) {
           const mapped = list.map((log, idx) => {
             const emp = typeof log.userId === 'object' ? log.userId : {};
             const isSite = (log.deviceId || '').toLowerCase().includes('gps') || (log.deviceId || '').toLowerCase().includes('mobile');
-            const hoursStr = typeof log.workingHours === 'number' ? `${log.workingHours.toFixed(2)} hrs` : (log.workingHours || '8.50 hrs');
-            const timeInStr = log.clockInTime ? new Date(log.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '09:15 AM';
-            const timeOutStr = log.clockOutTime ? new Date(log.clockOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '06:00 PM';
+            
+            const timeInStr = formatBackendTime(log.clockInTime) || formatBackendTime(log.clientClockIn) || 'N/A';
+            const timeOutStr = formatBackendTime(log.clockOutTime) || formatBackendTime(log.clientClockOut) || (log.clockInTime ? 'In Progress' : 'N/A');
+            
+            let hoursStr = '0.00 hrs';
+            if (typeof log.workingHours === 'number') {
+              hoursStr = `${log.workingHours.toFixed(2)} hrs`;
+            } else if (log.workingHours) {
+              hoursStr = `${log.workingHours} hrs`;
+            } else if (log.clockInTime && log.clockOutTime) {
+              const diffMs = new Date(log.clockOutTime) - new Date(log.clockInTime);
+              hoursStr = `${(diffMs / 3600000).toFixed(2)} hrs`;
+            }
+
+            const logDate = log.clockInTime ? toYMD(log.clockInTime) : toYMD(log.date || log.createdAt || selectedDate);
 
             return {
               id: log._id || log.id || `att-${idx}`,
               employeeId: emp._id || emp.id || `u-${idx}`,
-              name: emp.name || log.name || 'Staff Member',
+              name: emp.name || log.name || emp.fullName || 'Staff Member',
               role: emp.designation || emp.role || 'Staff Member',
               department: emp.department || 'Operations',
               timeIn: timeInStr,
               timeOut: timeOutStr,
               hours: hoursStr,
               mode: isSite ? 'Site' : 'Office',
-              status: log.status || 'Present',
-              date: log.date ? log.date.split('T')[0] : (log.clockInTime ? log.clockInTime.split('T')[0] : selectedDate)
+              status: log.status || (log.clockInTime ? 'Present' : 'Absent'),
+              date: logDate,
+              clockInTime: log.clockInTime,
+              clockOutTime: log.clockOutTime
             };
           });
+
+          // Show all logs directly from backend
           setApiLogs(mapped);
+        } else {
+          setApiLogs([]);
         }
       } catch (err) {
-        console.warn("Failed to fetch real attendance list from API, using fallback data:", err);
+        console.warn("Notice fetching real attendance list:", err);
+        setApiLogs([]);
       } finally {
         setLoadingApi(false);
       }
     };
     fetchRealAttendance();
-  }, [selectedDate]);
+  }, []);
 
-  // Generate fallback employee attendance list if props are empty or minimal
+  // Employee attendance list from real backend logs
   const sampleLogs = useMemo(() => {
     if (attendanceLogs && attendanceLogs.length > 0) {
       return attendanceLogs;
@@ -94,22 +131,10 @@ export default function AttendanceOps({
     if (apiLogs && apiLogs.length > 0) {
       return apiLogs;
     }
+    return [];
+  }, [attendanceLogs, apiLogs]);
 
-    return [
-      { id: 'att-1', employeeId: 'u-1', name: 'Bhakti Kadam', role: 'HR Officer', department: 'Operations', timeIn: '09:46 AM', timeOut: '01:11 PM', hours: '1.48 hrs', mode: 'Office', status: 'AUTO_CLOSED', date: selectedDate },
-      { id: 'att-2', employeeId: 'u-1', name: 'Bhakti Kadam', role: 'HR Officer', department: 'Operations', timeIn: '09:21 PM', timeOut: '09:44 PM', hours: '0.38 hrs', mode: 'Office', status: 'AUTO_CLOSED', date: selectedDate },
-      { id: 'att-3', employeeId: 'u-2', name: 'Lax Savani', role: 'Admin', department: 'Executive', timeIn: '08:50 AM', timeOut: '05:40 PM', hours: '8.83 hrs', mode: 'Office', status: 'Present', date: selectedDate },
-      { id: 'att-4', employeeId: 'u-3', name: 'Sarah Connor', role: 'Lead Architect', department: 'Architecture', timeIn: '09:45 AM', timeOut: '06:30 PM', hours: '8.75 hrs', mode: 'Office', status: 'Late', date: selectedDate },
-      { id: 'att-5', employeeId: 'u-4', name: 'Alice Smith', role: 'Staff Engineer', department: 'Engineering', timeIn: '09:00 AM', timeOut: '06:00 PM', hours: '9.00 hrs', mode: 'Office', status: 'Present', date: selectedDate },
-      { id: 'att-6', employeeId: 'u-5', name: 'Bob Johnson', role: 'Site Engineer', department: 'Construction', timeIn: '08:30 AM', timeOut: '05:00 PM', hours: '8.50 hrs', mode: 'Site', status: 'Present', date: selectedDate },
-      { id: 'att-7', employeeId: 'u-6', name: 'Charlie Brown', role: 'Project Manager', department: 'Management', timeIn: '09:10 AM', timeOut: '06:20 PM', hours: '9.16 hrs', mode: 'Office', status: 'Present', date: selectedDate },
-      { id: 'att-8', employeeId: 'u-7', name: 'Vikram Singh', role: 'Site Supervisor', department: 'Construction', timeIn: '08:40 AM', timeOut: '05:30 PM', hours: '8.83 hrs', mode: 'Site', status: 'Present', date: selectedDate },
-      { id: 'att-9', employeeId: 'u-8', name: 'Priya Sharma', role: 'Interior Designer', department: 'Architecture', timeIn: '09:30 AM', timeOut: '06:15 PM', hours: '8.75 hrs', mode: 'Office', status: 'Late', date: selectedDate },
-      { id: 'att-10', employeeId: 'u-9', name: 'Aarav Shah', role: 'Structural Engineer', department: 'Engineering', timeIn: 'N/A', timeOut: 'N/A', hours: '0.00 hrs', mode: 'Office', status: 'Absent', date: selectedDate }
-    ];
-  }, [attendanceLogs, apiLogs, selectedDate]);
-
-  // Group logs by employee so that 1 employee has 1 consolidated row for the selected date
+  // Group logs by employee so that 1 employee has 1 consolidated row with all logs
   const groupedEmployeeSummary = useMemo(() => {
     const map = new Map();
 
@@ -127,8 +152,8 @@ export default function AttendanceOps({
           date: log.date || selectedDate,
           firstIn: log.timeIn || 'N/A',
           lastOut: log.timeOut || 'In Progress',
-          hours: log.hours || '1.48 hrs',
-          punchesCount: 32,
+          hours: log.hours || '0.00 hrs',
+          punchesCount: 1,
           logs: [log]
         });
       } else {
@@ -147,9 +172,9 @@ export default function AttendanceOps({
   // Filter employees
   const filteredEmployees = useMemo(() => {
     return groupedEmployeeSummary.filter(emp => {
-      const matchesSearch = emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.department.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch = (emp.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (emp.role || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (emp.department || '').toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = statusFilter === 'All' || emp.status === statusFilter;
       const matchesMode = modeFilter === 'All' || emp.mode === modeFilter;
       const matchesDept = departmentFilter === 'All' || emp.department === departmentFilter;
@@ -167,13 +192,13 @@ export default function AttendanceOps({
 
   // Summary Metrics
   const metrics = useMemo(() => {
-    const total = groupedEmployeeSummary.length || 148;
-    const present = groupedEmployeeSummary.filter(e => e.status === 'Present' || e.status === 'AUTO_CLOSED').length || 132;
-    const late = groupedEmployeeSummary.filter(e => e.status === 'Late').length || 6;
-    const absent = groupedEmployeeSummary.filter(e => e.status === 'Absent').length || 7;
-    const onLeave = groupedEmployeeSummary.filter(e => e.status === 'On Leave').length || 3;
-    const officeCount = groupedEmployeeSummary.filter(e => e.mode === 'Office').length || 110;
-    const siteCount = groupedEmployeeSummary.filter(e => e.mode === 'Site').length || 38;
+    const total = groupedEmployeeSummary.length;
+    const present = groupedEmployeeSummary.filter(e => e.status === 'Present' || e.status === 'AUTO_CLOSED').length;
+    const late = groupedEmployeeSummary.filter(e => e.status === 'Late').length;
+    const absent = groupedEmployeeSummary.filter(e => e.status === 'Absent').length;
+    const onLeave = groupedEmployeeSummary.filter(e => e.status === 'On Leave').length;
+    const officeCount = groupedEmployeeSummary.filter(e => e.mode === 'Office').length;
+    const siteCount = groupedEmployeeSummary.filter(e => e.mode === 'Site').length;
 
     return { total, present, late, absent, onLeave, officeCount, siteCount };
   }, [groupedEmployeeSummary]);
@@ -187,48 +212,123 @@ export default function AttendanceOps({
   ];
 
   const trendData = [
-    { day: 'Mon', office: 105, site: 35 },
-    { day: 'Tue', office: 112, site: 36 },
-    { day: 'Wed', office: 108, site: 38 },
-    { day: 'Thu', office: 110, site: 34 },
-    { day: 'Fri', office: 114, site: 37 }
+    { day: 'Mon', office: metrics.officeCount, site: metrics.siteCount },
+    { day: 'Tue', office: metrics.officeCount, site: metrics.siteCount },
+    { day: 'Wed', office: metrics.officeCount, site: metrics.siteCount },
+    { day: 'Thu', office: metrics.officeCount, site: metrics.siteCount },
+    { day: 'Fri', office: metrics.officeCount, site: metrics.siteCount }
   ];
 
   const handleOpenInspect = (emp) => {
     setInspectEmployee(emp);
-    setInspectDate(emp.date || selectedDate);
+    const validInspectDate = toYMD(selectedDate || emp.date || new Date());
+    setInspectDate(validInspectDate);
     if (onSelectEmployee) {
-      onSelectEmployee(emp.logs[0] || emp);
+      onSelectEmployee(emp.logs?.[0] || emp);
     }
   };
 
-  // Date-wise dynamic punch sessions for inspect modal
-  const inspectSessions = useMemo(() => {
-    if (!inspectEmployee) return [];
+  // Modal Punch Sessions state for inspect modal
+  const [modalSessions, setModalSessions] = useState([]);
+  const [loadingModalSessions, setLoadingModalSessions] = useState(false);
 
-    // Filter logs matching the inspectDate
-    const matched = (inspectEmployee.logs || []).filter(l => !inspectDate || l.date === inspectDate || l.clockInTime?.startsWith(inspectDate));
+  useEffect(() => {
+    if (!inspectEmployee) return;
 
-    if (matched.length > 0) {
-      return matched.map((m, idx) => ({
-        sessionNum: idx + 1,
-        date: inspectDate,
-        timeIn: m.timeIn || '09:46 AM',
-        timeOut: m.timeOut || '11:15 AM',
-        mode: m.mode || 'Office',
-        status: m.status || 'AUTO_CLOSED',
-        duration: m.hours || '1.48 hrs'
-      }));
-    }
+    const fetchSessionsForModal = async () => {
+      setLoadingModalSessions(true);
+      try {
+        const empId = inspectEmployee.employeeId || inspectEmployee.id || inspectEmployee._id;
+        const empName = (inspectEmployee.name || '').toLowerCase();
 
-    // Default mock timeline sessions for date selection display
-    return [
-      { sessionNum: 1, date: inspectDate, timeIn: '09:46 AM', timeOut: '11:15 AM', mode: 'Office', status: 'AUTO_CLOSED', duration: '1.48 hrs' },
-      { sessionNum: 2, date: inspectDate, timeIn: '09:21 PM', timeOut: '09:44 PM', mode: 'Office', status: 'AUTO_CLOSED', duration: '0.38 hrs' },
-      { sessionNum: 3, date: inspectDate, timeIn: '08:59 PM', timeOut: '09:21 PM', mode: 'Office', status: 'AUTO_CLOSED', duration: '0.36 hrs' },
-      { sessionNum: 4, date: inspectDate, timeIn: '06:59 PM', timeOut: '06:59 PM', mode: 'Office', status: 'AUTO_CLOSED', duration: '0.00 hrs' }
-    ];
+        const res = await getAllAttendanceList({ userId: empId });
+        const list = parseIndexedObjectToArray(res);
+        if (list && list.length > 0) {
+          // Filter logs matching the inspected employee
+          const userLogs = list.filter(log => {
+            const u = (typeof log.userId === 'object' && log.userId) ? log.userId : ((typeof log.employeeId === 'object' && log.employeeId) ? log.employeeId : {});
+            const uid = u._id || u.id || log.userId || log.employeeId;
+            const uname = (u.name || log.name || '').toLowerCase();
+
+            return uid === empId || (empName && (uname.includes(empName) || empName.includes(uname)));
+          });
+
+          const formatted = userLogs.map((log, idx) => {
+            const rawIn = log.clockInTime || log.clockIn || log.clientClockIn;
+            const rawOut = log.clockOutTime || log.clockOut || log.clientClockOut;
+            const timeInStr = formatBackendTime(rawIn) || 'N/A';
+            const timeOutStr = formatBackendTime(rawOut) || (rawIn ? 'In Progress' : 'N/A');
+            
+            let hoursStr = '0.00 hrs';
+            if (typeof log.workingHours === 'number') {
+              hoursStr = `${log.workingHours.toFixed(2)} hrs`;
+            } else if (log.workingHours) {
+              hoursStr = `${log.workingHours} hrs`;
+            } else if (rawIn && rawOut) {
+              const diffMs = new Date(rawOut) - new Date(rawIn);
+              hoursStr = `${(diffMs / 3600000).toFixed(2)} hrs`;
+            }
+            const isSite = (log.deviceId || '').toLowerCase().includes('gps') || (log.deviceId || '').toLowerCase().includes('mobile');
+            const logDate = toYMD(log.date || rawIn || log.createdAt);
+
+            return {
+              sessionNum: idx + 1,
+              date: logDate,
+              timeIn: timeInStr,
+              timeOut: timeOutStr,
+              mode: isSite ? 'Site' : 'Office',
+              status: log.status || 'PRESENT',
+              duration: hoursStr,
+              clockInTime: rawIn
+            };
+          });
+
+          // Strict match by inspectDate chosen by user in date picker
+          const dateMatched = formatted.filter(l => l.date === inspectDate);
+          setModalSessions(dateMatched);
+        } else if (inspectEmployee.logs && inspectEmployee.logs.length > 0) {
+          const formatted = inspectEmployee.logs.map((m, idx) => ({
+            sessionNum: idx + 1,
+            date: toYMD(m.date) || m.date,
+            timeIn: m.timeIn || 'N/A',
+            timeOut: m.timeOut || 'N/A',
+            mode: m.mode || 'Office',
+            status: m.status || 'PRESENT',
+            duration: m.hours || '0.00 hrs'
+          }));
+          const dateMatched = formatted.filter(l => l.date === inspectDate);
+          setModalSessions(dateMatched);
+        } else {
+          setModalSessions([]);
+        }
+      } catch (err) {
+        console.warn("Notice fetching modal punch sessions:", err);
+        setModalSessions([]);
+      } finally {
+        setLoadingModalSessions(false);
+      }
+    };
+
+    fetchSessionsForModal();
   }, [inspectEmployee, inspectDate]);
+
+  // Compute calculated inspect metrics
+  const inspectTotalHours = useMemo(() => {
+    if (modalSessions.length === 0) return '0.00 hrs';
+    let total = 0;
+    modalSessions.forEach(s => {
+      const h = parseFloat(s.duration);
+      if (!isNaN(h)) total += h;
+    });
+    return total > 0 ? `${total.toFixed(2)} hrs` : (inspectEmployee?.hours || '0.00 hrs');
+  }, [modalSessions, inspectEmployee]);
+
+  const inspectStatus = useMemo(() => {
+    if (modalSessions.length > 0) {
+      return modalSessions[0].status || 'Present';
+    }
+    return inspectEmployee?.status || 'Absent';
+  }, [modalSessions, inspectEmployee]);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -438,10 +538,10 @@ export default function AttendanceOps({
           </span>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="w-full overflow-hidden">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="text-slate-400 font-extrabold uppercase tracking-wider border-b border-slate-200 bg-slate-50/80 text-[10px]">
+              <tr className="text-slate-400 font-semibold uppercase tracking-wider border-b border-slate-200/90 bg-slate-50/80 text-[10px]">
                 <th className="py-3.5 px-4">Employee</th>
                 <th className="py-3.5 px-4">Department</th>
                 <th className="py-3.5 px-4">First Clock-In</th>
@@ -449,51 +549,54 @@ export default function AttendanceOps({
                 <th className="py-3.5 px-4">Total Hours</th>
                 <th className="py-3.5 px-4">Check-In Mode</th>
                 <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4">Punches</th>
                 <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+            <tbody className="divide-y divide-slate-100/80 font-normal text-slate-700">
               {paginatedEmployees.length > 0 ? (
                 paginatedEmployees.map(emp => (
-                  <tr key={emp.id} className="hover:bg-slate-50/80 transition-colors">
+                  <tr 
+                    key={emp.id} 
+                    onClick={() => handleOpenInspect(emp)}
+                    className="hover:bg-brand-soft/50 cursor-pointer transition-colors"
+                  >
                     {/* Employee Profile */}
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-brand-soft text-brand-dark font-extrabold text-xs flex items-center justify-center border border-brand-secondary">
+                        <div className="w-8 h-8 rounded-full bg-brand-soft text-brand-dark font-semibold text-xs flex items-center justify-center border border-brand-secondary/60 shrink-0">
                           {emp.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                         </div>
                         <div>
-                          <div className="font-extrabold text-slate-900 text-xs">{emp.name}</div>
-                          <div className="text-[11px] text-slate-400 font-medium">{emp.role}</div>
+                          <div className="font-semibold text-slate-900 text-xs">{emp.name}</div>
+                          <div className="text-[11px] text-slate-400 font-normal">{emp.role}</div>
                         </div>
                       </div>
                     </td>
 
                     {/* Department */}
-                    <td className="py-3.5 px-4 font-bold text-slate-700">
+                    <td className="py-3.5 px-4 font-medium text-slate-700">
                       {emp.department}
                     </td>
 
                     {/* First Clock-In */}
-                    <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
+                    <td className="py-3.5 px-4 font-medium text-slate-800">
                       {emp.firstIn}
                     </td>
 
                     {/* Last Clock-Out */}
-                    <td className="py-3.5 px-4 font-mono text-slate-500 font-bold">
+                    <td className="py-3.5 px-4 font-medium text-slate-500">
                       {emp.lastOut}
                     </td>
 
                     {/* Total Hours */}
-                    <td className="py-3.5 px-4 font-black text-slate-900">
+                    <td className="py-3.5 px-4 font-semibold text-slate-800">
                       {emp.hours}
                     </td>
 
                     {/* Mode */}
                     <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                        {emp.mode === 'Office' ? <Laptop className="w-3.5 h-3.5 text-slate-400" /> : <Smartphone className="w-3.5 h-3.5 text-slate-400" />}
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-slate-700">
+                        {emp.mode === 'Office' ? <Laptop className="w-3.5 h-3.5 text-slate-400 shrink-0" /> : <Smartphone className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
                         <span>{emp.mode}</span>
                       </div>
                     </td>
@@ -503,28 +606,21 @@ export default function AttendanceOps({
                       <StatusBadge status={emp.status} size="sm" />
                     </td>
 
-                    {/* Punches Count Badge */}
-                    <td className="py-3.5 px-4">
-                      <span className="px-2.5 py-1 bg-slate-100 text-slate-700 font-bold rounded-lg text-[11px]">
-                        {emp.punchesCount} {emp.punchesCount === 1 ? 'Punch' : 'Punches'}
-                      </span>
-                    </td>
-
                     {/* Action Button */}
-                    <td className="py-3.5 px-4 text-right">
+                    <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => handleOpenInspect(emp)}
-                        className="px-3.5 py-1.5 bg-brand-soft hover:bg-brand-primary text-brand-dark font-extrabold rounded-xl border border-brand-secondary transition-all text-xs flex items-center gap-1.5 ml-auto cursor-pointer shadow-2xs"
+                        className="px-3.5 py-1.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-semibold rounded-xl border border-brand-secondary/30 transition-all text-xs inline-flex items-center gap-1.5 ml-auto cursor-pointer shadow-2xs"
                       >
-                        <History className="w-3.5 h-3.5 text-brand-dark" />
-                        View Timeline
+                        <History className="w-3.5 h-3.5 text-slate-900 shrink-0" />
+                        <span>View Timeline</span>
                       </button>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="9" className="py-10 text-center text-slate-400 font-bold">
+                  <td colSpan="8" className="py-10 text-center text-slate-400 font-medium">
                     No employee attendance records found for {selectedDate}.
                   </td>
                 </tr>
@@ -569,7 +665,7 @@ export default function AttendanceOps({
         </div>
       </div>
 
-      {/* 5. CHARTS ROW */}
+      {/* 5. SUMMARY ROW */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
         <div className="lg:col-span-6 bg-white p-6 rounded-3xl border border-slate-200/90 shadow-2xs space-y-3">
           <div className="flex items-center justify-between pb-2 border-b border-slate-100">
@@ -577,26 +673,23 @@ export default function AttendanceOps({
             <span className="text-[11px] text-slate-400 font-bold">{selectedDate}</span>
           </div>
 
-          <div className="h-52 w-full flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={donutData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={75}
-                  paddingAngle={4}
-                  dataKey="value"
-                >
-                  {donutData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={DONUT_COLORS[index % DONUT_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend verticalAlign="bottom" align="center" iconSize={8} iconType="circle" />
-              </PieChart>
-            </ResponsiveContainer>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
+                <tr>
+                  <th className="px-4 py-2">Status</th>
+                  <th className="px-4 py-2">Count</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {donutData.map((row) => (
+                  <tr key={row.name} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-2.5 font-bold text-slate-800">{row.name}</td>
+                    <td className="px-4 py-2.5 font-semibold text-blue-600">{row.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -606,18 +699,25 @@ export default function AttendanceOps({
             <span className="text-[11px] text-slate-400 font-bold">Weekly</span>
           </div>
 
-          <div className="h-52 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={trendData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                <XAxis dataKey="day" stroke="#94A3B8" fontSize={11} fontWeight="bold" />
-                <YAxis stroke="#94A3B8" fontSize={11} fontWeight="bold" />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="office" stackId="a" fill="#BDE0FE" name="Office Laptop" radius={[0, 0, 0, 0]} />
-                <Bar dataKey="site" stackId="a" fill="#10B981" name="Site Mobile GPS" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
+                <tr>
+                  <th className="px-4 py-2">Day</th>
+                  <th className="px-4 py-2">Office Laptop</th>
+                  <th className="px-4 py-2">Site Mobile GPS</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {trendData.map((row) => (
+                  <tr key={row.day} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-2.5 font-bold text-slate-800">{row.day}</td>
+                    <td className="px-4 py-2.5 font-semibold text-blue-600">{row.office}</td>
+                    <td className="px-4 py-2.5 font-semibold text-emerald-600">{row.site}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -663,14 +763,14 @@ export default function AttendanceOps({
               <div className="flex items-center gap-4 text-xs">
                 <div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Status</span>
-                  <span className={`px-3 py-0.5 rounded-full text-[10px] font-black border uppercase ${getStatusBadge(inspectEmployee.status)}`}>
-                    {inspectEmployee.status}
+                  <span className={`px-3 py-0.5 rounded-full text-[10px] font-black border uppercase ${getStatusBadge(inspectStatus)}`}>
+                    {inspectStatus}
                   </span>
                 </div>
 
                 <div className="text-right">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Hours</span>
-                  <span className="text-sm font-black text-slate-900">{inspectEmployee.hours}</span>
+                  <span className="text-sm font-black text-slate-900">{inspectTotalHours}</span>
                 </div>
               </div>
             </div>
@@ -680,13 +780,18 @@ export default function AttendanceOps({
               <div className="flex items-center justify-between">
                 <h4 className="font-black text-slate-900 text-xs flex items-center gap-2">
                   <History className="w-4 h-4 text-brand-dark" />
-                  Check-In & Check-Out Timeline ({inspectSessions.length} {inspectSessions.length === 1 ? 'Entry' : 'Entries'})
+                  Check-In & Check-Out Timeline ({modalSessions.length} {modalSessions.length === 1 ? 'Entry' : 'Entries'})
                 </h4>
                 <span className="text-[11px] font-mono font-bold text-slate-500">Date: {inspectDate}</span>
               </div>
 
               <div className="space-y-3">
-                {inspectSessions.map((session, idx) => (
+                {loadingModalSessions ? (
+                  <div className="p-8 text-center text-slate-400 font-medium text-xs bg-slate-50 rounded-2xl border border-slate-200">
+                    <RefreshCw className="w-5 h-5 animate-spin mx-auto text-indigo-500 mb-1" />
+                    Loading punch sessions for {inspectDate}...
+                  </div>
+                ) : modalSessions.map((session, idx) => (
                   <div key={idx} className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-3 hover:bg-slate-50 transition-all shadow-2xs">
                     <div className="flex items-center justify-between">
                       <span className="font-extrabold text-brand-dark bg-brand-soft border border-brand-secondary px-2.5 py-0.5 rounded-lg text-[10px]">
@@ -712,13 +817,13 @@ export default function AttendanceOps({
 
                       <div className="sm:col-span-1 col-span-2">
                         <span className="text-slate-400 text-[10px] font-bold uppercase block">Session Duration</span>
-                        <span className="font-black text-slate-900 text-sm block mt-0.5">{session.duration || '1.48 hrs'}</span>
+                        <span className="font-black text-slate-900 text-sm block mt-0.5">{session.duration}</span>
                       </div>
                     </div>
                   </div>
                 ))}
 
-                {inspectSessions.length === 0 && (
+                {!loadingModalSessions && modalSessions.length === 0 && (
                   <div className="p-8 text-center text-slate-400 font-medium text-xs bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                     No punch sessions recorded for {inspectEmployee.name} on {inspectDate}.
                   </div>

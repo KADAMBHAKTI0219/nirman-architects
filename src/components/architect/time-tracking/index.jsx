@@ -3,7 +3,6 @@ import {
   Clock, Play, Pause, Square, Plus, Trash2, CheckCircle, 
   BarChart, AlertTriangle, Layers, Calendar 
 } from 'lucide-react';
-import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import Card from '../../common/Card';
 
 export default function TimeTracking() {
@@ -204,16 +203,23 @@ export default function TimeTracking() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
           <Card title="Task-wise Logged Hours" subtitle="Hours split by design tasks">
-            <div className="h-[200px] pt-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <RechartsBarChart data={taskSummaryData} margin={{ top: 0, right: 10, left: -25, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                  <XAxis dataKey="name" stroke="#94A3B8" fontSize={9} tickLine={false} />
-                  <YAxis stroke="#94A3B8" fontSize={9} tickLine={false} />
-                  <Tooltip contentStyle={{ fontSize: 10 }} />
-                  <Bar dataKey="hours" fill="#2484C6" radius={[4, 4, 0, 0]} />
-                </RechartsBarChart>
-              </ResponsiveContainer>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
+                  <tr>
+                    <th className="px-4 py-2">Task</th>
+                    <th className="px-4 py-2">Logged Hours</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {taskSummaryData.map((row) => (
+                    <tr key={row.name} className="hover:bg-slate-50/50">
+                      <td className="px-4 py-2.5 font-bold text-slate-800">{row.name}</td>
+                      <td className="px-4 py-2.5 font-semibold text-blue-600">{row.hours} hrs</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </Card>
 

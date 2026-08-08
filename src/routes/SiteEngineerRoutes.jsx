@@ -10,6 +10,7 @@ const SitePhotosIssues = lazy(() => import('../components/site-engineer/photos-i
 const SiteUpdates = lazy(() => import('../components/site-engineer/client-updates/index'));
 const SiteNotifications = lazy(() => import('../components/site-engineer/notifications/index'));
 const LeavesPortal = lazy(() => import('../components/common/LeavesPortal'));
+const AppUsageTracking = lazy(() => import('../components/admin/app-usage/AppUsageTracking'));
 
 const LazyWrap = ({ children }) => (
   <Suspense fallback={<BrandLoader message="Loading Site Operations..." />}>
@@ -58,6 +59,11 @@ export default function getSiteEngineerRoutes(handleRoleChange) {
       <Route path="/site-engineer/notifications" element={
         <DashboardLayout role="SiteEngineer" onChangeRole={handleRoleChange} title="Notifications">
           <LazyWrap><SiteNotifications /></LazyWrap>
+        </DashboardLayout>
+      } />
+      <Route path="/site-engineer/app-usage" element={
+        <DashboardLayout role="SiteEngineer" onChangeRole={handleRoleChange} title="App Usage Tracking">
+          <LazyWrap><AppUsageTracking userRole="SiteEngineer" /></LazyWrap>
         </DashboardLayout>
       } />
     </>

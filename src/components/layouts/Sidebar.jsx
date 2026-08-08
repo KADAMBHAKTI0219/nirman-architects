@@ -18,11 +18,6 @@ const SIDEBAR_ITEMS = {
       icon: "CheckSquare"
     },
     { 
-      label: "Drawings", 
-      path: "/admin/drawings",
-      icon: "FileCode"
-    },
-    { 
       label: "Documents", 
       icon: "FolderOpen",
       subItems: [
@@ -45,11 +40,10 @@ const SIDEBAR_ITEMS = {
       label: "HR & Payroll", 
       icon: "Briefcase",
       subItems: [
-        { label: "HR Overview", path: "/admin/hr/overview" },
+        { label: "Payroll Center", path: "/admin/hr/payroll" },
         { label: "Leave Management", path: "/admin/hr/leaves" },
         { label: "Leave Master", path: "/admin/hr/leave-master" },
         { label: "Shift Planner", path: "/admin/hr/shifts" },
-        { label: "Payroll Center", path: "/admin/hr/payroll" },
         { label: "Performance Score", path: "/admin/hr/performance" }
       ]
     },
@@ -58,7 +52,6 @@ const SIDEBAR_ITEMS = {
       label: "Clients & CRM", 
       icon: "BadgeAlert",
       subItems: [
-        { label: "CRM Overview", path: "/admin/crm/overview" },
         { label: "Lead Management", path: "/admin/crm/leads" },
         { label: "Client Directory", path: "/admin/crm/clients" },
         { label: "Support Queries", path: "/admin/crm/queries" },
@@ -72,7 +65,6 @@ const SIDEBAR_ITEMS = {
       subItems: [
         { label: "Project Progress", path: "/admin/reports/projects" },
         { label: "Productivity Logs", path: "/admin/reports/productivity" },
-        { label: "Drawing Status", path: "/admin/reports/drawings" },
         { label: "Attendance Registry", path: "/admin/reports/attendance" },
         { label: "Leave Summaries", path: "/admin/reports/leaves" }
       ]
@@ -115,7 +107,7 @@ const SIDEBAR_ITEMS = {
     { category: "Project Operations" },
     { label: "Projects Directory", path: "/project-manager/projects", icon: "Building2" },
     { label: "Task Board", path: "/project-manager/tasks", icon: "CheckSquare" },
-    { label: "Drawing Approvals", path: "/project-manager/drawings", icon: "FileCode" },
+    { label: "Shift Attendance", path: "/project-manager/attendance", icon: "Fingerprint" },
     { label: "Leaves Approvals", path: "/project-manager/leaves", icon: "Calendar" },
     { category: "Team & Communication" },
     { label: "Client Communication", path: "/project-manager/client-communication", icon: "MessageSquare" },
@@ -126,8 +118,8 @@ const SIDEBAR_ITEMS = {
     { label: "Dashboard", path: "/architect", icon: "LayoutDashboard" },
     { category: "Design Studio" },
     { label: "My Projects", path: "/architect/projects", icon: "Building2" },
-    { label: "My Drawings", path: "/architect/drawings", icon: "DraftingCompass" },
     { label: "Time Tracking", path: "/architect/time", icon: "Clock3" },
+    { label: "Shift Attendance", path: "/architect/attendance", icon: "Fingerprint" },
     { label: "Leaves Portal", path: "/architect/leaves", icon: "Calendar" },
     { category: "Communication" },
     { label: "Project Chats", path: "/architect/chats", icon: "MessageSquare" },
@@ -150,7 +142,6 @@ const SIDEBAR_ITEMS = {
     { label: "Shift Attendance", path: "/employee/attendance", icon: "Fingerprint" },
     { label: "Leaves Portal", path: "/employee/leaves", icon: "Calendar" },
     { label: "My Tasks", path: "/employee/tasks", icon: "CheckSquare" },
-    { label: "Drawings Assigned", path: "/employee/drawings", icon: "FileCode" },
     { label: "Documents", path: "/employee/docs", icon: "FolderOpen" },
     { label: "Project Chat", path: "/employee/chat", icon: "MessageSquare" },
     { label: "Notifications", path: "/employee/notifications", icon: "Bell" }
@@ -159,7 +150,6 @@ const SIDEBAR_ITEMS = {
     { label: "Dashboard", path: "/customer", icon: "LayoutDashboard" },
     { category: "Client Portal" },
     { label: "Project Timeline", path: "/customer/timeline", icon: "Milestone" },
-    { label: "Drawings & Approvals", path: "/customer/drawings", icon: "FileCode" },
     { label: "Photos & 3D Views", path: "/customer/views", icon: "Sparkles" },
     { label: "Chat & Queries", path: "/customer/chat", icon: "MessageSquare" },
     { label: "Notifications", path: "/customer/notifications", icon: "Bell" },
@@ -251,7 +241,7 @@ export default function Sidebar({ role, onClose }) {
 
   return (
     <aside 
-      className={`bg-white text-slate-650 h-[100dvh] h-full flex flex-col flex-shrink-0 shadow-xs sticky top-0 transition-all duration-300 ease-in-out border-r border-slate-100 ${
+      className={`bg-white text-slate-650 h-[100dvh] h-full flex flex-col flex-shrink-0 sticky top-0 transition-all duration-300 ease-in-out border-r border-slate-200/80 ${
         isCollapsed ? 'w-20' : 'w-64 sm:w-72'
       }`}
     >

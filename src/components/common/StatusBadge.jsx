@@ -54,7 +54,7 @@ export default function StatusBadge({
   }[size] || 'w-3.5 h-3.5';
 
   return (
-    <span className={`inline-flex items-center gap-1.5 font-extrabold rounded-full border shadow-3xs whitespace-nowrap ${colorStyle} ${sizeClasses} ${className}`}>
+    <span className={`inline-flex items-center gap-1.5 font-semibold rounded-full border shadow-3xs whitespace-nowrap ${colorStyle} ${sizeClasses} ${className}`}>
       {showIcon && <IconComponent className={iconSizes} />}
       <span>{status}</span>
     </span>

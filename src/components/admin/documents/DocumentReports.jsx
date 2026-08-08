@@ -1,8 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
-  PieChart, Pie, Cell, LineChart, Line, Legend 
-} from 'recharts';
 import { Eye, Download, ShieldCheck, AlertCircle, TrendingUp, FileText } from 'lucide-react';
 import Card from '../../common/Card';
 import { getClientEngagementSummary, getDocumentAccessLog } from '../../../service/document';
@@ -160,47 +156,49 @@ export default function DocumentReports({ documents = [] }) {
         </div>
       </div>
 
-      {/* SECTION 3: REPOSITORY CHARTS */}
+      {/* SECTION 3: REPOSITORY SUMMARIES */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Chart 1: Project-wise Documents Count */}
+        {/* Table 1: Project-wise Documents Count */}
         <Card title="Document Count by Project" subtitle="Volume of archived files inside project-wise repositories">
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={projectData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                <XAxis dataKey="name" stroke="#94A3B8" fontSize={10} fontWeight="bold" />
-                <YAxis stroke="#94A3B8" fontSize={10} fontWeight="bold" />
-                <Tooltip />
-                <Bar dataKey="value" fill="#A2D2FF" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
+                <tr>
+                  <th className="px-4 py-2">Project Name</th>
+                  <th className="px-4 py-2">Document Count</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {projectData.map((row) => (
+                  <tr key={row.name} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-2.5 font-bold text-slate-800">{row.name}</td>
+                    <td className="px-4 py-2.5 font-semibold text-blue-600">{row.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Card>
 
-        {/* Chart 2: File Type Distribution Donut Chart */}
+        {/* Table 2: File Type Distribution */}
         <Card title="Repository Format Types" subtitle="Distribution of PDF, DWG, XLSX, and ZIP files">
-          <div className="h-64 flex flex-col justify-center items-center">
-            <div className="h-48 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={typeData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={75}
-                    paddingAngle={4}
-                    dataKey="value"
-                  >
-                    {typeData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS_TYPE[index % COLORS_TYPE.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend layout="horizontal" verticalAlign="bottom" align="center" iconSize={10} iconType="circle" />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
+                <tr>
+                  <th className="px-4 py-2">Format Type</th>
+                  <th className="px-4 py-2">Total Files</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {typeData.map((row) => (
+                  <tr key={row.name} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-2.5 font-bold text-slate-800">{row.name}</td>
+                    <td className="px-4 py-2.5 font-semibold text-emerald-600">{row.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Card>
       </div>

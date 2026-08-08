@@ -9,28 +9,62 @@ function App() {
   const [role, setRole] = useState(() => {
     try {
       const savedUser = localStorage.getItem('user');
-      if (!savedUser) return 'Admin';
+      if (!savedUser) return null;
       
       const parsedUser = JSON.parse(savedUser);
-      const rawRole = parsedUser.roleCode || parsedUser.role || 'Employee';
-      
-      // Normalize role to match React router definitions
       if (parsedUser.isClientPortal) return 'Customer';
-      const r = rawRole.toLowerCase().trim();
-      if (r.includes('admin') || r.includes('super_admin') || r.includes('super admin')) return 'Admin';
-      if (r === 'hr') return 'HR';
-      if (r.includes('site') || r.includes('engineer') || r === 'site_engineer') return 'SiteEngineer';
-      if (r.includes('manager') || r === 'project_manager') return 'ProjectManager';
-      if (r.includes('architect')) return 'Architect';
-      if (r.includes('customer') || r.includes('client')) return 'Customer';
-      return 'Employee';
+
+      const rawRole = parsedUser.roleCode || parsedUser.role;
+      if (!rawRole) return null;
+
+      const r = String(rawRole).toLowerCase().replace(/[\s_\-]/g, '').trim();
+
+      // Strict role mapping switch case - returns null if not an allowed role
+      switch (r) {
+        case 'superadmin':
+        case 'admin':
+          return 'Admin';
+        case 'hr':
+          return 'HR';
+        case 'projectmanager':
+        case 'pm':
+          return 'ProjectManager';
+        case 'architect':
+          return 'Architect';
+        case 'siteengineer':
+        case 'sitemanager':
+          return 'SiteEngineer';
+        case 'employee':
+          return 'Employee';
+        case 'client':
+        case 'customer':
+          return 'Customer';
+        default:
+          return null;
+      }
     } catch {
-      return 'Admin';
+      return null;
     }
   });
-  
+
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return !!localStorage.getItem('token');
+    const hasToken = !!localStorage.getItem('token');
+    const savedUser = localStorage.getItem('user');
+    if (!hasToken || !savedUser) return false;
+
+    try {
+      const parsedUser = JSON.parse(savedUser);
+      if (parsedUser.isClientPortal) return true;
+
+      const rawRole = parsedUser.roleCode || parsedUser.role;
+      if (!rawRole) return false;
+
+      const r = String(rawRole).toLowerCase().replace(/[\s_\-]/g, '').trim();
+      const validRoles = ['superadmin', 'admin', 'hr', 'projectmanager', 'pm', 'architect', 'siteengineer', 'sitemanager', 'employee', 'client', 'customer'];
+      return validRoles.includes(r);
+    } catch {
+      return false;
+    }
   });
 
   return (

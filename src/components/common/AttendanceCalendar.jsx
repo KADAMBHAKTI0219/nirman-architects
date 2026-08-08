@@ -5,11 +5,16 @@ import {
 } from 'lucide-react';
 import Card from './Card';
 
-// Generate comprehensive calendar data with leaves, check-ins, and shift details for any given month
-export function generateMonthAttendanceData(employeeName = 'Employee', month = 7, year = 2026) {
+// Generate calendar data mapping real backend logs if provided
+export function generateMonthAttendanceData(employeeName = 'Employee', month = 7, year = 2026, backendLogs = []) {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDayIndex = new Date(year, month, 1).getDay(); // 0 = Sun
   
+  // Normalize backend logs array
+  const logsList = Array.isArray(backendLogs) 
+    ? backendLogs 
+    : (backendLogs && typeof backendLogs === 'object' ? Object.values(backendLogs).filter(x => typeof x === 'object' && x && x.date) : []);
+
   const records = [];
 
   for (let i = 1; i <= daysInMonth; i++) {
@@ -17,18 +22,40 @@ export function generateMonthAttendanceData(employeeName = 'Employee', month = 7
     const dateObj = new Date(year, month, i);
     const dayOfWeek = dateObj.getDay();
 
+    // Check if real backend log exists for this date
+    const matchedLog = logsList.find(l => {
+      if (!l) return false;
+      const logDate = l.date || (l.clockInTime ? l.clockInTime.split('T')[0] : null);
+      return logDate === dateStr;
+    });
+
     let status = 'PRESENT';
     let label = 'Present';
     let code = 'P';
     let badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
     let timeIn = '09:00 AM';
     let timeOut = '06:00 PM';
-    let hours = '9.0 hrs';
+    let hours = '8.0 hrs';
     let leaveReason = null;
     let mode = 'Office Desktop';
 
-    // Weekend check
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
+    if (matchedLog) {
+      status = matchedLog.status || 'COMPLETED';
+      timeIn = matchedLog.clockInTime ? new Date(matchedLog.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A';
+      timeOut = matchedLog.clockOutTime ? new Date(matchedLog.clockOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (matchedLog.autoClosed ? 'Auto-Closed' : 'Active');
+      hours = `${matchedLog.workingHours || 0} hrs`;
+      leaveReason = matchedLog.reason || null;
+
+      if (matchedLog.status === 'AUTO_CLOSED' || matchedLog.autoClosed) {
+        label = 'Auto-Closed';
+        code = 'AC';
+        badgeColor = 'bg-amber-50 text-amber-700 border-amber-200';
+      } else {
+        label = 'Present';
+        code = 'P';
+        badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      }
+    } else if (dayOfWeek === 0 || dayOfWeek === 6) {
       status = 'WEEKEND';
       label = 'Weekend';
       code = 'W';
@@ -36,45 +63,15 @@ export function generateMonthAttendanceData(employeeName = 'Employee', month = 7
       timeIn = 'N/A';
       timeOut = 'N/A';
       hours = '0.0 hrs';
-    } 
-    // Specific leaves and statuses for mock calendar data
-    else if (i === 5) {
-      status = 'CASUAL_LEAVE';
-      label = 'Casual Leave';
-      code = 'CL';
-      badgeColor = 'bg-indigo-50 text-indigo-700 border-indigo-200';
-      timeIn = 'On Leave';
-      timeOut = 'On Leave';
+    } else if (new Date(dateStr) > new Date()) {
+      status = 'PENDING';
+      label = 'Upcoming';
+      code = '-';
+      badgeColor = 'bg-slate-50 text-slate-400 border-slate-100';
+      timeIn = '-';
+      timeOut = '-';
       hours = '0.0 hrs';
-      leaveReason = 'Personal / Family Event (Approved by HR)';
-    } else if (i === 12) {
-      status = 'SICK_LEAVE';
-      label = 'Sick Leave';
-      code = 'SL';
-      badgeColor = 'bg-amber-50 text-amber-700 border-amber-200';
-      timeIn = 'On Leave';
-      timeOut = 'On Leave';
-      hours = '0.0 hrs';
-      leaveReason = 'Medical Doctor Consultation (Approved)';
-    } else if (i === 15) {
-      status = 'HOLIDAY';
-      label = 'Public Holiday';
-      code = 'H';
-      badgeColor = 'bg-purple-50 text-purple-700 border-purple-200';
-      timeIn = 'N/A';
-      timeOut = 'N/A';
-      hours = '0.0 hrs';
-      leaveReason = 'Independence Day Public Holiday';
-    } else if (i === 19) {
-      status = 'HALF_DAY';
-      label = 'Half Day';
-      code = 'HD';
-      badgeColor = 'bg-sky-50 text-sky-700 border-sky-200';
-      timeIn = '09:00 AM';
-      timeOut = '01:30 PM';
-      hours = '4.5 hrs';
-      leaveReason = 'First Half Leave - Dental Appointment';
-    } else if (i === 24) {
+    } else {
       status = 'ABSENT';
       label = 'Absent / LOP';
       code = 'A';
@@ -82,15 +79,6 @@ export function generateMonthAttendanceData(employeeName = 'Employee', month = 7
       timeIn = 'Unexcused';
       timeOut = 'Unexcused';
       hours = '0.0 hrs';
-      leaveReason = 'Uninformed Absence (Loss of Pay)';
-    } else if (i % 7 === 1) {
-      status = 'LATE';
-      label = 'Late Check-in';
-      code = 'L';
-      badgeColor = 'bg-amber-50 text-amber-700 border-amber-200';
-      timeIn = '09:42 AM';
-      timeOut = '06:15 PM';
-      hours = '8.55 hrs';
     }
 
     records.push({
@@ -105,7 +93,8 @@ export function generateMonthAttendanceData(employeeName = 'Employee', month = 7
       timeOut,
       hours,
       leaveReason,
-      mode
+      mode,
+      rawLog: matchedLog || null
     });
   }
 
@@ -115,8 +104,10 @@ export function generateMonthAttendanceData(employeeName = 'Employee', month = 7
 export default function AttendanceCalendar({ 
   employeeName = 'All Staff Members',
   employeeRole = 'Software & Architect Team',
-  month = 7, // 0-indexed (7 = August)
-  year = 2026,
+  month = new Date().getMonth(), // 0-indexed
+  year = new Date().getFullYear(),
+  logs = [],
+  onMonthChange,
   onDateSelect
 }) {
   const [currentMonth, setCurrentMonth] = useState(month);
@@ -129,8 +120,8 @@ export default function AttendanceCalendar({
   ];
 
   const calendarData = useMemo(() => {
-    return generateMonthAttendanceData(employeeName, currentMonth, currentYear);
-  }, [employeeName, currentMonth, currentYear]);
+    return generateMonthAttendanceData(employeeName, currentMonth, currentYear, logs);
+  }, [employeeName, currentMonth, currentYear, logs]);
 
   // Calculate summary counts
   const summaryStats = useMemo(() => {

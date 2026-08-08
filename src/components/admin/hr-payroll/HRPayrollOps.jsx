@@ -1,8 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  ResponsiveContainer, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, 
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend 
-} from 'recharts';
 import { Search, DollarSign, FileText, Download, Calculator, Check, RefreshCw } from 'lucide-react';
 import Card from '../../common/Card';
 import {
@@ -12,6 +8,7 @@ import {
   downloadAllPayslipsZip
 } from '../../../service/hrm/payroll';
 import { parseIndexedObjectToArray } from '../../../service/hrm/leave';
+import { getUsersList } from '../../../service/auth';
 
 const COLORS = ['#8FC9FF', '#EF4444', '#34D399'];
 
@@ -38,13 +35,6 @@ export default function HRPayrollOps() {
   }[monthName] || 7;
   const yearNum = Number(yearStr) || 2026;
 
-  const DEFAULT_STAFF_PAYROLL = [
-    { id: 'pay_1', userId: 'u1', name: 'Sarah Connor', role: 'Project Manager', base: 35000, allowance: 1500, deduction: 1750, delayPenalty: 0, bonus: 500, netPay: 35250, bank: 'Nirman Axis Bank', payslipNo: 'PS-2026-07-PM01' },
-    { id: 'pay_2', userId: 'u2', name: 'Alice Smith', role: 'Senior Architect', base: 28000, allowance: 1000, deduction: 1400, delayPenalty: 0, bonus: 0, netPay: 27600, bank: 'Nirman Axis Bank', payslipNo: 'PS-2026-07-AR02' },
-    { id: 'pay_3', userId: 'u3', name: 'Bob Johnson', role: 'Site Engineer Lead', base: 26000, allowance: 1200, deduction: 1300, delayPenalty: 200, bonus: 0, netPay: 25700, bank: 'Nirman Axis Bank', payslipNo: 'PS-2026-07-SE03' },
-    { id: 'pay_4', userId: 'u4', name: 'Charlie Brown', role: 'Office Employee', base: 22000, allowance: 500, deduction: 1100, delayPenalty: 0, bonus: 0, netPay: 21400, bank: 'Nirman Axis Bank', payslipNo: 'PS-2026-07-EM04' }
-  ];
-
   const fetchPayrollRecords = async () => {
     try {
       setLoading(true);
@@ -53,59 +43,76 @@ export default function HRPayrollOps() {
         const res = await getAllPayroll({ month: monthNum, year: yearNum });
         list = parseIndexedObjectToArray(res);
       } catch (e) {
-        console.log("Backend payroll fetch notice, generating sheets:", e.message);
+        console.log("Backend payroll fetch notice, fetching registered employees:", e.message);
       }
 
       if (list && list.length > 0) {
-        const mapped = list.map(rec => {
-          const userObj = rec.userId || {};
-          const base = rec.baseSalary || 25000;
-          const ded = rec.totalDeduction || Math.round(base * 0.05);
+        const mapped = list.map((rec, idx) => {
+          const userObj = rec.userId || rec.user || {};
+          const base = Number(rec.baseSalary || userObj.baseSalary || 35000);
+          const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
+          const perDay = base / daysInMonth;
+          const unpaidDays = Number(rec.unpaidLeaveDays || 0) + Number(rec.absentDays || 0);
+          const ded = rec.totalDeduction !== undefined ? Number(rec.totalDeduction) : Math.round(perDay * unpaidDays);
+          const net = rec.netSalary !== undefined ? Number(rec.netSalary) : (base - ded);
+
           return {
-            id: rec._id || rec.id,
-            userId: userObj._id || rec.userId,
-            name: userObj.name || "Nirman Employee",
-            role: userObj.designation || userObj.role || "Staff Member",
+            id: rec._id || rec.id || `pay_${idx}`,
+            userId: userObj._id || userObj.id || rec.userId,
+            name: userObj.name || rec.name || "Nirman Employee",
+            role: userObj.designation || userObj.role || rec.role || "Staff Member",
             base,
-            allowance: rec.allowance || 0,
+            allowance: Number(rec.allowance || 0),
             deduction: ded,
-            delayPenalty: rec.delayPenalty || 0,
-            bonus: rec.bonus || 0,
-            netPay: rec.netSalary || (base - ded),
+            delayPenalty: Number(rec.delayPenalty || 0),
+            bonus: Number(rec.bonus || 0),
+            netPay: net,
             bank: "Nirman Axis Bank",
-            payslipNo: `PS-${rec.year || yearNum}-${String(rec.month || monthNum).padStart(2, '0')}-${String(rec._id || rec.id || 'XXX').substring(0, 6).toUpperCase()}`
+            payslipNo: `PS-${yearNum}-${String(monthNum).padStart(2, '0')}-${String(userObj._id || rec._id || idx).substring(0, 6).toUpperCase()}`
           };
         });
         setPayroll(mapped);
       } else {
-        const savedUsers = JSON.parse(localStorage.getItem('nirman_users') || '[]');
-        if (savedUsers && savedUsers.length > 0) {
-          const compiled = savedUsers.map((u, idx) => {
-            const base = Number(u.baseSalary || 25000);
-            const ded = Math.round(base * 0.05);
-            return {
-              id: u.id || u._id || `pay_${idx}`,
-              userId: u.id || u._id,
-              name: u.name || 'Nirman Staff',
-              role: u.designation || u.department || 'Staff Member',
-              base,
-              allowance: 500,
-              deduction: ded,
-              delayPenalty: 0,
-              bonus: 0,
-              netPay: base + 500 - ded,
-              bank: 'Nirman Axis Bank',
-              payslipNo: `PS-${yearNum}-${String(monthNum).padStart(2, '0')}-00${idx + 1}`
-            };
-          });
-          setPayroll(compiled);
-        } else {
-          setPayroll(DEFAULT_STAFF_PAYROLL);
+        // Fetch real registered employees dynamically
+        try {
+          const userRes = await getUsersList();
+          const rawUsers = parseIndexedObjectToArray(userRes.users || userRes.data || userRes);
+          if (rawUsers && rawUsers.length > 0) {
+            const compiled = rawUsers.map((u, idx) => {
+              const base = Number(u.baseSalary || 35000);
+              const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
+              const perDay = base / daysInMonth;
+              const unpaidDays = Number(u.unpaidLeaveDays || 0) + Number(u.absentDays || 0);
+              const ded = Math.round(perDay * unpaidDays);
+              const net = base - ded;
+
+              return {
+                id: u._id || u.id || `pay_${idx}`,
+                userId: u._id || u.id,
+                name: u.name || 'Nirman Staff',
+                role: u.designation || u.department || u.role || 'Staff Member',
+                base,
+                allowance: 0,
+                deduction: ded,
+                delayPenalty: 0,
+                bonus: 0,
+                netPay: net,
+                bank: 'Nirman Axis Bank',
+                payslipNo: `PS-${yearNum}-${String(monthNum).padStart(2, '0')}-00${idx + 1}`
+              };
+            });
+            setPayroll(compiled);
+          } else {
+            setPayroll([]);
+          }
+        } catch (uErr) {
+          console.error("Failed to fetch registered users list:", uErr);
+          setPayroll([]);
         }
       }
     } catch (err) {
       console.error("Failed to load payroll records:", err);
-      setPayroll(DEFAULT_STAFF_PAYROLL);
+      setPayroll([]);
     } finally {
       setLoading(false);
     }
@@ -351,63 +358,72 @@ export default function HRPayrollOps() {
         </div>
       </Card>
 
-      {/* 3. Payroll Charts */}
+      {/* 3. Payroll Summaries */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
         {/* Cost Trend */}
         <Card title="Monthly Payroll Expenses" subtitle="Total salary costs over recent months">
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={monthlyTrendData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                <XAxis dataKey="month" stroke="#94A3B8" fontSize={9} fontWeight="bold" />
-                <YAxis stroke="#94A3B8" fontSize={9} fontWeight="bold" />
-                <Tooltip />
-                <Line type="monotone" dataKey="cost" stroke="#34D399" strokeWidth={3} name="Cost (₹)" />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
+                <tr>
+                  <th className="px-4 py-2">Month</th>
+                  <th className="px-4 py-2">Cost (₹)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {monthlyTrendData.map((row) => (
+                  <tr key={row.month} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-2.5 font-bold text-slate-800">{row.month}</td>
+                    <td className="px-4 py-2.5 font-semibold text-emerald-600">₹{row.cost?.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Card>
 
         {/* Dept expense */}
         <Card title="Expense by Department" subtitle="Payroll cost weights by business team groups">
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={deptCostData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                <XAxis dataKey="name" stroke="#94A3B8" fontSize={9} fontWeight="bold" />
-                <YAxis stroke="#94A3B8" fontSize={9} fontWeight="bold" />
-                <Tooltip />
-                <Bar dataKey="cost" fill="#A2D2FF" radius={[4, 4, 0, 0]} name="Cost (₹)" />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
+                <tr>
+                  <th className="px-4 py-2">Department</th>
+                  <th className="px-4 py-2">Cost (₹)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {deptCostData.map((row) => (
+                  <tr key={row.name} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-2.5 font-bold text-slate-800">{row.name}</td>
+                    <td className="px-4 py-2.5 font-semibold text-blue-600">₹{row.cost?.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Card>
 
         {/* Components split */}
         <Card title="Salary Component Breakdown" subtitle="Distribution ratio of payroll payouts components">
-          <div className="h-48 flex justify-center items-center">
-            <div className="h-40 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={componentSplitData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={40}
-                    outerRadius={55}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {componentSplitData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend verticalAlign="bottom" align="center" iconSize={8} iconType="circle" />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
+                <tr>
+                  <th className="px-4 py-2">Component</th>
+                  <th className="px-4 py-2">Percentage</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {componentSplitData.map((row) => (
+                  <tr key={row.name} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-2.5 font-bold text-slate-800">{row.name}</td>
+                    <td className="px-4 py-2.5 font-semibold text-indigo-600">{row.value}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Card>
 

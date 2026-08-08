@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import HROverview from './HROverview';
 import HRLeaves from './HRLeaves';
 import HRShifts from './HRShifts';
 import HRPayrollOps from './HRPayrollOps';
@@ -83,12 +82,12 @@ const INITIAL_PERFORMANCE = [
   { id: "EMP-103", name: "John Wick", role: "Project Manager", productivity: 85, taskCompletion: 88, attendanceScore: 82, delaysCount: 1, reviewNotes: "Great leadership on tower structures. Late check-in recorded on boot timelines.", score: 85 }
 ];
 
-export default function HRPayroll({ defaultTab = 'overview' }) {
+export default function HRPayroll({ defaultTab = 'payroll' }) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(defaultTab);
 
   useEffect(() => {
-    setActiveTab(defaultTab);
+    setActiveTab(defaultTab === 'overview' ? 'payroll' : defaultTab);
   }, [defaultTab]);
 
   // Leaves state
@@ -371,15 +370,6 @@ export default function HRPayroll({ defaultTab = 'overview' }) {
 
       {/* Render selected HR module section */}
       <div>
-        {activeTab === 'overview' && (
-          <HROverview 
-            stats={MOCK_STATS}
-            distributionData={DEPT_DISTRIBUTION}
-            leaveTrendData={LEAVE_TRENDS}
-            exceptions={ATTENDANCE_EXCEPTIONS}
-          />
-        )}
-
         {activeTab === 'leaves' && (
           <HRLeaves 
             leaveRequests={leaveRequests}

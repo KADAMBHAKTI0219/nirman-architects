@@ -1,11 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, 
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, RadarChart, PolarGrid, 
-  PolarAngleAxis, PolarRadiusAxis, Radar 
-} from 'recharts';
-import { 
   Users, UserCheck, Calendar, AlertTriangle, FileText, CheckCircle2, Clock, 
   Check, X, Cake, ShieldCheck, DollarSign, Award, RefreshCw, UserPlus, Plus 
 } from 'lucide-react';
@@ -257,52 +252,72 @@ export default function HRDashboard() {
         </div>
       </div>
 
-      {/* ================= ZONE 2: MIDDLE SECTION (OPERATIONAL GRAPHS) ================= */}
+      {/* ================= ZONE 2: MIDDLE SECTION (OPERATIONAL SUMMARIES) ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Attendance trend (Line Chart) */}
+        {/* Attendance trend Table */}
         <Card title="Attendance Rates Trend" subtitle="Daily attendance rates logged during the week">
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={attendanceTrendData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                <XAxis dataKey="day" stroke="#94A3B8" fontSize={9} fontWeight="bold" />
-                <YAxis stroke="#94A3B8" fontSize={9} fontWeight="bold" />
-                <Tooltip />
-                <Line type="monotone" dataKey="rate" stroke="#3B82F6" strokeWidth={3} name="Present (%)" />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
+                <tr>
+                  <th className="px-4 py-2">Day</th>
+                  <th className="px-4 py-2">Present Rate (%)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {attendanceTrendData.map((row) => (
+                  <tr key={row.day} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-2.5 font-bold text-slate-800">{row.day}</td>
+                    <td className="px-4 py-2.5 font-semibold text-blue-600">{row.rate}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Card>
 
-        {/* Department-wise Strength (Bar Chart) */}
+        {/* Department-wise Strength Table */}
         <Card title="Department-wise Strength" subtitle="Staff distribution counts across teams">
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={deptStrengthData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                <XAxis dataKey="name" stroke="#94A3B8" fontSize={9} fontWeight="bold" />
-                <YAxis stroke="#94A3B8" fontSize={9} fontWeight="bold" />
-                <Tooltip />
-                <Bar dataKey="count" fill="#8FC9FF" radius={[4, 4, 0, 0]} name="Staff Count" />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
+                <tr>
+                  <th className="px-4 py-2">Department</th>
+                  <th className="px-4 py-2">Staff Count</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {deptStrengthData.map((row) => (
+                  <tr key={row.name} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-2.5 font-bold text-slate-800">{row.name}</td>
+                    <td className="px-4 py-2.5 font-semibold text-emerald-600">{row.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Card>
 
-        {/* Performance KPI Overviews (Radar Chart) */}
+        {/* Performance KPI Overviews Table */}
         <Card title="Performance KPI Ratios" subtitle="Aggregated staff operational metrics averages">
-          <div className="h-56 flex justify-center items-center">
-            <div className="h-52 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart cx="50%" cy="50%" outerRadius="75%" data={radarKPIs}>
-                  <PolarGrid stroke="#F1F5F9" />
-                  <PolarAngleAxis dataKey="subject" stroke="#94A3B8" fontSize={9} fontWeight="bold" />
-                  <PolarRadiusAxis angle={30} domain={[0, 100]} fontSize={8} stroke="#CBD5E1" />
-                  <Radar name="Performance" dataKey="rate" stroke="#10B981" fill="#10B981" fillOpacity={0.25} />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
+                <tr>
+                  <th className="px-4 py-2">Subject</th>
+                  <th className="px-4 py-2">Rate (%)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {radarKPIs.map((row) => (
+                  <tr key={row.subject} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-2.5 font-bold text-slate-800">{row.subject}</td>
+                    <td className="px-4 py-2.5 font-semibold text-indigo-600">{row.rate}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Card>
 

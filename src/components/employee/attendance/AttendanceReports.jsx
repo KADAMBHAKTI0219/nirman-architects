@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, 
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend 
-} from 'recharts';
 import Card from '../../common/Card';
 import { getMyCorrections } from '../../../service/mockApi';
-
-const COLORS = ['#10B981', '#F59E0B', '#EF4444', '#64748B'];
 
 export default function AttendanceReports({ logs }) {
   const [corrections, setCorrections] = useState([]);
@@ -54,64 +48,73 @@ export default function AttendanceReports({ logs }) {
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
-        {/* Line Chart: Attendance Shift hours trend */}
+        {/* Table: Attendance Shift hours trend */}
         <Card title="Shift Hours Velocity Trend" subtitle="Daily logged working hours against standard 8.0h shift targets">
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={weeklyTrendData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                <XAxis dataKey="name" stroke="#94A3B8" fontSize={10} fontWeight="bold" />
-                <YAxis stroke="#94A3B8" fontSize={10} fontWeight="bold" />
-                <Tooltip />
-                <Legend fontSize={9} />
-                <Line type="monotone" dataKey="hours" stroke="#10B981" strokeWidth={3} name="Logged Hours" />
-                <Line type="monotone" dataKey="target" stroke="#64748B" strokeDasharray="5 5" name="Target Shift" />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
+                <tr>
+                  <th className="px-4 py-2">Day</th>
+                  <th className="px-4 py-2">Logged Hours</th>
+                  <th className="px-4 py-2">Target</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {weeklyTrendData.map((row) => (
+                  <tr key={row.name} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-2.5 font-bold text-slate-800">{row.name}</td>
+                    <td className="px-4 py-2.5 font-semibold text-emerald-600">{row.hours} hrs</td>
+                    <td className="px-4 py-2.5 text-slate-500">{row.target} hrs</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Card>
 
-        {/* Pie Chart: Status Distribution */}
+        {/* Table: Status Distribution */}
         <Card title="Shift Status Distribution" subtitle="Monthly present, late arrival, and absent ratios">
-          <div className="h-64 flex flex-col justify-center items-center">
-            <div className="h-48 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={statusData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={70}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {statusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend verticalAlign="bottom" layout="horizontal" iconSize={8} iconType="circle" />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
+                <tr>
+                  <th className="px-4 py-2">Status</th>
+                  <th className="px-4 py-2">Days</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {statusData.map((row) => (
+                  <tr key={row.name} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-2.5 font-bold text-slate-800">{row.name}</td>
+                    <td className="px-4 py-2.5 font-semibold text-blue-600">{row.value} days</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Card>
 
-        {/* Stacked Bar Chart: Office vs Site attendance */}
+        {/* Table: Office vs Site attendance */}
         <Card title="Office vs Site Check-In Ratio" subtitle="Weekly distribution of office laptop boots vs mobile GPS check-ins">
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={ratioData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                <XAxis dataKey="name" stroke="#94A3B8" fontSize={10} fontWeight="bold" />
-                <YAxis stroke="#94A3B8" fontSize={10} fontWeight="bold" />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="office" stackId="a" fill="#A2D2FF" name="Office Laptop" />
-                <Bar dataKey="site" stackId="a" fill="#34D399" name="Site GPS Mobile" />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
+                <tr>
+                  <th className="px-4 py-2">Week</th>
+                  <th className="px-4 py-2">Office Laptop</th>
+                  <th className="px-4 py-2">Site GPS Mobile</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {ratioData.map((row) => (
+                  <tr key={row.name} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-2.5 font-bold text-slate-800">{row.name}</td>
+                    <td className="px-4 py-2.5 font-semibold text-blue-600">{row.office}</td>
+                    <td className="px-4 py-2.5 font-semibold text-emerald-600">{row.site}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Card>
 

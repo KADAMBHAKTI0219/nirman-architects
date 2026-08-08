@@ -215,7 +215,7 @@ export default function TaskList({
 
                     return (
                       <div
-                        key={t.id}
+                        key={t._id ? `col-${col.id}-${t._id}` : `col-${col.id}-${t.id}-${Math.random()}`}
                         draggable={true}
                         onDragStart={(e) => {
                           e.dataTransfer.setData('text/plain', t.id);
@@ -256,7 +256,7 @@ export default function TaskList({
                             <div className="w-4.5 h-4.5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[7px] font-black uppercase shadow-3xs">
                               {(t.assignee || 'User').split(' ').map(n => n[0]).join('')}
                             </div>
-                            <span className="font-bold text-slate-700 truncate max-w-[85px]">{t.assignee}</span>
+                            <span className="font-bold text-slate-700 truncate max-w-[130px]">{t.assignee}</span>
                           </div>
 
                           <div className="flex items-center gap-1 font-mono font-bold text-slate-500">
@@ -306,8 +306,8 @@ export default function TaskList({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                {filteredTasks.map((t) => (
-                  <tr key={t.id} className="hover:bg-slate-50/70 transition-colors">
+                {filteredTasks.map((t, idx) => (
+                  <tr key={t._id ? `tbl-${t._id}` : `tbl-${t.id}-${idx}`} className="hover:bg-slate-50/70 transition-colors">
                     <td className="px-5 py-4 font-mono font-extrabold text-slate-500">{t.id}</td>
                     <td className="px-5 py-4">
                       <div>

@@ -487,8 +487,8 @@ export default function CustomerDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
             <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/70">
               <span className="text-[10px] font-bold text-slate-400 uppercase block">Assigned Project Manager</span>
-              <strong className="text-slate-900 block mt-0.5">{projectDetail.projectManager?.name || 'Sarah Connor'}</strong>
-              <span className="text-[10px] text-slate-500 font-mono block">{projectDetail.projectManager?.email || 'sarah.pm@nirman.com'}</span>
+              <strong className="text-slate-900 block mt-0.5">{projectDetail.projectManager?.name || projectDetail.pmName || 'Project Manager & Arch Lead'}</strong>
+              <span className="text-[10px] text-slate-500 font-mono block">{projectDetail.projectManager?.email || 'pm@nirman.com'}</span>
             </div>
 
             <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/70">
@@ -672,7 +672,7 @@ export default function CustomerDashboard() {
 
                     <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-200/60">
                       <span>Priority: <strong className="text-slate-700">{t.priority}</strong></span>
-                      <span>Assigned PM: <strong className="text-slate-700">{t.formattedAssignedTo || 'Sarah Connor (Senior PM)'}</strong></span>
+                      <span>Assigned PM: <strong className="text-slate-700">{t.formattedAssignedTo || t.assignedPM || 'Assigned Project Lead'}</strong></span>
                     </div>
 
                     {/* Actions: Reopen / Cancel */}

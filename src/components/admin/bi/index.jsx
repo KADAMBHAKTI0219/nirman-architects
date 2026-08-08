@@ -1,16 +1,12 @@
 import React from 'react';
 import { 
-  ResponsiveContainer, AreaChart, Area, RadarChart, PolarGrid, PolarAngleAxis, 
-  PolarRadiusAxis, Radar, XAxis, YAxis, CartesianGrid, Tooltip, Legend 
-} from 'recharts';
-import { 
   BrainCircuit, TrendingUp, AlertTriangle, Lightbulb, ShieldAlert, Cpu 
 } from 'lucide-react';
 import Card from '../../common/Card';
 
 export default function BI() {
   
-  // 1. Mock AI forecast timeline data (Projected vs AI Predicted progress)
+  // 1. Mock AI forecast timeline data
   const timelineForecastData = [
     { week: "Wk 1", Actual: 10, Predicted: 10 },
     { week: "Wk 2", Actual: 25, Predicted: 24 },
@@ -20,13 +16,13 @@ export default function BI() {
     { week: "Wk 6", Actual: null, Predicted: 85 }
   ];
 
-  // 2. Department KPI Radar Data
+  // 2. Department KPI Data
   const radarData = [
-    { subject: 'Milestones', PM: 90, Engineering: 80, fullMark: 100 },
-    { subject: 'Attendance', PM: 85, Engineering: 95, fullMark: 100 },
-    { subject: 'Doc Sync', PM: 95, Engineering: 70, fullMark: 100 },
-    { subject: 'CAD Reviews', PM: 70, Engineering: 90, fullMark: 100 },
-    { subject: 'Client Approval', PM: 88, Engineering: 75, fullMark: 100 }
+    { subject: 'Milestones', PM: '90%', Engineering: '80%' },
+    { subject: 'Attendance', PM: '85%', Engineering: '95%' },
+    { subject: 'Doc Sync', PM: '95%', Engineering: '70%' },
+    { subject: 'CAD Reviews', PM: '70%', Engineering: '90%' },
+    { subject: 'Client Approval', PM: '88%', Engineering: '75%' }
   ];
 
   // 3. AI recommendation warnings
@@ -88,54 +84,55 @@ export default function BI() {
         </div>
       </div>
 
-      {/* 2. Main split: Predictions & Ratios (2/3 width) + Highlight Alert list (1/3 width) */}
+      {/* 2. Main split */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Left Side: Graphs */}
+        {/* Left Side: Summary Tables */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Timeline predictive forecast */}
-          <Card title="Completion Timeline Predictive Forecast" subtitle="Actual progress vs AI projected week-wise milestones timeline">
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={timelineForecastData}>
-                  <defs>
-                    <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2}/>
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="colorPredicted" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                  <XAxis dataKey="week" stroke="#94A3B8" fontSize={9} fontWeight="bold" />
-                  <YAxis stroke="#94A3B8" fontSize={9} fontWeight="bold" />
-                  <Tooltip />
-                  <Legend />
-                  <Area type="monotone" dataKey="Actual" stroke="#3B82F6" strokeWidth={3} fillOpacity={1} fill="url(#colorActual)" name="Actual Progress (%)" />
-                  <Area type="monotone" dataKey="Predicted" stroke="#10B981" strokeWidth={3} fillOpacity={1} fill="url(#colorPredicted)" name="AI Predicted (%)" />
-                </AreaChart>
-              </ResponsiveContainer>
+          <Card title="Completion Timeline Forecast" subtitle="Actual progress vs AI projected week-wise milestones timeline">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
+                  <tr>
+                    <th className="px-4 py-2">Week</th>
+                    <th className="px-4 py-2">Actual Progress</th>
+                    <th className="px-4 py-2">AI Projected</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {timelineForecastData.map((row) => (
+                    <tr key={row.week} className="hover:bg-slate-50/50">
+                      <td className="px-4 py-2.5 font-bold text-slate-800">{row.week}</td>
+                      <td className="px-4 py-2.5 text-blue-600 font-semibold">{row.Actual !== null ? `${row.Actual}%` : '—'}</td>
+                      <td className="px-4 py-2.5 text-emerald-600 font-semibold">{row.Predicted}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </Card>
 
-          {/* Department radar comparison */}
           <Card title="Business Unit Key Performance Indicators" subtitle="Multi-dimensional performance mapping by departments">
-            <div className="h-64 flex justify-center items-center">
-              <div className="h-56 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-                    <PolarGrid stroke="#F1F5F9" />
-                    <PolarAngleAxis dataKey="subject" stroke="#94A3B8" fontSize={9} fontWeight="bold" />
-                    <PolarRadiusAxis angle={30} domain={[0, 100]} fontSize={8} stroke="#CBD5E1" />
-                    <Radar name="Project Management" dataKey="PM" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} />
-                    <Radar name="Engineering Department" dataKey="Engineering" stroke="#10b981" fill="#10b981" fillOpacity={0.3} />
-                    <Legend />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
+                  <tr>
+                    <th className="px-4 py-2">KPI Metric</th>
+                    <th className="px-4 py-2">PM Dept</th>
+                    <th className="px-4 py-2">Engineering Dept</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {radarData.map((row) => (
+                    <tr key={row.subject} className="hover:bg-slate-50/50">
+                      <td className="px-4 py-2.5 font-bold text-slate-800">{row.subject}</td>
+                      <td className="px-4 py-2.5 font-semibold">{row.PM}</td>
+                      <td className="px-4 py-2.5 font-semibold">{row.Engineering}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </Card>
 

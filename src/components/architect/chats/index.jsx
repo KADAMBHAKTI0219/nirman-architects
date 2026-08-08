@@ -97,27 +97,35 @@ export default function ArchitectChats() {
 
         {/* Message Stream */}
         <div className="flex-1 overflow-y-auto space-y-4 pr-1 py-4">
-          {messages.map((m, idx) => {
-            const isEmployee = m.authorType === 'EMPLOYEE' || m.formattedAuthorName?.includes('Architect') || m.formattedAuthorName?.includes('Team');
-            const authorName = m.formattedAuthorName || (m.authorId?.name ? `${m.authorId.name} (${m.authorId.designation || 'Staff'})` : 'Team Member');
+          {messages.length > 0 ? (
+            messages.map((m, idx) => {
+              const isEmployee = m.authorType === 'EMPLOYEE' || m.formattedAuthorName?.includes('Architect') || m.formattedAuthorName?.includes('Team');
+              const authorName = m.formattedAuthorName || (m.authorId?.name ? `${m.authorId.name} (${m.authorId.designation || 'Staff'})` : 'Team Member');
 
-            return (
-              <div 
-                key={m._id || idx} 
-                className={`p-3.5 rounded-2xl max-w-lg border space-y-1 ${
-                  isEmployee 
-                    ? 'bg-indigo-50/60 border-indigo-100 ml-auto text-slate-900' 
-                    : 'bg-slate-50 border-slate-200 mr-auto text-slate-800'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-4 text-[10px] font-black uppercase text-slate-400">
-                  <span className="text-indigo-600">{authorName}</span>
-                  <span className="font-mono">{m.sentAt ? new Date(m.sentAt).toLocaleTimeString() : 'Just now'}</span>
+              return (
+                <div 
+                  key={m._id || idx} 
+                  className={`p-3.5 rounded-2xl max-w-lg border space-y-1 ${
+                    isEmployee 
+                      ? 'bg-indigo-50/60 border-indigo-100 ml-auto text-slate-900' 
+                      : 'bg-slate-50 border-slate-200 mr-auto text-slate-800'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-4 text-[10px] font-black uppercase text-slate-400">
+                    <span className="text-indigo-600">{authorName}</span>
+                    <span className="font-mono">{m.sentAt ? new Date(m.sentAt).toLocaleTimeString() : 'Just now'}</span>
+                  </div>
+                  <p className="text-xs leading-relaxed font-medium">{m.messageText}</p>
                 </div>
-                <p className="text-xs leading-relaxed font-medium">{m.messageText}</p>
-              </div>
-            );
-          })}
+              );
+            })
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 p-6 space-y-1">
+              <MessageSquare className="w-8 h-8 text-slate-300 mb-1" />
+              <p className="text-xs font-semibold text-slate-700">No project chat messages yet.</p>
+              <p className="text-[11px] text-slate-400">Type a message below to start communicating with the team.</p>
+            </div>
+          )}
         </div>
 
         {/* Reply Box */}

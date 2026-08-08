@@ -69,38 +69,25 @@ export default function AdminDocuments({ defaultTab = 'vault' }) {
     const payload = {
       projectId: 'proj-1',
       fileName: formData.name,
+      name: formData.name,
       filePath: formData.filePath || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
       fileType: formData.type || 'PDF',
       fileSize: 4200000,
+      size: formData.fileSize || '4.2 MB',
       category: formData.folder || 'Other Shared Documents',
+      folder: formData.folder || 'Other Shared Documents',
       visibleToClient: formData.accessLevel ? formData.accessLevel.includes("Public") : true
     };
 
     try {
       await createDocument(payload);
-      alert(`Document "${formData.name}" saved to Backend Database!`);
+      alert(`Document "${formData.name}" registered successfully!`);
       setIsUploadModalOpen(false);
       fetchBackendDocuments();
     } catch (err) {
-      console.warn("Backend save notice:", err.message);
-      const newDoc = {
-        id: `DOC-${100 + documents.length + 1}`,
-        name: formData.name,
-        project: formData.project || "Central Office Tower",
-        folder: formData.folder || "Other Shared Documents",
-        type: formData.type || "PDF",
-        version: formData.version || "V1.0",
-        uploadedBy: "Admin",
-        uploadedDate: new Date().toISOString().split('T')[0],
-        accessLevel: formData.accessLevel || "Admin Only",
-        confidential: formData.confidential || false,
-        locked: false,
-        fileSize: formData.fileSize || "4.2 MB",
-        versions: [{ version: "V1.0", date: new Date().toISOString().split('T')[0], uploader: "Admin", changeLog: "Uploaded document" }],
-        downloadHistory: []
-      };
-      setDocuments(prev => [newDoc, ...prev]);
+      console.warn("Save error:", err);
       setIsUploadModalOpen(false);
+      fetchBackendDocuments();
     }
   };
 
@@ -135,7 +122,20 @@ export default function AdminDocuments({ defaultTab = 'vault' }) {
   const handleCreateFolderClick = async () => {
     const folderName = await window.prompt("Enter new directory folder name:", "", "Create Directory Folder");
     if (folderName && folderName.trim()) {
-      alert(`Directory folder '${folderName.trim()}' created successfully!`);
+      const cleanFolderName = folderName.trim();
+      const payload = {
+        projectId: 'proj-1',
+        fileName: `${cleanFolderName} Folder Brief.pdf`,
+        name: `${cleanFolderName} Folder Brief.pdf`,
+        category: cleanFolderName,
+        folder: cleanFolderName,
+        fileType: 'PDF',
+        fileSize: '1.2 MB',
+        visibleToClient: true
+      };
+      await createDocument(payload);
+      fetchBackendDocuments();
+      alert(`Directory folder '${cleanFolderName}' created and saved successfully!`);
     }
   };
 

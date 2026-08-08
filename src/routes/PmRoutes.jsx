@@ -10,7 +10,9 @@ const PMDrawings = lazy(() => import('../components/project-manager/drawings/ind
 const PMTeam = lazy(() => import('../components/project-manager/team/index'));
 const PMCommunication = lazy(() => import('../components/project-manager/client-communication/index'));
 const PMReports = lazy(() => import('../components/project-manager/reports/index'));
+const EmployeeAttendance = lazy(() => import('../components/employee/attendance/index'));
 const LeavesPortal = lazy(() => import('../components/common/LeavesPortal'));
+const AppUsageTracking = lazy(() => import('../components/admin/app-usage/AppUsageTracking'));
 
 const LazyWrap = ({ children }) => (
   <Suspense fallback={<BrandLoader message="Loading PM Workspace..." />}>
@@ -29,6 +31,11 @@ export default function getPmRoutes(handleRoleChange) {
       <Route path="/project-manager/leaves" element={
         <DashboardLayout role="ProjectManager" onChangeRole={handleRoleChange} title="Leaves Portal">
           <LazyWrap><LeavesPortal role="ProjectManager" /></LazyWrap>
+        </DashboardLayout>
+      } />
+      <Route path="/project-manager/attendance" element={
+        <DashboardLayout role="ProjectManager" onChangeRole={handleRoleChange} title="Attendance">
+          <LazyWrap><EmployeeAttendance /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/project-manager/projects" element={
@@ -84,6 +91,11 @@ export default function getPmRoutes(handleRoleChange) {
       <Route path="/project-manager/reports/tasks" element={
         <DashboardLayout role="ProjectManager" onChangeRole={handleRoleChange} title="Reports">
           <LazyWrap><PMReports /></LazyWrap>
+        </DashboardLayout>
+      } />
+      <Route path="/project-manager/app-usage" element={
+        <DashboardLayout role="ProjectManager" onChangeRole={handleRoleChange} title="App Usage Tracking">
+          <LazyWrap><AppUsageTracking userRole="ProjectManager" /></LazyWrap>
         </DashboardLayout>
       } />
     </>

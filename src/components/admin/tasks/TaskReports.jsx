@@ -1,14 +1,7 @@
 import React from 'react';
-import { 
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
-  PieChart, Pie, Cell, LineChart, Line, Legend 
-} from 'recharts';
 import Card from '../../common/Card';
 
-const COLORS_PRIORITY = ['#FCA5A5', '#FBBF24', '#A2D2FF', '#E2E8F0'];
-const COLORS_STATUS = ['#8FC9FF', '#A2D2FF', '#B0E0FE', '#E5F0FA', '#34D399'];
-
-export default function TaskReports({ tasks }) {
+export default function TaskReports({ tasks = [] }) {
   
   // 1. Process Task Status Counts
   const statusCounts = {
@@ -60,86 +53,68 @@ export default function TaskReports({ tasks }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       
-      {/* Chart 1: Status Distribution Bar Chart */}
       <Card title="Task Count by Stage" subtitle="Roster metrics of current task states">
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={statusData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-              <XAxis dataKey="name" stroke="#94A3B8" fontSize={10} fontWeight="bold" />
-              <YAxis stroke="#94A3B8" fontSize={10} fontWeight="bold" />
-              <Tooltip />
-              <Bar dataKey="value" fill="#A2D2FF" radius={[6, 6, 0, 0]}>
-                {statusData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS_STATUS[index % COLORS_STATUS.length]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs text-slate-700">
+            <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
+              <tr>
+                <th className="px-4 py-2">Stage</th>
+                <th className="px-4 py-2">Count</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {statusData.map((row) => (
+                <tr key={row.name} className="hover:bg-slate-50/50">
+                  <td className="px-4 py-2.5 font-bold text-slate-800">{row.name}</td>
+                  <td className="px-4 py-2.5 font-semibold text-blue-600">{row.value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </Card>
 
-      {/* Chart 2: Priority Donut Chart */}
       <Card title="Task Distribution by Priority" subtitle="SLA weighting of active issues">
-        <div className="h-64 flex flex-col justify-center items-center">
-          <div className="h-48 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={priorityData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={75}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {priorityData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS_PRIORITY[index % COLORS_PRIORITY.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend layout="horizontal" verticalAlign="bottom" align="center" iconSize={10} iconType="circle" />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs text-slate-700">
+            <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
+              <tr>
+                <th className="px-4 py-2">Priority</th>
+                <th className="px-4 py-2">Count</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {priorityData.map((row) => (
+                <tr key={row.name} className="hover:bg-slate-50/50">
+                  <td className="px-4 py-2.5 font-bold text-slate-800">{row.name}</td>
+                  <td className="px-4 py-2.5 font-semibold text-rose-600">{row.value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </Card>
 
-      {/* Chart 3: Estimated vs Actual Hours spent by Department */}
       <Card title="Hours Analysis by Department" subtitle="Estimated vs actual logged timesheets comparison">
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={workloadData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-              <XAxis dataKey="name" stroke="#94A3B8" fontSize={10} fontWeight="bold" />
-              <YAxis stroke="#94A3B8" fontSize={10} fontWeight="bold" />
-              <Tooltip />
-              <Legend iconSize={10} iconType="circle" />
-              <Bar dataKey="estimated" fill="#8FC9FF" name="Estimated Hours" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="actual" fill="#A2D2FF" name="Actual Hours" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
-
-      {/* Chart 4: Completion Wave line chart */}
-      <Card title="Timesheet Completion Wave" subtitle="Average progress velocity matching active schedules">
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={[
-              { week: 'Week 1', completed: 2 },
-              { week: 'Week 2', completed: 5 },
-              { week: 'Week 3', completed: 8 },
-              { week: 'Week 4', completed: tasks.filter(t => t.status === 'Completed').length }
-            ]}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-              <XAxis dataKey="week" stroke="#94A3B8" fontSize={10} fontWeight="bold" />
-              <YAxis stroke="#94A3B8" fontSize={10} fontWeight="bold" />
-              <Tooltip />
-              <Line type="monotone" dataKey="completed" stroke="#2484C6" strokeWidth={3} name="Completed Tasks" />
-            </LineChart>
-          </ResponsiveContainer>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs text-slate-700">
+            <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
+              <tr>
+                <th className="px-4 py-2">Department</th>
+                <th className="px-4 py-2">Estimated (hrs)</th>
+                <th className="px-4 py-2">Actual (hrs)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {workloadData.map((row) => (
+                <tr key={row.name} className="hover:bg-slate-50/50">
+                  <td className="px-4 py-2.5 font-bold text-slate-800">{row.name}</td>
+                  <td className="px-4 py-2.5 font-semibold text-blue-600">{row.estimated}</td>
+                  <td className="px-4 py-2.5 font-semibold text-emerald-600">{row.actual}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </Card>
 

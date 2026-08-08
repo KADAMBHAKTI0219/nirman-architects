@@ -1,46 +1,81 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Search, Folder, FileText, Download, Eye, Upload, X, ArrowLeft 
+  Search, Folder, FileText, Download, Eye, Upload, X, ArrowLeft, RefreshCw 
 } from 'lucide-react';
 import Card from '../../common/Card';
-
-const INITIAL_DOCS = [
-  { name: "Nirman Building Design Guidelines 2026.pdf", category: "Design briefs", size: "4.2 MB", date: "2026-06-15", version: "V1.0" },
-  { name: "Lobby Design Material Options.pdf", category: "Reference files", size: "8.5 MB", date: "2026-07-20", version: "V2.1" },
-  { name: "Central Office Tower Contract_Signed.pdf", category: "Contracts", size: "1.2 MB", date: "2026-05-12", version: "V1.0" },
-  { name: "Concrete Structural Load Limits.xlsx", category: "Site documents", size: "1.8 MB", date: "2026-07-02", version: "V1.2" }
-];
+import { 
+  getProjectDocuments, 
+  previewDocument, 
+  downloadDocument, 
+  createDocument, 
+  getEmployeeDocuments 
+} from '../../../service/document';
 
 export default function Documents() {
-  const [documents, setDocuments] = useState(INITIAL_DOCS);
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [inspectingDoc, setInspectingDoc] = useState(null);
   
-  const categories = ['All', 'Design briefs', 'Reference files', 'Contracts', 'Site documents', 'PDFs'];
+  const categories = ['All', 'Design briefs', 'Contracts', 'Approved Drawings PDFs', 'Photos', 'Site documents', 'Invoices'];
+
+  const fetchDocs = async () => {
+    setLoading(true);
+    try {
+      const res = await getProjectDocuments('proj-1', { folder: selectedCategory === 'All' ? '' : selectedCategory, search: searchQuery });
+      let list = [];
+      if (res && Array.isArray(res.allDocuments) && res.allDocuments.length > 0) {
+        list = res.allDocuments;
+      } else {
+        const empRes = await getEmployeeDocuments();
+        if (empRes && (empRes.documents || empRes.data)) {
+          list = Array.isArray(empRes.documents) ? empRes.documents : (Array.isArray(empRes.data) ? empRes.data : []);
+        }
+      }
+      setDocuments(list);
+    } catch (err) {
+      console.warn("Failed to load documents:", err);
+      setDocuments([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDocs();
+  }, [selectedCategory]);
 
   const filteredDocs = documents.filter(d => {
-    const matchesSearch = d.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'All' || d.category === selectedCategory || 
-                            (selectedCategory === 'PDFs' && d.name.endsWith('.pdf'));
+    const title = (d.name || d.title || '').toLowerCase();
+    const matchesSearch = title.includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'All' || d.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
   const handleUpload = async (e) => {
     e.preventDefault();
-    const title = await window.prompt("Enter Document Title:", "", "Upload Architectural Document");
+    const title = await window.prompt("Enter Document Title / Folder Name:", "", "Upload Architectural Document");
     if (!title || !title.trim()) return;
     
-    const newDoc = {
-      name: title.endsWith('.pdf') ? title : `${title}.pdf`,
-      category: selectedCategory === 'All' ? 'Design briefs' : selectedCategory,
-      size: "2.4 MB",
-      date: new Date().toISOString().split('T')[0],
-      version: "V1.0"
-    };
-
-    setDocuments([newDoc, ...documents]);
-    alert("Document uploaded successfully!");
+    try {
+      const docName = title.endsWith('.pdf') ? title.trim() : `${title.trim()}.pdf`;
+      const payload = {
+        name: docName,
+        fileName: docName,
+        category: selectedCategory === 'All' ? 'Design briefs' : selectedCategory,
+        folder: selectedCategory === 'All' ? 'Design briefs' : selectedCategory,
+        size: "2.4 MB",
+        date: new Date().toISOString().split('T')[0],
+        version: "V1.0",
+        visibleToClient: true
+      };
+      await createDocument(payload);
+      fetchDocs();
+      alert(`Document "${docName}" created successfully!`);
+    } catch (err) {
+      alert("Error uploading document");
+    }
   };
 
   return (
@@ -87,46 +122,59 @@ export default function Documents() {
       </div>
 
       {/* 2. CARD GRID VIEW */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {filteredDocs.map((doc, idx) => (
-          <div 
-            key={idx} 
-            className="bg-white p-5 rounded-3xl border border-slate-100 shadow-2xs flex justify-between items-center gap-4 hover:border-[#2484C6]/40 transition-all"
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="p-2.5 bg-slate-50 border border-slate-150 rounded-xl text-slate-450 flex-shrink-0">
-                <FileText className="w-5 h-5 text-[#2484C6]" />
+      {loading ? (
+        <div className="py-16 text-center text-slate-400 bg-white rounded-3xl border border-slate-100 p-8 space-y-2">
+          <RefreshCw className="w-6 h-6 animate-spin mx-auto text-indigo-500" />
+          <p className="text-xs font-medium">Fetching live documents from server...</p>
+        </div>
+      ) : filteredDocs.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {filteredDocs.map((doc, idx) => (
+            <div 
+              key={doc._id || idx} 
+              className="bg-white p-5 rounded-3xl border border-slate-100 shadow-2xs flex justify-between items-center gap-4 hover:border-[#2484C6]/40 transition-all"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="p-2.5 bg-slate-50 border border-slate-150 rounded-xl text-slate-450 flex-shrink-0">
+                  <FileText className="w-5 h-5 text-[#2484C6]" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[9px] font-black text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-150 uppercase tracking-wider self-start">
+                    {doc.category || 'General'}
+                  </span>
+                  <strong className="text-slate-805 block text-xs truncate mt-1.5" title={doc.name || doc.title}>{doc.name || doc.title}</strong>
+                  <span className="text-[9px] text-slate-400 block mt-1 font-bold uppercase tracking-wider">
+                    Size: {doc.size || '1.5 MB'} | Date: {doc.date || doc.createdAt ? new Date(doc.date || doc.createdAt).toISOString().split('T')[0] : '2026-08-08'} &bull; Version: {doc.version || 'V1.0'}
+                  </span>
+                </div>
               </div>
-              <div className="min-w-0">
-                <span className="text-[9px] font-black text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-150 uppercase tracking-wider self-start">
-                  {doc.category}
-                </span>
-                <strong className="text-slate-805 block text-xs truncate mt-1.5" title={doc.name}>{doc.name}</strong>
-                <span className="text-[9px] text-slate-400 block mt-1 font-bold uppercase tracking-wider">
-                  Size: {doc.size} | Date: {doc.date} &bull; Version: {doc.version}
-                </span>
-              </div>
-            </div>
 
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <button
-                onClick={() => setInspectingDoc(doc)}
-                className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-705 rounded-xl transition-all shadow-3xs"
-                title="Inspect File"
-              >
-                <Eye className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => alert(`Downloading: ${doc.name}`)}
-                className="p-1.5 bg-white border border-slate-205 hover:bg-slate-55 text-slate-500 rounded-xl transition-all shadow-3xs"
-                title="Download file"
-              >
-                <Download className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <button
+                  onClick={() => setInspectingDoc(doc)}
+                  className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-705 rounded-xl transition-all shadow-3xs"
+                  title="Inspect File"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => alert(`Downloading: ${doc.name || doc.title}`)}
+                  className="p-1.5 bg-white border border-slate-205 hover:bg-slate-55 text-slate-500 rounded-xl transition-all shadow-3xs"
+                  title="Download file"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <div className="py-16 text-center text-slate-400 bg-white rounded-3xl border border-slate-100 p-8 space-y-2">
+          <FileText className="w-8 h-8 text-slate-300 mx-auto mb-1" />
+          <p className="text-xs font-semibold text-slate-700">No documents found.</p>
+          <p className="text-[11px] text-slate-400">Click "Upload File" above to add new project documents.</p>
+        </div>
+      )}
 
       {/* 3. INSPECTION MODAL */}
       {inspectingDoc && (

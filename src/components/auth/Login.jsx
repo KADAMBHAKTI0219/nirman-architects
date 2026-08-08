@@ -7,24 +7,6 @@ import { loginUser } from '../../service/auth';
 import { clientLogin, clientChangePassword, clientForgotPassword, clientResetPassword } from '../../service/crm/client';
 import BrandLoader from '../common/BrandLoader';
 
-const STAFF_DEMO_ACCOUNTS = {
-  'admin@nirman.com': 'Admin',
-  'kadambhakti@gmail.com': 'Admin',
-  'hr@nirman.com': 'HR',
-  'pm@nirman.com': 'ProjectManager',
-  'architect@nirman.com': 'Architect',
-  'engineer@nirman.com': 'SiteEngineer',
-  'employee@gmail.com': 'Employee'
-};
-
-const CLIENT_DEMO_ACCOUNTS = {
-  'anand@shah.com': 'Shah Enterprises (Anand Shah)',
-  'info@shah.com': 'Shah Group Admin (info@shah.com)',
-  'bruce@waynecorp.com': 'Wayne Enterprises (Bruce Wayne)',
-  'lex@metropolis.com': 'Metropolis Corp (Lex Luthor)',
-  'customer@nirman.com': 'Customer Portal Demo'
-};
-
 export default function Login({ onLogin }) {
   const [authType, setAuthType] = useState('staff'); // 'staff' or 'client'
   const [email, setEmail] = useState('');
@@ -52,16 +34,33 @@ export default function Login({ onLogin }) {
   const [forgotSubmitting, setForgotSubmitting] = useState(false);
 
   const normalizeRole = (role) => {
-    if (!role) return 'Employee';
-    const rawVal = typeof role === 'object' ? (role.roleCode || role.role || 'Employee') : role;
-    const r = String(rawVal).toLowerCase().trim();
-    if (r.includes('admin') || r.includes('super')) return 'Admin';
-    if (r.includes('hr')) return 'HR';
-    if (r.includes('site') || r.includes('engineer')) return 'SiteEngineer';
-    if (r.includes('manager') || r.includes('pm')) return 'ProjectManager';
-    if (r.includes('architect')) return 'Architect';
-    if (r.includes('customer') || r.includes('client')) return 'Customer';
-    return 'Employee';
+    if (!role) return null;
+    const rawVal = typeof role === 'object' ? (role.roleCode || role.role || '') : role;
+    if (!rawVal) return null;
+    const r = String(rawVal).toLowerCase().replace(/[\s_\-]/g, '').trim();
+
+    switch (r) {
+      case 'superadmin':
+      case 'admin':
+        return 'Admin';
+      case 'hr':
+        return 'HR';
+      case 'projectmanager':
+      case 'pm':
+        return 'ProjectManager';
+      case 'architect':
+        return 'Architect';
+      case 'siteengineer':
+      case 'sitemanager':
+        return 'SiteEngineer';
+      case 'employee':
+        return 'Employee';
+      case 'client':
+      case 'customer':
+        return 'Customer';
+      default:
+        return null;
+    }
   };
 
   const handleTabSwitch = (type) => {
@@ -73,8 +72,12 @@ export default function Login({ onLogin }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const cleanEmail = (email.trim() || (authType === 'client' ? 'bruce@waynecorp.com' : 'admin@nirman.com')).toLowerCase();
-    const cleanPassword = password || (authType === 'client' ? 'Password123!' : 'Admin123!');
+    if (!email.trim() || !password) {
+      setError('Please enter your email and password.');
+      return;
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password;
     setError('');
     setLoading(true);
 
@@ -107,19 +110,25 @@ export default function Login({ onLogin }) {
               deviceId: userObj.deviceId
             };
 
-            if (token) localStorage.setItem('token', token);
-            const roleToNormalize = user.roleCode || user.role || 'SUPER_ADMIN';
+            const roleToNormalize = user.roleCode || user.role;
             const normRole = normalizeRole(roleToNormalize);
 
+            if (!normRole) {
+              setError('Access Denied: Account role is invalid or unassigned.');
+              return;
+            }
+
+            if (token) localStorage.setItem('token', token);
             const updatedUser = { ...user, role: normRole };
             localStorage.setItem('user', JSON.stringify(updatedUser));
             onLogin(normRole);
             return;
+          } else {
+            setError(response.message || 'Invalid staff credentials.');
           }
         } catch (staffErr) {
           // Automatic Smart Fallback: Try Client Portal Login if staff login fails
-          console.log("Staff login failed, attempting Client Portal login fallback...");
-          const clientRes = await clientLogin({ email: cleanEmail, password });
+          const clientRes = await clientLogin({ email: cleanEmail, password: cleanPassword });
           if (clientRes?.success) {
             handleClientLoginSuccess(clientRes, cleanEmail);
             return;
@@ -137,13 +146,17 @@ export default function Login({ onLogin }) {
   const handleClientLoginSuccess = (res, cleanEmail) => {
     const contact = res.contact || {};
     const client = res.client || {};
-    const token = res.token || 'mock-client-jwt-token';
+    const token = res.token || '';
+
+    if (token) {
+      localStorage.setItem('token', token);
+      localStorage.setItem('clientToken', token);
+    }
 
     const isTemp = contact.mustChangePassword ||
       contact.isTemporaryPassword ||
       res.mustChangePassword ||
-      res.isTemporaryPassword ||
-      (password && password.startsWith('TempPass'));
+      res.isTemporaryPassword;
 
     if (isTemp) {
       setPendingClientContact({ ...contact, token, client });
@@ -153,7 +166,6 @@ export default function Login({ onLogin }) {
       return;
     }
 
-    localStorage.setItem('token', token);
     const clientUser = {
       id: contact._id || contact.id || cleanEmail.split('@')[0],
       name: contact.name || 'Client Contact',
@@ -186,21 +198,28 @@ export default function Login({ onLogin }) {
 
     setPasswordChanging(true);
     try {
+      const activeToken = pendingClientContact?.token || localStorage.getItem('token') || localStorage.getItem('clientToken');
+      if (activeToken) {
+        localStorage.setItem('token', activeToken);
+        localStorage.setItem('clientToken', activeToken);
+      }
+
       const res = await clientChangePassword({
+        token: activeToken,
         oldPassword: newPasswordForm.oldPassword,
-        newPassword: newPasswordForm.newPassword
+        newPassword: newPasswordForm.newPassword,
+        confirmPassword: newPasswordForm.confirmPassword || newPasswordForm.newPassword
       });
 
       if (res?.success) {
-        alert("Password updated successfully! Redirecting to Client Portal...");
+        alert("Password updated successfully! Entering Client Portal...");
         setShowForcePasswordModal(false);
 
-        const contact = pendingClientContact;
-        localStorage.setItem('token', contact.token);
+        const contact = pendingClientContact || {};
         const clientUser = {
-          id: contact._id || contact.id,
-          name: contact.name,
-          email: contact.email,
+          id: contact._id || contact.id || 'client-user',
+          name: contact.name || 'Client Contact',
+          email: contact.email || '',
           role: 'Customer',
           isClientPortal: true,
           permissionLevel: contact.permissionLevel || 'OWNER',
@@ -211,10 +230,10 @@ export default function Login({ onLogin }) {
         localStorage.setItem('user', JSON.stringify(clientUser));
         onLogin('Customer');
       } else {
-        setPasswordChangeError(res?.message || 'Failed to update password.');
+        setPasswordChangeError(res?.message || 'Failed to update password. Please check temporary password.');
       }
     } catch (err) {
-      setPasswordChangeError(err.message || 'Error updating password.');
+      setPasswordChangeError(err.response?.data?.message || err.message || 'Error updating password.');
     } finally {
       setPasswordChanging(false);
     }
@@ -273,14 +292,6 @@ export default function Login({ onLogin }) {
     }
   };
 
-  const fillQuickCredentials = (demoEmail, type = 'staff') => {
-    setAuthType(type);
-    setEmail(demoEmail);
-    if (demoEmail === 'admin@nirman.com') setPassword('Admin123!');
-    else if (demoEmail === 'kadambhakti@gmail.com') setPassword('Password123!');
-    else setPassword('Password123!');
-  };
-
   return (
     <div className="w-full min-h-screen flex flex-col md:flex-row bg-white text-left font-sans">
       
@@ -333,7 +344,7 @@ export default function Login({ onLogin }) {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder={authType === 'client' ? 'e.g. bruce@waynecorp.com' : 'e.g. admin@nirman.com'}
+                placeholder="e.g. user@nirman.com"
                 className="w-full px-4 py-3 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all placeholder:text-slate-400 placeholder:font-normal"
               />
             </div>
@@ -402,45 +413,6 @@ export default function Login({ onLogin }) {
               Login to Workspace
             </button>
           </form>
-
-          {/* Quick Demo Credentials Switcher */}
-          <div className="pt-4 border-t border-slate-100 space-y-3">
-            <div>
-              <span className="text-[10px] font-black text-slate-400 uppercase block mb-1.5 tracking-wider">
-                Staff Quick Demo Accounts:
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {Object.keys(STAFF_DEMO_ACCOUNTS).map((demoEmail) => (
-                  <button
-                    key={demoEmail}
-                    type="button"
-                    onClick={() => fillQuickCredentials(demoEmail, 'staff')}
-                    className="text-[9px] px-2.5 py-1 bg-slate-50 hover:bg-indigo-50 border border-slate-200 text-slate-600 hover:text-indigo-700 rounded-full font-bold transition-all"
-                  >
-                    {demoEmail.split('@')[0].toUpperCase()}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <span className="text-[10px] font-black text-slate-400 uppercase block mb-1.5 tracking-wider">
-                Client Portal Quick Demo Accounts:
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {Object.keys(CLIENT_DEMO_ACCOUNTS).map((demoEmail) => (
-                  <button
-                    key={demoEmail}
-                    type="button"
-                    onClick={() => fillQuickCredentials(demoEmail, 'client')}
-                    className="text-[9px] px-2.5 py-1 bg-amber-50/80 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-full font-bold transition-all"
-                  >
-                    {CLIENT_DEMO_ACCOUNTS[demoEmail]}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
 
         </div>
       </div>

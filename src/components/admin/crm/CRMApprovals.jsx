@@ -22,9 +22,9 @@ export default function CRMApprovals({
     title: '',
     version: 'V1.0',
     type: 'PDF',
-    clientName: 'Wayne Enterprises',
-    projectName: 'Oceanic Luxury Villas',
-    remarks: 'Awaiting client technical review.'
+    clientName: '',
+    projectName: '',
+    remarks: ''
   });
 
   const handleCreateSubmit = (e) => {
@@ -36,8 +36,8 @@ export default function CRMApprovals({
       title: formData.title.trim(),
       version: formData.version || 'V1.0',
       type: formData.type || 'PDF',
-      clientName: formData.clientName,
-      projectName: formData.projectName,
+      clientName: formData.clientName || 'Client',
+      projectName: formData.projectName || 'Project',
       date: new Date().toISOString().split('T')[0],
       remarks: formData.remarks.trim() || 'Awaiting client sign-off.',
       status: 'Awaiting Response'
@@ -51,9 +51,9 @@ export default function CRMApprovals({
       title: '',
       version: 'V1.0',
       type: 'PDF',
-      clientName: 'Wayne Enterprises',
-      projectName: 'Oceanic Luxury Villas',
-      remarks: 'Awaiting client technical review.'
+      clientName: '',
+      projectName: '',
+      remarks: ''
     });
     alert("Client approval release request issued successfully!");
   };

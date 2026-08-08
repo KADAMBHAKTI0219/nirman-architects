@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { Eye } from 'lucide-react';
 import Stats from './Stats';
-import RevenuesChart from './RevenuesChart';
-import PortfolioChart from './PortfolioChart';
 import HealthIndicators from './HealthIndicators';
 import ActivitiesFeed from './ActivitiesFeed';
 import Card from '../../common/Card';
@@ -73,14 +71,7 @@ export default function Dashboard() {
 
       <Stats />
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <RevenuesChart />
-        </div>
-        <div>
-          <PortfolioChart />
-        </div>
-      </div>
+      {/* Removed charts */}
 
       <Card title="Approvals Queue" subtitle="Drawing revisions requiring final GFC/Client release signatures">
         <DataTable 

@@ -1,282 +1,184 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Users, CheckCircle, Search, AlertTriangle, Eye, X, BookOpen, Clock, ChevronRight, Phone, Mail, Plus, Download, UserPlus
+  Users, CheckCircle, Search, AlertTriangle, Eye, X, BookOpen, Clock, ChevronRight, Phone, Mail, Plus, RefreshCw
 } from 'lucide-react';
 import Card from '../../common/Card';
-import { motion } from 'framer-motion';
-
-const INITIAL_TEAM = [
-  { id: "EMP-101", name: "Sarah Connor", role: "Lead Architect", dept: "Architecture", availability: "Available", workload: 80, tasks: 2, phone: "+91 98765 10001", email: "sarah@nirman.com", schedule: { Mon: "Office", Tue: "Office", Wed: "Office", Thu: "Office", Fri: "Office" } },
-  { id: "EMP-102", name: "Alice Smith", role: "Jr Architect", dept: "Architecture", availability: "Available", workload: 90, tasks: 1, phone: "+91 98765 10002", email: "alice@nirman.com", schedule: { Mon: "Office", Tue: "Office", Wed: "Office", Thu: "Office", Fri: "Office" } },
-  { id: "EMP-103", name: "Bob Johnson", role: "Site Engineer", dept: "Engineering", availability: "On Site", workload: 100, tasks: 1, phone: "+91 98765 10003", email: "bob@nirman.com", schedule: { Mon: "Site A", Tue: "Site A", Wed: "Site A", Thu: "Site A", Fri: "Site A" } },
-  { id: "EMP-104", name: "Charlie Brown", role: "Drafter", dept: "Architecture", availability: "On Leave", workload: 0, tasks: 0, phone: "+91 98765 10004", email: "charlie@nirman.com", schedule: { Mon: "Leave", Tue: "Office", Wed: "Office", Thu: "Office", Fri: "Office" } },
-  { id: "EMP-105", name: "Frank Castle", role: "Site Inspector", dept: "Engineering", availability: "On Site", workload: 70, tasks: 2, phone: "+91 98765 10005", email: "frank@nirman.com", schedule: { Mon: "Site B", Tue: "Site B", Wed: "Site B", Thu: "Site B", Fri: "Site B" } }
-];
+import { getUsersList } from '../../../service/auth';
 
 export default function Team() {
-  const [team, setTeam] = useState(INITIAL_TEAM);
+  const [team, setTeam] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState('All');
-  const [selectedMember, setSelectedMember] = useState(INITIAL_TEAM[0]);
+  const [selectedMember, setSelectedMember] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(true);
 
-  const handleAddMember = async () => {
-    const name = await window.prompt("Enter Team Member Name:", "", "Add Team Member");
-    if (!name) return;
-    const role = await window.prompt("Enter Role (e.g. Architect, Engineer, Drafter):", "Jr Architect", "Add Team Member");
-    if (!role) return;
-    const dept = await window.prompt("Enter Department (e.g. Architecture, Engineering):", "Architecture", "Add Team Member");
-    if (name && role && dept) {
-      const newMem = {
-        id: `EMP-${100 + team.length + 1}`,
-        name,
-        role,
-        dept,
-        availability: "Available",
-        workload: 50,
-        tasks: 0,
-        phone: "+91 98765 99999",
-        email: `${name.toLowerCase().replace(/\s+/g, '')}@nirman.com`,
-        schedule: { Mon: "Office", Tue: "Office", Wed: "Office", Thu: "Office", Fri: "Office" }
-      };
-      setTeam(prev => [...prev, newMem]);
-      alert(`Team member ${name} added successfully!`);
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      const res = await getUsersList();
+      if (res && res.success && Array.isArray(res.users)) {
+        const mapped = res.users.map((u, idx) => {
+          const nameStr = typeof u.name === 'string' ? u.name : (typeof u.fullName === 'string' ? u.fullName : (typeof u.email === 'string' ? u.email : 'Team Member'));
+          const roleStr = typeof u.role === 'string' ? u.role : (typeof u.roleName === 'string' ? u.roleName : (u.role && typeof u.role === 'object' ? (u.role.roleName || u.role.name || 'Architect') : 'Architect'));
+          return {
+            id: u._id || u.id || `EMP-${idx + 101}`,
+            name: nameStr,
+            role: roleStr,
+            dept: (u.department && typeof u.department === 'object') ? u.department.name : (u.department || 'Architecture'),
+            availability: u.isActive !== false ? 'Available' : 'On Leave',
+            workload: 75,
+            tasks: 1,
+            phone: u.phone || '+91 98765 00000',
+            email: typeof u.email === 'string' ? u.email : 'user@nirman.com',
+            schedule: { Mon: "Office", Tue: "Office", Wed: "Office", Thu: "Office", Fri: "Office" }
+          };
+        });
+        setTeam(mapped);
+        if (mapped.length > 0) setSelectedMember(mapped[0]);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch team users:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
   const filtered = team.filter(t => {
-    const matchesSearch = t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          t.role.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = (t.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          (t.role || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDept = selectedDept === 'All' || t.dept === selectedDept;
     return matchesSearch && matchesDept;
   });
 
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-
   return (
-    <div className="space-y-6 animate-in fade-in duration-200 font-sans text-slate-800">
+    <div className="space-y-6 font-sans text-slate-800 animate-in fade-in duration-200 pb-16 w-full max-w-[1400px] mx-auto">
       
-      {/* 0. TOP PAGE HEADER MATCHING DRAWING VAULT MANAGEMENT */}
+      {/* PAGE HEADER */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            Teams Management & Roster
+          <h1 className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight">
+            PM Team Roster & Resource Planning
           </h1>
-          <p className="text-slate-500 text-xs sm:text-sm mt-0.5 font-medium">
-            View project team members, roles, contact channels, and site attendance status
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5 font-normal">
+            Real-time employee workload allocation, availability status & site assignments
           </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => alert("Downloading team roster report...")}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-all cursor-pointer"
-          >
-            <Download className="w-4 h-4 text-slate-500" />
-            <span>Export Roster</span>
-          </button>
-          <button
-            onClick={handleAddMember}
-            className="flex items-center justify-center gap-2 px-4.5 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 rounded-xl text-xs sm:text-sm font-extrabold shadow-md transition-all cursor-pointer border border-brand-secondary/40"
-          >
-            <UserPlus className="w-4 h-4 text-slate-900 stroke-[2.5]" />
-            <span>Add Team Member</span>
-          </button>
         </div>
       </div>
 
-      {/* 1. TOP BAR */}
-      <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs flex flex-wrap gap-4 items-center justify-between">
-        <div className="flex items-center gap-3.5">
-          <div className="p-3 bg-sky-50 border border-sky-200 text-sky-600 rounded-2xl">
-            <Users className="w-6 h-6" />
-          </div>
-          <div>
-            <strong className="text-slate-900 text-base block font-extrabold">Team Roster & Site Shift Allocation</strong>
-            <span className="text-xs text-slate-400 block font-semibold">Track staff locations, active workloads, and weekly site calendars</span>
-          </div>
+      {/* SEARCH & FILTERS */}
+      <div className="bg-white p-4 rounded-3xl border border-slate-200/90 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="relative w-full md:w-80">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Search member name or role..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-normal focus:outline-none focus:ring-2 focus:ring-brand-primary/30 bg-slate-50"
+          />
         </div>
 
-        <div className="flex gap-2.5 flex-wrap items-center">
-          <div className="relative w-52">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Search team member..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 text-xs font-semibold bg-slate-50 text-slate-900"
-            />
-          </div>
-
+        <div className="flex items-center gap-3 w-full md:w-auto justify-end">
           <select
             value={selectedDept}
             onChange={(e) => setSelectedDept(e.target.value)}
-            className="px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 bg-white font-extrabold text-slate-700"
+            className="px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 bg-white cursor-pointer"
           >
             <option value="All">All Departments</option>
             <option value="Architecture">Architecture</option>
             <option value="Engineering">Engineering</option>
           </select>
+          <button
+            onClick={fetchUsers}
+            className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl border border-slate-200 transition-colors cursor-pointer"
+            title="Refresh Users"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
       </div>
 
-      {/* 2. WEEKLY ALLOCATION GRID & DETAILS SIDE DRAWER */}
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 items-start">
-        
-        {/* Weekly Grid */}
-        <div className={`${drawerOpen ? 'xl:col-span-3' : 'xl:col-span-4'} space-y-4`}>
-          <div className="bg-white border border-slate-200/90 rounded-3xl overflow-hidden shadow-2xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left table-auto">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/80">
-                    <th className="px-5 py-3.5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Employee Details</th>
-                    <th className="px-5 py-3.5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Workload</th>
-                    {days.map(d => (
-                      <th key={d} className="px-3 py-3.5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">{d}</th>
-                    ))}
-                    <th className="px-5 py-3.5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
-                  {filtered.map(emp => {
-                    const isSelected = selectedMember?.id === emp.id;
-
-                    return (
-                      <tr 
-                        key={emp.id}
-                        onClick={() => {
-                          setSelectedMember(emp);
-                          setDrawerOpen(true);
-                        }}
-                        className={`hover:bg-slate-50/80 cursor-pointer transition-colors ${isSelected ? 'bg-sky-50/60' : ''}`}
-                      >
-                        <td className="px-5 py-4 align-middle">
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 font-black text-xs flex items-center justify-center shrink-0">
-                              {emp.name.split(' ').map(n => n[0]).join('')}
-                            </div>
-                            <div>
-                              <strong className="text-slate-900 font-extrabold text-xs block">{emp.name}</strong>
-                              <span className="text-[11px] text-slate-400 block font-semibold">{emp.role} &bull; {emp.dept}</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4 align-middle">
-                          <div className="flex items-center gap-2.5">
-                            <strong className="text-xs font-black text-slate-800 min-w-[32px]">{emp.workload}%</strong>
-                            <div className="w-16 bg-slate-100 h-2 rounded-full overflow-hidden p-0.5 border border-slate-200/60">
-                              <div 
-                                className={`h-full rounded-full ${
-                                  emp.workload >= 90 ? 'bg-rose-500' : 
-                                  emp.workload >= 75 ? 'bg-amber-500' : 'bg-emerald-500'
-                                }`} 
-                                style={{ width: `${emp.workload}%` }}
-                              />
-                            </div>
-                          </div>
-                        </td>
-                        {days.map(d => {
-                          const shift = emp.schedule[d];
-                          return (
-                            <td key={d} className="px-2 py-4 text-center align-middle">
-                              <span className={`text-[9px] font-extrabold uppercase px-2 py-1 rounded-md border block text-center leading-none ${
-                                shift === 'Leave' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                                shift.includes('Site') ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                'bg-indigo-50 text-indigo-700 border-indigo-200'
-                              }`}>
-                                {shift}
-                              </span>
-                            </td>
-                          );
-                        })}
-                        <td className="px-5 py-4 align-middle text-right">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedMember(emp);
-                              setDrawerOpen(true);
-                            }}
-                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors"
-                          >
-                            Inspect
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+      {/* MAIN CONTENT GRID */}
+      {loading ? (
+        <div className="py-16 text-center text-slate-400 bg-white rounded-3xl border border-slate-200/90 space-y-2">
+          <RefreshCw className="w-6 h-6 animate-spin mx-auto text-indigo-500" />
+          <p className="text-xs font-normal">Loading team roster from backend database...</p>
         </div>
-
-        {/* Details Drawer */}
-        {drawerOpen && selectedMember && (
-          <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-xs space-y-5 animate-in slide-in-from-right duration-200">
-            <div className="flex justify-between items-start border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-sky-100 text-sky-800 font-black text-sm flex items-center justify-center border border-sky-200 shadow-2xs">
-                  {selectedMember.name.split(' ').map(n=>n[0]).join('')}
-                </div>
-                <div>
-                  <strong className="text-slate-900 text-sm block font-extrabold">{selectedMember.name}</strong>
-                  <span className="text-[11px] text-slate-400 font-bold block">{selectedMember.role}</span>
-                </div>
-              </div>
-              <button 
-                onClick={() => setDrawerOpen(false)}
-                className="p-1 hover:bg-slate-100 text-slate-400 rounded-xl transition-all"
+      ) : filtered.length > 0 ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* TEAM LIST LEDGER */}
+          <div className="lg:col-span-2 space-y-3">
+            {filtered.map(member => (
+              <div 
+                key={member.id}
+                onClick={() => { setSelectedMember(member); setDrawerOpen(true); }}
+                className={`p-4 bg-white rounded-3xl border transition-all cursor-pointer flex items-center justify-between gap-4 ${
+                  selectedMember?.id === member.id 
+                    ? 'border-brand-primary ring-2 ring-brand-primary/20 shadow-md' 
+                    : 'border-slate-200/90 hover:border-slate-300 shadow-2xs'
+                }`}
               >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-brand-soft text-slate-900 font-semibold text-sm flex items-center justify-center border border-brand-secondary/40">
+                    {member.name.split(' ').map(n=>n[0]).join('').toUpperCase()}
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-900">{member.name}</h3>
+                    <span className="text-xs text-slate-500 font-normal">{member.role} &bull; {member.dept}</span>
+                  </div>
+                </div>
 
-            <div className="space-y-4 text-xs font-bold text-slate-700">
-              <div className="p-3 bg-slate-50 border border-slate-200/70 rounded-2xl space-y-2">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-slate-400 font-bold uppercase text-[9px]">Availability Status</span>
-                  <span className={`px-2 py-0.5 rounded font-black text-[9px] uppercase border ${
-                    selectedMember.availability === 'Available' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                    selectedMember.availability === 'On Site' ? 'bg-sky-50 text-sky-700 border-sky-200' :
-                    'bg-rose-50 text-rose-700 border-rose-200'
+                <div className="flex items-center gap-4">
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium uppercase ${
+                    member.availability === 'Available' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-700'
                   }`}>
-                    {selectedMember.availability}
+                    {member.availability}
                   </span>
-                </div>
-
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-slate-400 font-bold uppercase text-[9px]">Active Workload</span>
-                  <strong className="text-slate-900 font-black">{selectedMember.workload}% Capacity</strong>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
                 </div>
               </div>
+            ))}
+          </div>
 
-              <div className="space-y-2">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Contact Information</span>
-                <div className="flex items-center gap-2 text-slate-600 font-mono">
-                  <Phone className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{selectedMember.phone}</span>
+          {/* MEMBER DRAWER DETAILS */}
+          {selectedMember && drawerOpen && (
+            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-5 h-fit sticky top-6">
+              <div className="flex justify-between items-start border-b border-slate-100 pb-4">
+                <div>
+                  <span className="text-[10px] text-slate-400 font-mono block uppercase">{selectedMember.id}</span>
+                  <h2 className="text-lg font-semibold text-slate-900">{selectedMember.name}</h2>
+                  <span className="text-xs text-slate-500 font-normal">{selectedMember.role}</span>
                 </div>
-                <div className="flex items-center gap-2 text-slate-600 font-mono">
-                  <Mail className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{selectedMember.email}</span>
-                </div>
+                <button onClick={() => setDrawerOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold">&times;</button>
               </div>
 
-              <div className="pt-2">
-                <button
-                  onClick={() => alert(`Initiated message to ${selectedMember.name}`)}
-                  className="w-full py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-extrabold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <Mail className="w-4 h-4" />
-                  <span>Send Direct Message</span>
-                </button>
+              <div className="space-y-3 text-xs font-normal">
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200/70 space-y-1">
+                  <span className="text-[10px] text-slate-400 uppercase font-medium block">Contact Info</span>
+                  <p className="text-slate-800 flex items-center gap-2">
+                    <Mail className="w-3.5 h-3.5 text-slate-400" /> {selectedMember.email}
+                  </p>
+                  <p className="text-slate-800 flex items-center gap-2">
+                    <Phone className="w-3.5 h-3.5 text-slate-400" /> {selectedMember.phone}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-      </div>
+        </div>
+      ) : (
+        <div className="py-16 text-center text-slate-400 bg-white rounded-3xl border border-slate-200/90 p-8 font-normal">
+          <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+          <p className="text-xs font-semibold text-slate-700">No team members match search query.</p>
+        </div>
+      )}
 
     </div>
   );

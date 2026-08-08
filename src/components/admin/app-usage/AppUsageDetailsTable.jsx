@@ -32,12 +32,11 @@ const DEFAULT_APP_DETAILS = [
   { id: 18, name: 'Others', category: 'Other', activeTime: '02m', totalTime: '04m', percent: '0.3%', status: 'Idle', trendColor: '#F59E0B' }
 ];
 
-export default function AppUsageDetailsTable({ appList }) {
+export default function AppUsageDetailsTable({ appList = [] }) {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 7;
 
-  // Use passed appList if provided and non-empty, otherwise use full 18-item list
-  const fullList = (appList && appList.length > 0) ? appList : DEFAULT_APP_DETAILS;
+  const fullList = appList || [];
   const totalCount = fullList.length;
   const totalPages = Math.ceil(totalCount / pageSize) || 1;
 
@@ -70,64 +69,76 @@ export default function AppUsageDetailsTable({ appList }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-            {paginatedApps.map((app) => (
-              <tr key={app.id || app.name} className="hover:bg-slate-50/80 transition-colors">
-                {/* Application Name & Icon */}
-                <td className="py-3.5 px-4 font-bold text-slate-900 flex items-center gap-3">
-                  <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center font-bold text-xs">
-                    {app.name[0]}
+            {paginatedApps.length > 0 ? (
+              paginatedApps.map((app) => (
+                <tr key={app.id || app.name} className="hover:bg-slate-50/80 transition-colors">
+                  {/* Application Name & Icon */}
+                  <td className="py-3.5 px-4 font-bold text-slate-900 flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center font-bold text-xs">
+                      {(app.name || 'A')[0]}
+                    </div>
+                    <span>{app.name}</span>
+                  </td>
+
+                  {/* Category Badge */}
+                  <td className="py-3.5 px-4">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${CATEGORY_COLORS[app.category] || CATEGORY_COLORS.Other}`}>
+                      {app.category}
+                    </span>
+                  </td>
+
+                  {/* Active Time */}
+                  <td className="py-3.5 px-4 font-extrabold text-slate-900">
+                    {app.activeTime}
+                  </td>
+
+                  {/* Total Time */}
+                  <td className="py-3.5 px-4 font-semibold text-slate-500">
+                    {app.totalTime}
+                  </td>
+
+                  {/* % Usage */}
+                  <td className="py-3.5 px-4 font-extrabold text-slate-800">
+                    {app.percent}
+                  </td>
+
+                  {/* Status */}
+                  <td className="py-3.5 px-4">
+                    {app.status === 'Active' ? (
+                      <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-extrabold rounded-full border border-emerald-200 text-[10px] inline-flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-0.5 bg-amber-50 text-amber-700 font-extrabold rounded-full border border-amber-200 text-[10px] inline-flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Idle
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Sparkline Trend Graph */}
+                  <td className="py-3.5 px-4 text-right">
+                    <svg className="w-16 h-6 inline-block" viewBox="0 0 60 20" fill="none">
+                      <path
+                        d={app.status === 'Active' ? "M 0 15 Q 15 5 30 12 T 60 4" : "M 0 6 Q 15 14 30 8 T 60 16"}
+                        stroke={app.trendColor || (app.status === 'Active' ? '#10B981' : '#F59E0B')}
+                        strokeWidth="2"
+                        fill="none"
+                      />
+                    </svg>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="7" className="py-12 text-center text-slate-400">
+                  <div className="flex flex-col items-center justify-center gap-1.5">
+                    <LayoutGrid className="w-8 h-8 text-slate-300 mx-auto" />
+                    <span className="text-xs font-bold text-slate-600">No Application Usage Data Recorded</span>
+                    <span className="text-[11px] text-slate-400">No desktop activity logs found for this employee and date range.</span>
                   </div>
-                  <span>{app.name}</span>
-                </td>
-
-                {/* Category Badge */}
-                <td className="py-3.5 px-4">
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${CATEGORY_COLORS[app.category] || CATEGORY_COLORS.Other}`}>
-                    {app.category}
-                  </span>
-                </td>
-
-                {/* Active Time */}
-                <td className="py-3.5 px-4 font-extrabold text-slate-900">
-                  {app.activeTime}
-                </td>
-
-                {/* Total Time */}
-                <td className="py-3.5 px-4 font-semibold text-slate-500">
-                  {app.totalTime}
-                </td>
-
-                {/* % Usage */}
-                <td className="py-3.5 px-4 font-extrabold text-slate-800">
-                  {app.percent}
-                </td>
-
-                {/* Status */}
-                <td className="py-3.5 px-4">
-                  {app.status === 'Active' ? (
-                    <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-extrabold rounded-full border border-emerald-200 text-[10px] inline-flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active
-                    </span>
-                  ) : (
-                    <span className="px-2.5 py-0.5 bg-amber-50 text-amber-700 font-extrabold rounded-full border border-amber-200 text-[10px] inline-flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Idle
-                    </span>
-                  )}
-                </td>
-
-                {/* Sparkline Trend Graph */}
-                <td className="py-3.5 px-4 text-right">
-                  <svg className="w-16 h-6 inline-block" viewBox="0 0 60 20" fill="none">
-                    <path
-                      d={app.status === 'Active' ? "M 0 15 Q 15 5 30 12 T 60 4" : "M 0 6 Q 15 14 30 8 T 60 16"}
-                      stroke={app.trendColor || (app.status === 'Active' ? '#10B981' : '#F59E0B')}
-                      strokeWidth="2"
-                      fill="none"
-                    />
-                  </svg>
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>

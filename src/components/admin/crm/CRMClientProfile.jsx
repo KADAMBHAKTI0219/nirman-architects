@@ -16,6 +16,7 @@ import {
   toggleProjectLinkVisibility,
   unlinkProject
 } from '../../../service/crm/client';
+import { getProjects } from '../../../service/project';
 
 export default function CRMClientProfile({
   client,
@@ -38,8 +39,10 @@ export default function CRMClientProfile({
   const [linkedProjects, setLinkedProjects] = useState([]);
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [showLinkModal, setShowLinkModal] = useState(false);
-  const [linkForm, setLinkForm] = useState({ projectId: 'proj-' + Date.now(), projectName: 'New Architecture Project', visibleToClient: true });
+  const [linkForm, setLinkForm] = useState({ projectId: '', projectName: '', visibleToClient: true });
   const [linkSubmitting, setLinkSubmitting] = useState(false);
+  const [allProjects, setAllProjects] = useState([]);
+  const [loadingAllProjects, setLoadingAllProjects] = useState(false);
 
   // Account Edit State
   const [isEditingAccount, setIsEditingAccount] = useState(false);
@@ -56,6 +59,7 @@ export default function CRMClientProfile({
     if (clientId) {
       fetchClientContacts();
       fetchLinkedProjects();
+      fetchAvailableProjects();
       setAccountForm({
         name: client.name || '',
         companyName: client.companyName || client.company || '',
@@ -66,6 +70,28 @@ export default function CRMClientProfile({
       });
     }
   }, [clientId]);
+
+  const fetchAvailableProjects = async () => {
+    setLoadingAllProjects(true);
+    try {
+      const res = await getProjects();
+      if (res && res.success && Array.isArray(res.projects)) {
+        setAllProjects(res.projects);
+        if (res.projects.length > 0) {
+          const first = res.projects[0];
+          setLinkForm(prev => ({
+            ...prev,
+            projectId: first._id || first.id,
+            projectName: first.name || first.projectName || 'Project'
+          }));
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to fetch available projects:", err);
+    } finally {
+      setLoadingAllProjects(false);
+    }
+  };
 
   const fetchClientContacts = async () => {
     if (!clientId) return;
@@ -759,28 +785,47 @@ export default function CRMClientProfile({
 
             <form onSubmit={handleCreateLinkSubmit} className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Project Identifier *</label>
-                <input
-                  type="text"
-                  placeholder="e.g. proj-101"
-                  value={linkForm.projectId}
-                  onChange={(e) => setLinkForm({ ...linkForm, projectId: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
-                  required
-                />
+                <label className="block text-slate-700 font-semibold mb-1">Select Project to Link *</label>
+                {loadingAllProjects ? (
+                  <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-400 text-xs flex items-center gap-2 font-normal">
+                    <RefreshCw className="w-4 h-4 animate-spin text-indigo-500" />
+                    <span>Loading available projects from database...</span>
+                  </div>
+                ) : allProjects.length > 0 ? (
+                  <select
+                    value={linkForm.projectId}
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      const found = allProjects.find(p => (p._id || p.id) === selectedId);
+                      setLinkForm({
+                        ...linkForm,
+                        projectId: selectedId,
+                        projectName: found ? (found.name || found.projectName || 'Project') : 'Project'
+                      });
+                    }}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-primary/30 bg-white font-semibold text-slate-900 cursor-pointer"
+                    required
+                  >
+                    {allProjects.map(p => (
+                      <option key={p._id || p.id} value={p._id || p.id}>
+                        {p.code ? `${p.code} - ` : ''}{p.name || p.projectName || 'Project'}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-slate-400 text-xs py-2 font-normal">No active projects found in database. Create a project first.</p>
+                )}
               </div>
 
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">Project Name *</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Oceanic Villa Phase 1"
-                  value={linkForm.projectName}
-                  onChange={(e) => setLinkForm({ ...linkForm, projectName: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
-                  required
-                />
-              </div>
+              {linkForm.projectId && (
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                  <span className="text-[10px] font-medium text-slate-400 uppercase block">Selected Project Details</span>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-semibold text-slate-900">{linkForm.projectName}</span>
+                    <span className="font-mono text-slate-500 text-[11px]">{linkForm.projectId}</span>
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-center gap-2 pt-1">
                 <input

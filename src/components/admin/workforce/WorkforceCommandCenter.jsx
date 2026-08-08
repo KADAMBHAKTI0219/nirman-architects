@@ -31,31 +31,6 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
   const loadData = async () => {
     setLoading(true);
     setError('');
-    
-    const fallbackUsers = [
-      {
-        _id: "6a644911115fbe433cfe4546",
-        name: "Lax Savani",
-        email: "laxsavani4259@gmail.com",
-        department: "Admin",
-        designation: "Admin",
-        role: { roleCode: "admin", roleName: "Admin" },
-        joiningDate: "2026-07-28",
-        baseSalary: 35000,
-        createdAt: "2026-07-28T06:19:17.521Z"
-      },
-      {
-        _id: "6a6851b0e0d4667d8232a131",
-        name: "Bhakti",
-        email: "bhakti@gmail.com",
-        department: "HR",
-        designation: "HR Officer",
-        role: { roleCode: "hr", roleName: "HR" },
-        joiningDate: "2026-07-28",
-        baseSalary: 28000,
-        createdAt: "2026-07-28T06:53:40.646Z"
-      }
-    ];
 
     try {
       // 1. Fetch real company attendance logs via getAllAttendanceList()
@@ -63,7 +38,7 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
       try {
         logsRes = await getAllAttendanceList();
       } catch (err) {
-        console.warn("getAllAttendanceList failed, using empty fallback logs:", err);
+        console.warn("getAllAttendanceList failed:", err);
       }
       const rawLogs = parseIndexedObjectToArray(logsRes);
 
@@ -107,8 +82,8 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
       try {
         usersRes = await getUsersList();
       } catch (err) {
-        console.warn("getUsersList failed, using offline fallback users:", err);
-        usersRes = fallbackUsers;
+        console.warn("getUsersList failed:", err);
+        usersRes = [];
       }
       const usersList = usersRes.users || usersRes.data || (Array.isArray(usersRes) ? usersRes : []);
       if (usersList) {

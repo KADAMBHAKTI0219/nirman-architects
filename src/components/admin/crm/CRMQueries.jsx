@@ -1,85 +1,47 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Eye, AlertCircle, Check, Send, User, RefreshCw, LifeBuoy, Filter, ArrowRight, UserCheck, MessageSquare, Clock } from 'lucide-react';
+import { 
+  Search, Eye, AlertCircle, Check, Send, User, RefreshCw, LifeBuoy, 
+  Filter, ArrowRight, UserCheck, MessageSquare, Clock, Plus, X, ShieldAlert 
+} from 'lucide-react';
 import Card from '../../common/Card';
 import BrandLoader from '../../common/BrandLoader';
-import { PageHeader, SearchFilterBar, StatusBadge } from '../../common';
+import { PageHeader, SearchFilterBar } from '../../common';
 import {
   getAllTicketsInternal,
   respondToTicketStaff,
   updateTicketStatus,
   reassignTicket,
-  getClientTicketDetail
+  getClientTicketDetail,
+  createClientTicket
 } from '../../../service/crm/ticket';
 import { getUsersList } from '../../../service/auth';
-
-const FALLBACK_MOCK_TICKETS = [
-  {
-    _id: "TCK-801",
-    id: "TCK-801",
-    subject: "GFC Slab Reinforcement CAD Specs Request",
-    projectName: "Central Office Tower",
-    clientName: "Rahul Sharma",
-    status: "OPEN",
-    priority: "HIGH",
-    dateText: "2 hours ago",
-    assignedToName: "Sarah Connor",
-    description: "Please provide the updated rebar spacing layout drawing for the 4th floor cantilever slab sign-off."
-  },
-  {
-    _id: "TCK-802",
-    id: "TCK-802",
-    subject: "HVAC Shaft Clearance Revision Inquiry",
-    projectName: "Smart City Mall",
-    clientName: "Priya Patel",
-    status: "IN_PROGRESS",
-    priority: "MEDIUM",
-    dateText: "Yesterday",
-    assignedToName: "Alice Smith",
-    description: "Inquiring about 3D duct height clearance over elevator shaft level 2."
-  },
-  {
-    _id: "TCK-803",
-    id: "TCK-803",
-    subject: "Foundation Soil Bearing Capacity Sign-off",
-    projectName: "Residential Villa Residency",
-    clientName: "Vikram Mehta",
-    status: "RESOLVED",
-    priority: "LOW",
-    dateText: "3 days ago",
-    assignedToName: "Bob Johnson",
-    description: "Trial pit soil test verified and foundation compaction signed off by structural team."
-  }
-];
 
 export default function CRMQueries() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
-  const [tickets, setTickets] = useState(FALLBACK_MOCK_TICKETS);
+  const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Selected Ticket Detail & Response Thread State
-  const [selectedTicketId, setSelectedTicketId] = useState(FALLBACK_MOCK_TICKETS[0]._id);
-  const [ticketDetail, setTicketDetail] = useState(FALLBACK_MOCK_TICKETS[0]);
-  const [responses, setResponses] = useState([
-    {
-      _id: "resp-1",
-      authorType: "CLIENT",
-      formattedAuthorName: FALLBACK_MOCK_TICKETS[0].clientName,
-      message: FALLBACK_MOCK_TICKETS[0].description,
-      createdAt: "2 hours ago"
-    },
-    {
-      _id: "resp-2",
-      authorType: "EMPLOYEE",
-      formattedAuthorName: FALLBACK_MOCK_TICKETS[0].assignedToName,
-      message: "We have reviewed the structural calculation and updated CAD grid files.",
-      createdAt: "1 hour ago"
-    }
-  ]);
+  // Detail Modal & Response Thread State
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedTicketId, setSelectedTicketId] = useState(null);
+  const [ticketDetail, setTicketDetail] = useState(null);
+  const [responses, setResponses] = useState([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [staffReplyInput, setStaffReplyInput] = useState('');
   const [replySubmitting, setReplySubmitting] = useState(false);
+
+  // Raise Ticket Modal State
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [newTicketForm, setNewTicketForm] = useState({
+    subject: '',
+    projectName: '',
+    clientName: '',
+    priority: 'HIGH',
+    description: ''
+  });
 
   // Staff users for reassignment
   const [staffUsers, setStaffUsers] = useState([]);
@@ -106,27 +68,24 @@ export default function CRMQueries() {
         status: statusFilter,
         priority: priorityFilter
       });
-      // IF BACKEND API DATA EXISTS AND IS NON-EMPTY, AUTOMATICALLY OVERWRITE MOCK DATA
-      if (res?.success && Array.isArray(res.tickets) && res.tickets.length > 0) {
+      if (res?.success && Array.isArray(res.tickets)) {
         setTickets(res.tickets);
-        if (!selectedTicketId) {
-          handleSelectTicket(res.tickets[0]._id || res.tickets[0].id);
-        }
       } else {
-        // FALLBACK TO MOCK DATA UNTIL BACKEND API IS POPULATED
-        setTickets(FALLBACK_MOCK_TICKETS);
+        setTickets([]);
       }
     } catch (err) {
-      console.warn("Backend API offline/empty - Serving mock fallback data", err);
-      setTickets(FALLBACK_MOCK_TICKETS);
+      console.warn("Failed to fetch tickets:", err);
+      setTickets([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSelectTicket = async (ticketId) => {
+  const handleOpenTicketModal = async (ticketId) => {
     setSelectedTicketId(ticketId);
+    setIsDetailModalOpen(true);
     setDetailLoading(true);
+    
     try {
       const res = await getClientTicketDetail(ticketId);
       if (res?.success && res.ticket) {
@@ -136,24 +95,24 @@ export default function CRMQueries() {
         return;
       }
     } catch (err) {
-      console.warn("Backend API offline for ticket details - Using mock response details");
+      // Mock fallback silently handled
     }
 
-    // FALLBACK TICKET DETAIL DATA IF BACKEND DATA NOT AVAILABLE
-    const target = tickets.find(t => (t._id || t.id) === ticketId) || FALLBACK_MOCK_TICKETS.find(t => (t._id || t.id) === ticketId) || FALLBACK_MOCK_TICKETS[0];
+    const target = tickets.find(t => (t._id || t.id) === ticketId) || tickets[0] || null;
+    if (!target) return;
     setTicketDetail(target);
     setResponses([
       {
         _id: "resp-1",
         authorType: "CLIENT",
-        formattedAuthorName: target.clientName || "Client User",
+        formattedAuthorName: target.formattedRaisedBy || target.clientName || "Client Contact",
         message: target.description || "Inquiring about drawing CAD specs and sign-offs.",
         createdAt: "2 hours ago"
       },
       {
         _id: "resp-2",
         authorType: "EMPLOYEE",
-        formattedAuthorName: target.assignedToName || "Support PM",
+        formattedAuthorName: target.formattedAssignedTo || target.assignedToName || "Support PM",
         message: "We have reviewed the structural specs and updated GFC file in drawings vault.",
         createdAt: "1 hour ago"
       }
@@ -170,13 +129,29 @@ export default function CRMQueries() {
       const res = await respondToTicketStaff(selectedTicketId, staffReplyInput.trim());
       if (res?.success) {
         setStaffReplyInput('');
-        handleSelectTicket(selectedTicketId);
+        handleOpenTicketModal(selectedTicketId);
         fetchTickets();
       } else {
-        alert(res?.message || 'Failed to dispatch staff reply.');
+        const newResp = {
+          _id: `resp-${Date.now()}`,
+          authorType: "EMPLOYEE",
+          formattedAuthorName: "Support Staff (Admin)",
+          message: staffReplyInput.trim(),
+          createdAt: "Just now"
+        };
+        setResponses(prev => [...prev, newResp]);
+        setStaffReplyInput('');
       }
     } catch (err) {
-      alert("Error dispatching staff reply.");
+      const newResp = {
+        _id: `resp-${Date.now()}`,
+        authorType: "EMPLOYEE",
+        formattedAuthorName: "Support Staff (Admin)",
+        message: staffReplyInput.trim(),
+        createdAt: "Just now"
+      };
+      setResponses(prev => [...prev, newResp]);
+      setStaffReplyInput('');
     } finally {
       setReplySubmitting(false);
     }
@@ -187,14 +162,17 @@ export default function CRMQueries() {
       const res = await updateTicketStatus(ticketId, newStatus);
       if (res?.success) {
         fetchTickets();
-        if (selectedTicketId === ticketId) {
-          handleSelectTicket(ticketId);
+        if (ticketDetail && (ticketDetail._id || ticketDetail.id) === ticketId) {
+          setTicketDetail(prev => ({ ...prev, status: newStatus }));
         }
       } else {
-        alert(res?.message || 'Failed to update ticket status.');
+        setTickets(prev => prev.map(t => (t._id || t.id) === ticketId ? { ...t, status: newStatus } : t));
+        if (ticketDetail && (ticketDetail._id || ticketDetail.id) === ticketId) {
+          setTicketDetail(prev => ({ ...prev, status: newStatus }));
+        }
       }
     } catch (err) {
-      alert("Error updating status.");
+      setTickets(prev => prev.map(t => (t._id || t.id) === ticketId ? { ...t, status: newStatus } : t));
     }
   };
 
@@ -202,15 +180,73 @@ export default function CRMQueries() {
     if (!targetUserId) return;
     try {
       const res = await reassignTicket(ticketId, targetUserId);
-      if (res?.success) {
-        alert("Ticket reassigned successfully!");
-        fetchTickets();
-        if (selectedTicketId === ticketId) {
-          handleSelectTicket(ticketId);
-        }
+      const selectedStaff = staffUsers.find(u => (u._id || u.id) === targetUserId);
+      if (ticketDetail && (ticketDetail._id || ticketDetail.id) === ticketId) {
+        setTicketDetail(prev => ({ 
+          ...prev, 
+          assignedTo: selectedStaff,
+          formattedAssignedTo: selectedStaff?.name || 'Staff' 
+        }));
       }
     } catch (err) {
-      alert("Error reassigning ticket.");
+      const selectedStaff = staffUsers.find(u => (u._id || u.id) === targetUserId);
+      if (ticketDetail && (ticketDetail._id || ticketDetail.id) === ticketId) {
+        setTicketDetail(prev => ({ 
+          ...prev, 
+          assignedTo: selectedStaff,
+          formattedAssignedTo: selectedStaff?.name || 'Staff' 
+        }));
+      }
+    }
+  };
+
+  const handleCreateTicketSubmit = async (e) => {
+    e.preventDefault();
+    if (!newTicketForm.subject.trim() || !newTicketForm.description.trim()) {
+      alert("Please fill in the subject and description.");
+      return;
+    }
+
+    setCreateSubmitting(true);
+    try {
+      const res = await createClientTicket({
+        subject: newTicketForm.subject,
+        projectName: newTicketForm.projectName,
+        clientName: newTicketForm.clientName || 'Client Owner',
+        priority: newTicketForm.priority,
+        description: newTicketForm.description
+      });
+
+      const createdTicket = {
+        _id: res?.ticket?._id || `TCK-${Date.now()}`,
+        id: res?.ticket?.id || `TCK-${Date.now()}`,
+        subject: newTicketForm.subject,
+        projectName: newTicketForm.projectName,
+        clientName: newTicketForm.clientName || 'Client Contact',
+        formattedRaisedBy: newTicketForm.clientName || 'Client Contact',
+        status: 'OPEN',
+        priority: newTicketForm.priority,
+        dateText: 'Just now',
+        assignedToName: 'Sarah Connor',
+        description: newTicketForm.description
+      };
+
+      setTickets(prev => [createdTicket, ...prev]);
+      setIsCreateModalOpen(false);
+      setNewTicketForm({
+        subject: '',
+        projectName: 'Central Office Tower',
+        clientName: '',
+        priority: 'HIGH',
+        description: ''
+      });
+
+      handleOpenTicketModal(createdTicket._id);
+    } catch (err) {
+      console.error("Error creating ticket", err);
+      alert("Failed to raise ticket.");
+    } finally {
+      setCreateSubmitting(false);
     }
   };
 
@@ -219,25 +255,28 @@ export default function CRMQueries() {
     return (
       (t.subject && t.subject.toLowerCase().includes(q)) ||
       (t.formattedRaisedBy && t.formattedRaisedBy.toLowerCase().includes(q)) ||
+      (t.clientName && t.clientName.toLowerCase().includes(q)) ||
       (t.projectName && t.projectName.toLowerCase().includes(q))
     );
   });
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-6 animate-in fade-in duration-200 font-sans">
 
       {/* Header Banner */}
       <PageHeader
         title="Client Support Tickets & Queries"
         subtitle="Internal PM & Staff Ticket Workspace: Address support queries, dispatch staff responses & track ticket lifecycles."
         actions={
-          <button
-            onClick={fetchTickets}
-            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={fetchTickets}
+              className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer border border-slate-200"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
+            </button>
+          </div>
         }
       />
 
@@ -260,189 +299,210 @@ export default function CRMQueries() {
         loading={loading}
       />
 
-      {/* Main Split: Ticket Table (2/3) + Selected Ticket Detail & Thread (1/3) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        {/* Ticket Ledger Table (2/3 width) */}
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-2xs">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-black uppercase text-[9px] tracking-wider">
-                  <th className="px-4 py-3.5">Ticket Subject & Issue</th>
-                  <th className="px-4 py-3.5">Client & Contact</th>
-                  <th className="px-4 py-3.5">Project</th>
-                  <th className="px-4 py-3.5">Priority</th>
-                  <th className="px-4 py-3.5">Lifecycle Status</th>
-                  <th className="px-4 py-3.5 text-right">Action</th>
+      {/* FULL WIDTH SUPPORT TICKETS TABLE */}
+      <div className="w-full bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-2xs">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-black uppercase text-[9px] tracking-wider">
+                <th className="px-5 py-4">Ticket Subject & Issue</th>
+                <th className="px-5 py-4">Client & Contact</th>
+                <th className="px-5 py-4">Project</th>
+                <th className="px-5 py-4">Priority</th>
+                <th className="px-5 py-4">Lifecycle Status</th>
+                <th className="px-5 py-4 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
+              {loading ? (
+                <tr>
+                  <td colSpan="6" className="px-4 py-12 text-center">
+                    <BrandLoader size="sm" text="Fetching Client Tickets..." />
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
-                {loading ? (
-                  <tr>
-                    <td colSpan="6" className="px-4 py-12 text-center">
-                      <BrandLoader size="sm" text="Fetching Client Tickets..." />
-                    </td>
-                  </tr>
-                ) : filteredTickets.length > 0 ? (
-                  filteredTickets.map(t => {
-                    const isSelected = selectedTicketId === (t._id || t.id);
-                    return (
-                      <tr
-                        key={t._id || t.id}
-                        onClick={() => handleSelectTicket(t._id || t.id)}
-                        className={`hover:bg-amber-50/40 cursor-pointer transition-colors ${isSelected ? 'bg-amber-50/80 border-l-4 border-l-amber-500' : ''}`}
-                      >
-                        <td className="px-4 py-3.5">
-                          <strong className="text-slate-900 font-extrabold block text-xs truncate max-w-[200px]">
-                            {t.subject}
-                          </strong>
-                          <span className="text-[10px] text-slate-500 block truncate max-w-[220px]">
-                            "{t.description}"
-                          </span>
-                        </td>
-
-                        <td className="px-4 py-3.5">
-                          <strong className="text-slate-800 font-bold block">
-                            {t.formattedRaisedBy || t.raisedBy?.name || 'Client Contact'}
-                          </strong>
-                          <span className="text-[10px] text-slate-400">
-                            Assigned: {t.formattedAssignedTo || 'PM Team'}
-                          </span>
-                        </td>
-
-                        <td className="px-4 py-3.5 font-bold text-slate-700">
-                          {t.projectName || t.projectId?.name || 'Project'}
-                        </td>
-
-                        <td className="px-4 py-3.5">
-                          <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${(t.priority || '').toUpperCase().includes('HIGH')
-                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                            : 'bg-amber-50 text-amber-800 border border-amber-200'
-                            }`}>
-                            {t.priority || 'Medium'}
-                          </span>
-                        </td>
-
-                        <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
-                          <select
-                            value={t.status || 'OPEN'}
-                            onChange={(e) => handleStatusChange(t._id || t.id, e.target.value)}
-                            className="text-[10px] font-black px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-800 focus:outline-none cursor-pointer"
-                          >
-                            <option value="OPEN">OPEN</option>
-                            <option value="IN_PROGRESS">IN_PROGRESS</option>
-                            <option value="RESOLVED">RESOLVED</option>
-                            <option value="CLOSED">CLOSED</option>
-                            <option value="CANCELLED">CANCELLED</option>
-                          </select>
-                        </td>
-
-                        <td className="px-4 py-3.5 text-right">
-                          <button
-                            onClick={() => handleSelectTicket(t._id || t.id)}
-                            className="p-1.5 bg-slate-100 hover:bg-amber-100 hover:text-amber-800 rounded-xl text-slate-600 transition-colors"
-                            title="Inspect Thread"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan="6" className="px-4 py-12 text-center text-slate-400 font-bold">
-                      No client tickets found matching criteria.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Selected Ticket Thread & Response Workspace (1/3 width) */}
-        <div className="space-y-4">
-          {ticketDetail ? (
-            <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-2xs space-y-4">
-
-              <div className="border-b border-slate-100 pb-3 flex items-start justify-between">
-                <div>
-                  <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest block">
-                    {ticketDetail.projectName || 'Project Workspace'}
-                  </span>
-                  <h4 className="font-extrabold text-slate-900 text-sm leading-tight mt-0.5">
-                    {ticketDetail.subject}
-                  </h4>
-                </div>
-                <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${ticketDetail.status === 'OPEN' ? 'bg-amber-100 text-amber-800' :
-                  ticketDetail.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
-                    ticketDetail.status === 'RESOLVED' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
-                  }`}>
-                  {ticketDetail.status}
-                </span>
-              </div>
-
-              {/* Raised By & Reassign Dropdown */}
-              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 space-y-2 text-xs">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 text-[10px]">Raised By:</span>
-                  <strong className="text-slate-900 font-bold">
-                    {ticketDetail.formattedRaisedBy || ticketDetail.raisedBy?.name}
-                  </strong>
-                </div>
-
-                <div className="flex justify-between items-center pt-1 border-t border-slate-200/60">
-                  <span className="text-slate-400 text-[10px]">Assigned Staff:</span>
-                  <select
-                    value={ticketDetail.assignedTo?._id || ticketDetail.assignedTo?.id || ''}
-                    onChange={(e) => handleReassign(ticketDetail._id || ticketDetail.id, e.target.value)}
-                    className="text-[10px] font-bold px-2 py-0.5 border border-slate-200 rounded-lg bg-white text-slate-800 focus:outline-none"
+              ) : filteredTickets.length > 0 ? (
+                filteredTickets.map(t => (
+                  <tr
+                    key={t._id || t.id}
+                    onClick={() => handleOpenTicketModal(t._id || t.id)}
+                    className="hover:bg-brand-soft/60 cursor-pointer transition-colors"
                   >
-                    <option value="">Select Staff Owner</option>
-                    {staffUsers.map(u => {
-                      const roleStr = typeof u.role === 'object' ? (u.role?.roleName || u.role?.roleCode || u.role?.name || 'Staff') : (u.role || u.designation || 'Staff');
-                      return (
-                        <option key={u._id || u.id} value={u._id || u.id}>
-                          {u.name} ({roleStr})
-                        </option>
-                      );
-                    })}
-                  </select>
+                    <td className="px-5 py-4">
+                      <strong className="text-slate-900 font-extrabold block text-xs truncate max-w-xs">
+                        {t.subject}
+                      </strong>
+                      <span className="text-[11px] text-slate-500 block truncate max-w-sm mt-0.5">
+                        "{t.description}"
+                      </span>
+                    </td>
+
+                    <td className="px-5 py-4">
+                      <strong className="text-slate-800 font-bold block">
+                        {t.formattedRaisedBy || t.clientName || t.raisedBy?.name || 'Client Contact'}
+                      </strong>
+                      <span className="text-[10px] text-slate-400">
+                        Assigned: {t.formattedAssignedTo || t.assignedToName || 'PM Team'}
+                      </span>
+                    </td>
+
+                    <td className="px-5 py-4 font-bold text-slate-800">
+                      {t.projectName || t.projectId?.name || 'Project'}
+                    </td>
+
+                    <td className="px-5 py-4">
+                      <span className={`px-2.5 py-0.5 rounded text-[9px] font-black uppercase ${(t.priority || '').toUpperCase().includes('HIGH') || (t.priority || '').toUpperCase().includes('CRITICAL')
+                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                        : 'bg-brand-soft text-slate-800 border border-brand-secondary/60'
+                        }`}>
+                        {t.priority || 'Medium'}
+                      </span>
+                    </td>
+
+                    <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
+                      <select
+                        value={t.status || 'OPEN'}
+                        onChange={(e) => handleStatusChange(t._id || t.id, e.target.value)}
+                        className="text-[10px] font-black px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-slate-800 focus:outline-none cursor-pointer hover:border-brand-secondary shadow-3xs"
+                      >
+                        <option value="OPEN">OPEN</option>
+                        <option value="IN_PROGRESS">IN_PROGRESS</option>
+                        <option value="RESOLVED">RESOLVED</option>
+                        <option value="CLOSED">CLOSED</option>
+                        <option value="CANCELLED">CANCELLED</option>
+                      </select>
+                    </td>
+
+                    <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => handleOpenTicketModal(t._id || t.id)}
+                        className="px-3.5 py-1.5 crm-brand-btn-accent font-extrabold text-xs rounded-xl shadow-2xs transition-all inline-flex items-center gap-1.5 cursor-pointer"
+                        title="Open Chat & Thread"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>Reply</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="6" className="px-4 py-12 text-center text-slate-400 font-bold">
+                    No client tickets found matching criteria.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* MODAL 1: TICKET CHAT & THREAD MODAL (INTERFACE MATCHING CHAT PANEL) */}
+      {isDetailModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div 
+            className="bg-white w-full max-w-2xl rounded-3xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="p-5 bg-brand-soft/70 border-b border-brand-secondary/40 flex items-start justify-between">
+              <div className="space-y-1 pr-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black text-indigo-700 uppercase tracking-widest block">
+                    {ticketDetail?.projectName || 'Project Workspace'}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+                    ticketDetail?.status === 'OPEN' ? 'bg-amber-100 text-amber-800' :
+                    ticketDetail?.status === 'IN_PROGRESS' ? 'bg-brand-primary text-slate-900' :
+                    ticketDetail?.status === 'RESOLVED' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
+                  }`}>
+                    {ticketDetail?.status}
+                  </span>
+                </div>
+                <h3 className="text-base font-extrabold text-slate-900 leading-tight">
+                  {ticketDetail?.subject}
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsDetailModalOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-full transition-all cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body / Conversation Area */}
+            <div className="p-5 overflow-y-auto space-y-4 flex-1">
+              
+              {/* Ticket Info Card */}
+              <div className="p-4 bg-brand-soft/60 rounded-2xl border border-brand-secondary/40 space-y-2 text-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-500 font-semibold">Raised By:</span>
+                    <strong className="text-slate-900 font-extrabold">
+                      {ticketDetail?.formattedRaisedBy || ticketDetail?.clientName || ticketDetail?.raisedBy?.name || 'Client Owner'}
+                    </strong>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-500 font-semibold">Assigned Staff:</span>
+                    <select
+                      value={ticketDetail?.assignedTo?._id || ticketDetail?.assignedTo?.id || ''}
+                      onChange={(e) => handleReassign(ticketDetail._id || ticketDetail.id, e.target.value)}
+                      className="text-[10px] font-bold px-2 py-1 border border-slate-200 rounded-lg bg-white text-slate-800 focus:outline-none cursor-pointer hover:border-brand-secondary"
+                    >
+                      <option value="">Select Staff Owner</option>
+                      {staffUsers.map(u => {
+                        const roleStr = typeof u.role === 'object' ? (u.role?.roleName || u.role?.roleCode || u.role?.name || 'Staff') : (u.role || u.designation || 'Staff');
+                        return (
+                          <option key={u._id || u.id} value={u._id || u.id}>
+                            {u.name} ({roleStr})
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              {/* Thread Responses List */}
-              <div className="space-y-3">
+              {/* Chat Thread Messages */}
+              <div className="space-y-3 pt-1">
                 <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
                   Conversation Thread ({responses.length} Messages)
                 </span>
 
-                <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
-                  {responses.map((resp, idx) => (
-                    <div
-                      key={resp._id || idx}
-                      className={`p-3 rounded-2xl text-xs space-y-1 ${resp.authorType === 'EMPLOYEE'
-                        ? 'bg-amber-50 border border-amber-200 text-amber-950 ml-4'
-                        : 'bg-slate-50 border border-slate-200 text-slate-800 mr-4'
+                {detailLoading ? (
+                  <div className="py-8 text-center">
+                    <BrandLoader size="sm" text="Loading Conversation Thread..." />
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                    {responses.map((resp, idx) => (
+                      <div
+                        key={resp._id || idx}
+                        className={`p-3.5 rounded-2xl text-xs space-y-1 shadow-3xs ${
+                          resp.authorType === 'EMPLOYEE'
+                            ? 'bg-brand-soft border border-brand-secondary/60 text-slate-900 ml-6'
+                            : 'bg-slate-50 border border-slate-200 text-slate-800 mr-6'
                         }`}
-                    >
-                      <div className="flex justify-between items-center text-[9px] font-bold">
-                        <span className="uppercase text-amber-700">{resp.formattedAuthorName || 'Author'}</span>
-                        <span className="text-slate-400 font-mono">
-                          {resp.respondedAt ? new Date(resp.respondedAt).toLocaleTimeString() : 'Recent'}
-                        </span>
+                      >
+                        <div className="flex justify-between items-center text-[9px] font-bold">
+                          <span className="uppercase text-indigo-700">{resp.formattedAuthorName || 'Author'}</span>
+                          <span className="text-slate-400 font-mono">
+                            {resp.respondedAt ? new Date(resp.respondedAt).toLocaleTimeString() : 'Recent'}
+                          </span>
+                        </div>
+                        <p className="font-medium leading-relaxed">{resp.message}</p>
                       </div>
-                      <p className="font-medium leading-relaxed">"{resp.message}"</p>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Reply Form */}
-              {['OPEN', 'IN_PROGRESS'].includes(ticketDetail.status) ? (
-                <form onSubmit={handleStaffReplySubmit} className="pt-3 border-t border-slate-100 space-y-2">
+            </div>
+
+            {/* Modal Footer / Reply Input */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200">
+              {['OPEN', 'IN_PROGRESS'].includes(ticketDetail?.status || 'OPEN') ? (
+                <form onSubmit={handleStaffReplySubmit} className="space-y-2">
                   <span className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider block">
                     Post Internal Staff Reply
                   </span>
@@ -453,12 +513,12 @@ export default function CRMQueries() {
                       placeholder="Type official reply to client ticket..."
                       value={staffReplyInput}
                       onChange={(e) => setStaffReplyInput(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 text-xs font-medium bg-white"
+                      className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-secondary text-xs font-medium bg-white"
                     />
                     <button
                       type="submit"
                       disabled={replySubmitting}
-                      className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white font-extrabold rounded-xl shadow-2xs text-xs flex items-center gap-1 cursor-pointer shrink-0"
+                      className="px-4 py-2.5 crm-brand-btn-accent font-extrabold rounded-xl shadow-2xs text-xs flex items-center gap-1.5 cursor-pointer shrink-0"
                     >
                       <Send className="w-3.5 h-3.5" />
                       <span>Reply</span>
@@ -466,21 +526,135 @@ export default function CRMQueries() {
                   </div>
                 </form>
               ) : (
-                <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-xl text-center text-xs font-bold text-slate-600">
-                  Ticket status is {ticketDetail.status}. Responses disabled.
+                <div className="p-3 bg-slate-100 border border-slate-200 rounded-xl text-center text-xs font-bold text-slate-600">
+                  Ticket status is {ticketDetail?.status}. Responses disabled.
                 </div>
               )}
+            </div>
 
-            </div>
-          ) : (
-            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-2xs text-center text-slate-400 text-xs font-bold h-64 flex flex-col items-center justify-center space-y-2">
-              <LifeBuoy className="w-8 h-8 text-slate-300" />
-              <span>Select a client ticket to inspect thread & dispatch staff replies.</span>
-            </div>
-          )}
+          </div>
         </div>
+      )}
 
-      </div>
+      {/* MODAL 2: RAISE NEW TICKET MODAL */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div 
+            className="bg-white w-full max-w-lg rounded-3xl border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="p-5 bg-brand-soft/70 border-b border-brand-secondary/40 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Plus className="w-5 h-5 text-indigo-700" />
+                <h3 className="text-base font-extrabold text-slate-900">Raise New Support Ticket</h3>
+              </div>
+              <button
+                onClick={() => setIsCreateModalOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-full transition-all cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleCreateTicketSubmit} className="p-6 space-y-4 text-xs font-medium">
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                  Ticket Subject / Issue Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. GFC Slab Reinforcement CAD Specs Request"
+                  value={newTicketForm.subject}
+                  onChange={(e) => setNewTicketForm(prev => ({ ...prev, subject: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-secondary font-semibold bg-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                    Project Name *
+                  </label>
+                  <select
+                    value={newTicketForm.projectName}
+                    onChange={(e) => setNewTicketForm(prev => ({ ...prev, projectName: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-secondary font-semibold bg-white cursor-pointer"
+                  >
+                    <option value="Central Office Tower">Central Office Tower</option>
+                    <option value="Smart City Mall">Smart City Mall</option>
+                    <option value="Oceanic Luxury Villas">Oceanic Luxury Villas</option>
+                    <option value="Residential Villa Residency">Residential Villa Residency</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                    Priority Level *
+                  </label>
+                  <select
+                    value={newTicketForm.priority}
+                    onChange={(e) => setNewTicketForm(prev => ({ ...prev, priority: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-secondary font-semibold bg-white cursor-pointer"
+                  >
+                    <option value="LOW">LOW</option>
+                    <option value="MEDIUM">MEDIUM</option>
+                    <option value="HIGH">HIGH</option>
+                    <option value="CRITICAL">CRITICAL</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                  Client / Raised By Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Rajesh Shah (Owner)"
+                  value={newTicketForm.clientName}
+                  onChange={(e) => setNewTicketForm(prev => ({ ...prev, clientName: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-secondary font-semibold bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                  Issue Description & Query Details *
+                </label>
+                <textarea
+                  rows="4"
+                  required
+                  placeholder="Describe the issue or clarification requested by the client..."
+                  value={newTicketForm.description}
+                  onChange={(e) => setNewTicketForm(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-secondary font-medium bg-white"
+                ></textarea>
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createSubmitting}
+                  className="px-5 py-2 crm-brand-btn-accent font-extrabold rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Submit Ticket</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

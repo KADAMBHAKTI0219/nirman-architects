@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
-  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  AreaChart, Area
-} from 'recharts';
-import {
   ArrowLeft, Calendar, MapPin, Users, ShieldAlert, FileText, CheckCircle2,
-  Clock, Send, HelpCircle, Building, Eye, EyeOff, Plus, Trash2, Link as LinkIcon, RefreshCw, UserCheck, Check
+  Clock, Send, HelpCircle, Building, Eye, EyeOff, Plus, Trash2, Link as LinkIcon, RefreshCw, UserCheck, Check, X
 } from 'lucide-react';
 import Card from '../../common/Card';
 import ClientCommunication from '../../project-manager/client-communication/index';
-import { getProjectTeamLeaves } from '../../../service/mockApi';
+import { getCompanyLeaves } from '../../../service/hrm/leave';
+import { getUsersList } from '../../../service/auth';
 import {
   getLinksByProject,
   createClientProjectLink,
@@ -17,6 +14,20 @@ import {
   unlinkProject,
   getClients
 } from '../../../service/crm/client';
+import {
+  updateProjectStatus,
+  getProjectStatusHistory,
+  addMilestone,
+  completeMilestone,
+  updateMilestone,
+  deleteMilestone,
+  updateProjectProgress,
+  assignTeamMember,
+  removeTeamMember,
+  addResponsibilityMatrix,
+  getResponsibilityMatrix,
+  getProgressBreakdown
+} from '../../../service/project';
 
 export default function ProjectDetails({
   project,
@@ -25,7 +36,18 @@ export default function ProjectDetails({
   onApproveDrawing,
   defaultTab = 'overview'
 }) {
-  const [activeTab, setActiveTab] = useState(defaultTab); // overview, timeline, tasks, drawings, team, documents, chat, approvals, reports, clients
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toISOString().split('T')[0];
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
+  const [activeTab, setActiveTab] = useState(defaultTab);
   const [chatInput, setChatInput] = useState('');
   const [teamLeaves, setTeamLeaves] = useState([]);
   const [loadingTeamLeaves, setLoadingTeamLeaves] = useState(false);
@@ -39,6 +61,41 @@ export default function ProjectDetails({
   const [linkVisibility, setLinkVisibility] = useState(true);
   const [linkSubmitting, setLinkSubmitting] = useState(false);
 
+  // ERP Module 1: Project Management States
+  const [statusHistory, setStatusHistory] = useState([]);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [newStatusVal, setNewStatusVal] = useState(project.status || 'In Progress');
+  const [statusNotes, setStatusNotes] = useState('');
+  const [statusSubmitting, setStatusSubmitting] = useState(false);
+
+  // Milestones
+  const [milestonesList, setMilestonesList] = useState(project.milestones || []);
+  const [showAddMilestone, setShowAddMilestone] = useState(false);
+  const [milestoneForm, setMilestoneForm] = useState({ name: '', targetDate: '' });
+
+  // RACI & Team
+  const [raciList, setRaciList] = useState(project.responsibilityMatrix || []);
+  const [showRaciModal, setShowRaciModal] = useState(false);
+  const [raciForm, setRaciForm] = useState({ area: '', responsible: '', accountable: '' });
+
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignForm, setAssignForm] = useState({ userId: '', memberName: '', projectRole: 'Architect' });
+  const [systemUsers, setSystemUsers] = useState([]);
+  const [loadingSystemUsers, setLoadingSystemUsers] = useState(false);
+
+  // Overall Progress Update Modal State
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [progressVal, setProgressVal] = useState(project.progressPercentage ?? project.progressPercent ?? project.progress ?? 0);
+  const [progressOverride, setProgressOverride] = useState(project.progressIsManualOverride || false);
+  const [progressSubmitting, setProgressSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (project) {
+      setProgressVal(project.progressPercentage ?? project.progressPercent ?? project.progress ?? 0);
+      setProgressOverride(project.progressIsManualOverride || false);
+    }
+  }, [project]);
+
   const projectId = project ? (project.id || project._id || project.code || 'proj-1') : null;
 
   useEffect(() => {
@@ -48,28 +105,259 @@ export default function ProjectDetails({
   useEffect(() => {
     if (activeTab === 'team') {
       loadTeamLeaves();
+      fetchRaciMatrix();
+      fetchSystemUsers();
     } else if (activeTab === 'clients') {
       fetchProjectClientLinks();
       fetchAvailableClients();
+    } else if (activeTab === 'timeline') {
+      fetchStatusHistoryLogs();
     }
   }, [activeTab, projectId]);
+
+  const fetchSystemUsers = async () => {
+    setLoadingSystemUsers(true);
+    try {
+      const res = await getUsersList();
+      if (res && res.success && Array.isArray(res.users)) {
+        setSystemUsers(res.users);
+        if (res.users.length > 0) {
+          const first = res.users[0];
+          const firstRole = typeof first.role === 'string' ? first.role : (typeof first.roleName === 'string' ? first.roleName : (first.role && typeof first.role === 'object' ? (first.role.roleName || first.role.name || first.role.roleCode || 'Architect') : 'Architect'));
+          const firstName = typeof first.name === 'string' ? first.name : (typeof first.fullName === 'string' ? first.fullName : (typeof first.email === 'string' ? first.email : 'Team Member'));
+          setAssignForm({
+            userId: first._id || first.id,
+            memberName: firstName,
+            projectRole: firstRole
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to fetch system users for team assignment:", err);
+    } finally {
+      setLoadingSystemUsers(false);
+    }
+  };
+
+  const fetchStatusHistoryLogs = async () => {
+    if (!projectId) return;
+    try {
+      const res = await getProjectStatusHistory(projectId);
+      if (res?.success) setStatusHistory(res.history || []);
+    } catch (err) {
+      console.warn("Failed to fetch status history", err);
+    }
+  };
+
+  const fetchRaciMatrix = async () => {
+    if (!projectId) return;
+    try {
+      const res = await getResponsibilityMatrix(projectId);
+      if (res?.success && Array.isArray(res.matrix)) setRaciList(res.matrix);
+    } catch (err) {
+      console.warn("Failed to fetch RACI matrix", err);
+    }
+  };
+
+  const handleUpdateStatusSubmit = async (e) => {
+    e.preventDefault();
+    if (!newStatusVal) return;
+    setStatusSubmitting(true);
+    try {
+      const res = await updateProjectStatus(projectId, newStatusVal, statusNotes);
+      if (res?.success) {
+        onUpdateProject({ ...project, status: newStatusVal });
+        setShowStatusModal(false);
+        setStatusNotes('');
+        fetchStatusHistoryLogs();
+        alert(`Project status updated to "${newStatusVal}" successfully!`);
+      }
+    } catch (err) {
+      alert("Failed to update status: " + err.message);
+    } finally {
+      setStatusSubmitting(false);
+    }
+  };
+
+  const handleUpdateProgressSubmit = async (e) => {
+    e.preventDefault();
+    const pNum = Math.min(100, Math.max(0, parseInt(progressVal) || 0));
+    setProgressSubmitting(true);
+    try {
+      const res = await updateProjectProgress(projectId, {
+        progressPercentage: pNum,
+        progressIsManualOverride: progressOverride
+      });
+      if (res?.success) {
+        onUpdateProject({
+          ...project,
+          progressPercentage: pNum,
+          progressPercent: pNum,
+          progress: pNum,
+          progressIsManualOverride: progressOverride
+        });
+        setShowProgressModal(false);
+        alert(`Overall Project Progress updated to ${pNum}% successfully!`);
+      } else {
+        alert(res?.message || "Failed to update project progress.");
+      }
+    } catch (err) {
+      alert("Error updating progress: " + (err.message || "Unknown error"));
+    } finally {
+      setProgressSubmitting(false);
+    }
+  };
+
+  const handleAddMilestoneSubmit = async (e) => {
+    e.preventDefault();
+    if (!milestoneForm.name || !milestoneForm.targetDate) return;
+    const progressPercentage = milestoneForm.progressPercentage ? parseInt(milestoneForm.progressPercentage) : 50;
+    const payload = {
+      name: milestoneForm.name.trim(),
+      targetDate: milestoneForm.targetDate,
+      progressPercentage: progressPercentage,
+      description: milestoneForm.description || ''
+    };
+
+    try {
+      const res = await addMilestone(projectId, payload);
+      if (res?.success && Array.isArray(res.milestones)) {
+        setMilestonesList(res.milestones);
+        onUpdateProject({ ...project, milestones: res.milestones, progressPercentage: res.progressPercentage || project.progressPercentage });
+      } else {
+        const newMs = { _id: `m-${Date.now()}`, ...payload, isCompleted: false, status: 'IN_PROGRESS' };
+        const updated = [...milestonesList, newMs];
+        setMilestonesList(updated);
+        onUpdateProject({ ...project, milestones: updated });
+      }
+      setMilestoneForm({ name: '', targetDate: '', progressPercentage: 50, description: '' });
+      setShowAddMilestone(false);
+    } catch (err) {
+      console.warn("Notice adding milestone via backend:", err);
+      const newMs = { _id: `m-${Date.now()}`, ...payload, isCompleted: false, status: 'IN_PROGRESS' };
+      const updated = [...milestonesList, newMs];
+      setMilestonesList(updated);
+      onUpdateProject({ ...project, milestones: updated });
+      setMilestoneForm({ name: '', targetDate: '', progressPercentage: 50, description: '' });
+      setShowAddMilestone(false);
+    }
+  };
+
+  const handleToggleMilestoneStatus = async (m) => {
+    const mId = m._id || m.id;
+    const isCurrentlyDone = m.isCompleted || m.status === 'COMPLETED' || m.progressPercentage === 100;
+    const nextCompleted = !isCurrentlyDone;
+
+    try {
+      let res;
+      if (nextCompleted) {
+        res = await completeMilestone(projectId, mId);
+      } else {
+        res = await updateMilestone(projectId, mId, { isCompleted: false, status: 'IN_PROGRESS', progressPercentage: 50 });
+      }
+
+      let updatedMs;
+      if (res?.success && Array.isArray(res.milestones)) {
+        updatedMs = res.milestones;
+      } else {
+        updatedMs = milestonesList.map(item => {
+          if ((item._id && item._id === mId) || (item.id && item.id === mId) || (item.name === m.name && item.targetDate === m.targetDate)) {
+            return {
+              ...item,
+              isCompleted: nextCompleted,
+              status: nextCompleted ? 'COMPLETED' : 'IN_PROGRESS',
+              progressPercentage: nextCompleted ? 100 : 50,
+              completedDate: nextCompleted ? new Date().toISOString().split('T')[0] : null
+            };
+          }
+          return item;
+        });
+      }
+
+      setMilestonesList(updatedMs);
+      onUpdateProject({ ...project, milestones: updatedMs });
+    } catch (err) {
+      console.warn("Notice toggling milestone status:", err);
+      const updatedMs = milestonesList.map(item => {
+        if ((item._id && item._id === mId) || (item.id && item.id === mId) || (item.name === m.name && item.targetDate === m.targetDate)) {
+          return {
+            ...item,
+            isCompleted: nextCompleted,
+            status: nextCompleted ? 'COMPLETED' : 'IN_PROGRESS',
+            progressPercentage: nextCompleted ? 100 : 50,
+            completedDate: nextCompleted ? new Date().toISOString().split('T')[0] : null
+          };
+        }
+        return item;
+      });
+      setMilestonesList(updatedMs);
+      onUpdateProject({ ...project, milestones: updatedMs });
+    }
+  };
+
+  const handleDeleteMilestoneClick = async (m) => {
+    const mId = m._id || m.id;
+    if (!window.confirm(`Delete milestone "${m.name}"?`)) return;
+    try {
+      if (mId && !mId.startsWith('m-')) {
+        await deleteMilestone(projectId, mId);
+      }
+    } catch (err) {
+      console.warn("Notice deleting milestone from API:", err);
+    }
+    const updatedMs = milestonesList.filter(item => {
+      if (mId) return item._id !== mId && item.id !== mId;
+      return item.name !== m.name || item.targetDate !== m.targetDate;
+    });
+    setMilestonesList(updatedMs);
+    onUpdateProject({ ...project, milestones: updatedMs });
+  };
+
+  const handleAssignTeamSubmit = async (e) => {
+    e.preventDefault();
+    if (!assignForm.userId || !assignForm.projectRole) return;
+    try {
+      const res = await assignTeamMember(projectId, { userId: assignForm.userId, projectRole: assignForm.projectRole });
+      if (res?.success) {
+        onUpdateProject({ ...project, team: [...(project.team || []), { name: assignForm.memberName, role: assignForm.projectRole, dept: 'Engineering', userId: assignForm.userId }] });
+        setShowAssignModal(false);
+      } else {
+        alert(res?.message || "Failed to assign team member");
+      }
+    } catch (err) {
+      alert("Failed to assign team member: " + (err.message || "Error"));
+    }
+  };
+
+  const handleAddRaciSubmit = async (e) => {
+    e.preventDefault();
+    if (!raciForm.area) return;
+    try {
+      const res = await addResponsibilityMatrix(projectId, raciForm);
+      if (res?.success) {
+        setRaciList(res.matrix || [...raciList, { _id: `raci-${Date.now()}`, ...raciForm }]);
+        setShowRaciModal(false);
+        setRaciForm({ area: '', responsible: '', accountable: '' });
+      }
+    } catch (err) {
+      alert("Failed to add RACI entry");
+    }
+  };
 
   const loadTeamLeaves = async () => {
     try {
       setLoadingTeamLeaves(true);
-      const res = await getProjectTeamLeaves(project.id || project._id || project.code || 'PRJ-CP-101');
-      if (res && res.success && Array.isArray(res.leaves)) {
-        setTeamLeaves(res.leaves);
+      const res = await getCompanyLeaves({ projectId: projectId });
+      if (res && Array.isArray(res)) {
+        setTeamLeaves(res);
+      } else if (res && res.data && Array.isArray(res.data)) {
+        setTeamLeaves(res.data);
       } else {
-        setTeamLeaves([
-          { name: "Alice Smith", type: "Annual Leave", fromDate: "2026-07-29", toDate: "2026-08-04", status: "Approved" }
-        ]);
+        setTeamLeaves([]);
       }
     } catch (err) {
-      console.warn("Failed to load project team leaves, using fallback mock status", err);
-      setTeamLeaves([
-        { name: "Alice Smith", type: "Annual Leave", fromDate: "2026-07-29", toDate: "2026-08-04", status: "Approved" }
-      ]);
+      console.warn("Failed to load project team leaves", err);
+      setTeamLeaves([]);
     } finally {
       setLoadingTeamLeaves(false);
     }
@@ -191,21 +479,21 @@ export default function ProjectDetails({
             </button>
             <div>
               <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 bg-brand-soft text-brand-dark border border-brand-secondary/40 rounded-md text-[10px] font-black uppercase tracking-wider">
-                  {project.code || 'PRJ-CP-101'}
+                <span className="px-2.5 py-0.5 bg-brand-soft text-slate-800 border border-brand-secondary/40 rounded-md text-[10px] font-medium uppercase tracking-wider">
+                  {project.code || 'PRJ'}
                 </span>
-                <span className="text-xs font-bold text-slate-400">
-                  {project.category || 'Commercial Building'}
+                <span className="text-xs font-medium text-slate-500">
+                  {(project.projectCategoryId && typeof project.projectCategoryId === 'object') ? project.projectCategoryId.name : (project.category || 'General')}
                 </span>
               </div>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-snug mt-1">
-                {project.name || 'Central Office Tower'}
+              <h1 className="text-xl sm:text-2xl font-semibold text-slate-900 tracking-tight leading-snug mt-1">
+                {project.name || 'Project Overview'}
               </h1>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className={`text-[11px] px-3.5 py-1.5 rounded-full font-black uppercase tracking-wider border flex items-center gap-1.5 shadow-3xs ${
+            <span className={`text-[11px] px-3.5 py-1.5 rounded-full font-medium uppercase tracking-wider border flex items-center gap-1.5 shadow-3xs ${
               project.delayFlag 
                 ? 'bg-rose-50 text-rose-700 border-rose-200' 
                 : 'bg-emerald-50 text-emerald-700 border-emerald-200'
@@ -233,9 +521,9 @@ export default function ProjectDetails({
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
-              className={`py-2 px-4 rounded-xl text-xs font-extrabold tracking-tight transition-all whitespace-nowrap cursor-pointer ${
+              className={`py-2 px-4 rounded-xl text-xs font-medium tracking-tight transition-all whitespace-nowrap cursor-pointer ${
                 activeTab === t.id
-                  ? 'bg-brand-primary text-slate-900 shadow-2xs ring-1 ring-brand-secondary/50 font-black'
+                  ? 'bg-brand-primary text-slate-900 shadow-2xs ring-1 ring-brand-secondary/50 font-semibold'
                   : 'bg-slate-50 text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200/60'
               }`}
             >
@@ -257,16 +545,16 @@ export default function ProjectDetails({
               
               <Card title="Executive Project Summary" subtitle="Scope description and general contractor charter">
                 <div className="space-y-4 text-xs">
-                  <p className="text-slate-700 leading-relaxed font-medium">
-                    The {project.name || 'Central Office Tower'} is a flagship architectural development built to client specifications. Operations span structural planning, MEP engineering, CAD drawing sign-offs, and high-fidelity interior fitouts. This project adheres strictly to standard municipal safety codes and quality assurance protocols.
+                  <p className="text-slate-700 leading-relaxed font-normal">
+                    {project.description || project.summary || `Project technical specifications and contractor operational charter for ${project.name || 'this project'}. Operations span structural planning, MEP engineering, CAD drawing sign-offs, and high-fidelity site execution.`}
                   </p>
                   {project.delayFlag && (
                     <div className="p-4 bg-rose-50/80 border border-rose-200 rounded-2xl flex items-start gap-3">
                       <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
                       <div>
-                        <strong className="text-rose-900 font-black text-xs block">Schedule Risk Warning</strong>
-                        <p className="text-rose-700 text-xs mt-0.5 leading-normal font-medium">
-                          Milestone target dates are experiencing delay risks due to pending client drawing approvals or site material inspections.
+                        <span className="text-rose-900 font-semibold text-xs block">Schedule Risk Warning</span>
+                        <p className="text-rose-700 text-xs mt-0.5 leading-normal font-normal">
+                          {project.delayReason || 'Milestone target dates are experiencing delay risks.'}
                         </p>
                       </div>
                     </div>
@@ -276,36 +564,40 @@ export default function ProjectDetails({
 
               {/* 2-Column Specification Grid */}
               <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
-                <h3 className="text-sm font-black text-slate-900">Project Technical Specifications</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-semibold">
+                <h3 className="text-sm font-semibold text-slate-900">Project Technical Specifications</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-normal">
                   <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-2xl space-y-1">
-                    <span className="text-[10px] text-slate-400 font-black uppercase">Project Category</span>
-                    <strong className="text-slate-900 block text-xs">{project.category || 'Commercial High-Rise'}</strong>
+                    <span className="text-[10px] text-slate-400 font-medium uppercase">Project Category</span>
+                    <span className="text-slate-800 block text-xs font-normal">
+                      {(project.projectCategoryId && typeof project.projectCategoryId === 'object') ? project.projectCategoryId.name : (project.category || 'N/A')}
+                    </span>
                   </div>
 
                   <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-2xl space-y-1">
-                    <span className="text-[10px] text-slate-400 font-black uppercase">Site Location</span>
-                    <strong className="text-slate-900 block text-xs">{project.location || 'Ahmedabad, Gujarat'}</strong>
+                    <span className="text-[10px] text-slate-400 font-medium uppercase">Site Location</span>
+                    <span className="text-slate-800 block text-xs font-normal">{project.address || project.location || 'N/A'}</span>
                   </div>
 
                   <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-2xl space-y-1">
-                    <span className="text-[10px] text-slate-400 font-black uppercase">Client Organization</span>
-                    <strong className="text-slate-900 block text-xs">{project.client || 'Luthor Corp Real Estate'}</strong>
+                    <span className="text-[10px] text-slate-400 font-medium uppercase">Client Organization</span>
+                    <span className="text-slate-800 block text-xs font-normal">{project.clientInformation || project.client || 'N/A'}</span>
                   </div>
 
                   <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-2xl space-y-1">
-                    <span className="text-[10px] text-slate-400 font-black uppercase">Lead Project Manager</span>
-                    <strong className="text-slate-900 block text-xs">{project.manager || 'Sarah Connor'}</strong>
+                    <span className="text-[10px] text-slate-400 font-medium uppercase">Lead Project Manager</span>
+                    <span className="text-slate-800 block text-xs font-normal">
+                      {project.createdBy?.name || project.manager || 'Unassigned'}
+                    </span>
                   </div>
 
                   <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-2xl space-y-1">
-                    <span className="text-[10px] text-slate-400 font-black uppercase">Start Date</span>
-                    <strong className="text-slate-900 block text-xs">{project.startDate || '12 Jan 2026'}</strong>
+                    <span className="text-[10px] text-slate-400 font-medium uppercase">Start Date</span>
+                    <span className="text-slate-800 block text-xs font-normal">{formatDate(project.startDate)}</span>
                   </div>
 
                   <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-2xl space-y-1">
-                    <span className="text-[10px] text-slate-400 font-black uppercase">Target Completion</span>
-                    <strong className="text-slate-900 block text-xs">{project.estCompletion || '25 Dec 2026'}</strong>
+                    <span className="text-[10px] text-slate-400 font-medium uppercase">Target Completion</span>
+                    <span className="text-slate-800 block text-xs font-normal">{formatDate(project.estimatedCompletion || project.estCompletion)}</span>
                   </div>
                 </div>
               </div>
@@ -315,36 +607,47 @@ export default function ProjectDetails({
             {/* Right 1 Column: Health & Progress Cards */}
             <div className="space-y-6">
               <Card title="Project Health Metrics">
-                <div className="space-y-4 text-xs font-bold">
+                <div className="space-y-4 text-xs font-normal">
                   
                   {/* Overall Progress Gauge */}
                   <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] text-slate-400 font-black uppercase">Overall Progress</span>
-                      <span className="text-base font-black text-slate-900">{project.progress || 71}%</span>
+                      <span className="text-[10px] text-slate-400 font-medium uppercase">Overall Progress</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-base font-semibold text-slate-900">{project.progressPercentage ?? project.progressPercent ?? project.progress ?? 0}%</span>
+                        <button
+                          onClick={() => setShowProgressModal(true)}
+                          className="px-2.5 py-1 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-semibold text-[10px] rounded-lg shadow-3xs transition-all cursor-pointer border border-brand-secondary/40"
+                          title="Update Overall Progress"
+                        >
+                          Update Progress
+                        </button>
+                      </div>
                     </div>
                     <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
-                      <div className="bg-gradient-to-r from-brand-secondary to-indigo-600 h-full rounded-full" style={{ width: `${project.progress || 71}%` }}></div>
+                      <div className="bg-gradient-to-r from-brand-secondary to-indigo-600 h-full rounded-full transition-all duration-300" style={{ width: `${project.progressPercentage ?? project.progressPercent ?? project.progress ?? 0}%` }}></div>
                     </div>
                   </div>
 
                   {/* Health Score */}
                   <div className="p-4 bg-emerald-50/60 border border-emerald-200/80 rounded-2xl flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] text-emerald-700 font-black uppercase block">Health Score</span>
-                      <strong className="text-lg font-black text-emerald-900">92 / 100</strong>
+                      <span className="text-[10px] text-emerald-700 font-medium uppercase block">Health Score</span>
+                      <span className="text-lg font-semibold text-emerald-900">
+                        {Math.min(100, Math.max(0, Math.round(((project.progressPercentage || project.progress || 0) * 0.8) + 20)))} / 100
+                      </span>
                     </div>
                     <CheckCircle2 className="w-8 h-8 text-emerald-600" />
                   </div>
 
                   {/* Manager Avatar Card */}
                   <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-slate-900 text-white font-black flex items-center justify-center text-xs">
-                      SC
+                    <div className="w-9 h-9 rounded-full bg-slate-900 text-white font-semibold flex items-center justify-center text-xs">
+                      {((project.createdBy?.name || project.manager || 'PM').split(' ').map(n=>n[0]).join('')).toUpperCase()}
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 font-black uppercase block">Project Manager</span>
-                      <strong className="text-slate-900 block text-xs">{project.manager || 'Sarah Connor'}</strong>
+                      <span className="text-[10px] text-slate-400 font-medium uppercase block">Project Manager</span>
+                      <span className="text-slate-800 block text-xs font-normal">{project.createdBy?.name || project.manager || 'Unassigned'}</span>
                     </div>
                   </div>
 
@@ -360,7 +663,7 @@ export default function ProjectDetails({
           <div className="space-y-4">
             <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex justify-between items-center flex-wrap gap-3">
               <div>
-                <h3 className="text-sm font-black text-slate-900">Linked Client Accounts (CRM Module 3)</h3>
+                <h3 className="text-sm font-semibold text-slate-900">Linked Client Accounts</h3>
                 <p className="text-xs text-slate-500">Manage client access, visibility controls, and multi-client project links</p>
               </div>
 
@@ -494,43 +797,123 @@ export default function ProjectDetails({
         {/* TIMELINE & MILESTONES PANEL */}
         {activeTab === 'timeline' && (
           <div className="space-y-4">
-            <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
-              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+            <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-5">
+              <div className="flex justify-between items-center pb-3 border-b border-slate-100 flex-wrap gap-2">
                 <div>
-                  <h3 className="text-sm font-black text-slate-900">Project Execution Timeline & Milestones</h3>
+                  <h3 className="text-sm font-semibold text-slate-900">Project Execution Timeline & Milestones</h3>
                   <p className="text-xs text-slate-500">Track key milestone targets, phase releases, and handover dates</p>
                 </div>
-                <span className="px-3 py-1 bg-indigo-50 text-indigo-700 font-extrabold text-[10px] uppercase rounded-full border border-indigo-200">
-                  Target Phase 3 / 5
-                </span>
+                <button
+                  onClick={() => {
+                    setMilestoneForm({ name: '', targetDate: '', progressPercentage: 50, description: '' });
+                    setShowAddMilestone(true);
+                  }}
+                  className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-semibold text-xs rounded-xl shadow-2xs transition-all border border-brand-secondary/40 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 text-slate-900" /> Add Milestone
+                </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {[
-                  { name: "Phase 1: Architectural GFC Release", status: "COMPLETED", date: "2026-06-15", progress: 100 },
-                  { name: "Phase 2: Structural Column & Slab Casting", status: "IN_PROGRESS", date: "2026-08-30", progress: 75 },
-                  { name: "Phase 3: MEP Schematics & Handover", status: "UPCOMING", date: "2026-10-15", progress: 20 }
-                ].map((m, idx) => (
-                  <div key={idx} className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="font-extrabold text-slate-900">{m.name}</span>
-                      <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${m.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                        m.status === 'IN_PROGRESS' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                          'bg-slate-100 text-slate-500'
-                        }`}>
-                        {m.status}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-[11px] text-slate-500 font-semibold">
-                      <span>Target: {m.date}</span>
-                      <strong>{m.progress}%</strong>
-                    </div>
-                    <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                      <div className="bg-brand-primary h-full rounded-full" style={{ width: `${m.progress}%` }}></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              {milestonesList.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {milestonesList.map((m, idx) => {
+                    const isDone = m.isCompleted || m.status === 'COMPLETED' || m.progressPercentage === 100;
+                    const progVal = isDone ? 100 : (m.progressPercentage !== undefined ? m.progressPercentage : 50);
+
+                    return (
+                      <div 
+                        key={m._id || m.id || `m-idx-${idx}`} 
+                        className={`p-4 rounded-2xl border transition-all space-y-3 relative bg-white shadow-3xs hover:shadow-2xs ${
+                          isDone ? 'border-emerald-200 bg-emerald-50/20' : 'border-slate-200/90'
+                        }`}
+                      >
+                        {/* Header: Phase badge + Status Badge */}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 font-bold border border-indigo-100 rounded-md text-[10px] uppercase tracking-wider">
+                            Phase #{String(idx + 1).padStart(2, '0')}
+                          </span>
+
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 border ${
+                            isDone 
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}>
+                            {isDone ? <CheckCircle2 className="w-3 h-3 text-emerald-600" /> : <Clock className="w-3 h-3 text-amber-600" />}
+                            {isDone ? 'COMPLETED' : 'IN_PROGRESS'}
+                          </span>
+                        </div>
+
+                        {/* Title & Target Date */}
+                        <div className="space-y-1">
+                          <h4 className="font-bold text-slate-900 text-sm tracking-tight leading-snug line-clamp-2">
+                            {m.name || 'Project Milestone'}
+                          </h4>
+                          <div className="flex items-center gap-1.5 text-slate-500 text-xs font-medium">
+                            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span>Target: {formatDate(m.targetDate)}</span>
+                          </div>
+                        </div>
+
+                        {/* Progress Bar & Percentage */}
+                        <div className="space-y-1.5 pt-1">
+                          <div className="flex justify-between items-center text-xs font-semibold">
+                            <span className="text-[10px] text-slate-400 uppercase tracking-wider">Completion Status</span>
+                            <span className={isDone ? 'text-emerald-700' : 'text-slate-800'}>{progVal}%</span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden border border-slate-200/50">
+                            <div 
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                isDone 
+                                  ? 'bg-emerald-500' 
+                                  : 'bg-gradient-to-r from-amber-400 via-brand-secondary to-indigo-600'
+                              }`} 
+                              style={{ width: `${progVal}%` }}
+                            ></div>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center justify-between pt-3 border-t border-slate-100/90 gap-2">
+                          <button
+                            onClick={() => handleToggleMilestoneStatus(m)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                              isDone
+                                ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
+                            }`}
+                            title={isDone ? 'Reopen Phase' : 'Mark Phase as Complete'}
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            {isDone ? 'Mark In-Progress' : 'Mark Completed'}
+                          </button>
+
+                          <button
+                            onClick={() => handleDeleteMilestoneClick(m)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200/60 rounded-xl transition-all cursor-pointer"
+                            title="Delete Milestone"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="py-12 text-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 space-y-2">
+                  <Calendar className="w-8 h-8 text-slate-300 mx-auto" />
+                  <p className="text-xs font-medium text-slate-600">No project milestones registered yet.</p>
+                  <button
+                    onClick={() => {
+                      setMilestoneForm({ name: '', targetDate: '', progressPercentage: 50, description: '' });
+                      setShowAddMilestone(true);
+                    }}
+                    className="px-4 py-2 bg-brand-primary text-slate-900 font-bold text-xs rounded-xl shadow-xs inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    + Add First Milestone
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -540,38 +923,38 @@ export default function ProjectDetails({
           <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
             <div className="flex justify-between items-center pb-3 border-b border-slate-100">
               <div>
-                <h3 className="text-sm font-black text-slate-900">Project Action Items & Work Tasks</h3>
+                <h3 className="text-sm font-semibold text-slate-900">Project Action Items & Work Tasks</h3>
                 <p className="text-xs text-slate-500">Active tasks assigned across Architecture, Site Engineering, and MEP</p>
               </div>
-              <button onClick={() => alert("Task creation feature available in PM Tasks view")} className="px-4 py-2 bg-brand-primary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs">
-                + Add Task
-              </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-semibold">
-              {[
-                { title: "Review GFC Foundation Beam DWG", dept: "Architecture", priority: "HIGH", assignee: "Sarah Connor", status: "IN_PROGRESS" },
-                { title: "Perform Site Soil Bearing Capacity Audit", dept: "Engineering", priority: "HIGH", assignee: "Bob Johnson", status: "TODO" },
-                { title: "Client Material Sample Selection Signoff", dept: "Interior", priority: "NORMAL", assignee: "Alice Smith", status: "COMPLETED" }
-              ].map((t, i) => (
-                <div key={i} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 font-black text-[9px] uppercase rounded">
-                      {t.dept}
-                    </span>
-                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${t.priority === 'HIGH' ? 'bg-rose-50 text-rose-700' : 'bg-slate-100 text-slate-600'
+            {Array.isArray(project.tasks) && project.tasks.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-normal">
+                {project.tasks.map((t, i) => (
+                  <div key={t._id || i} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 font-medium text-[9px] uppercase rounded">
+                        {t.department || t.dept || 'Engineering'}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-medium uppercase ${
+                        t.priority === 'HIGH' || t.priority === 'Critical' ? 'bg-rose-50 text-rose-700' : 'bg-slate-100 text-slate-600'
                       }`}>
-                      {t.priority}
-                    </span>
+                        {t.priority || 'MEDIUM'}
+                      </span>
+                    </div>
+                    <span className="text-slate-900 block text-xs font-semibold">{t.title || t.name}</span>
+                    <div className="flex justify-between items-center text-[11px] text-slate-500 pt-2 border-t border-slate-200/60 font-normal">
+                      <span>Assigned: {t.assignedTo?.name || t.assignee || 'Unassigned'}</span>
+                      <span className="font-medium text-slate-700">{t.status || 'PENDING'}</span>
+                    </div>
                   </div>
-                  <strong className="text-slate-900 block text-xs font-extrabold">{t.title}</strong>
-                  <div className="flex justify-between items-center text-[11px] text-slate-500 pt-2 border-t border-slate-200/60">
-                    <span>Assigned: <strong>{t.assignee}</strong></span>
-                    <span className="font-bold text-slate-700">{t.status}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-10 text-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                <p className="text-xs font-normal">No active work tasks assigned to this project yet.</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -580,34 +963,35 @@ export default function ProjectDetails({
           <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
             <div className="flex justify-between items-center pb-3 border-b border-slate-100">
               <div>
-                <h3 className="text-sm font-black text-slate-900">Project Drawings & GFC Blueprints</h3>
-                <p className="text-xs text-slate-500">Cloudinary uploaded blueprints, version history, and client approval status</p>
+                <h3 className="text-sm font-semibold text-slate-900">Project Drawings & GFC Blueprints</h3>
+                <p className="text-xs text-slate-500">Uploaded blueprints, version history, and client approval status</p>
               </div>
-              <button onClick={() => alert("Upload new drawing blueprint via Designer/Architect upload portal")} className="px-4 py-2 bg-indigo-600 text-white font-extrabold text-xs rounded-xl shadow-xs">
-                + Upload Drawing File
-              </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-semibold">
-              {[
-                { name: "Ground Floor Architectural Plan AR-001", ver: "V2.1", status: "PENDING_CLIENT_APPROVAL", date: "2026-07-20" },
-                { name: "Master Structural Beam Section ST-002", ver: "V1.0", status: "APPROVED", date: "2026-07-18" }
-              ].map((d, i) => (
-                <div key={i} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-3">
-                  <div className="space-y-1">
-                    <strong className="text-slate-900 font-extrabold text-xs block">{d.name}</strong>
-                    <div className="flex gap-2 text-[10px] text-slate-500 font-mono">
-                      <span>Ver: {d.ver}</span>
-                      <span>Date: {d.date}</span>
+            {Array.isArray(project.drawings) && project.drawings.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-normal">
+                {project.drawings.map((d, i) => (
+                  <div key={d._id || d.code || i} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <span className="text-slate-900 font-semibold text-xs block">{d.title || d.name || d.code}</span>
+                      <div className="flex gap-2 text-[10px] text-slate-500 font-mono">
+                        <span>Ver: {d.version || 'V1.0'}</span>
+                        <span>Date: {formatDate(d.uploadedAt || d.createdAt)}</span>
+                      </div>
                     </div>
-                  </div>
-                  <span className={`px-2.5 py-1 rounded text-[9px] font-black uppercase ${d.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
+                    <span className={`px-2.5 py-1 rounded text-[9px] font-medium uppercase ${
+                      d.status === 'Approved' || d.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
                     }`}>
-                    {d.status}
-                  </span>
-                </div>
-              ))}
-            </div>
+                      {d.status || 'PENDING'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-10 text-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                <p className="text-xs font-normal">No drawing blueprints uploaded for this project yet.</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -616,27 +1000,35 @@ export default function ProjectDetails({
           <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
             <div className="flex justify-between items-center pb-3 border-b border-slate-100">
               <div>
-                <h3 className="text-sm font-black text-slate-900">Project Team Allocation & Shift Matrix</h3>
-                <p className="text-xs text-slate-500">Personnel assigned to site, office shifts, and leave records</p>
+                <h3 className="text-sm font-semibold text-slate-900">Project Team Allocation & Responsibility Matrix</h3>
+                <p className="text-xs text-slate-500">Personnel assigned to project execution and RACI matrix</p>
               </div>
+              <button
+                onClick={() => setShowAssignModal(true)}
+                className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-semibold text-xs rounded-xl shadow-2xs transition-all border border-brand-secondary/40 cursor-pointer"
+              >
+                + Assign Team Member
+              </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-semibold">
-              {[
-                { name: "Sarah Connor", role: "Lead Project Manager", status: "On Duty / Office", phone: "+91 98765 10001" },
-                { name: "Bob Johnson", role: "Site Engineer", status: "On Site A", phone: "+91 98765 10003" },
-                { name: "Alice Smith", role: "Jr Architect", status: "On Duty / Office", phone: "+91 98765 10002" }
-              ].map((member, i) => (
-                <div key={i} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
-                  <strong className="text-slate-900 font-extrabold text-xs block">{member.name}</strong>
-                  <span className="text-[11px] text-slate-500 font-bold block">{member.role}</span>
-                  <div className="flex justify-between items-center text-[10px] pt-2 border-t border-slate-200/60">
-                    <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 font-bold rounded uppercase">{member.status}</span>
-                    <span className="text-slate-500 font-mono">{member.phone}</span>
+            {Array.isArray(project.team) && project.team.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-normal">
+                {project.team.map((member, i) => (
+                  <div key={member._id || i} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                    <span className="text-slate-900 font-semibold text-xs block">{member.name}</span>
+                    <span className="text-[11px] text-slate-500 block">{member.role || member.projectRole}</span>
+                    <div className="flex justify-between items-center text-[10px] pt-2 border-t border-slate-200/60">
+                      <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded uppercase">{member.dept || 'Engineering'}</span>
+                      <span className="text-slate-500 font-mono">{member.phone || 'Assigned'}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-10 text-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                <p className="text-xs font-normal">No team members assigned to this project yet. Click "+ Assign Team Member" to add personnel.</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -645,28 +1037,30 @@ export default function ProjectDetails({
           <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
             <div className="flex justify-between items-center pb-3 border-b border-slate-100">
               <div>
-                <h3 className="text-sm font-black text-slate-900">Project Documents & Repository (CRM Module 6)</h3>
+                <h3 className="text-sm font-semibold text-slate-900">Project Documents & Repository</h3>
                 <p className="text-xs text-slate-500">Shared PDF contracts, approved drawing sets, invoices, and photo archives</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-semibold">
-              {[
-                { name: "Client Agreement & Architectural Contract V1.pdf", folder: "Contracts", size: "4.2 MB" },
-                { name: "Approved GFC Structural Plan Set.pdf", folder: "Approved Drawings PDFs", size: "12.5 MB" },
-                { name: "Milestone 2 Foundation Stage Invoice #INV-2026-04.pdf", folder: "Invoices", size: "1.8 MB" }
-              ].map((doc, i) => (
-                <div key={i} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-3">
-                  <div className="space-y-1">
-                    <strong className="text-slate-900 font-extrabold text-xs block">{doc.name}</strong>
-                    <span className="text-[10px] text-indigo-600 font-bold uppercase">{doc.folder} &bull; {doc.size}</span>
+            {Array.isArray(project.documents) && project.documents.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-normal">
+                {project.documents.map((doc, i) => (
+                  <div key={doc._id || i} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <span className="text-slate-900 font-semibold text-xs block">{doc.name || doc.originalName}</span>
+                      <span className="text-[10px] text-indigo-600 uppercase">{doc.category || doc.folder || 'General'}</span>
+                    </div>
+                    <button onClick={() => alert(`Previewing ${doc.name}`)} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl text-xs font-medium cursor-pointer">
+                      View
+                    </button>
                   </div>
-                  <button onClick={() => alert(`Previewing ${doc.name}`)} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl text-xs font-bold">
-                    View
-                  </button>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-10 text-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                <p className="text-xs font-normal">No documents uploaded for this project yet.</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -675,20 +1069,30 @@ export default function ProjectDetails({
           <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
             <div className="flex justify-between items-center pb-3 border-b border-slate-100">
               <div>
-                <h3 className="text-sm font-black text-slate-900">Pending Client & Internal Approvals</h3>
-                <p className="text-xs text-slate-500">Audit list of drawings and design revisions awaiting client sign-off</p>
+                <h3 className="text-sm font-semibold text-slate-900">Pending Client & Internal Approvals</h3>
+                <p className="text-xs text-slate-500">Audit list of drawings and design revisions awaiting sign-off</p>
               </div>
             </div>
 
-            <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between text-xs">
-              <div className="space-y-1">
-                <strong className="text-amber-900 font-extrabold block">Ground Floor Architectural Layout Plan V2</strong>
-                <p className="text-amber-700 text-[11px]">Submitted to Client (Wayne Enterprises) for approval on 2026-07-20</p>
+            {Array.isArray(project.drawings) && project.drawings.filter(d => d.status !== 'Approved' && d.status !== 'APPROVED').length > 0 ? (
+              <div className="space-y-3">
+                {project.drawings.filter(d => d.status !== 'Approved' && d.status !== 'APPROVED').map((d, i) => (
+                  <div key={d._id || i} className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between text-xs">
+                    <div className="space-y-1">
+                      <span className="text-amber-900 font-semibold block">{d.title || d.name || d.code}</span>
+                      <p className="text-amber-700 text-[11px]">Submitted for approval on {formatDate(d.uploadedAt || d.createdAt)}</p>
+                    </div>
+                    <span className="px-3 py-1 bg-amber-100 text-amber-800 font-medium rounded-full text-[10px] uppercase">
+                      Awaiting Response
+                    </span>
+                  </div>
+                ))}
               </div>
-              <span className="px-3 py-1 bg-amber-100 text-amber-800 font-black rounded-full text-[10px] uppercase">
-                Awaiting Client Response
-              </span>
-            </div>
+            ) : (
+              <div className="py-10 text-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                <p className="text-xs font-normal">No pending approvals required for this project.</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -697,20 +1101,19 @@ export default function ProjectDetails({
           <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
             <div className="flex justify-between items-center pb-3 border-b border-slate-100">
               <div>
-                <h3 className="text-sm font-black text-slate-900">Visual Operational Reports & Analytics</h3>
+                <h3 className="text-sm font-semibold text-slate-900">Visual Operational Reports & Analytics</h3>
                 <p className="text-xs text-slate-500">Project velocity, milestone progress, and budget tracking</p>
               </div>
             </div>
 
-            <div className="h-64 bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col justify-between">
-              <span className="text-xs font-black text-slate-600 uppercase">Project Milestone Velocity</span>
+            <div className="h-48 bg-slate-50 border border-slate-200 rounded-2xl p-5 flex flex-col justify-between">
+              <span className="text-xs font-medium text-slate-600 uppercase">Overall Project Progress</span>
               <div className="w-full bg-slate-200 h-4 rounded-full overflow-hidden my-auto">
-                <div className="bg-brand-primary h-full rounded-full" style={{ width: `${project.progress || 68}%` }}></div>
+                <div className="bg-brand-primary h-full rounded-full transition-all duration-500" style={{ width: `${project.progressPercentage || project.progress || 0}%` }}></div>
               </div>
-              <div className="flex justify-between text-xs font-bold text-slate-700">
-                <span>Phase 1 (100%)</span>
-                <span>Phase 2 (75%)</span>
-                <span>Phase 3 (20%)</span>
+              <div className="flex justify-between text-xs font-medium text-slate-700">
+                <span>Completed: {project.progressPercentage || project.progress || 0}%</span>
+                <span>Milestones Registered: {milestonesList.length}</span>
               </div>
             </div>
           </div>
@@ -780,6 +1183,263 @@ export default function ProjectDetails({
                   className="px-5 py-2 bg-brand-primary text-brand-dark font-extrabold rounded-xl shadow-xs"
                 >
                   {linkSubmitting ? 'Linking...' : 'Confirm Linkage'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* UPDATE PROJECT STATUS & AUDIT LOG MODAL */}
+      {showStatusModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl border border-slate-100 p-6 space-y-4 animate-in fade-in duration-200">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wide">Update Project Status</h3>
+                <span className="text-[10px] text-slate-400 block font-normal">Audit history trail will record status transition & notes</span>
+              </div>
+              <button onClick={() => setShowStatusModal(false)} className="p-1 hover:bg-slate-100 text-slate-500 rounded-lg">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateStatusSubmit} className="space-y-4 text-xs font-medium">
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Target Status State</label>
+                <select
+                  value={newStatusVal}
+                  onChange={(e) => setNewStatusVal(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
+                >
+                  <option value="New">New</option>
+                  <option value="Planning">Planning</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="On Hold">On Hold</option>
+                  <option value="Approval Pending">Approval Pending</option>
+                  <option value="Site Work">Site Work</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Archived">Archived</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Status Transition Notes / Reason</label>
+                <textarea
+                  rows="3"
+                  value={statusNotes}
+                  onChange={(e) => setStatusNotes(e.target.value)}
+                  placeholder="Reason for status change (e.g., site excavation completed)..."
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
+                ></textarea>
+              </div>
+
+              {/* Status History Audit Trail Ledger */}
+              <div className="pt-3 border-t border-slate-100 space-y-2">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Audit History Trail ({statusHistory.length})</span>
+                <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                  {statusHistory.length > 0 ? (
+                    statusHistory.map(h => (
+                      <div key={h._id} className="p-2.5 bg-slate-50 border border-slate-200/70 rounded-xl text-[11px] space-y-0.5">
+                        <div className="flex justify-between items-center">
+                          <strong className="text-slate-900 font-semibold">{h.toStatus}</strong>
+                          <span className="text-[10px] text-slate-400">{h.createdAt ? new Date(h.createdAt).toLocaleDateString() : 'Recent'}</span>
+                        </div>
+                        <p className="text-slate-600 font-normal">{h.notes || 'Status changed'}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-[11px] text-slate-400 italic">No historical status logs recorded yet.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setShowStatusModal(false)} className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl">
+                  Cancel
+                </button>
+                <button type="submit" disabled={statusSubmitting} className="px-5 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-semibold rounded-xl border border-brand-secondary/30">
+                  {statusSubmitting ? 'Saving...' : 'Update Status'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ADD MILESTONE MODAL */}
+      {showAddMilestone && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl border border-slate-100 p-6 space-y-4 animate-in fade-in duration-200">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+              <h3 className="text-sm font-semibold text-slate-900 uppercase">Add Project Milestone</h3>
+              <button onClick={() => setShowAddMilestone(false)} className="p-1 hover:bg-slate-100 text-slate-500 rounded-lg">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleAddMilestoneSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Milestone Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={milestoneForm.name}
+                  onChange={(e) => setMilestoneForm({ ...milestoneForm, name: e.target.value })}
+                  placeholder="e.g. Interior Fitouts Signoff"
+                  className="w-full p-2.5 border border-slate-200 rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Target Completion Date *</label>
+                <input
+                  type="date"
+                  required
+                  value={milestoneForm.targetDate}
+                  onChange={(e) => setMilestoneForm({ ...milestoneForm, targetDate: e.target.value })}
+                  className="w-full p-2.5 border border-slate-200 rounded-xl"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setShowAddMilestone(false)} className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl">
+                  Cancel
+                </button>
+                <button type="submit" className="px-5 py-2 bg-brand-primary text-slate-900 font-semibold rounded-xl">
+                  Add Milestone
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ASSIGN TEAM MEMBER MODAL */}
+      {showAssignModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl border border-slate-100 p-6 space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+              <h3 className="text-sm font-semibold text-slate-900 uppercase">Assign Team Member</h3>
+              <button onClick={() => setShowAssignModal(false)} className="p-1 hover:bg-slate-100 text-slate-500 rounded-lg">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleAssignTeamSubmit} className="space-y-4 text-xs font-medium">
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Select Member / Employee *</label>
+                {loadingSystemUsers ? (
+                  <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-400 text-xs flex items-center gap-2 font-normal">
+                    <RefreshCw className="w-4 h-4 animate-spin text-indigo-500" />
+                    <span>Loading registered users from database...</span>
+                  </div>
+                ) : systemUsers.length > 0 ? (
+                  <select
+                    value={assignForm.userId || ''}
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      const found = systemUsers.find(u => (u._id || u.id) === selectedId);
+                      const nameStr = found ? (typeof found.name === 'string' ? found.name : (typeof found.fullName === 'string' ? found.fullName : (typeof found.email === 'string' ? found.email : 'Team Member'))) : 'Team Member';
+                      const roleStr = found ? (typeof found.role === 'string' ? found.role : (typeof found.roleName === 'string' ? found.roleName : (found.role && typeof found.role === 'object' ? (found.role.roleName || found.role.name || found.role.roleCode || 'Architect') : 'Architect'))) : 'Architect';
+                      setAssignForm({
+                        userId: selectedId,
+                        memberName: nameStr,
+                        projectRole: roleStr
+                      });
+                    }}
+                    className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-semibold text-slate-900 cursor-pointer"
+                    required
+                  >
+                    {systemUsers.map(u => {
+                      const nameStr = typeof u.name === 'string' ? u.name : (typeof u.fullName === 'string' ? u.fullName : (typeof u.email === 'string' ? u.email : 'User'));
+                      const roleStr = typeof u.role === 'string' ? u.role : (typeof u.roleName === 'string' ? u.roleName : (u.role && typeof u.role === 'object' ? (u.role.roleName || u.role.name || u.role.roleCode || 'Member') : (typeof u.email === 'string' ? u.email : 'Member')));
+                      return (
+                        <option key={u._id || u.id} value={u._id || u.id}>
+                          {nameStr} ({roleStr})
+                        </option>
+                      );
+                    })}
+                  </select>
+                ) : (
+                  <p className="text-slate-400 text-xs py-2 font-normal">No registered users found in system.</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Project Role *</label>
+                <input
+                  type="text"
+                  required
+                  value={assignForm.projectRole || ''}
+                  onChange={(e) => setAssignForm({ ...assignForm, projectRole: e.target.value })}
+                  placeholder="e.g. Lead Architect / Site Engineer"
+                  className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-semibold text-slate-900"
+                />
+              </div>
+
+              {assignForm.userId && (
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                  <span className="text-[10px] font-medium text-slate-400 uppercase block">Selected Team Member Preview</span>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-semibold text-slate-900">{assignForm.memberName}</span>
+                    <span className="px-2.5 py-0.5 bg-brand-soft text-slate-900 border border-brand-secondary/40 rounded-md font-semibold text-[11px]">
+                      {assignForm.projectRole}
+                    </span>
+                  </div>
+                </div>
+              )}
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setShowAssignModal(false)} className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl">
+                  Cancel
+                </button>
+                <button type="submit" className="px-5 py-2 bg-brand-primary text-slate-900 font-semibold rounded-xl">
+                  Assign Member
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* UPDATE PROGRESS OVERRIDE MODAL */}
+      {showProgressModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl border border-slate-100 p-6 space-y-4 animate-in fade-in duration-200">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+              <h3 className="text-sm font-semibold text-slate-900 uppercase">Update Overall Project Progress</h3>
+              <button onClick={() => setShowProgressModal(false)} className="p-1 hover:bg-slate-100 text-slate-500 rounded-lg">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateProgressSubmit} className="space-y-4 text-xs font-medium">
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Progress Percentage (0 - 100%) *</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  required
+                  value={progressVal}
+                  onChange={(e) => setProgressVal(e.target.value)}
+                  className="w-full p-2.5 border border-slate-200 rounded-xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                <input
+                  type="checkbox"
+                  id="overrideCheck"
+                  checked={progressOverride}
+                  onChange={(e) => setProgressOverride(e.target.checked)}
+                  className="w-4 h-4 text-indigo-600 rounded cursor-pointer"
+                />
+                <label htmlFor="overrideCheck" className="text-slate-800 font-semibold text-xs cursor-pointer">
+                  Manual Override (Lock from automatic milestone recalculation)
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setShowProgressModal(false)} className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl">
+                  Cancel
+                </button>
+                <button type="submit" disabled={progressSubmitting} className="px-5 py-2 bg-brand-primary text-slate-900 font-semibold rounded-xl border border-brand-secondary/40">
+                  {progressSubmitting ? 'Saving...' : 'Save Progress'}
                 </button>
               </div>
             </form>

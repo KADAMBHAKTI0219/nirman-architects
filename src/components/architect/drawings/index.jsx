@@ -124,60 +124,71 @@ export default function ArchitectDrawings() {
       </div>
 
       {/* 2. GRID GALLERY */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        {filteredDrawings.map(dwg => {
-          const isApproved = dwg.status === 'APPROVED';
-          const isPending = dwg.status === 'PENDING_CLIENT_APPROVAL';
+      {loading ? (
+        <div className="py-16 text-center text-slate-400 bg-white rounded-3xl border border-slate-200/90 p-8 space-y-2">
+          <RefreshCw className="w-6 h-6 animate-spin mx-auto text-indigo-500" />
+          <p className="text-xs font-semibold">Loading CAD blueprints from server...</p>
+        </div>
+      ) : filteredDrawings.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {filteredDrawings.map(dwg => {
+            const isApproved = dwg.status === 'APPROVED';
+            const isPending = dwg.status === 'PENDING_CLIENT_APPROVAL';
 
-          return (
-            <div 
-              key={dwg._id || dwg.id}
-              className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden hover:border-indigo-400 transition-all flex flex-col justify-between"
-            >
-              {/* Thumbnail */}
-              <div className="bg-slate-900 p-4 h-32 flex items-center justify-center relative select-none">
-                <img 
-                  src={dwg.thumbnailUrl || dwg.fileUrl || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=400&q=80"} 
-                  alt={dwg.title} 
-                  className="w-full h-full object-cover rounded-xl opacity-80"
-                />
-                <span className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-xs px-2 py-0.5 rounded-lg text-[9px] font-black uppercase text-sky-400 border border-white/10">
-                  V{dwg.currentVersion || 1}
-                </span>
-              </div>
-
-              <div className="p-4 space-y-3.5">
-                <div>
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wide">{dwg.drawingNumber || dwg._id} &bull; {dwg.category}</span>
-                  <strong className="text-slate-900 block text-xs font-bold truncate mt-0.5" title={dwg.title}>{dwg.title}</strong>
+            return (
+              <div 
+                key={dwg._id || dwg.id}
+                className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden hover:border-indigo-400 transition-all flex flex-col justify-between"
+              >
+                {/* Thumbnail */}
+                <div className="bg-slate-900 p-4 h-32 flex items-center justify-center relative select-none">
+                  <img 
+                    src={dwg.thumbnailUrl || dwg.fileUrl || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=400&q=80"} 
+                    alt={dwg.title} 
+                    className="w-full h-full object-cover rounded-xl opacity-80"
+                  />
+                  <span className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-xs px-2 py-0.5 rounded-lg text-[9px] font-black uppercase text-sky-400 border border-white/10">
+                    V{dwg.currentVersion || 1}
+                  </span>
                 </div>
 
-                <div className="flex justify-between items-center border-t border-slate-100 pt-3">
-                  <span className={`text-[8px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
-                    isApproved ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                    isPending ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                    'bg-rose-50 text-rose-700 border-rose-200'
-                  }`}>
-                    {isApproved ? 'APPROVED' : isPending ? 'PENDING CLIENT' : 'CHANGES REQUESTED'}
-                  </span>
+                <div className="p-4 space-y-3.5">
+                  <div>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wide">{dwg.drawingNumber || dwg._id} &bull; {dwg.category || 'Architectural'}</span>
+                    <strong className="text-slate-900 block text-xs font-bold truncate mt-0.5" title={dwg.title}>{dwg.title}</strong>
+                  </div>
 
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => setViewerDwg(dwg)}
-                      className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl transition-all text-xs font-bold flex items-center gap-1 cursor-pointer"
-                      title="Inspect Blueprint & Client Logs"
-                    >
-                      <Eye className="w-3.5 h-3.5" /> Inspect
-                    </button>
+                  <div className="flex justify-between items-center border-t border-slate-100 pt-3">
+                    <span className={`text-[8px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
+                      isApproved ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                      isPending ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                      'bg-rose-50 text-rose-700 border-rose-200'
+                    }`}>
+                      {isApproved ? 'APPROVED' : isPending ? 'PENDING CLIENT' : 'CHANGES REQUESTED'}
+                    </span>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setViewerDwg(dwg)}
+                        className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl transition-all text-xs font-bold flex items-center gap-1 cursor-pointer"
+                        title="Inspect Blueprint & Client Logs"
+                      >
+                        <Eye className="w-3.5 h-3.5" /> Inspect
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-
-      </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="py-16 text-center text-slate-400 bg-white rounded-3xl border border-slate-200/90 p-8 space-y-2">
+          <Layers className="w-8 h-8 text-slate-300 mx-auto mb-1" />
+          <p className="text-xs font-semibold text-slate-700">No drawings found.</p>
+          <p className="text-[11px] text-slate-400">Click "Upload New Revision" to add blueprint drawings.</p>
+        </div>
+      )}
 
       {/* 3. UPLOAD MODAL */}
       {uploadOpen && (

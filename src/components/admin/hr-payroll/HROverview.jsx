@@ -1,19 +1,13 @@
 import React from 'react';
 import { 
-  ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, 
-  CartesianGrid, Tooltip, Legend, BarChart, Bar 
-} from 'recharts';
-import { 
   Users, UserCheck, Calendar, FileClock, Cake, AlertTriangle, ArrowRight 
 } from 'lucide-react';
 import Card from '../../common/Card';
 
-const COLORS = ['#10B981', '#F59E0B', '#EF4444', '#64748B'];
-
 export default function HROverview({
   stats,
-  distributionData,
-  leaveTrendData,
+  distributionData = [],
+  leaveTrendData = [],
   exceptions
 }) {
   return (
@@ -58,48 +52,50 @@ export default function HROverview({
         </div>
       </div>
 
-      {/* 2. Charts Row */}
+      {/* 2. Summary Tables */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Workforce Distribution */}
         <Card title="Workforce Distribution" subtitle="Staff allocation segments by department">
-          <div className="h-56 flex justify-center items-center">
-            <div className="h-44 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={distributionData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={45}
-                    outerRadius={65}
-                    paddingAngle={4}
-                    dataKey="value"
-                  >
-                    {distributionData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend verticalAlign="bottom" align="center" iconSize={8} iconType="circle" />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
+                <tr>
+                  <th className="px-4 py-2">Department</th>
+                  <th className="px-4 py-2">Count</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {distributionData.map((row) => (
+                  <tr key={row.name} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-2.5 font-bold text-slate-800">{row.name}</td>
+                    <td className="px-4 py-2.5 font-semibold text-emerald-600">{row.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Card>
 
         {/* Leave Cost Trends */}
         <Card title="Leave Velocity Trend" subtitle="Monthly count of requested leave days over time" className="lg:col-span-2">
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={leaveTrendData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                <XAxis dataKey="month" stroke="#94A3B8" fontSize={9} fontWeight="bold" />
-                <YAxis stroke="#94A3B8" fontSize={9} fontWeight="bold" />
-                <Tooltip />
-                <Line type="monotone" dataKey="leaves" stroke="#EF4444" strokeWidth={3} name="Leaves Count" />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
+                <tr>
+                  <th className="px-4 py-2">Month</th>
+                  <th className="px-4 py-2">Leave Count</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {leaveTrendData.map((row) => (
+                  <tr key={row.month} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-2.5 font-bold text-slate-800">{row.month}</td>
+                    <td className="px-4 py-2.5 font-semibold text-rose-600">{row.leaves}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Card>
 

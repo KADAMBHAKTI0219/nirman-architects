@@ -145,7 +145,7 @@ export default function getAdminRoutes(handleRoleChange) {
       } />
       <Route path="/admin/crm/overview" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Clients & CRM">
-          <LazyWrap><AdminCRM defaultTab="overview" /></LazyWrap>
+          <LazyWrap><AdminCRM defaultTab="leads" /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/crm/leads" element={

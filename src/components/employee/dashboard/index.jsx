@@ -3,11 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { 
   CheckCircle, Clock, AlertCircle, Fingerprint, Calendar, ArrowRight, 
   MapPin, CheckSquare, Plus, Send, Play, Coffee, FileText, Download, Eye, 
-  Layers, MessageSquare, FolderOpen, Bell, CheckCheck 
+  Layers, MessageSquare, FolderOpen, Bell, CheckCheck, RefreshCw, AlertTriangle
 } from 'lucide-react';
 import Card from '../../common/Card';
 import DrawingViewer from '../../common/DrawingViewer';
-import { getAttendanceStatus, getMyAttendance } from '../../../service/mockApi';
+import { getTodayAttendance, getMyAttendance } from '../../../service/hrm/attendance';
+import { getTasks } from '../../../service/task';
+import { getMyNotifications } from '../../../service/notification';
+import { getProjectDocuments } from '../../../service/document';
+import { getProjectChat } from '../../../service/chat';
 
 export default function EmployeeDashboard() {
   const navigate = useNavigate();
@@ -20,100 +24,137 @@ export default function EmployeeDashboard() {
     }
   });
 
-  const empName = user.name || "Alice Smith";
-  const empRole = user.designation || user.role || "Junior Architect";
-  const empDept = user.department || "Architecture & Design";
+  const empName = user.name || "Employee";
+  const empRole = user.designation || user.role || "Staff Member";
+  const empDept = user.department || "Operations";
 
   // Selected Drawing modal state
   const [selectedDrawing, setSelectedDrawing] = useState(null);
 
-  // Check-In and Timer States
-  const [isCheckedIn, setIsCheckedIn] = useState(() => localStorage.getItem('isCheckedIn') === 'true');
-  const [isOnBreak, setIsOnBreak] = useState(false);
+  // Check-In and Timer States (100% Dynamic from GET /api/attendance/today)
+  const [isCheckedIn, setIsCheckedIn] = useState(false);
+  const [todaySession, setTodaySession] = useState(null);
   const [secondsWorked, setSecondsWorked] = useState(0);
-  const [checkInTime, setCheckInTime] = useState("Not Checked In");
-  
-  // Tasks list state
-  const [tasks, setTasks] = useState([
-    { id: "TSK-401", title: "Detail the staircase treads & balustrades blueprints", project: "Central Office Tower", priority: "High", deadline: "July 28", status: "In Progress", completed: false },
-    { id: "TSK-402", title: "HVAC Duct Sizing & Layout Drafts", project: "Smart City Mall", priority: "Critical", deadline: "July 25", status: "Review", completed: false },
-    { id: "TSK-403", title: "Submit daily timesheet logs", project: "Central Office Tower", priority: "Medium", deadline: "Today (05:30 PM)", status: "Completed", completed: true }
-  ]);
+  const [isOnBreak, setIsOnBreak] = useState(false);
+  const [loadingAttendance, setLoadingAttendance] = useState(true);
 
-  // Selected task drawer state
-  const [selectedTask, setSelectedTask] = useState(null);
+  // Dynamic Tasks State (from GET /api/tasks)
+  const [tasks, setTasks] = useState([]);
+  const [loadingTasks, setLoadingTasks] = useState(true);
 
-  // Drawings list state
-  const [drawings] = useState([
-    { id: "DWG-001", name: "Ground Floor Wall Layout Blueprint", project: "Central Office Tower", category: "Working Drawings", version: "V2.1", status: "Pending Review" },
-    { id: "DWG-003", name: "First Floor Plan Draft Schema", project: "Oceanic Luxury Villas", category: "Concept Drawings", version: "V1.1", status: "GFC Locked" }
-  ]);
+  // Dynamic Drawings State
+  const [drawings, setDrawings] = useState([]);
+  const [loadingDrawings, setLoadingDrawings] = useState(false);
 
-  // Chat/Updates state
-  const [chats, setChats] = useState([
-    { id: 1, author: "Sarah Connor (PM)", message: "Please check the staircase headroom clearances on section 2.1.", time: "10:15 AM" },
-    { id: 2, author: "System Notification", message: "Geotechnical survey report for Central Office Tower is locked.", time: "11:20 AM" }
-  ]);
+  // Dynamic Notifications State
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+
+  // Dynamic Attendance Roster Logs (from GET /api/attendance/my)
+  const [myAttendanceLogs, setMyAttendanceLogs] = useState([]);
+
+  // Dynamic Chat Messages
+  const [chats, setChats] = useState([]);
   const [chatInput, setChatInput] = useState('');
 
-  // Documents list state
-  const [documents] = useState([
-    { name: "Safety Standards Manual.pdf", category: "Policies", size: "8.5 MB", expiry: "2027-03-10" },
-    { name: "Contract_Agreement.pdf", category: "Contracts", size: "1.2 MB", expiry: "2026-12-31" }
-  ]);
+  // Dynamic Compliance Documents
+  const [documents, setDocuments] = useState([]);
 
-  // Fetch current check-in status and actual hours worked on mount
-  useEffect(() => {
-    const fetchAttendanceStatus = async () => {
-      try {
-        const savedUser = localStorage.getItem('user');
-        const userId = savedUser ? JSON.parse(savedUser).id : null;
-        if (!userId) return;
+  // Fetch Attendance Session
+  const fetchAttendanceSession = async () => {
+    try {
+      setLoadingAttendance(true);
+      const res = await getTodayAttendance();
+      if (res && res.success) {
+        const active = Boolean(res.clockedIn);
+        setIsCheckedIn(active);
+        setTodaySession(res.session || null);
 
-        // 1. Get online status
-        const statusRes = await getAttendanceStatus(userId);
-        if (statusRes.success && statusRes.data) {
-          const online = statusRes.data.isOnline || false;
-          setIsCheckedIn(online);
-          localStorage.setItem('isCheckedIn', online ? 'true' : 'false');
-          
-          // 2. Fetch logs to calculate time worked today
-          const myLogsRes = await getMyAttendance();
-          if (myLogsRes.success && myLogsRes.logs) {
-            const logs = myLogsRes.logs;
-            const todayStr = new Date().toDateString();
-            const todayInLogs = logs.filter(l => l.type === 'CLOCK_IN' && new Date(l.time).toDateString() === todayStr);
-            
-            if (todayInLogs.length > 0) {
-              const firstCheckIn = todayInLogs[todayInLogs.length - 1];
-              setCheckInTime(new Date(firstCheckIn.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-              
-              if (online) {
-                const latestCheckIn = todayInLogs[0];
-                const elapsed = Math.floor((Date.now() - new Date(latestCheckIn.time).getTime()) / 1000);
-                setSecondsWorked(elapsed > 0 ? elapsed : 0);
-              }
-            }
-          }
+        if (active && res.session?.clockInTime) {
+          const elapsed = Math.floor((Date.now() - new Date(res.session.clockInTime).getTime()) / 1000);
+          setSecondsWorked(elapsed > 0 ? elapsed : 0);
+        } else if (res.session?.workingHours) {
+          setSecondsWorked(Math.floor(res.session.workingHours * 3600));
+        } else {
+          setSecondsWorked(0);
         }
-      } catch (err) {
-        console.error("Dashboard failed to load attendance logs:", err);
       }
-    };
+    } catch (err) {
+      console.error("Dashboard attendance load error:", err);
+    } finally {
+      setLoadingAttendance(false);
+    }
+  };
 
-    fetchAttendanceStatus();
+  // Fetch Dynamic Tasks
+  const fetchDynamicTasks = async () => {
+    try {
+      setLoadingTasks(true);
+      const res = await getTasks();
+      if (res && res.success) {
+        const list = res.tasks || res.data || (Array.isArray(res) ? res : []);
+        setTasks(list);
+      }
+    } catch (err) {
+      console.error("Dashboard tasks load error:", err);
+    } finally {
+      setLoadingTasks(false);
+    }
+  };
+
+  // Fetch Attendance History Logs
+  const fetchAttendanceHistory = async () => {
+    try {
+      const res = await getMyAttendance();
+      if (res) {
+        const list = res.logs || res.data || (Array.isArray(res) ? res : []);
+        setMyAttendanceLogs(list);
+      }
+    } catch (err) {
+      console.error("Dashboard attendance history error:", err);
+    }
+  };
+
+  // Fetch Notifications & Auxiliary Data safely
+  const fetchAuxiliaryData = async () => {
+    try {
+      const notifRes = await getMyNotifications();
+      if (notifRes) {
+        const list = notifRes.data?.notifications || notifRes.notifications || (Array.isArray(notifRes.data) ? notifRes.data : []);
+        const unread = (Array.isArray(list) ? list : []).filter(n => !(n.isRead || n.read)).length;
+        setUnreadNotificationsCount(unread);
+      }
+    } catch (err) {
+      console.error("Auxiliary data load error:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchAttendanceSession();
+    fetchDynamicTasks();
+    fetchAttendanceHistory();
+    fetchAuxiliaryData();
   }, []);
 
-  // Active check-in timer effect
+  // Live Timer Effect (Real-time elapsed calculation)
   useEffect(() => {
     let interval = null;
     if (isCheckedIn && !isOnBreak) {
-      interval = setInterval(() => {
-        setSecondsWorked(prev => prev + 1);
-      }, 1000);
+      const clockInIso = todaySession?.clockInTime || todaySession?.clientClockIn;
+      const clockInMs = clockInIso ? new Date(clockInIso).getTime() : (Date.now() - (secondsWorked * 1000));
+
+      const tickTimer = () => {
+        const nowMs = Date.now();
+        const elapsed = Math.max(0, Math.floor((nowMs - clockInMs) / 1000));
+        setSecondsWorked(elapsed);
+      };
+
+      tickTimer();
+      interval = setInterval(tickTimer, 1000);
     }
-    return () => clearInterval(interval);
-  }, [isCheckedIn, isOnBreak]);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isCheckedIn, isOnBreak, todaySession?.clockInTime, todaySession?.clientClockIn]);
 
   const formatHours = (secs) => {
     const hrs = secs / 3600;
@@ -124,36 +165,59 @@ export default function EmployeeDashboard() {
     navigate('/employee/attendance');
   };
 
-  const handleTaskCheckbox = (id) => {
-    setTasks(prev => prev.map(t => {
-      if (t.id === id) {
-        const nextCompleted = !t.completed;
-        return {
-          ...t,
-          completed: nextCompleted,
-          status: nextCompleted ? "Completed" : "In Progress"
-        };
+  const completedTasksCount = tasks.filter(t => t.completed || t.status === 'COMPLETED' || t.status === 'Completed').length;
+
+  // Build 5-day Mon-Fri weekly streak dynamically from real logs
+  const weeklyStreak = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((dayName, idx) => {
+    // Current week day calculation
+    const d = new Date();
+    const currentDay = d.getDay(); // 0 = Sun
+    const distanceToMon = (currentDay === 0 ? -6 : 1) - currentDay;
+    const targetDateObj = new Date(d);
+    targetDateObj.setDate(d.getDate() + distanceToMon + idx);
+    const dateStr = targetDateObj.toISOString().split('T')[0];
+
+    const matchedLog = myAttendanceLogs.find(l => {
+      const lDate = l.date || (l.clockInTime ? l.clockInTime.split('T')[0] : null);
+      return lDate === dateStr;
+    });
+
+    let code = '-';
+    let color = 'bg-slate-100 text-slate-400 border-slate-200';
+
+    if (matchedLog) {
+      if (matchedLog.status === 'AUTO_CLOSED' || matchedLog.autoClosed) {
+        code = 'AC';
+        color = 'bg-amber-500 text-white shadow-xs';
+      } else {
+        code = 'P';
+        color = 'bg-emerald-500 text-white shadow-xs';
       }
-      return t;
-    }));
-  };
+    } else if (targetDateObj > new Date()) {
+      code = '-';
+      color = 'bg-slate-100 text-slate-400 border-slate-200';
+    } else {
+      code = 'A';
+      color = 'bg-rose-500 text-white shadow-xs';
+    }
+
+    return { dayName, code, color, dateStr };
+  });
 
   const handleSendChannelUpdate = (e) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
     setChats(prev => [
       ...prev,
-      { id: chats.length + 1, author: "Alice Smith (You)", message: chatInput, time: "Just now" }
+      { id: Date.now(), author: `${empName} (You)`, message: chatInput, time: "Just now" }
     ]);
     setChatInput('');
   };
 
-  const completedTasksCount = tasks.filter(t => t.completed).length;
-
   return (
     <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
       
-      {/* 0. TOP PAGE HEADER MATCHING DRAWINGS VAULT MANAGEMENT */}
+      {/* 0. TOP PAGE HEADER */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
@@ -167,7 +231,7 @@ export default function EmployeeDashboard() {
         <div className="flex items-center gap-2.5 flex-wrap">
           <div className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 shadow-2xs">
             <MapPin className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
-            <span>Noida Site Headquarters</span>
+            <span>{empDept} Portal</span>
           </div>
 
           <button
@@ -198,30 +262,30 @@ export default function EmployeeDashboard() {
         </div>
       </div>
 
-      {/* 2. SUMMARY STRIP CARDS */}
+      {/* 2. SUMMARY STRIP CARDS (100% DYNAMIC) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         
         {/* Shift Attendance Card */}
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs flex items-center gap-3">
-          <div className="p-2.5 bg-blue-50/50 text-[#2484C6] rounded-xl">
+          <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
             <Clock className="w-5 h-5" />
           </div>
           <div>
             <span className="text-[9px] font-bold text-slate-400 block uppercase">Shift Time</span>
-            <strong className="text-xs font-black text-slate-750 block mt-0.5">
-              {isCheckedIn ? `${formatHours(secondsWorked)} hrs` : 'Not Started'}
+            <strong className="text-xs font-black text-slate-900 block mt-0.5">
+              {isCheckedIn ? `${formatHours(secondsWorked)} hrs` : (todaySession?.workingHours ? `${todaySession.workingHours} hrs` : 'Off Duty')}
             </strong>
           </div>
         </div>
 
         {/* My Tasks progress card */}
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs flex items-center gap-3">
-          <div className="p-2.5 bg-blue-50/50 text-[#2484C6] rounded-xl">
+          <div className="p-2.5 bg-blue-50 text-[#2484C6] rounded-xl">
             <CheckSquare className="w-5 h-5" />
           </div>
           <div>
             <span className="text-[9px] font-bold text-slate-400 block uppercase">My Tasks</span>
-            <strong className="text-xs font-black text-slate-750 block mt-0.5">
+            <strong className="text-xs font-black text-slate-900 block mt-0.5">
               {completedTasksCount} / {tasks.length} Completed
             </strong>
           </div>
@@ -229,12 +293,12 @@ export default function EmployeeDashboard() {
 
         {/* Assigned drawings count */}
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs flex items-center gap-3">
-          <div className="p-2.5 bg-blue-50/50 text-[#2484C6] rounded-xl">
+          <div className="p-2.5 bg-purple-50 text-purple-600 rounded-xl">
             <FileText className="w-5 h-5" />
           </div>
           <div>
             <span className="text-[9px] font-bold text-slate-400 block uppercase">Drawings</span>
-            <strong className="text-xs font-black text-slate-750 block mt-0.5">
+            <strong className="text-xs font-black text-slate-900 block mt-0.5">
               {drawings.length} Blueprints
             </strong>
           </div>
@@ -242,13 +306,13 @@ export default function EmployeeDashboard() {
 
         {/* Notifications count */}
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs flex items-center gap-3">
-          <div className="p-2.5 bg-blue-50/50 text-[#2484C6] rounded-xl">
+          <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl">
             <Bell className="w-5 h-5" />
           </div>
           <div>
             <span className="text-[9px] font-bold text-slate-400 block uppercase">Alerts</span>
-            <strong className="text-xs font-black text-slate-755 block mt-0.5">
-              2 Unread
+            <strong className="text-xs font-black text-slate-900 block mt-0.5">
+              {unreadNotificationsCount} Unread
             </strong>
           </div>
         </div>
@@ -262,72 +326,107 @@ export default function EmployeeDashboard() {
         <div className="lg:col-span-2 space-y-6">
           
           {/* Tasks checklist */}
-          <Card title="Today's Assigned Tasks" subtitle="Tick completed checklists items to sync progress with manager review">
-            <div className="space-y-3 pt-2">
-              {tasks.map(t => (
-                <div 
-                  key={t.id}
-                  onClick={() => handleTaskCheckbox(t.id)}
-                  className={`p-3.5 border rounded-2xl flex items-center justify-between gap-3 hover:border-brand-primary/40 transition-all cursor-pointer ${
-                    t.completed ? 'border-slate-100 bg-slate-50/40 opacity-75' : 'border-slate-150'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <input 
-                      type="checkbox"
-                      checked={t.completed}
-                      onChange={() => {}} // handled by parent div click
-                      className="w-4 h-4 accent-brand-primary rounded border-slate-300 cursor-pointer flex-shrink-0"
-                    />
-                    <div className="min-w-0">
-                      <span className={`text-xs font-bold block leading-snug ${t.completed ? 'line-through text-slate-400' : 'text-slate-755'}`}>
-                        {t.title}
-                      </span>
-                      <span className="text-[9px] text-[#2484C6] bg-[#E5F0FA] px-1.5 py-0.5 rounded-md font-bold uppercase block mt-1 w-max">
-                        {t.project}
+          <Card title="Today's Assigned Tasks" subtitle="Dynamic task checklist synced with real-time manager review">
+            {loadingTasks ? (
+              <div className="flex items-center justify-center py-10 space-y-2 text-xs font-bold text-slate-400">
+                <RefreshCw className="w-5 h-5 animate-spin text-emerald-600 mr-2" />
+                <span>Loading assigned tasks...</span>
+              </div>
+            ) : tasks.length === 0 ? (
+              <div className="py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 mt-2">
+                <CheckCircle className="w-8 h-8 text-slate-300 mx-auto mb-1.5" />
+                <strong className="text-xs font-bold text-slate-700 block">No assigned tasks for today</strong>
+                <span className="text-[10px] text-slate-400 font-semibold block mt-0.5">Check back later for new task assignments.</span>
+              </div>
+            ) : (
+              <div className="space-y-3 pt-2">
+                {tasks.map(t => {
+                  const isCompleted = t.completed || t.status === 'COMPLETED' || t.status === 'Completed';
+                  return (
+                    <div 
+                      key={t.id || t._id}
+                      className={`p-3.5 border rounded-2xl flex items-center justify-between gap-3 hover:border-emerald-300 transition-all cursor-pointer ${
+                        isCompleted ? 'border-slate-100 bg-slate-50/40 opacity-75' : 'border-slate-200 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <input 
+                          type="checkbox"
+                          checked={isCompleted}
+                          onChange={() => {}}
+                          className="w-4 h-4 accent-emerald-600 rounded border-slate-300 cursor-pointer flex-shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <span className={`text-xs font-bold block leading-snug ${isCompleted ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                            {t.title || t.taskName || 'Assigned Workspace Task'}
+                          </span>
+                          {t.project && (
+                            <span className="text-[9px] text-sky-700 bg-sky-50 border border-sky-200 px-1.5 py-0.5 rounded-md font-bold uppercase block mt-1 w-max">
+                              {typeof t.project === 'object' ? t.project.name : t.project}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded flex-shrink-0 ${
+                        t.priority === 'Critical' || t.priority === 'HIGH' 
+                          ? 'bg-rose-50 text-rose-600 border border-rose-100' 
+                          : 'bg-slate-50 text-slate-600 border border-slate-200'
+                      }`}>
+                        {t.priority || 'Medium'}
                       </span>
                     </div>
-                  </div>
-
-                  <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded flex-shrink-0 ${
-                    t.priority === 'Critical' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
-                    'bg-slate-50 text-slate-505 border border-slate-100'
-                  }`}>{t.priority}</span>
-                </div>
-              ))}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </Card>
 
           {/* Drawings blueprints */}
-          <Card title="blueprints Workspace" subtitle="Verify version tags and status marks">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-              {drawings.map(d => (
-                <div key={d.id} className="p-3.5 bg-slate-50 border border-slate-100 rounded-2xl flex justify-between items-center gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2.5 bg-white border border-slate-150 rounded-xl text-slate-400">
-                      <FileText className="w-4.5 h-4.5" />
+          <Card title="blueprints Workspace" subtitle="Verify version tags and CAD status marks">
+            {loadingDrawings ? (
+              <div className="flex items-center justify-center py-10 text-xs font-bold text-slate-400">
+                <RefreshCw className="w-5 h-5 animate-spin text-purple-600 mr-2" />
+                <span>Loading drawings...</span>
+              </div>
+            ) : drawings.length === 0 ? (
+              <div className="py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 mt-2">
+                <FileText className="w-8 h-8 text-slate-300 mx-auto mb-1.5" />
+                <strong className="text-xs font-bold text-slate-700 block">No blueprints assigned</strong>
+                <span className="text-[10px] text-slate-400 font-semibold block mt-0.5">Assigned architectural drawings will appear here.</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                {drawings.map(d => (
+                  <div key={d.id || d._id} className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl flex justify-between items-center gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-500">
+                        <FileText className="w-4.5 h-4.5" />
+                      </div>
+                      <div>
+                        <strong className="text-slate-850 block text-xs leading-none">{d.name || d.title}</strong>
+                        <span className="text-[9px] text-slate-400 block mt-1.5 font-bold uppercase">{d.category || 'Working Drawings'} &bull; {d.version || 'V1.0'}</span>
+                      </div>
                     </div>
-                    <div>
-                      <strong className="text-slate-800 block text-xs leading-none">{d.name}</strong>
-                      <span className="text-[9px] text-slate-400 block mt-1.5 font-bold uppercase">{d.category} &bull; {d.version}</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setSelectedDrawing(d)}
+                        className="px-3 py-1.5 bg-sky-100 hover:bg-sky-200 text-sky-900 font-extrabold text-[11px] rounded-2xl border border-sky-300/60 flex items-center gap-1.5 shadow-3xs cursor-pointer transition-all"
+                        title="Open CAD Viewer & Signatures"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-sky-700 stroke-[2.5]" />
+                        <span className="leading-tight">View & Sign</span>
+                      </button>
+                      <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${
+                        d.status === 'GFC Locked' || d.status === 'APPROVED' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-amber-50 text-amber-600 border-amber-100'
+                      }`}>
+                        {d.status || 'Pending'}
+                      </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setSelectedDrawing(d)}
-                      className="px-3 py-1.5 bg-sky-100 hover:bg-sky-200 text-sky-900 font-extrabold text-[11px] rounded-2xl border border-sky-300/60 flex items-center gap-1.5 shadow-3xs cursor-pointer transition-all"
-                      title="Open CAD Viewer & Signatures"
-                    >
-                      <Eye className="w-3.5 h-3.5 text-sky-700 stroke-[2.5]" />
-                      <span className="leading-tight">View & Sign</span>
-                    </button>
-                    <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${
-                      d.status === 'GFC Locked' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-amber-50 text-amber-600 border-amber-100'
-                    }`}>{d.status}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </Card>
 
           {/* Drawing Viewer Overlay */}
@@ -345,14 +444,14 @@ export default function EmployeeDashboard() {
         {/* RIGHT COLUMN: CHAT, STREAKS, AND DOCS PREVIEW (1/3 width) */}
         <div className="space-y-6">
           
-          {/* Roster streak chart */}
+          {/* Dynamic Roster streak chart */}
           <Card title="Attendance Streak" subtitle="Consistent weekly check-in logs history">
             <div className="flex gap-2.5 justify-between pt-2">
-              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((d, idx) => (
-                <div key={d} className="flex flex-col items-center gap-1.5 flex-1">
-                  <span className="text-[9px] font-black text-slate-400 uppercase">{d}</span>
-                  <div className="w-full bg-emerald-500 h-8 rounded-lg flex items-center justify-center text-white text-[9px] font-black">
-                    P
+              {weeklyStreak.map((item) => (
+                <div key={item.dayName} className="flex flex-col items-center gap-1.5 flex-1">
+                  <span className="text-[9px] font-black text-slate-400 uppercase">{item.dayName}</span>
+                  <div className={`w-full h-8 rounded-xl flex items-center justify-center text-[10px] font-black transition-all ${item.color}`} title={item.dateStr}>
+                    {item.code}
                   </div>
                 </div>
               ))}
@@ -361,61 +460,73 @@ export default function EmployeeDashboard() {
 
           {/* Project chat preview */}
           <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-2xs flex flex-col justify-between h-[280px]">
-            <div className="border-b border-slate-50 pb-2">
+            <div className="border-b border-slate-100 pb-2">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Team Chat Stream</span>
-              <span className="text-[9px] text-slate-400 block mt-0.5 font-bold">Coordination updates</span>
+              <span className="text-[9px] text-slate-400 block mt-0.5 font-bold">Coordination & project updates</span>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-3.5 my-3 pr-1 scrollbar-none">
-              {chats.map(c => (
-                <div 
-                  key={c.id} 
-                  className={`p-2.5 rounded-2xl text-xs space-y-1 ${
-                    c.author.includes('You') 
-                      ? 'bg-blue-50/50 border border-blue-150 text-slate-700 ml-6 rounded-tr-none' 
-                      : 'bg-slate-50 text-slate-700 border border-slate-100 mr-6 rounded-tl-none'
-                  }`}
-                >
-                  <strong className="font-black text-[9px] block uppercase opacity-85">{c.author}</strong>
-                  <p className="font-semibold leading-normal">{c.message}</p>
+            <div className="flex-1 overflow-y-auto space-y-3 my-3 pr-1 scrollbar-none text-xs">
+              {chats.length === 0 ? (
+                <div className="text-center text-slate-400 font-bold py-10 text-xs">
+                  No chat messages yet.
                 </div>
-              ))}
+              ) : (
+                chats.map((c, i) => (
+                  <div 
+                    key={c.id || i} 
+                    className={`p-2.5 rounded-2xl space-y-1 ${
+                      (c.author || '').includes('You') 
+                        ? 'bg-blue-50/70 border border-blue-100 text-slate-800 ml-6 rounded-tr-none' 
+                        : 'bg-slate-50 text-slate-800 border border-slate-100 mr-6 rounded-tl-none'
+                    }`}
+                  >
+                    <strong className="font-black text-[9px] block uppercase opacity-85 text-slate-500">{c.author || c.senderName || 'Team Member'}</strong>
+                    <p className="font-semibold leading-normal">{c.message || c.content}</p>
+                  </div>
+                ))
+              )}
             </div>
 
-            <form onSubmit={handleSendChannelUpdate} className="flex gap-2 border-t border-slate-50 pt-2.5">
+            <form onSubmit={handleSendChannelUpdate} className="flex gap-2 border-t border-slate-100 pt-2.5">
               <input 
                 type="text" 
-                placeholder="Reply to channel..." 
+                placeholder="Reply to team channel..." 
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                className="flex-1 px-3 py-1.5 border border-slate-205 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-xs font-semibold bg-white"
+                className="flex-1 px-3 py-1.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs font-semibold bg-white"
               />
               <button 
                 type="submit"
-                className="px-3 py-1.5 bg-brand-primary text-slate-905 rounded-xl text-xs font-black shadow-3xs"
+                className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-3xs"
               >
                 Send
               </button>
             </form>
           </div>
 
-          {/* Expiring Documents preview */}
+          {/* Compliance Documents preview */}
           <Card title="Compliance Documents" subtitle="Track document verification status">
-            <div className="space-y-3 pt-2">
-              {documents.map(doc => (
-                <div key={doc.name} className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex justify-between items-center gap-2 text-xs">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <FolderOpen className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                    <div className="min-w-0">
-                      <strong className="text-slate-805 block truncate">{doc.name}</strong>
-                      <span className="text-[9px] text-slate-400 block font-semibold">Expires: {doc.expiry}</span>
-                    </div>
-                  </div>
-                  <span className="text-[8px] bg-emerald-50 text-emerald-600 border border-emerald-100 px-2 py-0.5 rounded font-black uppercase">
-                    Valid
-                  </span>
+            <div className="space-y-3 pt-2 text-xs">
+              {documents.length === 0 ? (
+                <div className="text-center text-slate-400 font-bold py-4">
+                  No documents uploaded.
                 </div>
-              ))}
+              ) : (
+                documents.map((doc, idx) => (
+                  <div key={doc.name || idx} className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex justify-between items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FolderOpen className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <strong className="text-slate-800 block truncate">{doc.name || doc.title}</strong>
+                        <span className="text-[9px] text-slate-400 block font-semibold">Expires: {doc.expiry || '2027-12-31'}</span>
+                      </div>
+                    </div>
+                    <span className="text-[8px] bg-emerald-50 text-emerald-600 border border-emerald-100 px-2 py-0.5 rounded font-black uppercase">
+                      Valid
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           </Card>
 

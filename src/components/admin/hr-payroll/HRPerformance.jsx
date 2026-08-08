@@ -1,7 +1,4 @@
 import React, { useState } from 'react';
-import { 
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend 
-} from 'recharts';
 import { Award, CheckSquare, Clock, AlertTriangle, Eye, Send } from 'lucide-react';
 import Card from '../../common/Card';
 
@@ -139,20 +136,27 @@ export default function HRPerformance({
 
       </div>
 
-      {/* Ratios Comparison Chart */}
+      {/* Ratios Comparison Table */}
       <Card title="Productivity & Task Completion Ratios" subtitle="Comparison of completion ratios across department groups">
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-              <XAxis dataKey="name" stroke="#94A3B8" fontSize={9} fontWeight="bold" />
-              <YAxis stroke="#94A3B8" fontSize={9} fontWeight="bold" />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="completion" fill="#8FC9FF" name="Task Completion (%)" />
-              <Bar dataKey="productivity" fill="#34D399" name="Productivity Score (%)" />
-            </BarChart>
-          </ResponsiveContainer>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs text-slate-700">
+            <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
+              <tr>
+                <th className="px-4 py-2">Employee</th>
+                <th className="px-4 py-2">Task Completion (%)</th>
+                <th className="px-4 py-2">Productivity Score (%)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {chartData.map((row, idx) => (
+                <tr key={idx} className="hover:bg-slate-50/50">
+                  <td className="px-4 py-2.5 font-bold text-slate-800">{row.name}</td>
+                  <td className="px-4 py-2.5 font-semibold text-blue-600">{row.completion}%</td>
+                  <td className="px-4 py-2.5 font-semibold text-emerald-600">{row.productivity}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </Card>
 

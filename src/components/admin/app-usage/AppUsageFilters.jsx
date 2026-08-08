@@ -19,8 +19,8 @@ export default function AppUsageFilters({
   onResetFilters
 }) {
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [tempFromDate, setTempFromDate] = useState(fromDate || '2025-05-19');
-  const [tempToDate, setTempToDate] = useState(toDate || '2025-05-25');
+  const [tempFromDate, setTempFromDate] = useState(fromDate || new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]);
+  const [tempToDate, setTempToDate] = useState(toDate || new Date().toISOString().split('T')[0]);
 
   const handleApplyCustomDates = () => {
     if (tempFromDate && tempToDate) {
@@ -54,9 +54,12 @@ export default function AppUsageFilters({
       setToDate(yestStr);
       setDateRange(`Yesterday (${yest.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`);
     } else if (presetKey === 'week') {
-      setFromDate('2025-05-19');
-      setToDate('2025-05-25');
-      setDateRange('May 19 – May 25, 2025');
+      const sevenAgo = new Date(today);
+      sevenAgo.setDate(sevenAgo.getDate() - 7);
+      const sevenStr = sevenAgo.toISOString().split('T')[0];
+      setFromDate(sevenStr);
+      setToDate(todayStr);
+      setDateRange('Last 7 Days');
     } else if (presetKey === 'month') {
       const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
       setFromDate(firstDay);
@@ -92,7 +95,7 @@ export default function AppUsageFilters({
                   </option>
                 ))
               ) : (
-                <option value="Bhakti Kadam">Bhakti Kadam</option>
+                <option value="">Select Employee</option>
               )}
             </select>
             <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none" />

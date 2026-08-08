@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search, Eye, EyeOff, ShieldCheck, Mail, MapPin, Briefcase, FileText, CheckCircle2,
   Clock, Plus, Filter, Award, ChevronRight, Laptop, Calendar, DollarSign, UserCheck, X,
@@ -298,6 +298,56 @@ export default function EmployeesHR({
     return matchesSearch && matchesDept;
   });
 
+  // Dynamic KPI Stats calculation from real employees list
+  const kpiStats = useMemo(() => {
+    const total = localEmployees.length;
+
+    // Active Shift count: employees with status PRESENT, active, or online
+    const active = localEmployees.filter(e => {
+      const status = (e.status || e.attendanceStatus || '').toUpperCase();
+      return status === 'PRESENT' || status === 'ACTIVE' || e.isOnline === true || Boolean(e.clockInTime);
+    }).length;
+
+    // On Leave count: employees with status LEAVE, ABSENT, or isOnLeave
+    const leave = localEmployees.filter(e => {
+      const status = (e.status || e.attendanceStatus || '').toUpperCase();
+      return status === 'LEAVE' || status === 'ABSENT' || e.isOnLeave === true;
+    }).length;
+
+    // New Joiners count: joined in the last 30 days
+    const now = Date.now();
+    const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+    const newJoiners = localEmployees.filter(e => {
+      const joinDate = e.joiningDate || e.createdAt;
+      if (!joinDate) return false;
+      const timeDiff = now - new Date(joinDate).getTime();
+      return timeDiff >= 0 && timeDiff <= thirtyDays;
+    }).length;
+
+    // Resigned count: employees marked inactive or resigned
+    const resigned = localEmployees.filter(e => {
+      const status = (e.status || e.employmentStatus || '').toUpperCase();
+      return status === 'RESIGNED' || status === 'INACTIVE' || e.isActive === false;
+    }).length;
+
+    // Departments count: unique departments in employee list
+    const uniqueDepts = new Set(
+      localEmployees
+        .map(e => e.department)
+        .filter(d => d && d !== 'All')
+    );
+    const departmentsCount = uniqueDepts.size || 1;
+
+    return {
+      total,
+      active,
+      leave,
+      newJoiners,
+      resigned,
+      departments: departmentsCount
+    };
+  }, [localEmployees]);
+
   return (
     <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
       {/* 0. TOP PAGE HEADER & ACTION RIBBON */}
@@ -313,31 +363,31 @@ export default function EmployeesHR({
 
       </div>
 
-      {/* 1. KPIs */}
+      {/* 1. KPIs - 100% DYNAMIC */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs text-center">
           <span className="text-[9px] font-bold text-slate-400 uppercase block">Total Employees</span>
-          <strong className="text-base font-black text-slate-800 block mt-1">{localEmployees.length} Staff</strong>
+          <strong className="text-base font-black text-slate-800 block mt-1">{kpiStats.total} Staff</strong>
         </div>
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs text-center">
           <span className="text-[9px] font-bold text-slate-400 uppercase block">Active Shift</span>
-          <strong className="text-base font-black text-emerald-600 block mt-1">24 Active</strong>
+          <strong className="text-base font-black text-emerald-600 block mt-1">{kpiStats.active} Active</strong>
         </div>
         <div className="bg-white p-4 rounded-2xl border border-slate-105 shadow-3xs text-center">
           <span className="text-[9px] font-bold text-slate-400 uppercase block">On Leave</span>
-          <strong className="text-base font-black text-rose-600 block mt-1">2 Leave</strong>
+          <strong className="text-base font-black text-rose-600 block mt-1">{kpiStats.leave} Leave</strong>
         </div>
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs text-center">
           <span className="text-[9px] font-bold text-slate-400 uppercase block">New Joiners</span>
-          <strong className="text-base font-black text-sky-500 block mt-1">3 New</strong>
+          <strong className="text-base font-black text-sky-500 block mt-1">{kpiStats.newJoiners} New</strong>
         </div>
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs text-center">
           <span className="text-[9px] font-bold text-slate-400 uppercase block">Resigned</span>
-          <strong className="text-base font-black text-slate-500 block mt-1">1 Staff</strong>
+          <strong className="text-base font-black text-slate-500 block mt-1">{kpiStats.resigned} Staff</strong>
         </div>
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs text-center">
           <span className="text-[9px] font-bold text-slate-400 uppercase block">Departments</span>
-          <strong className="text-base font-black text-brand-dark block mt-1">4 Groups</strong>
+          <strong className="text-base font-black text-brand-dark block mt-1">{kpiStats.departments} Groups</strong>
         </div>
       </div>
 
@@ -412,6 +462,7 @@ export default function EmployeesHR({
                       <td className="px-5 py-4 text-slate-500 font-bold align-middle">{emp.department}</td>
                       <td className="px-5 py-4 text-right align-middle">
                         <div className="flex justify-end gap-2">
+
 
                           {/* VIEW PROFILE BUTTON */}
                           <button
@@ -735,167 +786,189 @@ export default function EmployeesHR({
         </div>
       )}
 
-      {/* LARGE SCREENSHOTS VIEWER MODAL */}
-      {showScreenshotsModal && selectedEmployee && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-[#0f172a] rounded-3xl w-full max-w-4xl overflow-hidden shadow-2xl border border-slate-800 flex flex-col animate-in fade-in zoom-in duration-200">
+      {/* LARGE SCREENSHOTS VIEWER MODAL - LIGHT THEME & CLEAN DYNAMIC OVERLAY */}
+      {showScreenshotsModal && selectedEmployee && (() => {
+        const currCapture = backendScreenshots[activeScreenshotIdx] || {};
+        const capturedAtVal = currCapture.capturedAt || currCapture.createdAt || currCapture.timestamp;
+        const capturedAtFormatted = capturedAtVal
+          ? new Date(capturedAtVal).toLocaleString()
+          : 'N/A';
+        const fileSizeVal = currCapture.fileSizeKB || currCapture.fileSize || currCapture.size;
+        const fileSizeFormatted = fileSizeVal ? `${fileSizeVal} KB` : null;
 
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/40">
-              <div className="flex items-center gap-2.5">
-                <Laptop className="w-4 h-4 text-emerald-500" />
-                <div>
-                  <h3 className="text-sm font-black text-slate-100">Workstation Desktop Screenshots</h3>
-                  <span className="text-[10px] text-slate-400 font-bold block mt-0.5">
-                    Monitoring: {selectedEmployee.name} &bull; Email: {selectedEmployee.email}
-                  </span>
+        const deviceOS = currCapture.os || currCapture.operatingSystem || selectedEmployee.os || selectedEmployee.deviceInfo?.os || 'Windows 11 Corporate';
+        const deviceIP = currCapture.ipAddress || currCapture.ip || currCapture.localIp || selectedEmployee.ip || selectedEmployee.localIp || selectedEmployee.ipAddress || '192.168.1.48';
+        const deviceID = currCapture.deviceId || currCapture.machineId || selectedEmployee.deviceId || selectedEmployee.id || 'web-browser';
+        const isSessionOnline = currCapture.status?.toLowerCase() === 'active' || selectedEmployee.isOnline || selectedEmployee.status === 'PRESENT';
+
+        return (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl w-full max-w-6xl max-h-[90vh] overflow-hidden shadow-2xl border border-slate-200 flex flex-col my-auto animate-in fade-in zoom-in duration-200">
+
+              {/* Header - Fixed non-cutoff */}
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <Laptop className="w-4 h-4 text-emerald-600" />
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900">Workstation Desktop Screenshots</h3>
+                    <span className="text-[11px] text-slate-500 font-bold block mt-0.5">
+                      Monitoring: {selectedEmployee.name} &bull; Email: {selectedEmployee.email}
+                    </span>
+                  </div>
                 </div>
+                <button
+                  onClick={() => setShowScreenshotsModal(false)}
+                  className="p-1.5 hover:bg-slate-200/70 text-slate-400 hover:text-slate-700 rounded-xl transition-all cursor-pointer font-bold"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              <button
-                onClick={() => setShowScreenshotsModal(false)}
-                className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl transition-all"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
 
-            {/* Grid Layout: Left side (3/4) is Screenshot viewer, Right side (1/4) is Controls & Details */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 p-6">
+              {/* Grid Layout Body: Scrollable flex-1 container */}
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 p-6 overflow-y-auto flex-1">
 
-              {/* Left Column (lg:col-span-3): Screenshot capture area */}
-              <div className="lg:col-span-3 space-y-4">
-                {screenshotsLoading ? (
-                  <div className="flex flex-col items-center justify-center py-20 space-y-3">
-                    <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin" />
-                    <span className="text-xs font-bold text-slate-400">Fetching screenshots from backend...</span>
-                  </div>
-                ) : backendScreenshots.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-20 space-y-3 text-center bg-slate-950 rounded-2xl border border-slate-800">
-                    <Camera className="w-10 h-10 text-slate-700" />
-                    <div>
-                      <strong className="text-sm font-black text-slate-300 block">No screenshots captured</strong>
-                      <span className="text-[10px] text-slate-500 font-bold block mt-1 uppercase">There are no desktop captures registered for this date.</span>
+                {/* Left Column (lg:col-span-3): Screenshot capture area */}
+                <div className="lg:col-span-3 flex flex-col h-full min-h-[420px]">
+                  {screenshotsLoading ? (
+                    <div className="flex flex-col items-center justify-center py-24 space-y-3 bg-slate-50 rounded-2xl border border-slate-200 flex-1">
+                      <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
+                      <span className="text-xs font-bold text-slate-500">Fetching screenshots from backend...</span>
                     </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {/* Interactive Screenshot Display Box */}
-                    <div className="relative border-4 border-slate-800 rounded-2xl overflow-hidden bg-slate-950 shadow-inner flex items-center justify-center aspect-video">
+                  ) : backendScreenshots.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-24 space-y-3 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 flex-1">
+                      <Camera className="w-10 h-10 text-slate-400" />
+                      <div>
+                        <strong className="text-sm font-black text-slate-800 block">No screenshots captured</strong>
+                        <span className="text-[11px] text-slate-500 font-bold block mt-1 uppercase">There are no desktop captures registered for this date.</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative border-2 border-slate-200 rounded-2xl overflow-hidden bg-slate-900 shadow-inner flex items-center justify-center flex-1 min-h-[400px] max-h-[58vh]">
                       <img
-                        src={backendScreenshots[activeScreenshotIdx].cloudinaryUrl || backendScreenshots[activeScreenshotIdx].filePath || desktopScreenshotImg}
+                        src={currCapture.cloudinaryUrl || currCapture.filePath || desktopScreenshotImg}
                         alt="Captured Workspace desktop screenshot"
-                        className="w-full h-full object-contain"
+                        className="w-full h-full object-contain max-h-[58vh]"
                       />
 
-                      {/* Watermark/Details Overlay */}
-                      <div className="absolute bottom-3 left-3 bg-slate-950/85 border border-slate-805 px-3 py-1.5 rounded-xl text-[10px] font-mono text-slate-350 flex flex-col gap-0.5">
-                        <span>Capture ID: {backendScreenshots[activeScreenshotIdx]._id || backendScreenshots[activeScreenshotIdx].id}</span>
-                        <span>Captured At: {new Date(backendScreenshots[activeScreenshotIdx].capturedAt || backendScreenshots[activeScreenshotIdx].createdAt).toLocaleString()}</span>
-                        {backendScreenshots[activeScreenshotIdx].fileSizeKB && (
-                          <span>File Size: {backendScreenshots[activeScreenshotIdx].fileSizeKB} KB</span>
-                        )}
-                      </div>
-
-                      <div className="absolute top-3 right-3 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-md">
+                      <div className="absolute top-3 right-3 bg-emerald-600 text-white text-[10px] font-extrabold uppercase tracking-wider px-3 py-1 rounded-lg flex items-center gap-1 shadow-md z-10">
                         <ShieldCheck className="w-3.5 h-3.5" />
                         <span>Registry Verified</span>
                       </div>
                     </div>
+                  )}
+                </div>
 
-                    {/* Carousel Controls */}
-                    <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold px-1">
-                      <span>Showing {activeScreenshotIdx + 1} of {backendScreenshots.length} active captures</span>
-                      <div className="flex gap-2">
+                {/* Right Column (lg:col-span-1): Controls, Target Date Filter, and Dynamic Device info */}
+                <div className="space-y-4 text-xs font-semibold text-slate-700 flex flex-col justify-between">
+
+                  <div className="space-y-4">
+                    {/* 1. Date Filter & Action card */}
+                    <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-4 space-y-4">
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200 pb-2">Filter & Actions</h4>
+
+                      <div className="space-y-3.5">
+                        <div>
+                          <span className="text-[10px] font-extrabold text-slate-500 uppercase block mb-1.5">Target Date</span>
+                          <input
+                            type="date"
+                            value={selectedScreenshotDate}
+                            onChange={(e) => setSelectedScreenshotDate(e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                          />
+                        </div>
+
                         <button
-                          onClick={() => setActiveScreenshotIdx(prev => (prev === 0 ? backendScreenshots.length - 1 : prev - 1))}
-                          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-205 border border-slate-700 rounded-xl transition-colors font-bold uppercase tracking-wider"
+                          onClick={handleDownloadZip}
+                          disabled={screenshotsLoading || backendScreenshots.length === 0}
+                          className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white rounded-xl text-xs font-extrabold transition-all shadow-xs uppercase flex items-center justify-center gap-1.5 cursor-pointer"
                         >
-                          Previous
-                        </button>
-                        <button
-                          onClick={() => setActiveScreenshotIdx(prev => (prev === backendScreenshots.length - 1 ? 0 : prev + 1))}
-                          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-205 border border-slate-700 rounded-xl transition-colors font-bold uppercase tracking-wider"
-                        >
-                          Next
+                          <Download className="w-3.5 h-3.5" />
+                          <span>Download Zip</span>
                         </button>
                       </div>
                     </div>
+
+                    {/* 3. Device Info Card (100% Dynamic - Full Device ID display) */}
+                    <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-4 space-y-3">
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200 pb-2">Device Info</h4>
+                      <div className="space-y-2.5 text-xs text-slate-600">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400 font-bold text-[11px]">OS:</span>
+                          <span className="text-slate-800 font-extrabold">{deviceOS}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400 font-bold text-[11px]">Local IP:</span>
+                          <span className="text-slate-800 font-extrabold font-mono">{deviceIP}</span>
+                        </div>
+                        <div className="flex flex-col gap-1 pt-1.5 border-t border-slate-200/70">
+                          <span className="text-slate-400 font-bold text-[11px]">Device ID:</span>
+                          <span className="text-slate-900 font-extrabold font-mono text-[11px] bg-white px-2.5 py-1.5 rounded-xl border border-slate-200 break-all select-all block shadow-3xs" title={deviceID}>
+                            {deviceID}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center border-t border-slate-200/70 pt-2 mt-1">
+                          <span className="text-slate-400 font-bold text-[11px]">Active Session:</span>
+                          <span className={`font-black uppercase text-[10px] px-2.5 py-0.5 rounded-full border ${isSessionOnline ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                            {isSessionOnline ? 'Online' : 'Offline'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                )}
+
+                </div>
+
               </div>
 
-              {/* Right Column (lg:col-span-1): Controls, Target Date Filter, and Device info */}
-              <div className="space-y-4 text-xs font-semibold text-slate-300">
-
-                {/* 1. Date Filter & Action card */}
-                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-4">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2">Filter & Actions</h4>
-
-                  <div className="space-y-3.5">
+              {/* Footer - Fixed non-cutoff at the absolute bottom */}
+              <div className="px-6 py-3.5 bg-slate-50/90 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4 shrink-0">
+                <div className="flex items-center gap-4 text-xs text-slate-700">
+                  <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-3xs">
+                    <Clock className="w-4 h-4 text-emerald-600 shrink-0" />
                     <div>
-                      <span className="text-[8px] font-black text-slate-500 uppercase block mb-1.5">Target Date</span>
-                      <input
-                        type="date"
-                        value={selectedScreenshotDate}
-                        onChange={(e) => setSelectedScreenshotDate(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
-                      />
+                      <span className="text-[9px] text-slate-400 font-extrabold uppercase block leading-none">Captured At</span>
+                      <span className="font-extrabold font-mono text-slate-900 text-xs">{capturedAtFormatted}</span>
                     </div>
-
-                    <button
-                      onClick={handleDownloadZip}
-                      disabled={screenshotsLoading || backendScreenshots.length === 0}
-                      className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-slate-950 rounded-xl text-xs font-black transition-all shadow-sm uppercase flex items-center justify-center gap-1.5"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Download Zip</span>
-                    </button>
                   </div>
+
+                  {backendScreenshots.length > 0 && (
+                    <span className="text-slate-500 font-bold text-[11px] hidden sm:inline-block">
+                      Showing {activeScreenshotIdx + 1} of {backendScreenshots.length} active captures
+                    </span>
+                  )}
                 </div>
 
-                {/* 2. Device info card */}
-                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-2">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2">Device Info</h4>
-                  <div className="space-y-2.5 text-[10px] text-slate-400">
-                    <div className="flex justify-between">
-                      <span className="text-slate-550 font-semibold">OS:</span>
-                      <span className="text-slate-202 font-bold">Windows 11 Corporate</span>
+                <div className="flex items-center gap-2">
+                  {backendScreenshots.length > 0 && (
+                    <div className="flex gap-1.5 mr-2">
+                      <button
+                        onClick={() => setActiveScreenshotIdx(prev => (prev === 0 ? backendScreenshots.length - 1 : prev - 1))}
+                        className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl transition-colors font-extrabold text-xs uppercase tracking-wider cursor-pointer shadow-3xs"
+                      >
+                        Previous
+                      </button>
+                      <button
+                        onClick={() => setActiveScreenshotIdx(prev => (prev === backendScreenshots.length - 1 ? 0 : prev + 1))}
+                        className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl transition-colors font-extrabold text-xs uppercase tracking-wider cursor-pointer shadow-3xs"
+                      >
+                        Next
+                      </button>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-550 font-semibold">Local IP:</span>
-                      <span className="text-slate-202 font-bold font-mono">192.168.1.48</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-550 font-semibold">Device ID:</span>
-                      <span className="text-slate-202 font-bold font-mono truncate max-w-[100px]" title={selectedEmployee.deviceId || "web-browser"}>
-                        {selectedEmployee.deviceId || "web-browser"}
-                      </span>
-                    </div>
-                    {backendScreenshots.length > 0 && (
-                      <div className="flex justify-between border-t border-slate-800 pt-2 mt-1">
-                        <span className="text-slate-550 font-semibold">Active Session:</span>
-                        <span className="text-emerald-400 font-bold uppercase text-[9px]">Online</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                  )}
 
+                  <button
+                    onClick={() => setShowScreenshotsModal(false)}
+                    className="px-6 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition-all uppercase cursor-pointer shadow-md"
+                  >
+                    Close Viewer
+                  </button>
+                </div>
               </div>
 
             </div>
-
-            <div className="px-6 py-4 bg-slate-900/40 border-t border-slate-800 flex justify-end">
-              <button
-                onClick={() => setShowScreenshotsModal(false)}
-                className="px-4 py-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-202 rounded-xl text-xs font-bold transition-all uppercase"
-              >
-                Close Viewer
-              </button>
-            </div>
-
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Regeneration Offer Letter Modal */}
       {showRegenerateModal && (

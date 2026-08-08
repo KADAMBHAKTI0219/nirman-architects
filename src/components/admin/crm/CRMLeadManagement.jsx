@@ -5,7 +5,7 @@ import {
   Kanban, List, AlertCircle, FileText, ChevronRight, UserCheck, ShieldAlert,
   MoreVertical, TrendingUp, TrendingDown, Trophy, SlidersHorizontal, Plus,
   BarChart2, User, DollarSign, Eye, EyeOff, Trash2, Edit3, CheckCircle, PieChart,
-  GripVertical
+  GripVertical, Building, Building2
 } from 'lucide-react';
 import {
   createLead,
@@ -261,6 +261,9 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
   const [lostReasonText, setLostReasonText] = useState('');
   const [statusSubmitting, setStatusSubmitting] = useState(false);
 
+  // Due Follow-Ups Right Slide-Over Drawer
+  const [showDueDrawer, setShowDueDrawer] = useState(false);
+
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -290,7 +293,18 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
           assignedTo: ownerFilter
         });
         if (res?.success) {
-          setPipelineData(res.pipeline || {});
+          if (res.pipeline && typeof res.pipeline === 'object' && Object.keys(res.pipeline).length > 0) {
+            setPipelineData(res.pipeline);
+          } else if (Array.isArray(res.leads)) {
+            const grouped = {};
+            ALL_STATUSES.forEach(st => { grouped[st] = []; });
+            res.leads.forEach(l => {
+              const statusKey = (l.status || 'NEW').toUpperCase();
+              if (!grouped[statusKey]) grouped[statusKey] = [];
+              grouped[statusKey].push(l);
+            });
+            setPipelineData(grouped);
+          }
         }
       } else if (viewMode === 'list') {
         const res = await getLeads({
@@ -496,6 +510,30 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
     };
   }, [pipelineData]);
 
+  // Compute all leads with nextFollowUpDate
+  const dueFollowUpLeads = useMemo(() => {
+    let list = [];
+    if (pipelineData) {
+      Object.keys(pipelineData).forEach(k => {
+        if (Array.isArray(pipelineData[k])) {
+          list = list.concat(pipelineData[k]);
+        }
+      });
+    }
+    if (leads && leads.length > 0) {
+      list = list.concat(leads);
+    }
+    const seen = new Set();
+    const unique = list.filter(l => {
+      const id = l._id || l.id;
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+
+    return unique.filter(l => l.nextFollowUpDate && !['WON', 'LOST'].includes(l.status)).sort((a, b) => new Date(a.nextFollowUpDate) - new Date(b.nextFollowUpDate));
+  }, [pipelineData, leads]);
+
   const handleOpenCreateModal = (preStatus = 'NEW') => {
     setCreatePreSelectedStatus(preStatus);
     setNewLeadForm({
@@ -569,14 +607,37 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
     }
   };
 
+  const handleUpdateFollowUpDate = async (newDate) => {
+    if (!selectedLead) return;
+    try {
+      const res = await updateLead(selectedLead._id || selectedLead.id, { nextFollowUpDate: newDate });
+      if (res?.success && res.lead) {
+        setSelectedLead(res.lead);
+        fetchData();
+        alert("Follow-up date updated successfully!");
+      } else {
+        setSelectedLead(prev => ({ ...prev, nextFollowUpDate: newDate }));
+      }
+    } catch (err) {
+      setSelectedLead(prev => ({ ...prev, nextFollowUpDate: newDate }));
+    }
+  };
+
   const handleLogInteractionSubmit = async (e) => {
     e.preventDefault();
     if (!selectedLead) return;
     setInteractionSubmitting(true);
     try {
-      const res = await logInteraction(selectedLead._id || selectedLead.id, interactionForm);
+      const res = await logInteraction(selectedLead._id || selectedLead.id, {
+        type: interactionForm.type,
+        notes: interactionForm.notes
+      });
       if (res?.success) {
-        setInteractionForm({ type: 'Call', notes: '' });
+        // Also update next follow up date if user specified one
+        if (interactionForm.nextFollowUpDate) {
+          await handleUpdateFollowUpDate(interactionForm.nextFollowUpDate);
+        }
+        setInteractionForm({ type: 'Call', notes: '', nextFollowUpDate: '' });
         const updatedInter = await getLeadInteractions(selectedLead._id || selectedLead.id);
         if (updatedInter?.success) setInteractions(updatedInter.interactions || []);
       } else {
@@ -721,6 +782,13 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowDueDrawer(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-extrabold text-xs rounded-xl shadow-2xs transition-all cursor-pointer border border-brand-secondary/30"
+          >
+            <Calendar className="w-4 h-4 text-slate-900 stroke-[2.5]" />
+            <span>Due Follow-Ups ({dueFollowUpLeads.length})</span>
+          </button>
           <button
             onClick={() => handleOpenCreateModal('NEW')}
             className="flex items-center gap-2 px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-extrabold text-xs rounded-xl shadow-2xs transition-all cursor-pointer"
@@ -1512,21 +1580,32 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
         </div>
       )}
 
-      {/* 9. DRAWER / MODAL: LEAD DETAILS & LIFECYCLE MANAGEMENT */}
+      {/* 9. DRAWER / MODAL: LEAD DETAILS & LIFECYCLE MANAGEMENT (SLIDE IN FROM RIGHT) */}
       {selectedLead && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-end z-50 animate-in slide-in-from-right duration-200">
-          <div className="bg-white w-full max-w-2xl h-full shadow-2xl overflow-y-auto p-6 space-y-6 flex flex-col justify-between">
-            <div className="space-y-6">
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-end z-50 animate-in fade-in duration-200"
+          onClick={() => setSelectedLead(null)}
+        >
+          <div 
+            className="bg-white w-full max-w-2xl h-full shadow-2xl overflow-y-auto p-6 space-y-6 flex flex-col justify-between font-sans transform transition-all duration-300 ease-out animate-in slide-in-from-right"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="space-y-5">
               
               {/* Top Header */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-3">
-                  <div className={`w-11 h-11 rounded-2xl font-black text-sm flex items-center justify-center border shadow-3xs ${getAvatarColor(selectedLead.name)}`}>
+                  <div className={`w-12 h-12 rounded-2xl font-black text-sm flex items-center justify-center border shadow-3xs ${getAvatarColor(selectedLead.name)}`}>
                     {getInitials(selectedLead.name)}
                   </div>
                   <div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">Lead Profile</span>
-                    <h2 className="text-xl font-black text-slate-900 tracking-tight">{selectedLead.name}</h2>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">Lead Profile</span>
+                      <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[9px] font-bold rounded-md border border-slate-200">
+                        Source: {selectedLead.source || 'Direct'}
+                      </span>
+                    </div>
+                    <h2 className="text-xl font-black text-slate-900 tracking-tight leading-tight">{selectedLead.name}</h2>
                   </div>
                 </div>
                 <button 
@@ -1538,53 +1617,90 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
                 </button>
               </div>
 
-              {/* Status & Quick Action Ribbon */}
-              <div className="p-4 bg-slate-50/90 rounded-2xl border border-slate-200/90 flex flex-wrap items-center justify-between gap-3 shadow-3xs">
-                <div>
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Current Lifecycle Status</span>
-                  <span className={`px-3 py-1 rounded-full text-xs font-black border inline-block mt-0.5 ${STATUS_CONFIG[selectedLead.status]?.color}`}>
-                    {STATUS_CONFIG[selectedLead.status]?.label}
-                  </span>
+              {/* Status & Next Follow-Up Date Ribbon */}
+              <div className="p-4 bg-slate-50/90 rounded-2xl border border-slate-200/90 space-y-3 shadow-3xs">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Current Lifecycle Status</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-black border inline-block mt-0.5 ${STATUS_CONFIG[selectedLead.status]?.color}`}>
+                      {STATUS_CONFIG[selectedLead.status]?.label}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { setTargetStatus(selectedLead.status || 'QUALIFIED'); setStatusChangeModal(true); }}
+                      className="px-3.5 py-2 bg-brand-soft hover:bg-brand-primary text-slate-900 font-extrabold text-xs rounded-xl border border-brand-secondary/40 transition-all shadow-3xs cursor-pointer"
+                    >
+                      Change Status
+                    </button>
+                    <button
+                      onClick={handleConvertToClient}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Award className="w-4 h-4 text-white" />
+                      <span>Convert to Client (WON)</span>
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => { setTargetStatus('QUALIFIED'); setStatusChangeModal(true); }}
-                    className="px-3.5 py-2 bg-brand-soft hover:bg-brand-primary text-slate-900 font-extrabold text-xs rounded-xl border border-brand-secondary/40 transition-all shadow-3xs cursor-pointer"
-                  >
-                    Change Status
-                  </button>
-                  <button
-                    onClick={handleConvertToClient}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Award className="w-4 h-4 text-white" />
-                    <span>Convert to Client (WON)</span>
-                  </button>
+                {/* Follow-up Date Scheduler Ribbon */}
+                <div className="pt-3 border-t border-slate-200/60 flex flex-wrap items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block flex items-center gap-1">
+                      <Calendar className="w-3 h-3 text-indigo-600" />
+                      <span>Next Scheduled Follow-Up Date</span>
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {selectedLead.nextFollowUpDate ? (
+                        <span className="text-xs font-extrabold text-slate-900">
+                          {new Date(selectedLead.nextFollowUpDate).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+                        </span>
+                      ) : (
+                        <span className="text-xs font-semibold text-slate-400 italic">No follow-up date scheduled</span>
+                      )}
+
+                      {(() => {
+                        if (!selectedLead.nextFollowUpDate) return null;
+                        const target = new Date(selectedLead.nextFollowUpDate);
+                        const today = new Date();
+                        today.setHours(0,0,0,0);
+                        target.setHours(0,0,0,0);
+                        const diffDays = Math.ceil((target - today) / (1000 * 60 * 60 * 24));
+                        if (diffDays < 0) {
+                          return <span className="px-2 py-0.5 bg-rose-100 text-rose-800 border border-rose-300 text-[9px] font-black rounded-md">Overdue ({Math.abs(diffDays)} days)</span>;
+                        } else if (diffDays === 0) {
+                          return <span className="px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-black rounded-md animate-pulse">Due Today</span>;
+                        } else {
+                          return <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 text-[9px] font-black rounded-md">Due in {diffDays} days</span>;
+                        }
+                      })()}
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* Lead Details Grid Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-semibold">
-                <div className="p-4 bg-slate-50/90 rounded-2xl border border-slate-200/80 space-y-1.5 shadow-3xs">
-                  <span className="text-slate-400 font-black text-[10px] uppercase tracking-widest block">Contact Details</span>
-                  <div className="font-extrabold text-slate-900 text-sm flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{selectedLead.phone}</span>
+                <div className="p-4 bg-slate-50/90 rounded-2xl border border-slate-200/80 space-y-2 shadow-3xs">
+                  <span className="text-slate-400 font-black text-[10px] uppercase tracking-widest block">Contact Information</span>
+                  <div className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+                    <Phone className="w-3.5 h-3.5 text-indigo-600" />
+                    <a href={`tel:${selectedLead.phone}`} className="hover:underline text-slate-900">{selectedLead.phone}</a>
                   </div>
-                  <div className="text-slate-500 font-medium flex items-center gap-1.5 truncate">
-                    <Mail className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                    <span className="truncate">{selectedLead.email || 'No email provided'}</span>
+                  <div className="text-slate-600 font-medium flex items-center gap-2 truncate">
+                    <Mail className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" />
+                    <a href={`mailto:${selectedLead.email}`} className="truncate hover:underline text-slate-700">{selectedLead.email || 'No email provided'}</a>
                   </div>
                 </div>
 
-                <div className="p-4 bg-slate-50/90 rounded-2xl border border-slate-200/80 space-y-1.5 shadow-3xs">
-                  <span className="text-slate-400 font-black text-[10px] uppercase tracking-widest block">Project & Value</span>
-                  <div className="font-extrabold text-slate-900 text-sm flex items-center gap-1.5">
-                    <Building className="w-3.5 h-3.5 text-slate-400" />
+                <div className="p-4 bg-slate-50/90 rounded-2xl border border-slate-200/80 space-y-2 shadow-3xs">
+                  <span className="text-slate-400 font-black text-[10px] uppercase tracking-widest block">Project & Estimated Value</span>
+                  <div className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+                    <Building className="w-3.5 h-3.5 text-indigo-600" />
                     <span>{selectedLead.projectType || 'Residential Project'}</span>
                   </div>
-                  <div className="text-emerald-600 font-black text-sm">
+                  <div className="text-emerald-700 font-black text-sm">
                     {formatCurrency(selectedLead.amount)}
                   </div>
                 </div>
@@ -1592,32 +1708,45 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
 
               {/* Requirement Notes Panel */}
               <div className="p-4 bg-brand-soft/70 rounded-2xl border border-brand-secondary/30 text-xs space-y-1 shadow-3xs">
-                <span className="font-black text-slate-900 text-[10px] uppercase tracking-widest block">Requirement Notes</span>
+                <span className="font-black text-slate-900 text-[10px] uppercase tracking-widest block">Requirement Notes & Client Preferences</span>
                 <p className="text-slate-700 leading-relaxed font-semibold">{selectedLead.requirementNotes || 'No specific notes recorded.'}</p>
               </div>
 
-              {/* Log Touchpoint Interaction Form */}
+              {/* Log Touchpoint Interaction & Schedule Follow-Up Form */}
               <div className="bg-white p-4.5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3.5">
                 <h4 className="font-black text-slate-900 text-xs flex items-center gap-2">
                   <MessageSquare className="w-4 h-4 text-indigo-600" />
-                  <span>Log Interaction Touchpoint</span>
+                  <span>Log Touchpoint & Schedule Next Follow-Up</span>
                 </h4>
                 <form onSubmit={handleLogInteractionSubmit} className="space-y-3 text-xs">
-                  <div className="flex gap-2 flex-wrap">
-                    {['Call', 'Meeting', 'Email', 'Note'].map(t => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setInteractionForm({ ...interactionForm, type: t })}
-                        className={`px-3.5 py-1.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer border ${
-                          interactionForm.type === t 
-                            ? 'bg-brand-primary text-slate-900 border-brand-secondary/60 shadow-3xs font-black' 
-                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                        }`}
-                      >
-                        {t}
-                      </button>
-                    ))}
+                  <div className="flex gap-2 flex-wrap items-center justify-between">
+                    <div className="flex gap-1.5 flex-wrap">
+                      {['Call', 'Meeting', 'Email', 'Note'].map(t => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setInteractionForm({ ...interactionForm, type: t })}
+                          className={`px-3 py-1.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer border ${
+                            interactionForm.type === t 
+                              ? 'bg-brand-primary text-slate-900 border-brand-secondary/60 shadow-3xs font-black' 
+                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          {t === 'Call' ? '📞 Call' : t === 'Meeting' ? '🤝 Meeting' : t === 'Email' ? '✉️ Email' : '📝 Note'}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Next Follow Up Date input in form */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Set Follow-Up:</span>
+                      <input
+                        type="date"
+                        value={interactionForm.nextFollowUpDate || ''}
+                        onChange={(e) => setInteractionForm({ ...interactionForm, nextFollowUpDate: e.target.value })}
+                        className="px-2.5 py-1 border border-slate-200 rounded-lg text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
                   </div>
 
                   <textarea
@@ -1632,10 +1761,10 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
                   <button
                     type="submit"
                     disabled={interactionSubmitting}
-                    className="w-full py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-extrabold text-xs rounded-xl transition-all flex items-center justify-center gap-2 shadow-2xs cursor-pointer"
+                    className="w-full py-2.5 crm-brand-btn-accent text-white font-extrabold text-xs rounded-xl transition-all flex items-center justify-center gap-2 shadow-2xs cursor-pointer"
                   >
-                    {interactionSubmitting ? <RefreshCw className="w-4 h-4 animate-spin text-slate-900" /> : <Check className="w-4 h-4 text-slate-900 stroke-[2.5]" />}
-                    <span>Save Touchpoint Log</span>
+                    {interactionSubmitting ? <RefreshCw className="w-4 h-4 animate-spin text-white" /> : <Check className="w-4 h-4 text-white stroke-[2.5]" />}
+                    <span>Save Touchpoint & Schedule Follow-Up</span>
                   </button>
                 </form>
               </div>
@@ -1644,7 +1773,7 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
               <div className="space-y-3">
                 <h4 className="font-black text-slate-900 text-xs flex items-center gap-2">
                   <History className="w-4 h-4 text-indigo-600" />
-                  <span>Interactions Timeline ({interactions.length})</span>
+                  <span>Interactions & Touchpoints Log ({interactions.length})</span>
                 </h4>
 
                 <div className="space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-none">
@@ -1653,14 +1782,14 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
                       <div key={item._id} className="p-3 bg-slate-50/90 rounded-2xl border border-slate-200/80 text-xs space-y-1 shadow-3xs">
                         <div className="flex items-center justify-between">
                           <span className="font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2.5 py-0.5 rounded-lg text-[10px]">
-                            {item.type}
+                            {item.type === 'Call' ? '📞 Call' : item.type === 'Meeting' ? '🤝 Meeting' : item.type === 'Email' ? '✉️ Email' : '📝 Note'}
                           </span>
                           <span className="text-[10px] text-slate-400 font-mono">
-                            {new Date(item.loggedAt).toLocaleString()}
+                            {new Date(item.loggedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
                           </span>
                         </div>
-                        <p className="text-slate-800 font-medium mt-1">{item.notes}</p>
-                        <div className="text-[10px] text-slate-400 font-semibold">Logged by: {item.loggedBy?.name || 'Bhakti'}</div>
+                        <p className="text-slate-800 font-medium mt-1 leading-relaxed">{item.notes}</p>
+                        <div className="text-[10px] text-slate-400 font-semibold pt-0.5">Logged by: {item.loggedBy?.name || 'Staff User'}</div>
                       </div>
                     ))
                   ) : (
@@ -1675,7 +1804,7 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
               <div className="space-y-3 pb-4">
                 <h4 className="font-black text-slate-900 text-xs flex items-center gap-2">
                   <ShieldAlert className="w-4 h-4 text-indigo-600" />
-                  <span>Status Change Audit Trail ({statusHistory.length})</span>
+                  <span>Lifecycle Status Audit Trail ({statusHistory.length})</span>
                 </h4>
 
                 <div className="space-y-2 max-h-36 overflow-y-auto pr-1 scrollbar-none">
@@ -1687,7 +1816,7 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
                         <span className="font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2 py-0.5 rounded text-[10px]">{h.toStatus}</span>
                       </div>
                       <span className="text-[10px] font-mono text-slate-400 font-bold">
-                        {new Date(h.changedAt || Date.now()).toLocaleDateString()}
+                        {new Date(h.changedAt || Date.now()).toLocaleDateString(undefined, { dateStyle: 'medium' })}
                       </span>
                     </div>
                   ))}
@@ -1953,6 +2082,104 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
                 {statusSubmitting ? 'Updating Status...' : 'Confirm Status Transition'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 11. DRAWER / MODAL: DUE FOLLOW-UPS RIGHT SLIDE-OVER */}
+      {showDueDrawer && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-end z-50 animate-in fade-in duration-200"
+          onClick={() => setShowDueDrawer(false)}
+        >
+          <div 
+            className="bg-white w-full max-w-lg h-full shadow-2xl overflow-y-auto p-6 space-y-5 flex flex-col justify-between font-sans transform transition-all duration-300 ease-out animate-in slide-in-from-right"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="space-y-4">
+              {/* Drawer Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2.5 bg-amber-50 text-amber-700 rounded-2xl border border-amber-200/80">
+                    <Calendar className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-slate-900 tracking-tight">Scheduled Follow-Ups</h2>
+                    <p className="text-slate-500 text-xs font-semibold">Date-wise pending calls, meetings & client touchpoints ({dueFollowUpLeads.length})</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowDueDrawer(false)}
+                  className="w-9 h-9 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-all cursor-pointer shadow-3xs"
+                >
+                  <X className="w-5 h-5 stroke-[2.5]" />
+                </button>
+              </div>
+
+              {/* List of Due Follow-Up Leads */}
+              <div className="space-y-3 pt-2">
+                {dueFollowUpLeads.length > 0 ? (
+                  dueFollowUpLeads.map(lead => {
+                    const target = new Date(lead.nextFollowUpDate);
+                    const today = new Date();
+                    today.setHours(0,0,0,0);
+                    target.setHours(0,0,0,0);
+                    const diffDays = Math.ceil((target - today) / (1000 * 60 * 60 * 24));
+                    
+                    let statusBadge = { label: `Due in ${diffDays} days`, style: 'bg-emerald-50 text-emerald-800 border-emerald-200' };
+                    if (diffDays < 0) {
+                      statusBadge = { label: `Overdue (${Math.abs(diffDays)} days)`, style: 'bg-rose-50 text-rose-800 border-rose-200' };
+                    } else if (diffDays === 0) {
+                      statusBadge = { label: 'Due Today', style: 'bg-amber-50 text-amber-900 border-amber-300 font-extrabold animate-pulse' };
+                    }
+
+                    return (
+                      <div
+                        key={lead._id || lead.id}
+                        onClick={() => {
+                          setShowDueDrawer(false);
+                          handleOpenLeadDetails(lead._id || lead.id);
+                        }}
+                        className="p-4 bg-slate-50/90 hover:bg-brand-soft/70 border border-slate-200/90 hover:border-brand-secondary/60 rounded-2xl transition-all cursor-pointer space-y-2 shadow-3xs group"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <strong className="text-slate-900 font-extrabold text-sm group-hover:text-indigo-700 transition-colors">{lead.name}</strong>
+                            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black border ${statusBadge.style}`}>
+                              {statusBadge.label}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-mono text-slate-400 font-bold">
+                            {new Date(lead.nextFollowUpDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 font-medium">
+                          <div className="flex items-center gap-1.5 truncate">
+                            <Phone className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                            <span className="truncate">{lead.phone}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 truncate">
+                            <Building className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                            <span className="truncate">{lead.projectType || 'Residential'}</span>
+                          </div>
+                        </div>
+
+                        {lead.requirementNotes && (
+                          <p className="text-[11px] text-slate-500 line-clamp-2 italic pt-1 border-t border-slate-200/60">
+                            "{lead.requirementNotes}"
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="p-8 text-center text-slate-400 text-xs font-semibold border border-dashed border-slate-200 rounded-2xl bg-slate-50">
+                    No follow-ups due matching current filter criteria.
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

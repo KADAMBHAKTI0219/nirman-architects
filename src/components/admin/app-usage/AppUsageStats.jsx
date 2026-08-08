@@ -3,11 +3,11 @@ import { Clock, Monitor, Coffee, LayoutGrid, TrendingUp, TrendingDown, MoreVerti
 
 export default function AppUsageStats({ statsData }) {
   const stats = statsData || {
-    totalTrackedTime: '14h 55m',
-    activeTime: '11h 28m',
-    idleTime: '3h 27m',
-    appsUsed: 18,
-    productivityScore: 92
+    totalTrackedTime: '0h 0m',
+    activeTime: '0h 0m',
+    idleTime: '0h 0m',
+    appsUsed: 0,
+    productivityScore: 0
   };
 
   return (
@@ -22,9 +22,8 @@ export default function AppUsageStats({ statsData }) {
         </div>
         <div className="mt-3">
           <div className="text-2xl font-black text-slate-900">{stats.totalTrackedTime}</div>
-          <div className="mt-2 flex items-center gap-1 text-xs text-emerald-600 font-extrabold">
-            <TrendingUp className="w-3.5 h-3.5" />
-            <span>↑ 12% vs yesterday</span>
+          <div className="mt-2 flex items-center gap-1 text-[11px] text-slate-400 font-bold">
+            <span>Real-time tracked</span>
           </div>
         </div>
       </div>
@@ -39,9 +38,9 @@ export default function AppUsageStats({ statsData }) {
         </div>
         <div className="mt-3">
           <div className="text-2xl font-black text-slate-900">{stats.activeTime}</div>
-          <div className="mt-2 flex items-center gap-1 text-xs text-emerald-600 font-extrabold">
+          <div className="mt-2 flex items-center gap-1 text-[11px] text-emerald-600 font-bold">
             <TrendingUp className="w-3.5 h-3.5" />
-            <span>↑ 8% vs yesterday</span>
+            <span>Active user session</span>
           </div>
         </div>
       </div>
@@ -56,9 +55,9 @@ export default function AppUsageStats({ statsData }) {
         </div>
         <div className="mt-3">
           <div className="text-2xl font-black text-slate-900">{stats.idleTime}</div>
-          <div className="mt-2 flex items-center gap-1 text-xs text-rose-500 font-extrabold">
-            <TrendingDown className="w-3.5 h-3.5" />
-            <span>↓ 5% vs yesterday</span>
+          <div className="mt-2 flex items-center gap-1 text-[11px] text-amber-600 font-bold">
+            <Coffee className="w-3.5 h-3.5" />
+            <span>Inactivity duration</span>
           </div>
         </div>
       </div>
@@ -73,9 +72,8 @@ export default function AppUsageStats({ statsData }) {
         </div>
         <div className="mt-3">
           <div className="text-2xl font-black text-slate-900">{stats.appsUsed}</div>
-          <div className="mt-2 flex items-center gap-1 text-xs text-emerald-600 font-extrabold">
-            <TrendingUp className="w-3.5 h-3.5" />
-            <span>↑ 4 vs yesterday</span>
+          <div className="mt-2 flex items-center gap-1 text-[11px] text-slate-400 font-bold">
+            <span>Unique apps logged</span>
           </div>
         </div>
       </div>
@@ -90,9 +88,9 @@ export default function AppUsageStats({ statsData }) {
         </div>
         <div className="mt-3">
           <div className="text-2xl font-black text-slate-900">{stats.productivityScore}%</div>
-          <div className="mt-2 flex items-center gap-1 text-xs text-emerald-600 font-extrabold">
+          <div className="mt-2 flex items-center gap-1 text-[11px] text-emerald-600 font-bold">
             <TrendingUp className="w-3.5 h-3.5" />
-            <span>↑ 7% vs yesterday</span>
+            <span>Active ratio</span>
           </div>
         </div>
       </div>

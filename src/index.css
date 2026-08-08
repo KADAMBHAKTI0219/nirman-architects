@@ -226,19 +226,70 @@ html {
   }
 }
 
-/* Typography softening overrides */
+/* Clean Normal Font Weight Normalization */
 .font-black,
 .font-extrabold,
 .font-bold,
-strong {
-  font-weight: 600 !important;
+strong,
+b {
+  font-weight: 500 !important;
 }
 
 h1,
 h2,
 h3,
+h4,
 .text-2xl,
 .text-3xl,
 .main-title {
-  font-weight: 700 !important;
+  font-weight: 600 !important;
+}
+
+/* CRM Queries & Support Ticket Brand Color Styling (#BDE0FE / #8FC9FF / #3B82F6 / #E5F0FA) */
+.crm-brand-btn {
+  background: linear-gradient(135deg, #BDE0FE 0%, #8FC9FF 100%) !important;
+  color: #0F172A !important;
+  font-weight: 600 !important;
+  border: 1px solid rgba(143, 201, 255, 0.6) !important;
+  box-shadow: 0 4px 14px 0 rgba(143, 201, 255, 0.35) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.crm-brand-btn:hover {
+  background: linear-gradient(135deg, #8FC9FF 0%, #3B82F6 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 18px 0 rgba(59, 130, 246, 0.35) !important;
+  transform: translateY(-1px) !important;
+}
+
+.crm-brand-btn-accent {
+  background-color: #BDE0FE !important;
+  color: #0F172A !important;
+  font-weight: 600 !important;
+  border: 1px solid rgba(143, 201, 255, 0.6) !important;
+  box-shadow: 0 2px 8px 0 rgba(143, 201, 255, 0.25) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.crm-brand-btn-accent:hover {
+  background-color: #8FC9FF !important;
+  color: #0F172A !important;
+  box-shadow: 0 4px 12px 0 rgba(143, 201, 255, 0.4) !important;
+  transform: translateY(-1px) !important;
+}
+
+.crm-brand-badge {
+  background-color: #E5F0FA !important;
+  color: #1E293B !important;
+  border: 1px solid #8FC9FF !important;
+}
+
+.crm-brand-soft-bg {
+  background-color: #E5F0FA !important;
+}
+
+.crm-brand-card {
+  background-color: #ffffff !important;
+  border: 1px solid #E5F0FA !important;
+  box-shadow: 0 10px 25px -5px rgba(143, 201, 255, 0.25) !important;
 }

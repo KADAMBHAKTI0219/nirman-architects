@@ -118,7 +118,7 @@ export default function CustomerDrawings() {
       accessor: "uploader",
       render: (row) => (
         <span className="text-xs text-slate-700 font-bold">
-          {row.uploadedBy?.name || 'Sarah Connor (Architect)'}
+          {row.uploadedBy?.name || 'Architect Lead'}
         </span>
       )
     },
@@ -280,7 +280,7 @@ export default function CustomerDrawings() {
 
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                   <span className="text-[10px] text-slate-500 font-semibold">
-                    {d.uploadedBy?.name || 'Sarah Connor (Architect)'}
+                    {d.uploadedBy?.name || 'Architect Lead'}
                   </span>
                   <button
                     onClick={() => setViewerDwg(d)}

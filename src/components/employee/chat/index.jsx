@@ -1,47 +1,87 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Send, Paperclip, MessageSquare, Users, Info, 
-  Check, CheckCheck, Smile, Phone, Video 
+  Check, CheckCheck, Smile, Phone, Video, RefreshCw 
 } from 'lucide-react';
 import Card from '../../common/Card';
-
-const INITIAL_ROOMS = [
-  { id: 1, name: "Central Office Tower", unread: 2, project: "Noida Sector 62", members: ["Sarah Connor (PM)", "Alice Smith (You)", "Bob Johnson"], messages: [
-    { sender: "Sarah Connor (PM)", text: "Team, please verify the wall thickness revisions in the blueprints before submitting to client review.", time: "10:30 AM", isSelf: false },
-    { sender: "Sarah Connor (PM)", text: "Also check the riser dimensions on the staircase treads.", time: "10:32 AM", isSelf: false },
-    { sender: "Alice Smith (You)", text: "Yes Sarah, I am coordinating riser dimensions with MEP shafts plan now.", time: "10:35 AM", isSelf: true }
-  ]},
-  { id: 2, name: "Smart City Mall", unread: 0, project: "Gurgaon Commercial", members: ["Sarah Connor (PM)", "Alice Smith (You)", "Frank Castle"], messages: [
-    { sender: "Sarah Connor (PM)", text: "Has the HVAC duct sizing draft been completed?", time: "09:00 AM", isSelf: false },
-    { sender: "Alice Smith (You)", text: "Yes, uploaded the layout draft V1.0 to the drawings module.", time: "09:15 AM", isSelf: true }
-  ]},
-  { id: 3, name: "Oceanic Luxury Villas", unread: 1, project: "Goa Beachfront", members: ["John Wick (PM)", "Alice Smith (You)"], messages: [
-    { sender: "John Wick (PM)", text: "Let's review the first floor plan concept drawings today.", time: "Yesterday", isSelf: false }
-  ]}
-];
+import { getInternalProjectChat, sendInternalChatMessage } from '../../../service/chat';
+import { getProjects } from '../../../service/project';
 
 export default function Chat() {
-  const [rooms, setRooms] = useState(INITIAL_ROOMS);
-  const [activeRoom, setActiveRoom] = useState(INITIAL_ROOMS[0]);
+  const [rooms, setRooms] = useState([]);
+  const [activeRoom, setActiveRoom] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [newMsg, setNewMsg] = useState('');
+  const messagesEndRef = useRef(null);
 
-  const handleSendMessage = (e) => {
+  useEffect(() => {
+    loadProjects();
+  }, []);
+
+  const loadProjects = async () => {
+    try {
+      const res = await getProjects();
+      if (res?.success && Array.isArray(res.projects) && res.projects.length > 0) {
+        const roomList = res.projects.map((p, idx) => ({
+          id: p._id || p.id || `proj-${idx + 1}`,
+          name: p.projectName || p.name || 'Project Room',
+          unread: 0,
+          project: p.address || p.projectCategory || 'Architectural Workspace',
+          members: ["Lead PM", "Staff Architect", "Client Contact"]
+        }));
+        setRooms(roomList);
+        if (roomList[0]) setActiveRoom(roomList[0]);
+      } else {
+        const fallback = [
+          { id: 'proj-1', name: "Central Office Tower", unread: 0, project: "Noida Sector 62", members: ["Lead PM", "Staff Architect"] },
+          { id: 'proj-2', name: "Smart City Mall", unread: 0, project: "Gurgaon Commercial", members: ["Lead PM", "Staff Architect"] }
+        ];
+        setRooms(fallback);
+        setActiveRoom(fallback[0]);
+      }
+    } catch (e) {
+      console.warn("Failed to load project channels", e);
+    }
+  };
+
+  const fetchChatMessages = async (projectId) => {
+    if (!projectId) return;
+    setLoading(true);
+    try {
+      const res = await getInternalProjectChat(projectId);
+      if (res?.messages) {
+        setMessages(res.messages);
+      }
+    } catch (err) {
+      console.warn("Error loading chat history", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeRoom) {
+      fetchChatMessages(activeRoom.id);
+    }
+  }, [activeRoom]);
+
+  const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMsg.trim()) return;
+    if (!newMsg.trim() || !activeRoom) return;
 
-    const messageObj = {
-      sender: "Alice Smith (You)",
-      text: newMsg,
-      time: "Just now",
-      isSelf: true
-    };
-
-    const updatedMessages = [...activeRoom.messages, messageObj];
-    const updatedRoom = { ...activeRoom, messages: updatedMessages, unread: 0 };
-
-    setRooms(prev => prev.map(r => r.id === activeRoom.id ? updatedRoom : r));
-    setActiveRoom(updatedRoom);
-    setNewMsg('');
+    try {
+      const res = await sendInternalChatMessage(activeRoom.id, { messageText: newMsg });
+      if (res?.messageObj || res?.message) {
+        const added = res.messageObj || res.message;
+        setMessages(prev => [...prev, added]);
+      } else {
+        fetchChatMessages(activeRoom.id);
+      }
+      setNewMsg('');
+    } catch (err) {
+      alert("Failed to send internal chat message.");
+    }
   };
 
   return (

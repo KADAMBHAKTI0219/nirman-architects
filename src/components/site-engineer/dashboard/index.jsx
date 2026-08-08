@@ -1,9 +1,5 @@
 import React, { useState } from 'react';
 import { 
-  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, 
-  Tooltip, BarChart as RechartsBarChart, Bar 
-} from 'recharts';
-import { 
   MapPin, Users, AlertTriangle, Send, Camera, Clock, 
   CheckSquare, ArrowRight, Eye, Image as ImageIcon 
 } from 'lucide-react';

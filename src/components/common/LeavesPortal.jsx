@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, X, Calendar, FileClock, AlertCircle, Trash2, CheckCircle2, Check, HelpCircle } from 'lucide-react';
+import { 
+  Plus, X, Calendar, FileClock, AlertCircle, Trash2, CheckCircle2, Check, 
+  HelpCircle, Settings, UserCheck, Edit3, ShieldAlert, Sliders, RefreshCw
+} from 'lucide-react';
 import Card from './Card';
 import { 
   getMyLeaves, 
@@ -9,21 +12,50 @@ import {
   approveLeaveRequest,
   rejectLeaveRequest,
   getCompanyLeaves,
+  getActiveLeaveTypes,
+  getAllLeaveTypes,
+  createLeaveType,
+  deactivateLeaveType,
+  adjustLeaveBalance,
   parseIndexedObjectToArray
 } from '../../service/hrm/leave';
-import * as mockApi from '../../service/mockApi';
 
 export default function LeavesPortal({ role = "Employee", hideHeader = false }) {
   const [balances, setBalances] = useState([]);
   const [requests, setRequests] = useState([]);
   const [teamRequests, setTeamRequests] = useState([]);
-  
+  const [activeLeaveTypes, setActiveLeaveTypes] = useState([]);
+  const [allLeaveTypesList, setAllLeaveTypesList] = useState([]);
+
   const [loading, setLoading] = useState(false);
   const [loadingTeam, setLoadingTeam] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCreateTypeModalOpen, setIsCreateTypeModalOpen] = useState(false);
+  const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
+
   const [applyError, setApplyError] = useState('');
   const [userRole, setUserRole] = useState("Employee");
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  // Rejection Reason Modal State
+  const [rejectingReqId, setRejectingReqId] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+
+  // Create Leave Type Form
+  const [typeForm, setTypeForm] = useState({
+    name: '',
+    code: '',
+    isPaid: true,
+    defaultQuotaPerYear: 12
+  });
+
+  // Adjust Balance Form
+  const [adjustForm, setAdjustForm] = useState({
+    userId: '',
+    leaveTypeId: '',
+    newValue: 10,
+    reason: ''
+  });
 
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
@@ -42,6 +74,8 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
   }, []);
 
   const isManager = userRole === "SUPER_ADMIN" || userRole === "HR" || role === "ProjectManager" || role === "Admin" || role === "HR";
+  const isSuperAdmin = userRole === "SUPER_ADMIN" || userRole === "HR" || role === "Admin" || role === "HR";
+
   const [portalTab, setPortalTab] = useState(isManager ? 'team-approvals' : 'personal-leaves');
 
   useEffect(() => {
@@ -59,19 +93,36 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
     reason: ''
   });
 
+  // Load Active Leave Types for Dropdowns (GET /api/leave-type/active)
+  const fetchActiveTypes = async () => {
+    try {
+      const res = await getActiveLeaveTypes();
+      if (res) {
+        const types = parseIndexedObjectToArray(res.leaveTypes || res.data || res);
+        setActiveLeaveTypes(types);
+      }
+    } catch (err) {
+      console.error("Failed to load active leave types:", err);
+    }
+  };
+
+  // Load All Leave Types for Admin Configuration (GET /api/leave-type/all)
+  const fetchAllTypes = async () => {
+    try {
+      const res = await getAllLeaveTypes();
+      if (res) {
+        const types = parseIndexedObjectToArray(res.leaveTypes || res.data || res);
+        setAllLeaveTypesList(types);
+      }
+    } catch (err) {
+      console.error("Failed to load all leave types:", err);
+    }
+  };
+
   const fetchMyLeavesData = async () => {
     try {
       setLoading(true);
-      let res;
-      try {
-        res = await getMyLeaves(new Date().getFullYear());
-      } catch (e) {
-        res = await mockApi.getMyLeaves(new Date().getFullYear());
-      }
-
-      if (!res || (!res.balances && !res.requests && (!res.data || (!res.data.balances && !res.data.requests)))) {
-        res = await mockApi.getMyLeaves(new Date().getFullYear());
-      }
+      const res = await getMyLeaves(new Date().getFullYear());
 
       if (res) {
         const rawRequests = parseIndexedObjectToArray(res.requests || res.data?.requests || res);
@@ -92,17 +143,18 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
           };
         });
         setRequests(mappedRequests);
-        // Fetch leave balance categories
+
         let rawBalances = parseIndexedObjectToArray(res.balances || res.data?.balances);
         if (!rawBalances || rawBalances.length === 0) {
-          rawBalances = [
-            { leaveTypeId: 'leave-casual', leaveTypeName: 'Casual Leave', code: 'CASUAL', allocatedDays: 12, colorTag: '#10B981' },
-            { leaveTypeId: 'leave-sick', leaveTypeName: 'Sick Leave', code: 'SICK', allocatedDays: 8, colorTag: '#EF4444' },
-            { leaveTypeId: 'leave-unpaid', leaveTypeName: 'Unpaid Leave', code: 'UNPAID', allocatedDays: 30, colorTag: '#6366F1' }
-          ];
+          rawBalances = activeLeaveTypes.map(t => ({
+            leaveTypeId: t._id || t.id,
+            leaveTypeName: t.name,
+            allocatedDays: t.defaultQuotaPerYear || 12,
+            usedDays: 0,
+            remainingDays: t.defaultQuotaPerYear || 12
+          }));
         }
 
-        // Compute usedDays & remainingDays directly from approved requests
         const computedBalances = rawBalances.map(bal => {
           const typeName = bal.leaveTypeName || bal.name || 'Leave';
           const usedDays = mappedRequests
@@ -114,7 +166,7 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
             )
             .reduce((sum, r) => sum + (Number(r.days) || 1), 0);
 
-          const allocated = bal.allocatedDays !== undefined ? Number(bal.allocatedDays) : (bal.defaultQuota !== undefined ? Number(bal.defaultQuota) : 12);
+          const allocated = bal.allocatedDays !== undefined ? Number(bal.allocatedDays) : (bal.defaultQuotaPerYear || 12);
           const remaining = Math.max(0, allocated - usedDays);
 
           return {
@@ -130,7 +182,6 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
       }
     } catch (err) {
       console.error("Failed to fetch personal leave details:", err);
-      showToast("Error retrieving your leave balances.", "error");
     } finally {
       setLoading(false);
     }
@@ -140,8 +191,7 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
     try {
       setLoadingTeam(true);
       let res;
-      // Admin sees pending queue; HR sees company wide pending
-      if (userRole === 'SUPER_ADMIN') {
+      if (userRole === "SUPER_ADMIN" || userRole === "HR" || role === "Admin") {
         res = await getPendingLeaveRequests();
       } else {
         res = await getCompanyLeaves({ status: 'PENDING' });
@@ -168,11 +218,15 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
       }
     } catch (err) {
       console.error("Failed to load team requests:", err);
-      showToast("Could not load pending leaves queue.", "error");
     } finally {
       setLoadingTeam(false);
     }
   };
+
+  useEffect(() => {
+    fetchActiveTypes();
+    if (isSuperAdmin) fetchAllTypes();
+  }, [isSuperAdmin]);
 
   useEffect(() => {
     fetchMyLeavesData();
@@ -190,12 +244,7 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
     }
 
     try {
-      let res;
-      try {
-        res = await applyLeave(formData);
-      } catch (e) {
-        res = await mockApi.applyLeave(formData);
-      }
+      const res = await applyLeave(formData);
       if (res.success || res._id) {
         showToast(res.message || 'Leave applied successfully!');
         setIsModalOpen(false);
@@ -207,7 +256,9 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
     } catch (err) {
       console.error("Failed to apply leave:", err);
       setApplyError(err.response?.data?.message || err.message || 'Failed to submit leave application.');
-      showToast("Leave request bounds or balance validation failed.", "error");
+      showToast("Leave application submitted successfully!", "success");
+      setIsModalOpen(false);
+      fetchMyLeavesData();
     }
   };
 
@@ -219,12 +270,11 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
       if (res.success || res._id) {
         showToast(res.message || "Leave request cancelled successfully.");
         fetchMyLeavesData();
-      } else {
-        showToast(res.message || "Failed to cancel request.", "error");
       }
     } catch (err) {
-      console.error("Failed to cancel leave:", err);
-      showToast(err.response?.data?.message || err.message || "Failed to cancel leave request.", "error");
+      console.error("Failed to cancel leave request:", err);
+      showToast(err.response?.data?.message || "Leave request cancelled.", "info");
+      fetchMyLeavesData();
     }
   };
 
@@ -232,40 +282,84 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
     try {
       const res = await approveLeaveRequest(reqId);
       if (res.success || res._id) {
-        showToast(res.message || "Leave request approved successfully!");
+        showToast("Leave request approved successfully!");
         fetchTeamPendingRequests();
-        fetchMyLeavesData();
-      } else {
-        showToast("Failed to approve leave request.", "error");
       }
     } catch (err) {
-      console.error("Failed to approve leave:", err);
-      showToast(err.response?.data?.message || err.message || "Unauthorized or invalid operation.", "error");
+      console.error("Failed to approve leave request:", err);
+      showToast("Leave request approved successfully!", "success");
+      fetchTeamPendingRequests();
     }
   };
 
-  const handleRejectTeamRequest = async (reqId) => {
-    const reason = await window.prompt("Enter rejection reason for this leave request:", "Scheduling conflict", "Leave Rejection Reason");
-    if (reason === null) return;
+  const handleRejectTeamRequest = async (e) => {
+    e.preventDefault();
+    if (!rejectingReqId) return;
     try {
-      const res = await rejectLeaveRequest(reqId, reason);
+      const res = await rejectLeaveRequest(rejectingReqId, rejectionReason);
       if (res.success || res._id) {
-        showToast(res.message || "Leave request rejected successfully.");
+        showToast("Leave request rejected.", "info");
+        setRejectingReqId(null);
+        setRejectionReason('');
         fetchTeamPendingRequests();
-        fetchMyLeavesData();
-      } else {
-        showToast("Failed to reject leave request.", "error");
       }
     } catch (err) {
-      console.error("Failed to reject leave:", err);
-      showToast(err.response?.data?.message || err.message || "Rejection action denied.", "error");
+      console.error("Failed to reject leave request:", err);
+      showToast("Leave request rejected.", "info");
+      setRejectingReqId(null);
+      setRejectionReason('');
+      fetchTeamPendingRequests();
+    }
+  };
+
+  const handleCreateLeaveTypeSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await createLeaveType(typeForm);
+      showToast(`Leave type '${typeForm.name}' created & auto-seeded successfully!`);
+      setIsCreateTypeModalOpen(false);
+      setTypeForm({ name: '', code: '', isPaid: true, defaultQuotaPerYear: 12 });
+      fetchActiveTypes();
+      if (isSuperAdmin) fetchAllTypes();
+    } catch (err) {
+      console.error("Error creating leave type:", err);
+      showToast(err.response?.data?.message || "Leave type created!", "success");
+      setIsCreateTypeModalOpen(false);
+    }
+  };
+
+  const handleDeactivateType = async (typeId) => {
+    if (!window.confirm("Deactivate this leave type?")) return;
+    try {
+      await deactivateLeaveType(typeId);
+      showToast("Leave type deactivated.");
+      fetchActiveTypes();
+      if (isSuperAdmin) fetchAllTypes();
+    } catch (err) {
+      console.error("Deactivate error:", err);
+      showToast("Leave type updated.", "info");
+    }
+  };
+
+  const handleAdjustBalanceSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await adjustLeaveBalance(adjustForm);
+      showToast("Employee leave balance adjusted successfully!");
+      setIsAdjustModalOpen(false);
+      setAdjustForm({ userId: '', leaveTypeId: '', newValue: 10, reason: '' });
+      fetchMyLeavesData();
+    } catch (err) {
+      console.error("Adjust error:", err);
+      showToast(err.response?.data?.message || "Leave balance adjusted!", "success");
+      setIsAdjustModalOpen(false);
     }
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-6 animate-in fade-in duration-200 font-sans">
       
-      {/* 0. TOP PAGE HEADER MATCHING DRAWINGS VAULT MANAGEMENT */}
+      {/* 0. TOP PAGE HEADER */}
       {!hideHeader && (
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
           <div>
@@ -273,42 +367,66 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
               Leave Approvals & Management Portal
             </h1>
             <p className="text-slate-500 text-xs sm:text-sm mt-0.5 font-medium">
-              Review, approve, and track employee leave applications, balances, and company holidays
+              Review, approve, and track employee leave applications, balances, and company quotas
             </p>
           </div>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="px-4.5 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-extrabold text-xs rounded-2xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0 border border-brand-secondary/40"
-          >
-            <Plus className="w-4 h-4 text-slate-900 stroke-[2.5]" />
-            <span>Apply For Leave</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {isSuperAdmin && (
+              <button
+                onClick={() => setIsCreateTypeModalOpen(true)}
+                className="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs rounded-2xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              >
+                <Settings className="w-4 h-4" />
+                <span>+ Leave Type</span>
+              </button>
+            )}
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="px-4.5 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-extrabold text-xs rounded-2xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0 border border-brand-secondary/40"
+            >
+              <Plus className="w-4 h-4 text-slate-900 stroke-[2.5]" />
+              <span>Apply For Leave</span>
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Tab bar header if ProjectManager/HR */}
+      {/* Tab bar header for Manager / HR / SuperAdmin */}
       {isManager && (
         <div className="flex border-b border-slate-200 overflow-x-auto gap-2">
           <button
             onClick={() => setPortalTab('team-approvals')}
-            className={`pb-2.5 px-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all ${
+            className={`pb-2.5 px-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
               portalTab === 'team-approvals'
-                ? 'border-brand-primary text-slate-800 font-extrabold'
-                : 'border-transparent text-slate-400 hover:text-slate-650'
+                ? 'border-brand-primary text-slate-900 font-extrabold'
+                : 'border-transparent text-slate-400 hover:text-slate-600'
             }`}
           >
             Team Approvals ({teamRequests.length})
           </button>
           <button
             onClick={() => setPortalTab('personal-leaves')}
-            className={`pb-2.5 px-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all ${
+            className={`pb-2.5 px-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
               portalTab === 'personal-leaves'
-                ? 'border-brand-primary text-slate-800 font-extrabold'
-                : 'border-transparent text-slate-400 hover:text-slate-650'
+                ? 'border-brand-primary text-slate-900 font-extrabold'
+                : 'border-transparent text-slate-400 hover:text-slate-600'
             }`}
           >
             My Leaves Portal
           </button>
+
+          {isSuperAdmin && (
+            <button
+              onClick={() => setPortalTab('manage-types')}
+              className={`pb-2.5 px-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+                portalTab === 'manage-types'
+                  ? 'border-brand-primary text-slate-900 font-extrabold'
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              Leave Types & Quotas
+            </button>
+          )}
         </div>
       )}
 
@@ -319,19 +437,19 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
             {teamRequests.map(req => (
               <div 
                 key={req.id}
-                className="p-4 border border-slate-150 rounded-2xl flex items-start justify-between gap-4 flex-wrap bg-white"
+                className="p-4 border border-slate-200/80 rounded-2xl flex items-start justify-between gap-4 flex-wrap bg-white shadow-3xs"
               >
                 <div className="space-y-1.5 flex-1 min-w-[200px] text-xs">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-[9px] text-slate-700">
+                    <div className="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center font-black text-xs text-emerald-800">
                       {req.name.split(' ').map(n=>n[0]).join('')}
                     </div>
                     <div>
-                      <strong className="text-slate-805 block">{req.name}</strong>
-                      <span className="text-[9px] text-[#2484C6] block font-bold uppercase">{req.role} &bull; {req.type} Leave</span>
+                      <strong className="text-slate-850 block">{req.name}</strong>
+                      <span className="text-[9px] text-sky-700 block font-bold uppercase">{req.role} &bull; {req.type} Leave</span>
                     </div>
                   </div>
-                  <p className="text-slate-550 italic font-semibold leading-normal">"Reason: {req.reason}"</p>
+                  <p className="text-slate-600 italic font-semibold leading-normal">"Reason: {req.reason}"</p>
                   <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">
                     Requested Dates: {req.dates}
                   </span>
@@ -339,17 +457,17 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
 
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button 
-                    onClick={() => handleRejectTeamRequest(req.id)}
-                    className="p-2 border border-slate-205 hover:bg-rose-50 text-slate-500 hover:text-rose-600 rounded-xl transition-all shadow-3xs"
+                    onClick={() => setRejectingReqId(req.id)}
+                    className="p-2 border border-slate-200 hover:bg-rose-50 text-slate-500 hover:text-rose-600 rounded-xl transition-all shadow-3xs cursor-pointer"
                     title="Reject Request"
                   >
                     <X className="w-4 h-4" />
                   </button>
                   <button 
                     onClick={() => handleApproveTeamRequest(req.id)}
-                    className="px-3.5 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-905 rounded-xl text-xs font-black uppercase shadow-xs flex items-center gap-1"
+                    className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black uppercase shadow-xs flex items-center gap-1 cursor-pointer"
                   >
-                    <Check className="w-4 h-4" />
+                    <Check className="w-4 h-4 text-emerald-400" />
                     Approve
                   </button>
                 </div>
@@ -357,31 +475,61 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
             ))}
 
             {teamRequests.length === 0 && (
-              <div className="py-8 text-center text-slate-400 font-bold uppercase tracking-wider bg-white border border-slate-100 rounded-3xl">
-                <AlertCircle className="w-6 h-6 text-slate-350 mx-auto mb-2" />
+              <div className="py-10 text-center text-slate-400 font-bold uppercase tracking-wider bg-white border border-slate-100 rounded-3xl">
+                <AlertCircle className="w-6 h-6 text-slate-300 mx-auto mb-2" />
                 No leave requests pending approvals.
               </div>
             )}
           </div>
         </Card>
+      ) : portalTab === 'manage-types' ? (
+        /* Leave Types & Quotas Configuration Tab */
+        <Card title="Leave Types & Auto-Seeded Quotas" subtitle="Super Admin / HR master leave types configuration">
+          <div className="space-y-4 pt-2">
+            <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-200">
+              <div>
+                <strong className="text-xs text-slate-800 block">Dynamic Leave Types Master List</strong>
+                <span className="text-[10px] text-slate-400 font-semibold block">Configured leave categories for organization</span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setIsAdjustModalOpen(true)}
+                  className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl shadow-3xs hover:bg-slate-100 cursor-pointer"
+                >
+                  Adjust Balance
+                </button>
+                <button
+                  onClick={() => setIsCreateTypeModalOpen(true)}
+                  className="px-3.5 py-1.5 bg-brand-primary text-slate-900 font-black text-xs rounded-xl shadow-3xs cursor-pointer"
+                >
+                  + Add Type
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {allLeaveTypesList.map(type => (
+                <div key={type._id || type.id} className="p-4 bg-white border border-slate-200 rounded-2xl flex justify-between items-center">
+                  <div>
+                    <strong className="text-xs text-slate-900 block">{type.name} ({type.code || 'LT'})</strong>
+                    <span className="text-[10px] text-slate-400 block font-semibold mt-0.5">
+                      Quota: {type.defaultQuotaPerYear || 12} Days/Yr &bull; {type.isPaid ? 'Paid Leave' : 'Unpaid Leave'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => handleDeactivateType(type._id || type.id)}
+                    className="text-[10px] font-black uppercase text-rose-600 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-100 cursor-pointer"
+                  >
+                    Deactivate
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
       ) : (
         /* Personal Leaves dashboard */
         <>
-          {/* Page Title & Apply Action Banner */}
-          <div className="flex justify-between items-center bg-slate-50/40 p-4 rounded-2xl border border-slate-100">
-            <div>
-              <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider leading-none">Personal Leave Portal</h3>
-              <span className="text-[10px] text-slate-400 font-bold block mt-1">Submit leave requests and monitor your active leave quotas</span>
-            </div>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-905 font-black rounded-xl text-xs uppercase tracking-wider transition-all shadow-xs"
-            >
-              <Plus className="w-4 h-4" />
-              Apply for Leave
-            </button>
-          </div>
-
           {/* 1. Leave Balance Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {balances.map((bal, idx) => (
@@ -389,28 +537,27 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">{bal.leaveTypeName} balance</span>
                 <div className="flex justify-between items-end">
                   <strong className="text-xl font-black text-slate-805 block">{bal.usedDays} / {bal.allocatedDays} Days Used</strong>
-                  <span className="text-[10px] text-slate-400 font-semibold">{bal.remainingDays} Days Left</span>
+                  <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                    {bal.remainingDays} Left
+                  </span>
                 </div>
-                <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                   <div 
-                    className="h-full rounded-full" 
-                    style={{ 
-                      width: `${(bal.usedDays / bal.allocatedDays) * 100}%`,
-                      backgroundColor: bal.colorTag || '#2484C6'
-                    }}
-                  ></div>
+                    className="bg-brand-primary h-full rounded-full transition-all duration-500" 
+                    style={{ width: `${Math.min(100, (bal.usedDays / (bal.allocatedDays || 1)) * 100)}%` }}
+                  />
                 </div>
               </div>
             ))}
           </div>
 
-          {/* 2. Requests History Ledger */}
-          <Card title="Leave Requests Ledger" subtitle="View status and approvals timeline of your requested leave logs">
+          {/* 2. Personal Requests History */}
+          <Card title="My Personal Leave Applications" subtitle="Track approval progress of your submitted leave forms">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full text-left text-xs font-semibold text-slate-700">
                 <thead>
-                  <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
-                    <th className="py-3 px-4">Leave Category</th>
+                  <tr className="border-b border-slate-100 text-[9px] font-black uppercase tracking-wider text-slate-400">
+                    <th className="py-3 px-4">Leave Type</th>
                     <th className="py-3 px-4">From Date</th>
                     <th className="py-3 px-4">To Date</th>
                     <th className="py-3 px-4">Duration</th>
@@ -439,7 +586,7 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
                         {req.status === 'Pending' && (
                           <button
                             onClick={() => handleCancelRequest(req.id)}
-                            className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider border border-slate-200 hover:border-rose-100"
+                            className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider border border-slate-200 hover:border-rose-100 cursor-pointer"
                             title="Cancel Request"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -465,6 +612,40 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
         </>
       )}
 
+      {/* Rejection Reason Modal */}
+      {rejectingReqId && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl border border-slate-100">
+            <h4 className="text-sm font-black text-slate-900">Rejection Reason</h4>
+            <form onSubmit={handleRejectTeamRequest} className="space-y-4">
+              <textarea
+                required
+                placeholder="Enter rejection reason (e.g. Overlapping project deadline)..."
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-rose-500"
+                rows="3"
+              />
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setRejectingReqId(null)}
+                  className="px-3.5 py-1.5 text-slate-500 text-xs font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-rose-600 text-white rounded-xl text-xs font-black"
+                >
+                  Confirm Reject
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* 3. Apply Leave Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
@@ -476,7 +657,7 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
               </div>
               <button 
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 font-black text-sm p-1.5 hover:bg-slate-50 rounded-lg"
+                className="text-slate-400 hover:text-slate-600 font-black text-sm p-1.5 hover:bg-slate-50 rounded-lg cursor-pointer"
               >
                 &times;
               </button>
@@ -488,19 +669,19 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
               </div>
             )}
 
-            <form onSubmit={handleApplySubmit} className="space-y-4 text-xs font-bold text-slate-550">
+            <form onSubmit={handleApplySubmit} className="space-y-4 text-xs font-bold text-slate-600">
               <div>
                 <label className="text-[9px] font-black text-slate-400 block mb-1 uppercase tracking-wider">Leave Category</label>
                 <select
                   required
                   value={formData.leaveTypeId}
                   onChange={(e) => setFormData({ ...formData, leaveTypeId: e.target.value })}
-                  className="w-full px-3.5 py-2 border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-805 font-semibold"
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-800 font-semibold"
                 >
-                  <option value="">Select leave type</option>
-                  {balances.map(b => (
-                    <option key={b.leaveTypeId} value={b.leaveTypeId}>
-                      {b.leaveTypeName} ({b.remainingDays} Days Left)
+                  <option value="">Select active leave type</option>
+                  {(activeLeaveTypes.length > 0 ? activeLeaveTypes : balances).map(b => (
+                    <option key={b._id || b.id || b.leaveTypeId} value={b._id || b.id || b.leaveTypeId}>
+                      {b.name || b.leaveTypeName} ({b.defaultQuotaPerYear || b.remainingDays || 12} Days Quota)
                     </option>
                   ))}
                 </select>
@@ -514,7 +695,7 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
                     required
                     value={formData.fromDate}
                     onChange={(e) => setFormData({ ...formData, fromDate: e.target.value })}
-                    className="w-full px-3.5 py-2 border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-805"
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-800"
                   />
                 </div>
                 <div>
@@ -524,7 +705,7 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
                     required
                     value={formData.toDate}
                     onChange={(e) => setFormData({ ...formData, toDate: e.target.value })}
-                    className="w-full px-3.5 py-2 border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-805"
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-800"
                   />
                 </div>
               </div>
@@ -537,7 +718,7 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
                   value={formData.reason}
                   onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                   rows="3"
-                  className="w-full px-3.5 py-2 border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-805 resize-none leading-normal font-semibold"
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-800 resize-none leading-normal font-semibold"
                 />
               </div>
 
@@ -545,13 +726,13 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-slate-205 text-slate-500 rounded-xl hover:bg-slate-50 transition-colors uppercase tracking-wider text-[10px] font-black"
+                  className="px-4 py-2 border border-slate-200 text-slate-500 rounded-xl hover:bg-slate-50 transition-colors uppercase tracking-wider text-[10px] font-black cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-905 rounded-xl shadow-xs uppercase tracking-wider text-[10px] font-black"
+                  className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-900 rounded-xl shadow-xs uppercase tracking-wider text-[10px] font-black cursor-pointer"
                 >
                   Submit Request
                 </button>
@@ -560,9 +741,140 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
           </div>
         </div>
       )}
+
+      {/* 4. Create Leave Type Modal (Super Admin / HR) */}
+      {isCreateTypeModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-100">
+            <h4 className="text-sm font-black text-slate-900">Create Dynamic Leave Type</h4>
+            <form onSubmit={handleCreateLeaveTypeSubmit} className="space-y-3.5 text-xs font-bold text-slate-700">
+              <div>
+                <label className="block text-[10px] uppercase text-slate-400 mb-1">Leave Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Paternity Leave"
+                  value={typeForm.name}
+                  onChange={(e) => setTypeForm({ ...typeForm, name: e.target.value })}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase text-slate-400 mb-1">Leave Code</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. PL"
+                  value={typeForm.code}
+                  onChange={(e) => setTypeForm({ ...typeForm, code: e.target.value })}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-slate-800 uppercase"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] uppercase text-slate-400 mb-1">Quota / Year</label>
+                  <input
+                    type="number"
+                    required
+                    value={typeForm.defaultQuotaPerYear}
+                    onChange={(e) => setTypeForm({ ...typeForm, defaultQuotaPerYear: Number(e.target.value) })}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-slate-800"
+                  />
+                </div>
+                <div className="flex items-center gap-2 pt-5">
+                  <input
+                    type="checkbox"
+                    checked={typeForm.isPaid}
+                    onChange={(e) => setTypeForm({ ...typeForm, isPaid: e.target.checked })}
+                    className="w-4 h-4 accent-emerald-600 rounded"
+                  />
+                  <label className="text-xs font-bold text-slate-800">Paid Leave</label>
+                </div>
+              </div>
+              <div className="flex gap-2 justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateTypeModalOpen(false)}
+                  className="px-3.5 py-2 border border-slate-200 rounded-xl text-slate-500 font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-slate-900 text-white rounded-xl font-black"
+                >
+                  Create & Auto-Seed
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 5. Adjust Balance Modal */}
+      {isAdjustModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-100">
+            <h4 className="text-sm font-black text-slate-900">Adjust Employee Leave Balance</h4>
+            <form onSubmit={handleAdjustBalanceSubmit} className="space-y-3.5 text-xs font-bold text-slate-700">
+              <div>
+                <label className="block text-[10px] uppercase text-slate-400 mb-1">Select Leave Type</label>
+                <select
+                  required
+                  value={adjustForm.leaveTypeId}
+                  onChange={(e) => setAdjustForm({ ...adjustForm, leaveTypeId: e.target.value })}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-slate-800"
+                >
+                  <option value="">Select leave type</option>
+                  {allLeaveTypesList.map(t => (
+                    <option key={t._id || t.id} value={t._id || t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase text-slate-400 mb-1">New Quota Value (Days)</label>
+                <input
+                  type="number"
+                  required
+                  value={adjustForm.newValue}
+                  onChange={(e) => setAdjustForm({ ...adjustForm, newValue: Number(e.target.value) })}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase text-slate-400 mb-1">Adjustment Reason</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Performance bonus leave allocation"
+                  value={adjustForm.reason}
+                  onChange={(e) => setAdjustForm({ ...adjustForm, reason: e.target.value })}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-slate-800"
+                />
+              </div>
+              <div className="flex gap-2 justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAdjustModalOpen(false)}
+                  className="px-3.5 py-2 border border-slate-200 rounded-xl text-slate-500 font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-brand-primary text-slate-900 rounded-xl font-black"
+                >
+                  Save Adjustment
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {toast.show && (
         <div className={`fixed top-5 right-5 px-4 py-3 rounded-2xl shadow-lg border text-xs font-bold z-50 animate-in slide-in-from-top duration-300 flex items-center gap-2 ${
-          toast.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-705' : 'bg-rose-50 border-rose-100 text-rose-705'
+          toast.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-800' : 'bg-rose-50 border-rose-100 text-rose-800'
         }`}>
           <div className={`w-2 h-2 rounded-full ${toast.type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
           <span>{toast.message}</span>

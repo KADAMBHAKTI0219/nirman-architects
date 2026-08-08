@@ -1,147 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import TaskList from './TaskList';
 import TaskDetails from './TaskDetails';
 import TaskCreateModal from './TaskCreateModal';
 import TaskReports from './TaskReports';
-
-const INITIAL_TASKS = [
-  {
-    id: "TSK-401",
-    title: "Detail the staircase treads & balustrades blueprints",
-    project: "Central Office Tower",
-    assignee: "Sarah Connor",
-    dept: "Architecture",
-    priority: "High",
-    status: "In Progress",
-    deadline: "2026-07-28",
-    estTime: 16,
-    actualTime: 10,
-    progress: 60,
-    delayFlag: false,
-    description: "Prepare high-fidelity drafting layout for concrete staircase balustrades, tread dimensions, risers, and structural reinforcement details matching local building codes.",
-    checklist: [
-      { id: 1, text: "Verify riser dimensions & clear headroom", checked: true },
-      { id: 2, text: "Refine balustrade anchor bracket welds", checked: true },
-      { id: 3, text: "Coordinate with MEP shafts layout plan", checked: false },
-      { id: 4, text: "Print final drawing to DWG catalog", checked: false }
-    ],
-    dependencies: ["MEP Core Shaft sign-off", "GFC Foundation Release"],
-    comments: [
-      { author: "Sarah Connor", message: "Staircase dimensions updated on CAD grid.", date: "10 mins ago" },
-      { author: "Alice Smith", message: "MEP core alignment looks clean, Proceeding.", date: "1 hour ago" }
-    ],
-    attachments: [
-      { name: "Staircase_Details_V1.1.dwg", size: "3.4 MB" },
-      { name: "Headroom_Logistics.pdf", size: "1.2 MB" }
-    ],
-    timeLogs: [
-      { date: "2026-07-22", hours: 6, activity: "MEP core alignment" },
-      { date: "2026-07-23", hours: 4, activity: "CAD grid refinement" }
-    ]
-  },
-  {
-    id: "TSK-402",
-    title: "HVAC Duct Sizing & Layout Drafts",
-    project: "Smart City Mall",
-    assignee: "Alice Smith",
-    dept: "Engineering",
-    priority: "Critical",
-    status: "Review",
-    deadline: "2026-07-25",
-    estTime: 24,
-    actualTime: 20,
-    progress: 80,
-    delayFlag: false,
-    description: "Model standard duct routing schedules and CFM flow distributions across floors 1-3. Ensure no conflicts with fire sprinkler piping routes.",
-    checklist: [
-      { id: 1, text: "CFM calculations signed off by Lead PM", checked: true },
-      { id: 2, text: "Coordinate routing around service elevator shafts", checked: true },
-      { id: 3, text: "Verify fire dampers location maps", checked: false }
-    ],
-    dependencies: ["Architectural structural layout V2"],
-    comments: [
-      { author: "John Wick", message: "Duct sizing CFM ratings require administrative signoff.", date: "1 hour ago" }
-    ],
-    attachments: [
-      { name: "HVAC_Schematic_Layout.dwg", size: "5.8 MB" }
-    ],
-    timeLogs: [
-      { date: "2026-07-21", hours: 8, activity: "Duct routing layout model" },
-      { date: "2026-07-22", hours: 12, activity: "Fire dampener coordination" }
-    ]
-  },
-  {
-    id: "TSK-403",
-    title: "Soil Mechanics Foundation Report Verification",
-    project: "Central Office Tower",
-    assignee: "Bob Johnson",
-    dept: "Engineering",
-    priority: "Medium",
-    status: "Completed",
-    deadline: "2026-07-20",
-    estTime: 8,
-    actualTime: 8,
-    progress: 100,
-    delayFlag: false,
-    description: "Verify local bearing capacity calculations and silt test results on foundation trial pits prior to core footing casting.",
-    checklist: [
-      { id: 1, text: "Inspect trial pit soil core samples", checked: true },
-      { id: 2, text: "Review laboratory compaction logs", checked: true }
-    ],
-    dependencies: [],
-    comments: [
-      { author: "Bob Johnson", message: "Silt logs compact. Soil density verified.", date: "3 days ago" }
-    ],
-    attachments: [
-      { name: "Geotechnical_Report_Central.pdf", size: "2.1 MB" }
-    ],
-    timeLogs: [
-      { date: "2026-07-19", hours: 8, activity: "Pit sample inspections & lab tests" }
-    ]
-  },
-  {
-    id: "TSK-404",
-    title: "Sourcing replacement glass panel brackets",
-    project: "Smart City Mall",
-    assignee: "Frank Castle",
-    dept: "Procurement",
-    priority: "Critical",
-    status: "Pending",
-    deadline: "2026-07-15",
-    estTime: 12,
-    actualTime: 14,
-    progress: 40,
-    delayFlag: true,
-    description: "Source anchor brackets and structural double-glazed panel fittings from alternate vendors to resume curtain wall mounting.",
-    checklist: [
-      { id: 1, text: "Log RFQ requests to list of alternate local fabricators", checked: true },
-      { id: 2, text: "Compare material fatigue threshold logs", checked: false }
-    ],
-    dependencies: ["Anchor brackets design sign-off"],
-    comments: [
-      { author: "John Wick", message: "Specialized glass vendor delayed bracket delivery by two weeks.", date: "2 days ago" }
-    ],
-    attachments: [
-      { name: "Bracket_Spec_Fatigue.pdf", size: "0.8 MB" }
-    ],
-    timeLogs: [
-      { date: "2026-07-14", hours: 8, activity: "RFQ distribution" },
-      { date: "2026-07-15", hours: 6, activity: "Vendor contract negotiations" }
-    ]
-  }
-];
+import { getProjects } from '../../../service/project';
+import { 
+  getTasks, createTask, approveTask, completeTask, 
+  acceptTask, rejectTask, startTask, submitTaskForReview,
+  addChecklistItem, toggleChecklistItem as apiToggleChecklist,
+  addTaskComment, getTaskComments
+} from '../../../service/task';
 
 export default function Tasks({ filter = 'all' }) {
-  const [tasks, setTasks] = useState(INITIAL_TASKS);
+  const [tasks, setTasks] = useState([]);
   const [selectedTask, setSelectedTask] = useState(null);
   const [viewMode, setViewMode] = useState('kanban'); // kanban, table, reports
-
-  const displayTasks = tasks.filter(task => {
-    if (filter === 'overdue') {
-      return task.progress < 100 && (task.delayFlag || new Date(task.deadline) < new Date());
-    }
-    return true;
-  });
+  const [loading, setLoading] = useState(true);
 
   // Filtering list states
   const [searchQuery, setSearchQuery] = useState('');
@@ -152,85 +26,265 @@ export default function Tasks({ filter = 'all' }) {
   // Create Task Modal States
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  const handleCreateTaskSubmit = (formData) => {
-    const newId = tasks.length > 0 ? `TSK-${Math.max(...tasks.map(t => parseInt(t.id.split('-')[1]))) + 1}` : "TSK-401";
-    const createdTask = {
+  useEffect(() => {
+    fetchTasksList();
+  }, []);
+
+  const fetchTasksList = async () => {
+    setLoading(true);
+    try {
+      const res = await getTasks();
+      if (res?.success && Array.isArray(res.tasks) && res.tasks.length > 0) {
+        const mapped = res.tasks.map((t, idx) => {
+          const projStr = typeof t.projectId === 'object' ? (t.projectId?.projectName || t.projectId?.name) : (t.project || 'General Project');
+          const assigneeStr = typeof t.assignedEmployee === 'object' 
+            ? (t.assignedEmployee?.name || t.assignedEmployee?.fullName || t.assignedEmployee?.email) 
+            : (t.assignee || (typeof t.assignedTo === 'object' ? (t.assignedTo?.name || t.assignedTo?.fullName) : t.assignedTo) || 'Assigned Staff');
+          const deptStr = typeof t.departmentId === 'object' ? t.departmentId?.name : (t.dept || 'Architecture');
+
+          return {
+            id: t._id ? `TSK-${t._id.slice(-5).toUpperCase()}` : `TSK-${idx + 401}`,
+            _id: t._id,
+            title: t.taskName || t.title || 'Untitled Task',
+            project: projStr || 'General Project',
+            assignee: assigneeStr || 'Assigned Staff',
+            dept: deptStr || 'Architecture',
+            priority: t.priority || 'Medium',
+            status: t.status || 'Pending',
+            deadline: t.deadline ? new Date(t.deadline).toISOString().split('T')[0] : '2026-12-31',
+            estTime: t.estimatedTime || 16,
+            actualTime: t.totalWorkingTimeMinutes ? Math.round(t.totalWorkingTimeMinutes / 60) : 8,
+            progress: t.status === 'Completed' ? 100 : (t.status === 'Review' || t.status === 'Approved' ? 80 : 40),
+            delayFlag: t.isDelayed || false,
+            description: t.description || 'Task assignment deliverable.',
+            checklist: t.checklist || [],
+            dependencies: t.dependsOn || [],
+            comments: t.comments || [],
+            attachments: t.attachments || [],
+            timeLogs: []
+          };
+        });
+
+        // Deduplicate tasks by _id / id
+        const unique = [];
+        const seen = new Set();
+        mapped.forEach(item => {
+          const key = item._id || item.id;
+          if (!seen.has(key)) {
+            seen.add(key);
+            unique.push(item);
+          }
+        });
+        setTasks(unique);
+      } else {
+        // Fallback to project milestones
+        const projRes = await getProjects();
+        if (projRes?.success && Array.isArray(projRes.projects)) {
+          const loadedTasks = [];
+          projRes.projects.forEach((proj, pIdx) => {
+            const projName = proj.projectName || proj.name || 'Project';
+            const milestones = proj.milestones || [];
+            milestones.forEach((m, mIdx) => {
+              loadedTasks.push({
+                id: m._id ? `TSK-${m._id.slice(-5).toUpperCase()}` : `TSK-${pIdx + 1}0${mIdx + 1}`,
+                _id: m._id,
+                title: m.name || m.title || 'Task Target',
+                project: projName,
+                assignee: m.assignedTo?.name || m.assignedTo || 'Project Team',
+                dept: 'Architecture',
+                priority: proj.priority || 'Medium',
+                status: m.isCompleted ? 'Completed' : 'In Progress',
+                deadline: m.targetDate ? new Date(m.targetDate).toISOString().split('T')[0] : '2026-12-31',
+                estTime: 16,
+                actualTime: m.isCompleted ? 16 : 8,
+                progress: m.isCompleted ? 100 : (m.progressPercentage || 50),
+                delayFlag: proj.isDelayed || false,
+                description: `Milestone deliverable for project: ${projName}`,
+                checklist: [
+                  { id: 1, text: "Structural & architectural verification", checked: m.isCompleted }
+                ],
+                dependencies: [],
+                comments: [],
+                attachments: [],
+                timeLogs: []
+              });
+            });
+          });
+
+          const unique = [];
+          const seen = new Set();
+          loadedTasks.forEach(item => {
+            const key = item._id || item.id;
+            if (!seen.has(key)) {
+              seen.add(key);
+              unique.push(item);
+            }
+          });
+          setTasks(unique);
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to fetch tasks list:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateTaskSubmit = async (formData) => {
+    const newId = `TSK-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newCreatedTask = {
       id: newId,
-      title: formData.title,
-      project: formData.project,
-      assignee: formData.assignee,
-      dept: formData.dept,
-      priority: formData.priority,
+      title: formData.title || 'New Task',
+      project: formData.project || 'General Project',
+      assignee: formData.assignee || 'Assigned Staff',
+      dept: formData.dept || 'Architecture',
+      priority: formData.priority || 'Medium',
       status: "Pending",
-      deadline: formData.deadline,
+      deadline: formData.deadline || '2026-12-31',
       estTime: parseFloat(formData.estTime) || 8,
       actualTime: 0,
       progress: 0,
       delayFlag: false,
-      description: formData.description,
+      description: formData.description || '',
       checklist: [],
-      dependencies: formData.dependencies ? formData.dependencies.split(',').map(s=>s.trim()) : [],
+      dependencies: [],
       comments: [],
       attachments: [],
       timeLogs: []
     };
 
-    setTasks(prev => [createdTask, ...prev]);
+    setTasks(prev => {
+      const exists = prev.some(t => t.title === newCreatedTask.title && t.project === newCreatedTask.project);
+      return exists ? prev : [newCreatedTask, ...prev];
+    });
     setIsCreateModalOpen(false);
-    alert(`Task ${newId} assigned successfully to ${formData.assignee}!`);
-  };
 
-  const handleUpdateTask = (updatedTask) => {
-    // If the task deadline is past and status is not completed, toggle delayFlag
-    const isOverdue = new Date(updatedTask.deadline) < new Date() && updatedTask.status !== 'Completed';
-    const finalTask = { ...updatedTask, delayFlag: isOverdue };
+    try {
+      const res = await createTask({
+        projectId: formData.projectId || formData.project,
+        taskName: formData.title,
+        description: formData.description,
+        priority: formData.priority || 'Medium',
+        departmentId: formData.departmentId || null,
+        assignedEmployee: formData.assignedEmployee || formData.assignee,
+        estimatedTime: parseFloat(formData.estTime) || 8,
+        deadline: formData.deadline
+      });
 
-    setTasks(prev => prev.map(t => t.id === finalTask.id ? finalTask : t));
-    
-    // Maintain state in modal
-    if (selectedTask && selectedTask.id === finalTask.id) {
-      setSelectedTask(finalTask);
+      if (res?.success) {
+        fetchTasksList();
+      }
+    } catch (err) {
+      console.warn("Backend notice for task creation sync:", err);
     }
   };
 
-  const handleStatusChange = (taskId, newStatus) => {
-    setTasks(prev => prev.map(t => {
-      if (t.id === taskId) {
-        const isCompleted = newStatus === 'Completed';
+  const handleUpdateTaskStatus = async (taskId, newStatus) => {
+    const targetTask = tasks.find(t => (t._id && t._id === taskId) || t.id === taskId);
+    if (targetTask && targetTask._id) {
+      try {
+        if (newStatus === 'Accepted') await acceptTask(targetTask._id);
+        else if (newStatus === 'In Progress') await startTask(targetTask._id);
+        else if (newStatus === 'Review') await submitTaskForReview(targetTask._id);
+        else if (newStatus === 'Approved') await approveTask(targetTask._id);
+        else if (newStatus === 'Completed') await completeTask(targetTask._id);
+      } catch (err) {
+        console.warn("Backend status update notice:", err);
+      }
+    }
+
+    const updated = tasks.map(t => {
+      const isMatch = (t._id && targetTask?._id) ? (t._id === targetTask._id) : (t.id === taskId);
+      if (isMatch) {
         return {
-          ...t,
-          status: newStatus,
-          progress: isCompleted ? 100 : (newStatus === 'In Progress' ? 50 : t.progress)
+          ...t, 
+          status: newStatus, 
+          progress: newStatus === 'Completed' ? 100 : t.progress 
         };
       }
       return t;
-    }));
+    });
+    setTasks(updated);
+    if (selectedTask && ((selectedTask._id && targetTask?._id && selectedTask._id === targetTask._id) || selectedTask.id === taskId)) {
+      setSelectedTask({ ...selectedTask, status: newStatus, progress: newStatus === 'Completed' ? 100 : selectedTask.progress });
+    }
   };
 
+  const handleUpdateTaskProgress = (taskId, newProgress) => {
+    const updated = tasks.map(t => (t.id === taskId || t._id === taskId) ? {
+      ...t, 
+      progress: newProgress,
+      status: newProgress === 100 ? 'Completed' : t.status 
+    } : t);
+    setTasks(updated);
+    if (selectedTask && (selectedTask.id === taskId || selectedTask._id === taskId)) {
+      setSelectedTask({ ...selectedTask, progress: newProgress, status: newProgress === 100 ? 'Completed' : selectedTask.status });
+    }
+  };
+
+  const handleAddComment = async (taskId, message) => {
+    const targetTask = tasks.find(t => t.id === taskId || t._id === taskId);
+    if (targetTask && targetTask._id) {
+      try {
+        await addTaskComment(targetTask._id, message);
+      } catch (err) {
+        console.warn("Notice adding task comment:", err);
+      }
+    }
+    const newComment = { author: "Super Admin", message, date: "Just now" };
+    const updated = tasks.map(t => (t.id === taskId || t._id === taskId) ? {
+      ...t, 
+      comments: [...(t.comments || []), newComment]
+    } : t);
+    setTasks(updated);
+    if (selectedTask && (selectedTask.id === taskId || selectedTask._id === taskId)) {
+      setSelectedTask({ ...selectedTask, comments: [...(selectedTask.comments || []), newComment] });
+    }
+  };
+
+  const handleToggleChecklist = (taskId, checklistId) => {
+    const updated = tasks.map(t => {
+      if (t.id === taskId || t._id === taskId) {
+        const newChecklist = (t.checklist || []).map(item => item.id === checklistId ? { ...item, checked: !item.checked } : item);
+        const completedCount = newChecklist.filter(c => c.checked).length;
+        const autoProgress = newChecklist.length > 0 ? Math.round((completedCount / newChecklist.length) * 100) : t.progress;
+        return { ...t, checklist: newChecklist, progress: autoProgress, status: autoProgress === 100 ? 'Completed' : t.status };
+      }
+      return t;
+    });
+    setTasks(updated);
+    if (selectedTask && (selectedTask.id === taskId || selectedTask._id === taskId)) {
+      const newChecklist = (selectedTask.checklist || []).map(item => item.id === checklistId ? { ...item, checked: !item.checked } : item);
+      const completedCount = newChecklist.filter(c => c.checked).length;
+      const autoProgress = newChecklist.length > 0 ? Math.round((completedCount / newChecklist.length) * 100) : selectedTask.progress;
+      setSelectedTask({ ...selectedTask, checklist: newChecklist, progress: autoProgress, status: autoProgress === 100 ? 'Completed' : selectedTask.status });
+    }
+  };
+
+  const displayTasks = tasks.filter(task => {
+    if (filter === 'overdue') {
+      return task.progress < 100 && (task.delayFlag || new Date(task.deadline) < new Date());
+    }
+    return true;
+  });
+
   return (
-    <div className="space-y-6">
-      
-      {viewMode === 'reports' ? (
-        <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">Task Analytics Roster</h2>
-              <p className="text-xs text-slate-400">Time logs analysis, completion ratios, and workload tracking</p>
-            </div>
-            <button
-              onClick={() => setViewMode('kanban')}
-              className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-3xs"
-            >
-              Back to Task Board
-            </button>
-          </div>
-          <TaskReports tasks={tasks} />
-        </div>
+    <div className="w-full font-sans">
+      {selectedTask ? (
+        <TaskDetails
+          task={selectedTask}
+          onBack={() => setSelectedTask(null)}
+          onUpdateStatus={(newStatus) => handleUpdateTaskStatus(selectedTask.id, newStatus)}
+          onUpdateProgress={(newProgress) => handleUpdateTaskProgress(selectedTask.id, newProgress)}
+          onAddComment={(msg) => handleAddComment(selectedTask.id, msg)}
+          onToggleChecklist={(checklistId) => handleToggleChecklist(selectedTask.id, checklistId)}
+        />
+      ) : viewMode === 'reports' ? (
+        <TaskReports tasks={tasks} onBack={() => setViewMode('kanban')} />
       ) : (
-        <TaskList 
+        <TaskList
           tasks={displayTasks}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
+          loading={loading}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           projectFilter={projectFilter}
@@ -239,30 +293,20 @@ export default function Tasks({ filter = 'all' }) {
           setDeptFilter={setDeptFilter}
           priorityFilter={priorityFilter}
           setPriorityFilter={setPriorityFilter}
-          onSelectTask={handleSelectTask}
-          onStatusChange={handleStatusChange}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          onSelectTask={(task) => setSelectedTask(task)}
           onCreateTaskClick={() => setIsCreateModalOpen(true)}
+          onCreateClick={() => setIsCreateModalOpen(true)}
         />
       )}
 
-      {selectedTask && (
-        <TaskDetails 
-          task={selectedTask}
-          onClose={() => setSelectedTask(null)}
-          onUpdateTask={handleUpdateTask}
-        />
-      )}
-
-      <TaskCreateModal 
+      {/* CREATE TASK MODAL */}
+      <TaskCreateModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateTaskSubmit}
       />
-
     </div>
   );
-
-  function handleSelectTask(task) {
-    setSelectedTask(task);
-  }
 }

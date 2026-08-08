@@ -11,6 +11,8 @@ const ArchitectChats = lazy(() => import('../components/architect/chats/index'))
 const ArchitectDocs = lazy(() => import('../components/architect/documents/index'));
 const ArchitectNotifications = lazy(() => import('../components/architect/notifications/index'));
 const LeavesPortal = lazy(() => import('../components/common/LeavesPortal'));
+const EmployeeAttendance = lazy(() => import('../components/employee/attendance/index'));
+const AppUsageTracking = lazy(() => import('../components/admin/app-usage/AppUsageTracking'));
 
 const LazyWrap = ({ children }) => (
   <Suspense fallback={<BrandLoader message="Loading Design Studio..." />}>
@@ -29,6 +31,11 @@ export default function getArchitectRoutes(handleRoleChange) {
       <Route path="/architect/leaves" element={
         <DashboardLayout role="Architect" onChangeRole={handleRoleChange} title="Leaves Portal">
           <LazyWrap><LeavesPortal /></LazyWrap>
+        </DashboardLayout>
+      } />
+      <Route path="/architect/attendance" element={
+        <DashboardLayout role="Architect" onChangeRole={handleRoleChange} title="Attendance">
+          <LazyWrap><EmployeeAttendance /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/architect/tasks" element={
@@ -59,6 +66,11 @@ export default function getArchitectRoutes(handleRoleChange) {
       <Route path="/architect/notifications" element={
         <DashboardLayout role="Architect" onChangeRole={handleRoleChange} title="Notifications">
           <LazyWrap><ArchitectNotifications /></LazyWrap>
+        </DashboardLayout>
+      } />
+      <Route path="/architect/app-usage" element={
+        <DashboardLayout role="Architect" onChangeRole={handleRoleChange} title="App Usage Tracking">
+          <LazyWrap><AppUsageTracking userRole="Architect" /></LazyWrap>
         </DashboardLayout>
       } />
     </>

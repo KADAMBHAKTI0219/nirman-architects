@@ -14,14 +14,12 @@ export const isMockSession = () => {
   return !token || token.startsWith('mock-') || token.startsWith('mock_');
 };
 
-// Automatically inject JWT Token if it exists in localStorage (only real tokens, not mock tokens)
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token') || localStorage.getItem('clientToken');
     const requestUrl = config.url || '';
     const isLoginEndpoint = requestUrl.includes('/auth/login') || requestUrl.includes('/client-auth/login');
-    if (token && !token.startsWith('mock-') && !token.startsWith('mock_') && !isLoginEndpoint) {
-      // Use Bearer token pattern for real backend JWT tokens
+    if (token && !isLoginEndpoint) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -31,18 +29,24 @@ api.interceptors.request.use(
   }
 );
 
-// Automatically clear session and redirect to login on 401 Unauthorized responses (excluding in-app background data calls & login endpoints)
+// Response interceptor - handle 401 errors safely without kicking client portal users to login screen
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const token = localStorage.getItem('token') || '';
-    const isMockToken = token.startsWith('mock-');
+    const token = localStorage.getItem('token') || localStorage.getItem('clientToken') || '';
+    const isMockToken = !token || token.startsWith('mock-') || token.startsWith('mock_');
     const requestUrl = error.config?.url || '';
     const isLoginEndpoint = requestUrl.includes('/auth/login') || requestUrl.includes('/client-auth/login');
-    const isDataEndpoint = requestUrl.includes('/drawings') || requestUrl.includes('/documents') || requestUrl.includes('/client/');
+    const isClientEndpoint = requestUrl.includes('/client') || requestUrl.includes('/client-auth') || requestUrl.includes('/client-portal');
+    const isDataEndpoint = isClientEndpoint || requestUrl.includes('/drawings') || requestUrl.includes('/documents') || requestUrl.includes('/projects') || requestUrl.includes('/tasks') || requestUrl.includes('/crm');
     
-    if (error.response && error.response.status === 401 && !isLoginEndpoint && !isMockToken && !isDataEndpoint) {
+    const userStr = localStorage.getItem('user') || '';
+    const isClientUser = userStr.includes('"isClientPortal":true') || userStr.includes('"Customer"');
+
+    // Do NOT redirect or clear session if this is a client portal endpoint or client user session
+    if (error.response && error.response.status === 401 && !isLoginEndpoint && !isMockToken && !isDataEndpoint && !isClientUser) {
       localStorage.removeItem('token');
+      localStorage.removeItem('clientToken');
       localStorage.removeItem('user');
       if (typeof window !== 'undefined' && window.location.pathname !== '/' && !window.location.pathname.includes('/login')) {
         window.location.href = '/';
@@ -112,22 +116,34 @@ export const createRole = async (payload) => {
  * Fetch all registered users from the backend and normalize them into an array.
  */
 export const getUsersList = async () => {
-  const response = await api.get('/users');
-  if (response.data && response.data.success) {
-    const usersArray = [];
-    // The response returns users with index keys (e.g. "0", "1", etc.)
-    Object.keys(response.data).forEach((key) => {
-      if (!isNaN(key)) {
-        usersArray.push(response.data[key]);
+  try {
+    const response = await api.get('/users');
+    if (response.data) {
+      if (Array.isArray(response.data)) {
+        return { success: true, users: response.data };
       }
-    });
-    return {
-      success: true,
-      users: usersArray,
-      message: response.data.message,
-    };
+      if (Array.isArray(response.data.users)) {
+        return { success: true, users: response.data.users };
+      }
+      if (Array.isArray(response.data.data)) {
+        return { success: true, users: response.data.data };
+      }
+      const usersArray = [];
+      Object.keys(response.data).forEach((key) => {
+        if (!isNaN(key) && response.data[key] && typeof response.data[key] === 'object') {
+          usersArray.push(response.data[key]);
+        }
+      });
+      if (usersArray.length > 0) {
+        return { success: true, users: usersArray };
+      }
+      return response.data;
+    }
+    return { success: false, users: [] };
+  } catch (err) {
+    console.error("Error fetching users list:", err);
+    return { success: false, users: [], message: err.message };
   }
-  return response.data || { success: false, message: 'Failed to retrieve users' };
 };
 
 /**

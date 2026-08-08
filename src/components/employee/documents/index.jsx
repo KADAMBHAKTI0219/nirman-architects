@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import Card from '../../common/Card';
 import { getOfferLetterMetadata, downloadOfferLetterPDF } from '../../../service/hrm/offerLetter';
+import { getEmployeeDocuments, downloadDocument } from '../../../service/document';
 
 export default function EmployeeDocs() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,18 +68,34 @@ export default function EmployeeDocs() {
     }
   };
 
+  const [documents, setDocuments] = useState([]);
+  const [loadingDocs, setLoadingDocs] = useState(true);
+
+  useEffect(() => {
+    const fetchDocs = async () => {
+      try {
+        setLoadingDocs(true);
+        const res = await getEmployeeDocuments();
+        if (res) {
+          const list = res.documents || res.data || (Array.isArray(res) ? res : []);
+          setDocuments(list);
+        }
+      } catch (err) {
+        console.error("Error fetching employee documents:", err);
+      } finally {
+        setLoadingDocs(false);
+      }
+    };
+    fetchDocs();
+  }, []);
+
   const folders = ['All', 'Guidelines', 'Drawings', 'Reports', 'Site Photos'];
 
-  const [documents, setDocuments] = useState([
-    { name: "Nirman Building Design Guidelines 2026.pdf", folder: "Guidelines", size: "4.2 MB", date: "2026-06-15", project: "All Projects", type: "PDF" },
-    { name: "Concrete Structural Load Limits.xlsx", folder: "Reports", size: "1.8 MB", date: "2026-07-02", project: "Central Office Tower", type: "XLSX" },
-    { name: "First Floor Plan Draft Schema.dwg", folder: "Drawings", size: "12.4 MB", date: "2026-07-21", project: "Oceanic Luxury Villas", type: "DWG" },
-    { name: "Excavation Pit Compaction Photo.jpg", folder: "Site Photos", size: "3.5 MB", date: "2026-07-20", project: "Smart City Mall", type: "JPEG" }
-  ]);
-
   const filteredDocs = documents.filter(d => {
-    const matchesSearch = d.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFolder = selectedFolder === 'All' || d.folder === selectedFolder;
+    const docName = d.name || d.title || d.fileName || '';
+    const docFolder = d.folder || d.category || 'Guidelines';
+    const matchesSearch = docName.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFolder = selectedFolder === 'All' || docFolder === selectedFolder;
     return matchesSearch && matchesFolder;
   });
 
@@ -202,41 +219,65 @@ export default function EmployeeDocs() {
 
       {/* Grid of documents */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {filteredDocs.map((doc, idx) => (
-          <div key={idx} className="bg-white p-5 rounded-3xl border border-slate-100 shadow-2xs flex justify-between items-center gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="p-2.5 bg-slate-50 border border-slate-150 rounded-xl text-slate-450 flex-shrink-0">
-                <FileText className="w-5 h-5 text-slate-400" />
-              </div>
-              <div className="min-w-0">
-                <span className="text-[9px] font-black text-[#2484C6] bg-[#E5F0FA] px-1.5 py-0.5 rounded uppercase tracking-wider self-start">
-                  {doc.folder}
-                </span>
-                <strong className="text-slate-805 block text-xs truncate mt-1" title={doc.name}>{doc.name}</strong>
-                <span className="text-[9px] text-slate-400 block mt-1 font-bold uppercase tracking-wider">
-                  Size: {doc.size} | Date: {doc.date}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <button
-                onClick={() => setInspectingDoc(doc)}
-                className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-705 rounded-xl transition-all shadow-3xs"
-                title="Inspect Document"
-              >
-                <Eye className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => alert(`Downloading: ${doc.name}`)}
-                className="p-1.5 bg-white border border-slate-205 hover:bg-slate-50 text-slate-500 rounded-xl transition-all shadow-3xs"
-                title="Download file"
-              >
-                <Download className="w-3.5 h-3.5" />
-              </button>
-            </div>
+        {loadingDocs ? (
+          <div className="col-span-full py-12 text-center text-slate-400 font-bold bg-white rounded-3xl border border-slate-100">
+            Loading employee documents...
           </div>
-        ))}
+        ) : filteredDocs.length === 0 ? (
+          <div className="col-span-full py-12 text-center text-slate-400 font-bold bg-white rounded-3xl border border-slate-100">
+            <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+            No documents found in repository.
+          </div>
+        ) : (
+          filteredDocs.map((doc, idx) => {
+            const docName = doc.name || doc.title || doc.fileName || 'Untitled Document';
+            const docFolder = doc.folder || doc.category || 'Guidelines';
+            const docSize = doc.size || (doc.fileSize ? `${(doc.fileSize / 1024 / 1024).toFixed(1)} MB` : '1.5 MB');
+            const docDate = doc.date || (doc.createdAt ? doc.createdAt.split('T')[0] : '2026-08-01');
+
+            return (
+              <div key={doc._id || doc.id || idx} className="bg-white p-5 rounded-3xl border border-slate-100 shadow-2xs flex justify-between items-center gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2.5 bg-slate-50 border border-slate-150 rounded-xl text-slate-450 flex-shrink-0">
+                    <FileText className="w-5 h-5 text-slate-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[9px] font-black text-[#2484C6] bg-[#E5F0FA] px-1.5 py-0.5 rounded uppercase tracking-wider self-start">
+                      {docFolder}
+                    </span>
+                    <strong className="text-slate-805 block text-xs truncate mt-1" title={docName}>{docName}</strong>
+                    <span className="text-[9px] text-slate-400 block mt-1 font-bold uppercase tracking-wider">
+                      Size: {docSize} | Date: {docDate}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <button
+                    onClick={() => setInspectingDoc(doc)}
+                    className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-705 rounded-xl transition-all shadow-3xs cursor-pointer"
+                    title="Inspect Document"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (doc.fileUrl || doc.url) {
+                        window.open(doc.fileUrl || doc.url, '_blank');
+                      } else {
+                        showToast(`Downloading: ${docName}`);
+                      }
+                    }}
+                    className="p-1.5 bg-white border border-slate-205 hover:bg-slate-50 text-slate-500 rounded-xl transition-all shadow-3xs cursor-pointer"
+                    title="Download file"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* Inspection Modal */}

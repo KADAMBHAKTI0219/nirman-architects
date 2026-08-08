@@ -10,11 +10,13 @@ import {
   assignDeviceToUser, 
   getDeviceStatus 
 } from '../../../service/hrm/device';
+import { getUsersList } from '../../../service/auth';
 
 import PageHeader from '../../common/PageHeader';
 
 export default function DeviceBindingApprovals({ employees = [], onRefresh }) {
   const [deviceRequests, setDeviceRequests] = useState([]);
+  const [fetchedUsers, setFetchedUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
@@ -34,6 +36,16 @@ export default function DeviceBindingApprovals({ employees = [], onRefresh }) {
       const res = await getPendingDeviceRequests();
       if (res && (res.requests || res.data?.requests || Array.isArray(res))) {
         setDeviceRequests(res.requests || res.data?.requests || (Array.isArray(res) ? res : []));
+      }
+      if (!employees || employees.length === 0) {
+        try {
+          const uRes = await getUsersList();
+          const uList = uRes.users || uRes.data || (Array.isArray(uRes) ? uRes : []);
+          setFetchedUsers(uList || []);
+        } catch (uErr) {
+          console.warn("Could not fetch users list:", uErr);
+          setFetchedUsers([]);
+        }
       }
     } catch (err) {
       console.error("Failed to load device requests:", err);
@@ -56,6 +68,59 @@ export default function DeviceBindingApprovals({ employees = [], onRefresh }) {
       if (onRefresh) onRefresh();
     } catch (err) {
       alert(err.message || "Failed to process device action.");
+    }
+  };
+
+  const handleApproveRow = async (emp, pendingReq) => {
+    const reqId = pendingReq?._id || pendingReq?.id;
+    const userId = emp.id || emp._id || pendingReq?.userId?._id || pendingReq?.userId;
+    const deviceId = pendingReq?.newDeviceId || emp.rawUser?.deviceId || emp.deviceId;
+
+    try {
+      if (reqId) {
+        const response = await approveDeviceRequest({ requestId: reqId, action: 'APPROVE' });
+        alert(response.message || `Device request for ${emp.name} approved successfully.`);
+      } else {
+        const response = await assignDeviceToUser({ targetUserId: userId, deviceId: deviceId, status: 'APPROVED' });
+        alert(response.message || `Device binding for ${emp.name} approved successfully.`);
+      }
+
+      emp.deviceStatus = 'APPROVED';
+      if (emp.rawUser) emp.rawUser.deviceStatus = 'APPROVED';
+      if (pendingReq) {
+        setDeviceRequests(prev => prev.filter(r => (r._id !== reqId && r.id !== reqId)));
+      }
+      setSelectedEmpDetails(null);
+      loadRequests();
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      alert(err.message || "Failed to approve device request.");
+    }
+  };
+
+  const handleRejectRow = async (emp, pendingReq) => {
+    const reqId = pendingReq?._id || pendingReq?.id;
+    const userId = emp.id || emp._id || pendingReq?.userId?._id || pendingReq?.userId;
+
+    try {
+      if (reqId) {
+        const response = await approveDeviceRequest({ requestId: reqId, action: 'REJECT' });
+        alert(response.message || `Device request for ${emp.name} rejected.`);
+      } else {
+        const response = await assignDeviceToUser({ targetUserId: userId, deviceId: '', status: 'REJECTED' });
+        alert(response.message || `Device request for ${emp.name} rejected.`);
+      }
+
+      emp.deviceStatus = 'REJECTED';
+      if (emp.rawUser) emp.rawUser.deviceStatus = 'REJECTED';
+      if (pendingReq) {
+        setDeviceRequests(prev => prev.filter(r => (r._id !== reqId && r.id !== reqId)));
+      }
+      setSelectedEmpDetails(null);
+      loadRequests();
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      alert(err.message || "Failed to reject device request.");
     }
   };
 
@@ -85,12 +150,8 @@ export default function DeviceBindingApprovals({ employees = [], onRefresh }) {
     }
   };
 
-  // Combine employees list with device requests
-  const workforceList = (employees.length > 0 ? employees : [
-    { id: 'u1', name: 'Sarah Connor', email: 'architect@nirman.com', department: 'Architecture', rawUser: { deviceId: 'dev-architect', deviceStatus: 'APPROVED' } },
-    { id: 'u2', name: 'Alice Smith', email: 'employee@gmail.com', department: 'Engineering', rawUser: { deviceId: 'dev-employee', deviceStatus: 'PENDING' } },
-    { id: 'u3', name: 'Bob Johnson', email: 'engineer@nirman.com', department: 'Construction', rawUser: { deviceId: 'dev-site', deviceStatus: 'APPROVED' } }
-  ]);
+  // Real workforce list - NO mock data
+  const workforceList = employees.length > 0 ? employees : fetchedUsers;
 
   return (
     <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
@@ -183,108 +244,133 @@ export default function DeviceBindingApprovals({ employees = [], onRefresh }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
-              {workforceList.map((emp, idx) => {
-                const empEmail = emp.email?.toLowerCase();
-                const empId = emp.id || emp._id;
-                
-                // Check if this employee has a pending device request
-                const pendingReq = deviceRequests.find(r => {
-                  const reqUserEmail = r.userId?.email || r.user?.email;
-                  const reqUserId = r.userId?.id || r.userId?._id || r.user?.id || r.user?._id;
-                  return (reqUserEmail && reqUserEmail.toLowerCase() === empEmail) || (reqUserId && reqUserId === empId);
-                });
+              {loading ? (
+                <tr>
+                  <td colSpan="5" className="px-4 py-12 text-center text-slate-500">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <RefreshCw className="w-6 h-6 text-indigo-600 animate-spin" />
+                      <span className="text-xs font-bold text-slate-600">Loading device binding directory...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : workforceList.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="px-4 py-12 text-center text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-1.5">
+                      <Laptop className="w-8 h-8 text-slate-300" />
+                      <span className="text-xs font-bold text-slate-600">No device binding records found</span>
+                      <span className="text-[11px] text-slate-400">No registered users or pending device requests available.</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                workforceList.map((emp, idx) => {
+                  const empEmail = emp.email?.toLowerCase();
+                  const empId = emp.id || emp._id;
+                  
+                  // Check if this employee has a pending device request
+                  const pendingReq = deviceRequests.find(r => {
+                    const reqUserEmail = r.userId?.email || r.user?.email;
+                    const reqUserId = r.userId?.id || r.userId?._id || r.user?.id || r.user?._id;
+                    return (reqUserEmail && reqUserEmail.toLowerCase() === empEmail) || (reqUserId && reqUserId === empId);
+                  });
 
-                const isPending = !!pendingReq || emp.rawUser?.deviceStatus === 'PENDING' || emp.deviceStatus === 'PENDING';
-                const isApproved = !pendingReq && (emp.rawUser?.deviceStatus === 'APPROVED' || emp.deviceStatus === 'APPROVED');
-                const isRejected = !pendingReq && (emp.rawUser?.deviceStatus === 'REJECTED' || emp.deviceStatus === 'REJECTED');
+                  const isPending = !!pendingReq || 
+                    (emp.rawUser?.deviceStatus || '').toUpperCase() === 'PENDING' || 
+                    (emp.deviceStatus || '').toUpperCase() === 'PENDING' ||
+                    (emp.status || '').toUpperCase() === 'PENDING';
 
-                const displayGuid = pendingReq 
-                  ? pendingReq.newDeviceId 
-                  : (emp.rawUser?.deviceId || emp.rawUser?.registeredDeviceId || emp.registeredDeviceId || emp.deviceId || 'GUID-MACHINE-123');
+                  const isApproved = !isPending && ((emp.rawUser?.deviceStatus || '').toUpperCase() === 'APPROVED' || (emp.deviceStatus || '').toUpperCase() === 'APPROVED');
+                  const isRejected = !isPending && ((emp.rawUser?.deviceStatus || '').toUpperCase() === 'REJECTED' || (emp.deviceStatus || '').toUpperCase() === 'REJECTED');
 
-                const statusLabel = isPending ? 'PENDING' : (isApproved ? 'APPROVED' : (isRejected ? 'REJECTED' : 'UNBOUND'));
+                  const displayGuid = pendingReq 
+                    ? pendingReq.newDeviceId 
+                    : (emp.rawUser?.deviceId || emp.rawUser?.registeredDeviceId || emp.registeredDeviceId || emp.deviceId || 'UNBOUND');
 
-                return (
-                  <tr key={idx} className={`hover:bg-slate-50/80 transition-all ${isPending ? 'bg-amber-50/30' : ''}`}>
-                    
-                    {/* Employee */}
-                    <td className="px-4 py-3.5">
-                      <strong className="text-slate-900 font-bold block">{emp.name}</strong>
-                      <span className="text-[11px] text-slate-500 font-mono">{emp.email}</span>
-                    </td>
+                  const statusLabel = isPending ? 'PENDING' : (isApproved ? 'APPROVED' : (isRejected ? 'REJECTED' : 'UNBOUND'));
 
-                    {/* Department */}
-                    <td className="px-4 py-3.5 text-slate-600 font-bold">{emp.department || 'Office'}</td>
+                  return (
+                    <tr key={idx} className={`hover:bg-slate-50/80 transition-all ${isPending ? 'bg-amber-50/30' : ''}`}>
+                      
+                      {/* Employee */}
+                      <td className="px-4 py-3.5">
+                        <strong className="text-slate-900 font-bold block">{emp.name}</strong>
+                        <span className="text-[11px] text-slate-500 font-mono">{emp.email}</span>
+                      </td>
 
-                    {/* Bound Device Machine GUID */}
-                    <td className="px-4 py-3.5 font-mono font-bold text-indigo-600 text-[11px]" title={displayGuid}>
-                      {displayGuid}
-                      {pendingReq && <span className="text-[9px] text-amber-600 block font-sans font-bold">New Requested GUID</span>}
-                    </td>
+                      {/* Department */}
+                      <td className="px-4 py-3.5 text-slate-600 font-bold">{emp.department || emp.designation || 'Office'}</td>
 
-                    {/* Authorization Status Badge */}
-                    <td className="px-4 py-3.5">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border flex items-center gap-1.5 w-max ${
-                        isApproved 
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                          : isPending 
-                            ? 'bg-amber-50 text-amber-700 border-amber-200 animate-pulse' 
-                            : 'bg-rose-50 text-rose-700 border-rose-200'
-                      }`}>
-                        {isApproved && <Check className="w-3.5 h-3.5 text-emerald-600" />}
-                        {isPending && <Clock className="w-3.5 h-3.5 text-amber-600" />}
-                        {isRejected && <XCircle className="w-3.5 h-3.5 text-rose-600" />}
-                        {statusLabel}
-                      </span>
-                    </td>
+                      {/* Bound Device Machine GUID */}
+                      <td className="px-4 py-3.5 font-mono font-bold text-indigo-600 text-[11px]" title={displayGuid}>
+                        {displayGuid}
+                        {pendingReq && <span className="text-[9px] text-amber-600 block font-sans font-bold">New Requested GUID</span>}
+                      </td>
 
-                    {/* Actions Column */}
-                    <td className="px-4 py-3.5 text-right">
-                      <div className="flex gap-1.5 justify-end items-center">
-                        {/* View Details Icon Button */}
-                        <button
-                          onClick={() => setSelectedEmpDetails({ emp, pendingReq, isApproved, isPending, isRejected, displayGuid })}
-                          className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all cursor-pointer"
-                          title="View Device Binding Details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
+                      {/* Authorization Status Badge */}
+                      <td className="px-4 py-3.5">
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border flex items-center gap-1.5 w-max ${
+                          isApproved 
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                            : isPending 
+                              ? 'bg-amber-50 text-amber-700 border-amber-200 animate-pulse' 
+                              : 'bg-rose-50 text-rose-700 border-rose-200'
+                        }`}>
+                          {isApproved && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+                          {isPending && <Clock className="w-3.5 h-3.5 text-amber-600" />}
+                          {isRejected && <XCircle className="w-3.5 h-3.5 text-rose-600" />}
+                          {statusLabel}
+                        </span>
+                      </td>
 
-                        {pendingReq ? (
-                          <>
-                            <button
-                              onClick={() => handleDeviceAction(pendingReq._id || pendingReq.id, 'APPROVE')}
-                              className="p-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1 text-[10px] uppercase px-3"
-                              title="Approve Device Request"
-                            >
-                              <Check className="w-3.5 h-3.5" /> Approve
-                            </button>
-                            <button
-                              onClick={() => handleDeviceAction(pendingReq._id || pendingReq.id, 'REJECT')}
-                              className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-extrabold rounded-xl transition-all cursor-pointer flex items-center gap-1 text-[10px] uppercase px-3"
-                              title="Reject Device Request"
-                            >
-                              <X className="w-3.5 h-3.5" /> Reject
-                            </button>
-                          </>
-                        ) : (
+                      {/* Actions Column */}
+                      <td className="px-4 py-3.5 text-right">
+                        <div className="flex gap-1.5 justify-end items-center">
+                          {/* View Details Icon Button */}
                           <button
-                            onClick={() => {
-                              setTargetUserId(emp.id || emp._id);
-                              setShowAssignModal(true);
-                            }}
-                            className="p-2 bg-slate-100 hover:bg-indigo-50 text-indigo-600 rounded-xl border border-slate-200 hover:border-indigo-200 transition-all cursor-pointer"
-                            title="Edit / Assign Device GUID"
+                            onClick={() => setSelectedEmpDetails({ emp, pendingReq, isApproved, isPending, isRejected, displayGuid })}
+                            className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all cursor-pointer"
+                            title="View Device Binding Details"
                           >
-                            <Pencil className="w-4 h-4" />
+                            <Eye className="w-4 h-4" />
                           </button>
-                        )}
-                      </div>
-                    </td>
 
-                  </tr>
-                );
-              })}
+                          {isPending ? (
+                            <>
+                              <button
+                                onClick={() => handleApproveRow(emp, pendingReq)}
+                                className="p-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1 text-[10px] uppercase px-3"
+                                title="Approve Device Request"
+                              >
+                                <Check className="w-3.5 h-3.5" /> Approve
+                              </button>
+                              <button
+                                onClick={() => handleRejectRow(emp, pendingReq)}
+                                className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-extrabold rounded-xl transition-all cursor-pointer flex items-center gap-1 text-[10px] uppercase px-3"
+                                title="Reject Device Request"
+                              >
+                                <X className="w-3.5 h-3.5" /> Reject
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setTargetUserId(emp.id || emp._id);
+                                setShowAssignModal(true);
+                              }}
+                              className="p-2 bg-slate-100 hover:bg-indigo-50 text-indigo-600 rounded-xl border border-slate-200 hover:border-indigo-200 transition-all cursor-pointer"
+                              title="Edit / Assign Device GUID"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
