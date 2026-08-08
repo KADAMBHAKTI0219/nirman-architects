@@ -1,17 +1,32 @@
-import React, { useState } from 'react';
-import { X, FileText, Upload, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, FileText, Upload, Check, Plus } from 'lucide-react';
+import { getActiveDrawingCategories, createDrawingCategory } from '../../../service/drawing';
+import { getProjects } from '../../../service/project';
 
 export default function DrawingCreateModal({
   isOpen,
   onClose,
   onSubmit
 }) {
+  const [categories, setCategories] = useState([
+    { _id: 'cat-working', name: 'Working Drawings' },
+    { _id: 'cat-concept', name: 'Concept Drawings' },
+    { _id: 'cat-process-dwg', name: 'Process DWG' },
+    { _id: 'cat-gfc', name: 'GFC Drawings' },
+    { _id: 'cat-site', name: 'Site' },
+    { _id: 'cat-interior', name: 'Interior Drawings' }
+  ]);
+
+  const [projectsList, setProjectsList] = useState([]);
+
   const [formData, setFormData] = useState({
     name: '',
     project: 'Central Office Tower',
+    projectId: '',
     category: 'Working Drawings',
+    categoryId: 'cat-working',
     version: 'V1.0',
-    accessLevel: 'Public & Client Visible',
+    accessLevel: 'Admin & Staff Only',
     fileSize: '3.2 MB',
     fileUrl: '',
     fileName: '',
@@ -19,9 +34,87 @@ export default function DrawingCreateModal({
   });
 
   const [selectedFile, setSelectedFile] = useState(null);
+  const [isCreatingNewCategory, setIsCreatingNewCategory] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatRequiresApproval, setNewCatRequiresApproval] = useState(true);
+  const [newCatRestrictedEdit, setNewCatRestrictedEdit] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      // 1. Fetch Drawing Categories
+      getActiveDrawingCategories()
+        .then(res => {
+          if (res?.categories && res.categories.length > 0) {
+            setCategories(res.categories);
+            if (!formData.categoryId) {
+              setFormData(prev => ({
+                ...prev,
+                categoryId: res.categories[0]._id,
+                category: res.categories[0].name
+              }));
+            }
+          }
+        })
+        .catch(err => console.warn(err));
+
+      // 2. Fetch Projects dynamically from backend API
+      getProjects()
+        .then(res => {
+          let list = [];
+          if (res?.projects && Array.isArray(res.projects)) {
+            list = res.projects;
+          } else if (Array.isArray(res)) {
+            list = res;
+          }
+          if (list.length > 0) {
+            setProjectsList(list);
+            const firstP = list[0];
+            const pName = firstP.name || firstP.projectName || firstP.title;
+            const pId = firstP._id || firstP.id;
+            setFormData(prev => ({
+              ...prev,
+              project: pName || prev.project,
+              projectId: pId || prev.projectId
+            }));
+          }
+        })
+        .catch(err => console.warn("Failed to fetch projects dynamically:", err));
+    }
+  }, [isOpen]);
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleCategorySelect = (catName) => {
+    const found = categories.find(c => c.name === catName || String(c._id) === String(catName));
+    if (found) {
+      setFormData(prev => ({ ...prev, category: found.name, categoryId: found._id }));
+    } else {
+      setFormData(prev => ({ ...prev, category: catName }));
+    }
+  };
+
+  const handleCreateCategorySubmit = async (e) => {
+    e.preventDefault();
+    if (!newCatName.trim()) return;
+    try {
+      const res = await createDrawingCategory({
+        name: newCatName.trim(),
+        requiresClientApproval: newCatRequiresApproval,
+        restrictedEditing: newCatRestrictedEdit
+      });
+      if (res?.category || res?.data?.category) {
+        const addedCat = res.category || res.data.category;
+        setCategories(prev => [...prev, addedCat]);
+        setFormData(prev => ({ ...prev, category: addedCat.name, categoryId: addedCat._id }));
+        setIsCreatingNewCategory(false);
+        setNewCatName('');
+        alert(`Drawing category "${addedCat.name}" created successfully.`);
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to create category.');
+    }
   };
 
   const handleFileChange = (e) => {
@@ -56,9 +149,11 @@ export default function DrawingCreateModal({
     setFormData({
       name: '',
       project: 'Central Office Tower',
+      projectId: '',
       category: 'Working Drawings',
+      categoryId: 'cat-working',
       version: 'V1.0',
-      accessLevel: 'Public & Client Visible',
+      accessLevel: 'Admin & Staff Only',
       fileSize: '3.2 MB',
       fileUrl: '',
       fileName: '',
@@ -76,21 +171,21 @@ export default function DrawingCreateModal({
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div>
-            <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wide">Upload & Share Drawing PDF</h3>
-            <span className="text-[10px] text-slate-500 block mt-0.5 font-medium">Attach PDF or Image file for client portal & backend DB storage</span>
+            <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wide">Upload Blueprint (ERP Module 3)</h3>
+            <span className="text-[10px] text-slate-500 block mt-0.5 font-medium">Creates parent record and v1 drawing version with auto-increment</span>
           </div>
           <button 
             onClick={onClose}
-            className="p-1.5 hover:bg-slate-200 text-slate-500 rounded-lg transition-all font-bold"
+            className="p-1.5 hover:bg-slate-200 text-slate-500 rounded-lg transition-all font-bold cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Form fields */}
-        <form onSubmit={handleFormSubmit} className="p-6 overflow-y-auto max-h-[480px] space-y-4 text-xs font-medium">
+        <form onSubmit={handleFormSubmit} className="p-6 overflow-y-auto max-h-[500px] space-y-4 text-xs font-medium">
           <div>
-            <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Drawing Title *</label>
+            <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Drawing Title / Name *</label>
             <input 
               type="text" 
               required 
@@ -103,37 +198,98 @@ export default function DrawingCreateModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Project Reference</label>
+              <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Project Reference *</label>
               <select 
                 value={formData.project}
-                onChange={(e) => handleChange('project', e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const found = projectsList.find(p => (p.name || p.projectName || p.title) === val || String(p._id || p.id) === String(val));
+                  if (found) {
+                    handleChange('project', found.name || found.projectName || found.title);
+                    handleChange('projectId', found._id || found.id);
+                  } else {
+                    handleChange('project', val);
+                  }
+                }}
                 className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 bg-white font-semibold cursor-pointer"
               >
-                <option value="Central Office Tower">Central Office Tower</option>
-                <option value="Oceanic Luxury Villas">Oceanic Luxury Villas</option>
-                <option value="Smart City Mall">Smart City Mall</option>
+                {projectsList.length > 0 ? (
+                  projectsList.map(p => {
+                    const pName = p.name || p.projectName || p.title || 'Untitled Project';
+                    const pId = p._id || p.id;
+                    return (
+                      <option key={pId || pName} value={pName}>
+                        {pName}
+                      </option>
+                    );
+                  })
+                ) : (
+                  <>
+                    <option value="Central Office Tower">Central Office Tower</option>
+                    <option value="Oceanic Luxury Villas">Oceanic Luxury Villas</option>
+                    <option value="Smart City Mall">Smart City Mall</option>
+                  </>
+                )}
               </select>
             </div>
+
             <div>
-              <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Category Type</label>
-              <select 
-                value={formData.category}
-                onChange={(e) => handleChange('category', e.target.value)}
-                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 bg-white font-semibold cursor-pointer"
-              >
-                <option value="Working Drawings">Working Drawings</option>
-                <option value="Concept Drawings">Concept Drawings</option>
-                <option value="Process DWG">Process DWG</option>
-                <option value="GFC Drawings">GFC Drawings</option>
-                <option value="Site Drawings">Site Drawings</option>
-                <option value="Interior Drawings">Interior Drawings</option>
-              </select>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">Category Master *</label>
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingNewCategory(prev => !prev)}
+                  className="text-[9px] font-black text-indigo-600 hover:text-indigo-800 flex items-center gap-0.5 cursor-pointer"
+                >
+                  <Plus className="w-3 h-3" />
+                  {isCreatingNewCategory ? 'Select Existing' : 'New Category'}
+                </button>
+              </div>
+
+              {!isCreatingNewCategory ? (
+                <select 
+                  value={formData.category}
+                  onChange={(e) => handleCategorySelect(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 bg-white font-semibold cursor-pointer"
+                >
+                  {categories.map(cat => (
+                    <option key={cat._id} value={cat.name}>{cat.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <div className="p-2.5 border border-indigo-200 bg-indigo-50/50 rounded-xl space-y-2">
+                  <input
+                    type="text"
+                    placeholder="New category name..."
+                    value={newCatName}
+                    onChange={(e) => setNewCatName(e.target.value)}
+                    className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white"
+                  />
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-1 text-[10px] font-semibold text-slate-700">
+                      <input 
+                        type="checkbox" 
+                        checked={newCatRestrictedEdit} 
+                        onChange={(e) => setNewCatRestrictedEdit(e.target.checked)} 
+                      />
+                      Restricted In-Place Edit
+                    </label>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCreateCategorySubmit}
+                    className="w-full py-1 bg-indigo-600 text-white rounded-lg text-[10px] font-black uppercase cursor-pointer"
+                  >
+                    Save Master Category
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Revision Version</label>
+              <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Initial Version</label>
               <input 
                 type="text" 
                 required 
@@ -144,34 +300,34 @@ export default function DrawingCreateModal({
               />
             </div>
             <div>
-              <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Client Portal Visibility</label>
+              <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Access Level</label>
               <select 
                 value={formData.accessLevel}
                 onChange={(e) => handleChange('accessLevel', e.target.value)}
                 className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 bg-white font-semibold cursor-pointer"
               >
-                <option value="Public & Client Visible">Public & Client Visible (Shared)</option>
                 <option value="Admin & Staff Only">Admin & Staff Only (Internal)</option>
+                <option value="Public & Client Visible">Public & Client Visible (Shared)</option>
               </select>
             </div>
           </div>
 
           {/* File Upload Input for PDF or Images */}
           <div className="space-y-1">
-            <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">Drawing File (PDF or Image) *</label>
+            <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">Blueprint File (DWG / PDF / Image) *</label>
             <div className="p-4 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50 hover:bg-slate-100/80 transition-all text-center space-y-2">
               <input 
                 type="file" 
                 required={!formData.fileUrl}
-                accept="application/pdf,image/*,.pdf,.png,.jpg,.jpeg"
+                accept="application/pdf,image/*,.pdf,.png,.jpg,.jpeg,.dwg"
                 onChange={handleFileChange}
                 className="hidden" 
                 id="modal-pdf-upload"
               />
               <label htmlFor="modal-pdf-upload" className="cursor-pointer flex flex-col items-center justify-center space-y-1">
                 <FileText className="w-8 h-8 text-indigo-600" />
-                <span className="text-xs font-extrabold text-indigo-600">Click to Select Drawing PDF / Image</span>
-                <span className="text-[10px] text-slate-400">Supports PDF, PNG, JPG files up to 25MB</span>
+                <span className="text-xs font-extrabold text-indigo-600">Click to Select Blueprint DWG / PDF / Image</span>
+                <span className="text-[10px] text-slate-400">Supports DWG, PDF, PNG, JPG files up to 50MB</span>
               </label>
 
               {selectedFile && (
@@ -183,12 +339,12 @@ export default function DrawingCreateModal({
           </div>
 
           <div>
-            <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Change Log / Initial Notes</label>
+            <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Change Log / Release Notes</label>
             <textarea 
               rows="2"
               value={formData.changeLog}
               onChange={(e) => handleChange('changeLog', e.target.value)}
-              placeholder="e.g. Initial PDF layout drawing sent for approval..."
+              placeholder="e.g. Initial design blueprint release..."
               className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 bg-white font-semibold"
             ></textarea>
           </div>
@@ -206,7 +362,7 @@ export default function DrawingCreateModal({
               type="submit"
               className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold shadow-xs transition-all cursor-pointer"
             >
-              Upload & Share PDF
+              Create Drawing Record
             </button>
           </div>
 

@@ -20,19 +20,19 @@ export default function DocumentList({
   setViewReports
 }) {
   
-  // Projects List
-  const projectsList = ['All Projects', 'Central Office Tower', 'Oceanic Luxury Villas', 'Smart City Mall'];
+  // Dynamic Projects List
+  const uniqueProjects = Array.from(new Set((documents || []).map(d => d.project).filter(Boolean)));
+  const projectsList = ['All Projects', ...(uniqueProjects.length > 0 ? uniqueProjects : ['Central Office Tower', 'Oceanic Luxury Villas', 'Smart City Mall'])];
 
-  // Folders List
-  const foldersList = [
-    'Drawings', 'Reports', 'Client Files', 'Approvals', 
-    'Site Photos', 'Contracts', 'Meeting Notes', 'Financial Files'
-  ];
+  // Dynamic Folders / Categories List
+  const defaultFolders = ['Drawings', 'Reports', 'Client Files', 'Approvals', 'Site Photos', 'Contracts', 'Meeting Notes', 'Financial Files'];
+  const uniqueFolders = Array.from(new Set((documents || []).map(d => d.folder).filter(Boolean)));
+  const foldersList = Array.from(new Set([...defaultFolders, ...uniqueFolders]));
 
   // Filters logic
   const filteredDocuments = documents.filter(doc => {
-    const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          doc.id.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = (doc.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          (doc.id || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesProject = selectedProject === 'All Projects' || doc.project === selectedProject;
     const matchesFolder = selectedFolder === 'All' || doc.folder === selectedFolder;
     const matchesType = typeFilter === 'All' || doc.type === typeFilter;
@@ -40,7 +40,7 @@ export default function DocumentList({
   });
 
   // KPIs
-  const totalStorageUsed = documents.reduce((acc, doc) => acc + parseFloat(doc.fileSize), 0);
+  const totalStorageUsed = documents.reduce((acc, doc) => acc + (parseFloat(doc.fileSize) || 0), 0);
   const confidentialCount = documents.filter(doc => doc.confidential).length;
   const lockedCount = documents.filter(doc => doc.locked).length;
 
@@ -138,45 +138,32 @@ export default function DocumentList({
               <option key={folder} value={folder}>{folder}</option>
             ))}
           </select>
-
-          {/* File Format Dropdown */}
+          
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-705 bg-white font-semibold"
+            className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-700 bg-white font-semibold"
           >
             <option value="All">All File Types</option>
             <option value="PDF">PDF Documents</option>
-            <option value="DWG">DWG Drawings</option>
-            <option value="JPEG">JPEG Images</option>
-            <option value="PNG">PNG Images</option>
+            <option value="DWG">DWG Schematics</option>
             <option value="DOCX">DOCX Documents</option>
-            <option value="XLSX">XLSX Sheets</option>
-            <option value="ZIP">ZIP Archives</option>
+            <option value="XLSX">XLSX Spreadsheets</option>
+            <option value="JPG">JPG / Images</option>
           </select>
 
-          {/* Action buttons next to filters */}
           <button
             onClick={() => setViewReports(true)}
-            className="px-4 py-2 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-black uppercase transition-all shadow-3xs flex items-center gap-1.5"
-            title="Storage Reports"
+            className="px-3 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-3xs cursor-pointer"
           >
             <BarChart2 className="w-3.5 h-3.5 text-slate-500" />
-            Reports
-          </button>
-
-          <button
-            onClick={onUploadClick}
-            className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-905 rounded-xl text-xs font-black uppercase transition-all shadow-sm flex items-center gap-1.5"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Upload
+            <span>REPORTS</span>
           </button>
         </div>
       </div>
 
-      {/* 4. Document Table Grid (Full Width) */}
-      <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-xs">
+      {/* 4. Documents Table */}
+      <div className="bg-white border border-slate-100/90 rounded-3xl overflow-hidden shadow-2xs">
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left table-auto">
             <thead>
@@ -190,8 +177,8 @@ export default function DocumentList({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filteredDocuments.map(doc => (
-                <tr key={doc.id} className="hover:bg-slate-50/40">
+              {filteredDocuments.map((doc, idx) => (
+                <tr key={doc._id ? `${doc._id}-${idx}` : `${doc.id}-${idx}`} className="hover:bg-slate-50/40">
                   <td className="px-4 py-4 align-middle">
                     <div className="flex items-center gap-2.5">
                       <File className="w-4 h-4 text-slate-450 flex-shrink-0" />

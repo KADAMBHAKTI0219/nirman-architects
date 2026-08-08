@@ -18,14 +18,16 @@ export default function DrawingCompare({
   const detailsA = versions.find(v => (v.version || `V${v.versionNumber}`) === versionA) || versions[0] || {};
   const detailsB = versions.find(v => (v.version || `V${v.versionNumber}`) === versionB) || versions[versions.length - 1] || {};
 
-  const renderFilePreview = (url, title) => {
-    const cached = getCachedDrawingFile(drawing?._id || drawing?.id || drawing?.drawingNumber);
-    const targetUrl = cached || url || drawing?.fileUrl;
+  const renderFilePreview = (url, title, versionDetails) => {
+    const vId = versionDetails?._id || versionDetails?.id || versionDetails?.version;
+    const cachedVer = vId ? getCachedDrawingFile(vId) : null;
+    const cachedDwg = getCachedDrawingFile(drawing?._id || drawing?.id || drawing?.drawingNumber);
+    const targetUrl = url || cachedVer || cachedDwg || drawing?.fileUrl;
 
     if (!targetUrl) {
       return (
-        <div className="h-56 flex flex-col items-center justify-center p-4 bg-slate-950/60 rounded-2xl border border-slate-800 text-slate-400 text-xs">
-          <FileText className="w-8 h-8 mb-2 text-indigo-400" />
+        <div className="h-56 flex flex-col items-center justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200 text-slate-400 text-xs">
+          <FileText className="w-8 h-8 mb-2 text-indigo-500" />
           <span>No File Attached for {title}</span>
         </div>
       );
@@ -37,13 +39,13 @@ export default function DrawingCompare({
         <iframe
           src={targetUrl.includes('#') ? targetUrl : `${targetUrl}#toolbar=1&navpanes=1`}
           title={title}
-          className="w-full h-56 rounded-2xl border border-slate-800 bg-white"
+          className="w-full h-56 rounded-2xl border border-slate-200 bg-white"
         />
       );
     }
 
     return (
-      <div className="h-56 flex items-center justify-center p-2 bg-slate-950/60 rounded-2xl border border-slate-800">
+      <div className="h-56 flex items-center justify-center p-2 bg-slate-50 rounded-2xl border border-slate-200">
         <img
           src={targetUrl}
           alt={title}
@@ -119,42 +121,42 @@ export default function DrawingCompare({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* Version A Card (First Revision PDF/Image) */}
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-sm space-y-4 text-white">
-          <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+        <div className="bg-white border border-slate-100/90 rounded-3xl p-5 shadow-2xs space-y-4 text-slate-800">
+          <div className="flex justify-between items-center border-b border-slate-100 pb-2">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-black text-sky-400 uppercase">Revision {versionA}</span>
-              <span className="px-2 py-0.5 bg-sky-500/20 text-sky-300 text-[9px] font-bold rounded-md">First Draft</span>
+              <span className="text-xs font-black text-sky-600 uppercase">Revision {versionA}</span>
+              <span className="px-2 py-0.5 bg-sky-50 text-sky-600 border border-sky-100 text-[9px] font-bold rounded-md">First Draft</span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono">By: {detailsA?.uploader || 'Sarah Connor'}</span>
+            <span className="text-[10px] text-slate-400 font-medium">By: {detailsA?.uploader || 'Sarah Connor'}</span>
           </div>
 
           {/* Actual PDF / Image Embed for Version A */}
-          {renderFilePreview(detailsA?.fileUrl || drawing?.fileUrl, `Revision ${versionA}`)}
+          {renderFilePreview(detailsA?.fileUrl || drawing?.fileUrl, `Revision ${versionA}`, detailsA)}
 
-          <div className="text-xs font-medium text-slate-300 space-y-1">
+          <div className="text-xs font-medium text-slate-600 space-y-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase block">Version Notes & Change Log:</span>
-            <p className="text-slate-200 bg-slate-950/70 p-3 rounded-2xl border border-slate-800/80 text-[11px] leading-relaxed italic">
+            <p className="text-slate-700 bg-slate-50/80 p-3 rounded-2xl border border-slate-200/60 text-[11px] leading-relaxed italic">
               "{detailsA?.changeLog || detailsA?.notes || 'Initial architectural layout release'}"
             </p>
           </div>
         </div>
 
         {/* Version B Card (Current Revised PDF/Image) */}
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-sm space-y-4 text-white">
-          <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+        <div className="bg-white border border-slate-100/90 rounded-3xl p-5 shadow-2xs space-y-4 text-slate-800">
+          <div className="flex justify-between items-center border-b border-slate-100 pb-2">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-black text-indigo-400 uppercase">Revision {versionB}</span>
-              <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 text-[9px] font-bold rounded-md">Latest Revision</span>
+              <span className="text-xs font-black text-indigo-600 uppercase">Revision {versionB}</span>
+              <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 border border-indigo-100 text-[9px] font-bold rounded-md">Latest Revision</span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono">By: {detailsB?.uploader || 'Sarah Connor'}</span>
+            <span className="text-[10px] text-slate-400 font-medium">By: {detailsB?.uploader || 'Sarah Connor'}</span>
           </div>
 
           {/* Actual PDF / Image Embed for Version B */}
-          {renderFilePreview(detailsB?.fileUrl || drawing?.fileUrl, `Revision ${versionB}`)}
+          {renderFilePreview(detailsB?.fileUrl || drawing?.fileUrl, `Revision ${versionB}`, detailsB)}
 
-          <div className="text-xs font-medium text-slate-300 space-y-1">
+          <div className="text-xs font-medium text-slate-600 space-y-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase block">Version Notes & Change Log:</span>
-            <p className="text-slate-200 bg-slate-950/70 p-3 rounded-2xl border border-slate-800/80 text-[11px] leading-relaxed italic">
+            <p className="text-slate-700 bg-slate-50/80 p-3 rounded-2xl border border-slate-200/60 text-[11px] leading-relaxed italic">
               "{detailsB?.changeLog || detailsB?.notes || 'Updated columns & beam clearances revision'}"
             </p>
           </div>

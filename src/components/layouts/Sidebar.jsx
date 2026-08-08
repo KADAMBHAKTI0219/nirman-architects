@@ -18,6 +18,11 @@ const SIDEBAR_ITEMS = {
       icon: "CheckSquare"
     },
     { 
+      label: "Drawings & GFC", 
+      path: "/admin/drawings",
+      icon: "PenTool"
+    },
+    { 
       label: "Documents", 
       icon: "FolderOpen",
       subItems: [
@@ -107,6 +112,7 @@ const SIDEBAR_ITEMS = {
     { category: "Project Operations" },
     { label: "Projects Directory", path: "/project-manager/projects", icon: "Building2" },
     { label: "Task Board", path: "/project-manager/tasks", icon: "CheckSquare" },
+    { label: "Drawings & GFC", path: "/project-manager/drawings", icon: "PenTool" },
     { label: "Shift Attendance", path: "/project-manager/attendance", icon: "Fingerprint" },
     { label: "Leaves Approvals", path: "/project-manager/leaves", icon: "Calendar" },
     { category: "Team & Communication" },
@@ -118,6 +124,7 @@ const SIDEBAR_ITEMS = {
     { label: "Dashboard", path: "/architect", icon: "LayoutDashboard" },
     { category: "Design Studio" },
     { label: "My Projects", path: "/architect/projects", icon: "Building2" },
+    { label: "Drawings & GFC", path: "/architect/drawings", icon: "PenTool" },
     { label: "Time Tracking", path: "/architect/time", icon: "Clock3" },
     { label: "Shift Attendance", path: "/architect/attendance", icon: "Fingerprint" },
     { label: "Leaves Portal", path: "/architect/leaves", icon: "Calendar" },
@@ -142,6 +149,7 @@ const SIDEBAR_ITEMS = {
     { label: "Shift Attendance", path: "/employee/attendance", icon: "Fingerprint" },
     { label: "Leaves Portal", path: "/employee/leaves", icon: "Calendar" },
     { label: "My Tasks", path: "/employee/tasks", icon: "CheckSquare" },
+    { label: "Drawings & GFC", path: "/employee/drawings", icon: "PenTool" },
     { label: "Documents", path: "/employee/docs", icon: "FolderOpen" },
     { label: "Project Chat", path: "/employee/chat", icon: "MessageSquare" },
     { label: "Notifications", path: "/employee/notifications", icon: "Bell" }

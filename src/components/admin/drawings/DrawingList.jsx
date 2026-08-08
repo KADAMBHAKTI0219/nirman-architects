@@ -47,6 +47,10 @@ export default function DrawingList({
   const approvedCount = (drawings || []).filter(d => d?.status === 'Approved' || d?.status === 'APPROVED').length;
   const gfcLockedCount = (drawings || []).filter(d => d?.status === 'GFC Locked' || d?.locked).length;
 
+  // Dynamic Project Options list
+  const uniqueProjects = Array.from(new Set((drawings || []).map(d => d?.project).filter(Boolean)));
+  const projectOptions = uniqueProjects.length > 0 ? uniqueProjects : ["Central Office Tower", "Oceanic Luxury Villas", "Smart City Mall"];
+
   return (
     <div className="space-y-6 font-sans text-slate-800 pb-12 w-full">
       
@@ -120,7 +124,7 @@ export default function DrawingList({
             </span>
             <div className="flex items-baseline gap-1.5">
               <span className="text-2xl font-black text-emerald-600">{approvedCount}</span>
-              <span className="text-sm font-bold text-emerald-600">Releases</span>
+              <span className="text-sm font-bold text-emerald-600">Files</span>
             </div>
           </div>
           <div className="w-10 h-10 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600">
@@ -131,15 +135,15 @@ export default function DrawingList({
         {/* Card 4: GFC LOCKED */}
         <div className="bg-white p-5 rounded-3xl border border-slate-100/90 shadow-2xs hover:shadow-xs transition-all flex items-center justify-between">
           <div className="space-y-1">
-            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block">
-              GFC LOCKED (FINAL)
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">
+              GFC LOCKED
             </span>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-black text-indigo-600">{gfcLockedCount}</span>
-              <span className="text-sm font-bold text-indigo-600">Drawings</span>
+              <span className="text-2xl font-black text-slate-800">{gfcLockedCount}</span>
+              <span className="text-sm font-bold text-slate-800">Frozen</span>
             </div>
           </div>
-          <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+          <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-600">
             <Lock className="w-5 h-5" />
           </div>
         </div>
@@ -241,9 +245,9 @@ export default function DrawingList({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/80">
-              {filteredDrawings.map((d) => (
+              {filteredDrawings.map((d, idx) => (
                 <tr 
-                  key={d.id} 
+                  key={d._id ? `${d._id}-${idx}` : `${d.id || d.drawingNumber || 'dwg'}-${idx}`} 
                   className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
                   onClick={() => onSelectDrawing(d)}
                 >

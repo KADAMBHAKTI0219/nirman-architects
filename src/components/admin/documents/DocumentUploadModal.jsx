@@ -1,14 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { getProjects } from '../../../service/project';
 
 export default function DocumentUploadModal({
   isOpen,
   onClose,
   onSubmit
 }) {
+  const [projectsList, setProjectsList] = useState([]);
+
   const [formData, setFormData] = useState({
     name: '',
     project: 'Central Office Tower',
+    projectId: '',
     folder: 'Reports',
     type: 'PDF',
     accessLevel: 'Public & Staff',
@@ -16,6 +20,32 @@ export default function DocumentUploadModal({
     confidential: false,
     changeLog: 'Initial contract draft upload'
   });
+
+  useEffect(() => {
+    if (isOpen) {
+      getProjects()
+        .then(res => {
+          let list = [];
+          if (res?.projects && Array.isArray(res.projects)) {
+            list = res.projects;
+          } else if (Array.isArray(res)) {
+            list = res;
+          }
+          if (list.length > 0) {
+            setProjectsList(list);
+            const firstP = list[0];
+            const pName = firstP.name || firstP.projectName || firstP.title;
+            const pId = firstP._id || firstP.id;
+            setFormData(prev => ({
+              ...prev,
+              project: pName || prev.project,
+              projectId: pId || prev.projectId
+            }));
+          }
+        })
+        .catch(err => console.warn(err));
+    }
+  }, [isOpen]);
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -28,6 +58,7 @@ export default function DocumentUploadModal({
     setFormData({
       name: '',
       project: 'Central Office Tower',
+      projectId: '',
       folder: 'Reports',
       type: 'PDF',
       accessLevel: 'Public & Staff',
@@ -76,12 +107,35 @@ export default function DocumentUploadModal({
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">Project Reference</label>
               <select 
                 value={formData.project}
-                onChange={(e) => handleChange('project', e.target.value)}
-                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-semibold"
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const found = projectsList.find(p => (p.name || p.projectName || p.title) === val || String(p._id || p.id) === String(val));
+                  if (found) {
+                    handleChange('project', found.name || found.projectName || found.title);
+                    handleChange('projectId', found._id || found.id);
+                  } else {
+                    handleChange('project', val);
+                  }
+                }}
+                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-semibold cursor-pointer"
               >
-                <option value="Central Office Tower">Central Office Tower</option>
-                <option value="Oceanic Luxury Villas">Oceanic Luxury Villas</option>
-                <option value="Smart City Mall">Smart City Mall</option>
+                {projectsList.length > 0 ? (
+                  projectsList.map(p => {
+                    const pName = p.name || p.projectName || p.title || 'Untitled Project';
+                    const pId = p._id || p.id;
+                    return (
+                      <option key={pId || pName} value={pName}>
+                        {pName}
+                      </option>
+                    );
+                  })
+                ) : (
+                  <>
+                    <option value="Central Office Tower">Central Office Tower</option>
+                    <option value="Oceanic Luxury Villas">Oceanic Luxury Villas</option>
+                    <option value="Smart City Mall">Smart City Mall</option>
+                  </>
+                )}
               </select>
             </div>
             <div>

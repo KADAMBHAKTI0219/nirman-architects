@@ -12,6 +12,25 @@ const EMAIL_ROLE_MAP = {
 };
 
 const initLocalStorage = () => {
+  if (!localStorage.getItem('nirman_drawing_categories')) {
+    localStorage.setItem('nirman_drawing_categories', JSON.stringify([
+      { _id: 'cat-concept', name: 'Concept Drawings', requiresClientApproval: true, restrictedEditing: false, isActive: true },
+      { _id: 'cat-working', name: 'Working Drawings', requiresClientApproval: true, restrictedEditing: false, isActive: true },
+      { _id: 'cat-process-dwg', name: 'Process DWG', requiresClientApproval: false, restrictedEditing: true, isActive: true },
+      { _id: 'cat-gfc', name: 'GFC Drawings', requiresClientApproval: false, restrictedEditing: false, isActive: true },
+      { _id: 'cat-site', name: 'Site', requiresClientApproval: true, restrictedEditing: false, isActive: true },
+      { _id: 'cat-interior', name: 'Interior Drawings', requiresClientApproval: true, restrictedEditing: false, isActive: true }
+    ]));
+  }
+
+  if (!localStorage.getItem('nirman_drawings')) {
+    localStorage.setItem('nirman_drawings', JSON.stringify([]));
+  }
+
+  if (!localStorage.getItem('nirman_drawing_versions')) {
+    localStorage.setItem('nirman_drawing_versions', JSON.stringify([]));
+  }
+
   if (!localStorage.getItem('nirman_users')) {
     localStorage.setItem('nirman_users', JSON.stringify([
       { id: 'u1', name: 'Sarah Connor', email: 'architect@nirman.com', role: 'Architect', department: 'Architecture', registeredDeviceId: 'dev-architect' },
@@ -400,6 +419,21 @@ const getSessionUser = () => {
   } catch {
     return null;
   }
+};
+
+export const getMockUserSession = () => {
+  try {
+    const raw = localStorage.getItem('nirman_user');
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return {
+    id: 'u6',
+    _id: 'u6',
+    name: 'Nirman Admin',
+    email: 'admin@nirman.com',
+    role: 'Admin',
+    department: 'Executive'
+  };
 };
 
 const delay = (ms = 100) => new Promise(res => setTimeout(res, ms));
@@ -2715,71 +2749,7 @@ export const getMockClientProjectDrawings = async (projectId) => {
   initLocalStorage();
   const drawings = JSON.parse(localStorage.getItem('nirman_drawings') || '[]');
   
-  if (drawings.length === 0) {
-    const sampleDrawings = [
-      {
-        _id: 'drg-101',
-        projectId: projectId || 'proj-1',
-        title: 'Main Ground Floor Architectural Layout Plan',
-        drawingNumber: 'AR-GF-001',
-        category: 'Working',
-        currentVersion: 2,
-        fileUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
-        thumbnailUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=400&q=80',
-        status: 'PENDING_CLIENT_APPROVAL',
-        visibleToClient: true,
-        versions: [
-          { versionNumber: 1, fileUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c', notes: 'Initial Layout Draft', uploadedAt: '2026-07-15T10:00:00Z' },
-          { versionNumber: 2, fileUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c', notes: 'V2 with revised column positioning', uploadedAt: '2026-07-20T14:30:00Z' }
-        ],
-        createdAt: '2026-07-15T10:00:00Z'
-      },
-      {
-        _id: 'drg-102',
-        projectId: projectId || 'proj-1',
-        title: 'Master Bedroom Structural Details & Beam Section',
-        drawingNumber: 'ST-MB-002',
-        category: 'GFC',
-        currentVersion: 1,
-        fileUrl: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80',
-        thumbnailUrl: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=400&q=80',
-        status: 'APPROVED',
-        visibleToClient: true,
-        versions: [
-          { versionNumber: 1, fileUrl: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c', notes: 'Approved GFC details', uploadedAt: '2026-07-18T11:00:00Z' }
-        ],
-        createdAt: '2026-07-18T11:00:00Z'
-      },
-      {
-        _id: 'drg-103',
-        projectId: projectId || 'proj-1',
-        title: 'Living Room 3D False Ceiling & Elevation',
-        drawingNumber: 'INT-LR-003',
-        category: 'Interior',
-        currentVersion: 3,
-        fileUrl: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&q=80',
-        thumbnailUrl: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=400&q=80',
-        status: 'CHANGES_REQUESTED',
-        visibleToClient: true,
-        versions: [
-          { versionNumber: 1, fileUrl: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6', notes: 'Initial 3D Render', uploadedAt: '2026-07-10T09:00:00Z' },
-          { versionNumber: 2, fileUrl: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6', notes: 'Cove light adjustment', uploadedAt: '2026-07-16T15:00:00Z' },
-          { versionNumber: 3, fileUrl: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6', notes: 'V3 pending client sign off', uploadedAt: '2026-07-22T16:45:00Z' }
-        ],
-        createdAt: '2026-07-10T09:00:00Z'
-      }
-    ];
-    localStorage.setItem('nirman_drawings', JSON.stringify(sampleDrawings));
-    return {
-      success: true,
-      pendingApproval: sampleDrawings.filter(d => d.status === 'PENDING_CLIENT_APPROVAL'),
-      approved: sampleDrawings.filter(d => d.status === 'APPROVED'),
-      changesRequested: sampleDrawings.filter(d => d.status === 'CHANGES_REQUESTED'),
-      allDrawings: sampleDrawings
-    };
-  }
-
-  const list = drawings.filter(d => !projectId || d.projectId === projectId || d.projectId === 'proj-1');
+  const list = drawings.filter(d => !projectId || String(d.projectId) === String(projectId));
   return {
     success: true,
     pendingApproval: list.filter(d => d.status === 'PENDING_CLIENT_APPROVAL'),
@@ -3818,5 +3788,710 @@ export const mockGetFeedbackAggregateSummary = async () => {
     ]
   };
 };
+
+/* ==========================================================================
+   ERP MODULE 3 - DRAWING MANAGEMENT SYSTEM MOCK APIS (25.1 to 25.11)
+   ========================================================================== */
+
+// Helper to retrieve drawings array
+const _getMockDrawingsStorage = () => {
+  initLocalStorage();
+  try {
+    return JSON.parse(localStorage.getItem('nirman_drawings')) || [];
+  } catch (e) {
+    return [];
+  }
+};
+
+const saveMockDrawings = (drawings) => {
+  localStorage.setItem('nirman_drawings', JSON.stringify(drawings));
+};
+
+const _getMockDrawingVersionsStorage = () => {
+  initLocalStorage();
+  try {
+    return JSON.parse(localStorage.getItem('nirman_drawing_versions')) || [];
+  } catch (e) {
+    return [];
+  }
+};
+
+const saveMockDrawingVersions = (versions) => {
+  localStorage.setItem('nirman_drawing_versions', JSON.stringify(versions));
+};
+
+const _getMockDrawingCategoriesStorage = () => {
+  initLocalStorage();
+  try {
+    return JSON.parse(localStorage.getItem('nirman_drawing_categories')) || [];
+  } catch (e) {
+    return [];
+  }
+};
+
+const saveMockDrawingCategories = (categories) => {
+  localStorage.setItem('nirman_drawing_categories', JSON.stringify(categories));
+};
+
+// 25.1 POST /api/drawings/create
+export const mockCreateDrawing = async ({ projectId, drawingName, categoryId, drawingNumber }) => {
+  await delay();
+  if (!projectId || !drawingName || !drawingName.trim() || !categoryId) {
+    throw new Error('projectId, drawingName, and categoryId are required.');
+  }
+
+  const categories = _getMockDrawingCategoriesStorage();
+  const cat = categories.find(c => String(c._id) === String(categoryId) || c.name === categoryId);
+  const categoryName = cat ? cat.name : 'Working Drawings';
+  const catId = cat ? cat._id : categoryId;
+
+  const drawings = _getMockDrawingsStorage();
+  const user = getMockUserSession();
+
+  const newId = 'drg-' + Date.now();
+  const drgNum = drawingNumber ? drawingNumber.trim() : `DWG-${String(drawings.length + 1).padStart(3, '0')}`;
+
+  const newDrawing = {
+    _id: newId,
+    id: newId,
+    projectId,
+    drawingName: drawingName.trim(),
+    drawingNumber: drgNum,
+    categoryId: catId,
+    categoryName,
+    currentVersionId: null,
+    currentVersion: 1,
+    status: 'DESIGNER_UPLOADED',
+    visibleToClient: false,
+    isGFCLocked: false,
+    fileUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
+    isActive: true,
+    createdBy: user?.id || 'u1',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    versions: []
+  };
+
+  drawings.unshift(newDrawing);
+  saveMockDrawings(drawings);
+
+  return {
+    success: true,
+    message: 'Parent drawing created successfully.',
+    data: { drawing: newDrawing },
+    drawing: newDrawing
+  };
+};
+
+// 25.2 POST /api/drawings/:drawingId/versions/upload
+export const mockUploadDrawingVersion = async (drawingId, { filePath, fileType, changeLog, thumbnailUrl }) => {
+  await delay();
+  if (!filePath || !filePath.trim()) {
+    throw new Error('filePath is required.');
+  }
+
+  const drawings = _getMockDrawingsStorage();
+  const drawingIndex = drawings.findIndex(d => String(d._id) === String(drawingId) || String(d.id) === String(drawingId));
+  if (drawingIndex === -1) {
+    throw new Error('Drawing not found.');
+  }
+
+  const drawing = drawings[drawingIndex];
+  if (drawing.isGFCLocked) {
+    throw new Error('Drawing is GFC locked. Version upload is blocked.');
+  }
+
+  const allVersions = _getMockDrawingVersionsStorage();
+  const drawingVersions = allVersions.filter(v => String(v.drawingId) === String(drawing._id));
+  const nextVerNum = drawingVersions.length > 0 ? Math.max(...drawingVersions.map(v => v.versionNumber || 1)) + 1 : 1;
+
+  const user = getMockUserSession();
+  const verId = 'ver-' + Date.now();
+
+  const newVer = {
+    _id: verId,
+    drawingId: drawing._id,
+    versionNumber: nextVerNum,
+    filePath: filePath.trim(),
+    thumbnailUrl: thumbnailUrl ? thumbnailUrl.trim() : filePath.trim(),
+    fileType: fileType ? fileType.toUpperCase() : 'DWG',
+    uploadedBy: { _id: user?.id || 'u1', name: user?.name || 'Sarah Connor', email: user?.email || 'architect@nirman.com' },
+    uploadDate: new Date().toISOString(),
+    changeLog: changeLog ? changeLog.trim() : null,
+    status: 'DESIGNER_UPLOADED',
+    visibleToClient: false
+  };
+
+  allVersions.push(newVer);
+  saveMockDrawingVersions(allVersions);
+
+  drawing.currentVersionId = verId;
+  drawing.currentVersion = nextVerNum;
+  drawing.status = 'DESIGNER_UPLOADED';
+  drawing.visibleToClient = false;
+  drawing.fileUrl = newVer.filePath;
+  drawing.thumbnailUrl = newVer.thumbnailUrl;
+  drawing.updatedAt = new Date().toISOString();
+  if (!drawing.versions) drawing.versions = [];
+
+  drawing.versions.push({
+    versionNumber: nextVerNum,
+    fileUrl: newVer.filePath,
+    thumbnailUrl: newVer.thumbnailUrl,
+    notes: newVer.changeLog,
+    uploadedBy: user?.id || 'u1',
+    uploadedAt: newVer.uploadDate
+  });
+
+  drawings[drawingIndex] = drawing;
+  saveMockDrawings(drawings);
+
+  return {
+    success: true,
+    message: `Drawing version v${nextVerNum} uploaded successfully.`,
+    data: { drawing, version: newVer },
+    drawing,
+    version: newVer
+  };
+};
+
+// 25.3 GET /api/drawings & GET /api/drawings/:id
+export const mockGetDrawings = async ({ projectId, categoryId, status, page = 1, limit = 10 } = {}) => {
+  await delay();
+  let drawings = _getMockDrawingsStorage().filter(d => d.isActive !== false);
+
+  if (projectId) drawings = drawings.filter(d => String(d.projectId) === String(projectId));
+  if (categoryId) drawings = drawings.filter(d => String(d.categoryId) === String(categoryId));
+  if (status) drawings = drawings.filter(d => d.status === status);
+
+  const pageNum = Number(page) || 1;
+  const limitNum = Number(limit) || 10;
+  const totalCount = drawings.length;
+  const paginated = drawings.slice((pageNum - 1) * limitNum, pageNum * limitNum);
+
+  return {
+    success: true,
+    message: 'Drawings retrieved successfully.',
+    data: {
+      drawings: paginated,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limitNum),
+      currentPage: pageNum
+    },
+    drawings: paginated,
+    totalCount,
+    allDrawings: drawings
+  };
+};
+
+export const mockGetDrawingById = async (id) => {
+  await delay();
+  const drawings = _getMockDrawingsStorage();
+  const drawing = drawings.find(d => String(d._id) === String(id) || String(d.id) === String(id));
+
+  if (!drawing || drawing.isActive === false) {
+    throw new Error('Drawing not found.');
+  }
+
+  const versions = _getMockDrawingVersionsStorage().filter(v => String(v.drawingId) === String(drawing._id));
+
+  return {
+    success: true,
+    message: 'Drawing details retrieved successfully.',
+    data: { drawing, versionHistory: versions },
+    drawing,
+    versionHistory: versions
+  };
+};
+
+// 25.4 GET /api/drawings/:id/versions & GET /api/drawings/:id/compare
+export const mockGetDrawingVersions = async (id) => {
+  await delay();
+  const versions = _getMockDrawingVersionsStorage().filter(v => String(v.drawingId) === String(id));
+  return {
+    success: true,
+    message: 'Drawing versions list retrieved successfully.',
+    data: { versions },
+    versions
+  };
+};
+
+export const mockCompareDrawingVersions = async (id, versionA, versionB) => {
+  await delay();
+  const versions = _getMockDrawingVersionsStorage().filter(v => String(v.drawingId) === String(id));
+  const numA = Number(versionA);
+  const numB = Number(versionB);
+
+  const vA = versions.find(v => v.versionNumber === numA) || null;
+  const vB = versions.find(v => v.versionNumber === numB) || null;
+
+  return {
+    success: true,
+    message: 'Drawing versions comparison data retrieved successfully.',
+    data: { drawingId: id, versionA: vA, versionB: vB },
+    versionA: vA,
+    versionB: vB
+  };
+};
+
+// 25.5 PUT /api/drawing-versions/:versionId/pm-review
+export const mockPmReviewDrawingVersion = async (versionId, { decision, comments }) => {
+  await delay();
+  if (!['APPROVE', 'REJECT'].includes(decision)) {
+    throw new Error('decision must be APPROVE or REJECT.');
+  }
+  if (decision === 'REJECT' && (!comments || !comments.trim())) {
+    throw new Error('Comments are mandatory when PM rejects a drawing version.');
+  }
+
+  const user = getMockUserSession();
+
+  const versions = _getMockDrawingVersionsStorage();
+  const vIndex = versions.findIndex(v => String(v._id) === String(versionId));
+  if (vIndex === -1) {
+    throw new Error('Drawing version not found.');
+  }
+
+  const version = versions[vIndex];
+  const toStatus = decision === 'APPROVE' ? 'PM_APPROVED' : 'PM_REJECTED';
+
+  version.status = toStatus;
+  version.pmReviewComments = comments ? comments.trim() : null;
+  version.pmReviewedBy = { _id: user?.id || 'u4', name: user?.name || 'Project Manager' };
+  version.pmReviewedAt = new Date().toISOString();
+  versions[vIndex] = version;
+  saveMockDrawingVersions(versions);
+
+  // Update parent drawing status
+  const drawings = _getMockDrawingsStorage();
+  const dIndex = drawings.findIndex(d => String(d._id) === String(version.drawingId));
+  if (dIndex !== -1) {
+    drawings[dIndex].status = toStatus;
+    saveMockDrawings(drawings);
+  }
+
+  return {
+    success: true,
+    message: `PM review completed: ${toStatus}`,
+    data: { version },
+    version
+  };
+};
+
+// 25.6 PUT /api/drawing-versions/:versionId/admin-review
+export const mockAdminReviewDrawingVersion = async (versionId, { decision, comments }) => {
+  await delay();
+  if (!['APPROVE', 'REJECT'].includes(decision)) {
+    throw new Error('decision must be APPROVE or REJECT.');
+  }
+  if (decision === 'REJECT' && (!comments || !comments.trim())) {
+    throw new Error('Comments are mandatory when Admin rejects a drawing version.');
+  }
+
+  const user = getMockUserSession();
+
+  const versions = _getMockDrawingVersionsStorage();
+  const vIndex = versions.findIndex(v => String(v._id) === String(versionId));
+  if (vIndex === -1) {
+    throw new Error('Drawing version not found.');
+  }
+
+  const version = versions[vIndex];
+  const toStatus = decision === 'APPROVE' ? 'PENDING_CLIENT_APPROVAL' : 'ADMIN_REJECTED';
+  const isClientVisible = decision === 'APPROVE';
+
+  version.status = toStatus;
+  version.visibleToClient = isClientVisible;
+  version.adminReviewComments = comments ? comments.trim() : null;
+  version.adminReviewedBy = { _id: user?.id || 'u6', name: user?.name || 'Nirman Admin' };
+  version.adminReviewedAt = new Date().toISOString();
+  versions[vIndex] = version;
+  saveMockDrawingVersions(versions);
+
+  // Update parent drawing - HANDOFF TO CRM MODULE 5!
+  const drawings = _getMockDrawingsStorage();
+  const dIndex = drawings.findIndex(d => String(d._id) === String(version.drawingId));
+  let updatedDrawing = null;
+  if (dIndex !== -1) {
+    drawings[dIndex].status = toStatus;
+    drawings[dIndex].visibleToClient = isClientVisible;
+    updatedDrawing = drawings[dIndex];
+    saveMockDrawings(drawings);
+  }
+
+  return {
+    success: true,
+    message: `Admin review completed: ${toStatus}. Visible to client: ${isClientVisible}`,
+    data: { version, drawing: updatedDrawing },
+    version,
+    drawing: updatedDrawing
+  };
+};
+
+// 25.7 PUT /api/drawings/:id/promote-to-gfc & PUT /api/drawings/:id/unlock-gfc
+export const mockPromoteDrawingToGFC = async (id) => {
+  await delay();
+  const drawings = _getMockDrawingsStorage();
+  const dIndex = drawings.findIndex(d => String(d._id) === String(id) || String(d.id) === String(id));
+  if (dIndex === -1) {
+    throw new Error('Drawing not found.');
+  }
+
+  const user = getMockUserSession();
+  drawings[dIndex].isGFCLocked = true;
+  drawings[dIndex].gfcLockedAt = new Date().toISOString();
+  drawings[dIndex].gfcLockedBy = user?.id || 'u6';
+  drawings[dIndex].status = 'GFC_LOCKED';
+  saveMockDrawings(drawings);
+
+  return {
+    success: true,
+    message: 'Drawing promoted to locked GFC state.',
+    data: { drawing: drawings[dIndex] },
+    drawing: drawings[dIndex]
+  };
+};
+
+export const mockUnlockGFCDrawing = async (id, { reason }) => {
+  await delay();
+  if (!reason || !reason.trim()) {
+    throw new Error('Mandatory reason required to unlock GFC drawing.');
+  }
+
+  const drawings = _getMockDrawingsStorage();
+  const dIndex = drawings.findIndex(d => String(d._id) === String(id) || String(d.id) === String(id));
+  if (dIndex === -1) {
+    throw new Error('Drawing not found.');
+  }
+
+  drawings[dIndex].isGFCLocked = false;
+  drawings[dIndex].gfcLockedAt = null;
+  drawings[dIndex].gfcLockedBy = null;
+  drawings[dIndex].status = 'DESIGNER_UPLOADED';
+  saveMockDrawings(drawings);
+
+  return {
+    success: true,
+    message: 'GFC drawing unlocked successfully.',
+    data: { drawing: drawings[dIndex], unlockReason: reason.trim() },
+    drawing: drawings[dIndex]
+  };
+};
+
+// 25.8 PUT /api/drawing-versions/:versionId/edit-in-place
+export const mockEditInPlaceProcessDwg = async (versionId, { updatedFilePath, changeLog }) => {
+  await delay();
+  if (!updatedFilePath || !updatedFilePath.trim()) {
+    throw new Error('updatedFilePath is required.');
+  }
+
+  const versions = _getMockDrawingVersionsStorage();
+  const vIndex = versions.findIndex(v => String(v._id) === String(versionId));
+  if (vIndex === -1) {
+    throw new Error('Drawing version not found.');
+  }
+
+  const version = versions[vIndex];
+  const drawings = _getMockDrawingsStorage();
+  const drawing = drawings.find(d => String(d._id) === String(version.drawingId));
+
+  if (!drawing) {
+    throw new Error('Parent drawing not found.');
+  }
+
+  const isProcessDwg = drawing.categoryName === 'Process DWG';
+  if (!isProcessDwg) {
+    throw new Error('In-place file editing is restricted ONLY to Process DWG category drawings.');
+  }
+
+  version.filePath = updatedFilePath.trim();
+  if (changeLog) version.changeLog = changeLog.trim();
+  versions[vIndex] = version;
+  saveMockDrawingVersions(versions);
+
+  if (drawing) {
+    drawing.fileUrl = version.filePath;
+    saveMockDrawings(drawings);
+  }
+
+  return {
+    success: true,
+    message: 'Process DWG file edited in place successfully.',
+    data: { version },
+    version
+  };
+};
+
+// 25.9 GET /api/drawing-versions/:versionId/client-approval-log
+export const mockGetClientApprovalLog = async (versionId) => {
+  await delay();
+  const logs = [
+    {
+      _id: 'log-1',
+      drawingId: versionId,
+      action: 'APPROVED',
+      comments: 'Approved design layout for site execution.',
+      clientId: { companyName: 'Oceanic Properties Pvt Ltd', clientCode: 'CLI-9091' },
+      contactId: { name: 'Anand Shah', email: 'anand@oceanic.com' },
+      createdAt: new Date().toISOString()
+    }
+  ];
+
+  return {
+    success: true,
+    message: 'Client approval log retrieved successfully.',
+    data: { approvalLogs: logs },
+    approvalLogs: logs,
+    logs
+  };
+};
+
+// 25.10 POST /api/drawing-category/create & GET /api/drawing-category/active
+export const mockCreateDrawingCategory = async ({ name, requiresClientApproval, restrictedEditing }) => {
+  await delay();
+  if (!name || !name.trim()) {
+    throw new Error('Category name is required.');
+  }
+
+  const categories = _getMockDrawingCategoriesStorage();
+  const trimmed = name.trim();
+  const existing = categories.find(c => c.name.toLowerCase() === trimmed.toLowerCase());
+
+  if (existing) {
+    if (!existing.isActive) {
+      existing.isActive = true;
+      saveMockDrawingCategories(categories);
+      return { success: true, message: 'Drawing category reactivated successfully.', data: { category: existing }, category: existing };
+    }
+    throw new Error(`Drawing category "${trimmed}" already exists.`);
+  }
+
+  const newCat = {
+    _id: 'cat-' + Date.now(),
+    name: trimmed,
+    requiresClientApproval: requiresClientApproval !== undefined ? !!requiresClientApproval : true,
+    restrictedEditing: restrictedEditing !== undefined ? !!restrictedEditing : false,
+    isActive: true
+  };
+
+  categories.push(newCat);
+  saveMockDrawingCategories(categories);
+
+  return {
+    success: true,
+    message: 'Drawing category created successfully.',
+    data: { category: newCat },
+    category: newCat
+  };
+};
+
+export const mockGetActiveDrawingCategories = async () => {
+  await delay();
+  const categories = _getMockDrawingCategoriesStorage().filter(c => c.isActive !== false);
+  return {
+    success: true,
+    message: 'Active drawing categories retrieved successfully.',
+    data: { categories },
+    categories
+  };
+};
+
+// 25.11 GET /api/projects/:projectId/drawings/breakdown
+export const mockGetProjectDrawingsBreakdown = async (projectId) => {
+  await delay();
+  const drawings = _getMockDrawingsStorage().filter(d => String(d.projectId) === String(projectId) && d.isActive !== false);
+  const totalDrawings = drawings.length;
+
+  const approvedCount = drawings.filter(d => d.status === 'APPROVED').length;
+  const pendingReviewCount = drawings.filter(d => ['DESIGNER_UPLOADED', 'PM_APPROVED'].includes(d.status)).length;
+  const pendingClientApprovalCount = drawings.filter(d => d.status === 'PENDING_CLIENT_APPROVAL').length;
+  const changesRequestedCount = drawings.filter(d => ['CHANGES_REQUESTED', 'PM_REJECTED', 'ADMIN_REJECTED'].includes(d.status)).length;
+
+  return {
+    success: true,
+    message: 'Project drawings breakdown retrieved successfully.',
+    data: {
+      projectId,
+      totalDrawings,
+      approvedCount,
+      pendingReviewCount,
+      pendingClientApprovalCount,
+      changesRequestedCount,
+      approvalRate: totalDrawings > 0 ? Math.round((approvedCount / totalDrawings) * 100) : 0
+    },
+    projectId,
+    totalDrawings,
+    approvedCount,
+    pendingReviewCount,
+    pendingClientApprovalCount,
+    changesRequestedCount
+  };
+};
+
+/* ==========================================================================
+   ERP MODULE 4 - JPEG/3D DRAWING REVIEW MOCK APIS (26.1 to 26.4)
+   ========================================================================== */
+
+const _getMockMarkingsStorage = () => {
+  initLocalStorage();
+  try {
+    return JSON.parse(localStorage.getItem('nirman_drawing_markings')) || [];
+  } catch (e) {
+    return [];
+  }
+};
+
+const _saveMockMarkingsStorage = (markings) => {
+  localStorage.setItem('nirman_drawing_markings', JSON.stringify(markings));
+};
+
+const _getMockCommentsStorage = () => {
+  initLocalStorage();
+  try {
+    return JSON.parse(localStorage.getItem('nirman_drawing_comments')) || [];
+  } catch (e) {
+    return [];
+  }
+};
+
+const _saveMockCommentsStorage = (comments) => {
+  localStorage.setItem('nirman_drawing_comments', JSON.stringify(comments));
+};
+
+// 26.1 GET /api/drawing-versions/:versionId/review-data
+export const mockGetAggregatedReviewData = async (versionId) => {
+  await delay();
+  const allVersions = _getMockDrawingVersionsStorage();
+  const version = allVersions.find(v => String(v._id) === String(versionId) || String(v.id) === String(versionId)) || null;
+
+  const allDrawings = _getMockDrawingsStorage();
+  const parentDrawing = version ? allDrawings.find(d => String(d._id) === String(version.drawingId)) : (allDrawings[0] || null);
+
+  const markings = _getMockMarkingsStorage().filter(m => String(m.drawingVersionId) === String(versionId));
+  const comments = _getMockCommentsStorage().filter(c => String(c.drawingVersionId) === String(versionId));
+
+  return {
+    success: true,
+    message: 'Aggregated review data retrieved successfully.',
+    data: {
+      drawingVersion: version,
+      drawing: parentDrawing,
+      comments,
+      markings
+    },
+    drawingVersion: version,
+    drawing: parentDrawing,
+    comments,
+    markings
+  };
+};
+
+// 26.2 POST /api/drawing-versions/:versionId/comments & GET /api/drawing-versions/:versionId/comments
+export const mockPostCommentOrNote = async (versionId, { commentText, annotationCoords, isDraft }) => {
+  await delay();
+  if (!commentText || !commentText.trim()) {
+    throw new Error('commentText is required.');
+  }
+
+  const user = getMockUserSession();
+  const comments = _getMockCommentsStorage();
+  const newId = 'cmt-' + Date.now();
+
+  const newComment = {
+    _id: newId,
+    id: newId,
+    drawingVersionId: versionId,
+    authorId: user?.id || 'u1',
+    authorName: user?.name || 'Internal Employee',
+    commentText: commentText.trim(),
+    annotationCoords: annotationCoords || null,
+    isDraft: Boolean(isDraft),
+    createdAt: new Date().toISOString()
+  };
+
+  comments.push(newComment);
+  _saveMockCommentsStorage(comments);
+
+  return {
+    success: true,
+    message: annotationCoords ? 'Pinned note created successfully.' : 'Comment posted successfully.',
+    data: { comment: newComment },
+    comment: newComment
+  };
+};
+
+export const mockGetVersionComments = async (versionId) => {
+  await delay();
+  const comments = _getMockCommentsStorage().filter(c => String(c.drawingVersionId) === String(versionId));
+  return {
+    success: true,
+    message: 'Version comments retrieved successfully.',
+    data: { comments },
+    comments
+  };
+};
+
+// 26.3 POST /api/drawing-versions/:versionId/markings & GET /api/drawing-versions/:versionId/markings
+export const mockPostMarking = async (versionId, { markingType, geometry, color, linkedCommentId }) => {
+  await delay();
+  if (!markingType || !geometry) {
+    throw new Error('markingType and geometry are required.');
+  }
+
+  const user = getMockUserSession();
+  const markings = _getMockMarkingsStorage();
+  const newId = 'mrk-' + Date.now();
+
+  const newMarking = {
+    _id: newId,
+    id: newId,
+    drawingVersionId: versionId,
+    authorType: 'EMPLOYEE',
+    authorId: user?.id || 'u1',
+    authorModel: 'User',
+    markingType: markingType.toUpperCase(),
+    geometry,
+    color: color || '#FF0000',
+    linkedCommentId: linkedCommentId || null,
+    createdAt: new Date().toISOString()
+  };
+
+  markings.push(newMarking);
+  _saveMockMarkingsStorage(markings);
+
+  return {
+    success: true,
+    message: 'Marking annotation created successfully.',
+    data: { marking: newMarking },
+    marking: newMarking
+  };
+};
+
+export const mockGetVersionMarkings = async (versionId) => {
+  await delay();
+  const markings = _getMockMarkingsStorage().filter(m => String(m.drawingVersionId) === String(versionId));
+  return {
+    success: true,
+    message: 'Version markings retrieved successfully.',
+    data: { markings },
+    markings
+  };
+};
+
+// 26.4 DELETE /api/drawing-versions/:versionId/markings/:markingId
+export const mockDeleteMarking = async (versionId, markingId) => {
+  await delay();
+  let markings = _getMockMarkingsStorage();
+  markings = markings.filter(m => !(String(m._id) === String(markingId) || String(m.id) === String(markingId)));
+  _saveMockMarkingsStorage(markings);
+
+  return {
+    success: true,
+    message: 'Marking annotation deleted successfully.',
+    data: { markingId }
+  };
+};
+
 
 

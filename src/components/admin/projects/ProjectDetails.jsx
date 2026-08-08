@@ -28,6 +28,8 @@ import {
   getResponsibilityMatrix,
   getProgressBreakdown
 } from '../../../service/project';
+import { getProjectDrawings, createDrawing, uploadDrawingVersion } from '../../../service/drawing';
+import DrawingCreateModal from '../drawings/DrawingCreateModal';
 
 export default function ProjectDetails({
   project,
@@ -89,14 +91,72 @@ export default function ProjectDetails({
   const [progressOverride, setProgressOverride] = useState(project.progressIsManualOverride || false);
   const [progressSubmitting, setProgressSubmitting] = useState(false);
 
+  // ERP Module 3: Drawing Management State
+  const [projectDrawingsList, setProjectDrawingsList] = useState(project.drawings || []);
+  const [loadingProjectDrawings, setLoadingProjectDrawings] = useState(false);
+  const [isUploadDrawingModalOpen, setIsUploadDrawingModalOpen] = useState(false);
+
   useEffect(() => {
     if (project) {
       setProgressVal(project.progressPercentage ?? project.progressPercent ?? project.progress ?? 0);
       setProgressOverride(project.progressIsManualOverride || false);
+      if (Array.isArray(project.drawings)) setProjectDrawingsList(project.drawings);
     }
   }, [project]);
 
   const projectId = project ? (project.id || project._id || project.code || 'proj-1') : null;
+
+  const fetchProjectDrawingsList = async () => {
+    if (!projectId) return;
+    setLoadingProjectDrawings(true);
+    try {
+      const res = await getProjectDrawings(projectId);
+      let list = [];
+      if (res?.drawings && res.drawings.length > 0) list = res.drawings;
+      else if (res?.allDrawings && res.allDrawings.length > 0) list = res.allDrawings;
+      else if (Array.isArray(res?.data)) list = res.data;
+      else if (Array.isArray(res)) list = res;
+
+      if (list.length > 0) {
+        setProjectDrawingsList(list);
+      } else if (Array.isArray(project.drawings) && project.drawings.length > 0) {
+        setProjectDrawingsList(project.drawings);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch project drawings list", err);
+    } finally {
+      setLoadingProjectDrawings(false);
+    }
+  };
+
+  const handleUploadProjectDrawingSubmit = async (formData) => {
+    try {
+      const createRes = await createDrawing({
+        projectId: projectId,
+        drawingName: formData.name,
+        categoryId: formData.categoryId || 'cat-working',
+        drawingNumber: `DWG-${String((projectDrawingsList || []).length + 1).padStart(3, '0')}`
+      });
+
+      const newDrg = createRes?.drawing || createRes?.data?.drawing;
+      if (newDrg) {
+        await uploadDrawingVersion(newDrg._id || newDrg.id, {
+          filePath: formData.fileUrl,
+          fileType: 'DWG',
+          changeLog: formData.changeLog || 'Initial project blueprint upload'
+        });
+
+        alert(`Blueprint "${formData.name}" uploaded successfully for this project!`);
+      }
+
+      setIsUploadDrawingModalOpen(false);
+      fetchProjectDrawingsList();
+    } catch (err) {
+      console.warn("Notice uploading project drawing:", err);
+      setIsUploadDrawingModalOpen(false);
+      fetchProjectDrawingsList();
+    }
+  };
 
   useEffect(() => {
     setActiveTab(defaultTab);
@@ -112,6 +172,8 @@ export default function ProjectDetails({
       fetchAvailableClients();
     } else if (activeTab === 'timeline') {
       fetchStatusHistoryLogs();
+    } else if (activeTab === 'drawings') {
+      fetchProjectDrawingsList();
     }
   }, [activeTab, projectId]);
 
@@ -961,37 +1023,87 @@ export default function ProjectDetails({
         {/* DRAWINGS & GFC PANEL */}
         {activeTab === 'drawings' && (
           <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
-            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100 flex-wrap gap-2">
               <div>
                 <h3 className="text-sm font-semibold text-slate-900">Project Drawings & GFC Blueprints</h3>
                 <p className="text-xs text-slate-500">Uploaded blueprints, version history, and client approval status</p>
               </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsUploadDrawingModalOpen(true)}
+                  className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-semibold text-xs rounded-xl shadow-2xs transition-all border border-brand-secondary/40 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 text-slate-900" /> Upload Blueprint
+                </button>
+              </div>
             </div>
 
-            {Array.isArray(project.drawings) && project.drawings.length > 0 ? (
+            {loadingProjectDrawings ? (
+              <div className="py-10 text-center text-slate-400 text-xs font-medium">Loading project blueprints...</div>
+            ) : Array.isArray(projectDrawingsList) && projectDrawingsList.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-normal">
-                {project.drawings.map((d, i) => (
-                  <div key={d._id || d.code || i} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-3">
-                    <div className="space-y-1">
-                      <span className="text-slate-900 font-semibold text-xs block">{d.title || d.name || d.code}</span>
-                      <div className="flex gap-2 text-[10px] text-slate-500 font-mono">
-                        <span>Ver: {d.version || 'V1.0'}</span>
-                        <span>Date: {formatDate(d.uploadedAt || d.createdAt)}</span>
+                {projectDrawingsList.map((d, i) => {
+                  const titleStr = d.drawingName || d.title || d.name || d.code || `Drawing #${i + 1}`;
+                  const verStr = d.currentVersion ? `V${d.currentVersion}.0` : (d.version ? `V${d.version}` : 'V1.0');
+                  const catStr = d.categoryName || d.category || 'Working Drawings';
+                  const dateStr = formatDate(d.updatedAt || d.uploadedAt || d.createdAt);
+                  const isLocked = d.isGFCLocked || d.status === 'GFC Locked' || d.status === 'GFC_LOCKED';
+                  const isApproved = d.status === 'APPROVED' || d.status === 'Approved';
+
+                  return (
+                    <div key={d._id || d.id || i} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-3 hover:border-slate-300 transition-all">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-slate-900 font-bold text-xs block">{titleStr}</span>
+                          <span className="text-[9px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-extrabold">{catStr}</span>
+                        </div>
+                        <div className="flex gap-2 text-[10px] text-slate-500 font-mono">
+                          <span>Ver: {verStr}</span>
+                          <span>Date: {dateStr}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`px-2.5 py-1 rounded text-[9px] font-black uppercase ${
+                          isLocked ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' :
+                          isApproved ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                          'bg-amber-50 text-amber-700 border border-amber-200'
+                        }`}>
+                          {d.status || 'PENDING'}
+                        </span>
+                        {(d.fileUrl || d.filePath) && (
+                          <a
+                            href={d.fileUrl || d.filePath}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-[10px] font-bold rounded-xl"
+                          >
+                            View
+                          </a>
+                        )}
                       </div>
                     </div>
-                    <span className={`px-2.5 py-1 rounded text-[9px] font-medium uppercase ${
-                      d.status === 'Approved' || d.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
-                    }`}>
-                      {d.status || 'PENDING'}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
-              <div className="py-10 text-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+              <div className="py-10 text-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 space-y-2">
+                <FileText className="w-8 h-8 text-slate-300 mx-auto" />
                 <p className="text-xs font-normal">No drawing blueprints uploaded for this project yet.</p>
+                <button
+                  onClick={() => setIsUploadDrawingModalOpen(true)}
+                  className="px-4 py-2 bg-brand-primary text-slate-900 font-bold text-xs rounded-xl shadow-xs inline-flex items-center gap-1 cursor-pointer"
+                >
+                  + Upload First Blueprint
+                </button>
               </div>
             )}
+
+            <DrawingCreateModal
+              isOpen={isUploadDrawingModalOpen}
+              onClose={() => setIsUploadDrawingModalOpen(false)}
+              onSubmit={handleUploadProjectDrawingSubmit}
+            />
           </div>
         )}
 

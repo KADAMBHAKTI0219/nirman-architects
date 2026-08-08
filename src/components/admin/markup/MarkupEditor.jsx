@@ -9,18 +9,25 @@ import SelectedObjectActionBar from './SelectedObjectActionBar';
 import ZoomControls from './ZoomControls';
 import { getBlueprintSvgDataUrl, renderPdfPageToDataUrl, convertFileToDataUrl } from './sampleAssets';
 import { exportAsPng, exportAsPdf, exportAsJson } from './ExportManager';
+import { 
+  getAggregatedReviewData, 
+  postCommentOrNote, 
+  postMarking, 
+  deleteMarking 
+} from '../../../service/drawingReview';
+import { cacheDrawingFile } from '../../../service/drawing';
 
 export default function MarkupEditor({
   documentData = null,
   onBack,
   onSaveDocument
 }) {
-  // Title & Metadata
   const docTitle = documentData?.name || documentData?.title || 'ARCHITECTURE_INTERIOR_BLUEPRINT.PDF';
   const [currentTitle, setCurrentTitle] = useState(docTitle);
-  const docVersion = documentData?.version || 'v3.2';
+  const docVersion = documentData?.version || 'V1.0';
   const docStatus = documentData?.status || 'GFC Released';
-  const targetPdfUrl = documentData?.fileUrl || documentData?.pdfUrl || '/architecture.pdf';
+  const targetPdfUrl = documentData?.originalFileUrl || (Array.isArray(documentData?.versions) && documentData.versions.length > 0 ? documentData.versions[0].fileUrl : null) || documentData?.fileUrl || documentData?.pdfUrl || '/architecture.pdf';
+  const versionId = documentData?.currentVersionId || documentData?._id || documentData?.id || 'ver-1';
 
   const [bgBlueprintSrc, setBgBlueprintSrc] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -101,23 +108,33 @@ export default function MarkupEditor({
   const [annotations, setAnnotations] = useState([]);
   const [selectedObject, setSelectedObject] = useState(null);
 
-  // Pins & Comments System
-  const [pins, setPins] = useState([
-    {
-      id: 1,
-      number: 1,
-      x: 350,
-      y: 280,
-      author: 'Eng. Rohit Mehta',
-      message: 'Verify beam clearance over Italian Marble flooring grid.',
-      status: 'Open',
-      date: '2 hours ago',
-      replies: [
-        { author: 'Bhakti Kadam', message: 'Clearance checked. 2.8m headroom compliant.', date: '1 hour ago' }
-      ]
-    }
-  ]);
+  // Dynamic Pins & Comments System
+  const [pins, setPins] = useState([]);
   const [activePinModal, setActivePinModal] = useState(null);
+
+  // 26.1 Fetch Aggregated Review Data on Mount
+  useEffect(() => {
+    if (versionId) {
+      getAggregatedReviewData(versionId).then(res => {
+        if (res?.success) {
+          if (Array.isArray(res.comments) && res.comments.length > 0) {
+            const mappedPins = res.comments.filter(c => c.annotationCoords).map((c, i) => ({
+              id: c._id || c.id || (i + 1),
+              number: i + 1,
+              x: c.annotationCoords?.x || 300,
+              y: c.annotationCoords?.y || 200,
+              author: c.authorName || 'Internal Employee',
+              message: c.commentText,
+              status: c.isDraft ? 'Draft' : 'Open',
+              date: c.createdAt ? new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+              replies: []
+            }));
+            setPins(mappedPins);
+          }
+        }
+      }).catch(e => console.warn(e));
+    }
+  }, [versionId]);
 
   // Undo / Redo Stack Management
   const historyStackRef = useRef([]);
@@ -194,9 +211,18 @@ export default function MarkupEditor({
   };
 
   // Pin Events
-  const handlePinDropped = (newPin) => {
+  const handlePinDropped = async (newPin) => {
     setPins(prev => [...prev, newPin]);
     setActivePinModal(newPin);
+    try {
+      await postCommentOrNote(versionId, {
+        commentText: newPin.message || 'Annotation note pin',
+        annotationCoords: { x: newPin.x, y: newPin.y },
+        isDraft: false
+      });
+    } catch (e) {
+      console.warn("Notice saving pin note to API:", e);
+    }
   };
 
   const handleSavePinReply = (pinId, replyText) => {
@@ -360,17 +386,92 @@ export default function MarkupEditor({
     }
   };
 
-  const handleSaveAll = () => {
+  const handleSaveAll = async () => {
     saveCanvasState();
-    if (onSaveDocument && documentData) {
-      onSaveDocument({
-        ...documentData,
-        lastUpdated: 'Just now',
-        markups: historyStackRef.current[historyIndexRef.current],
-        pins: pins
-      });
+    setSaveStatus('Saving...');
+    try {
+      let canvasDataUrl = null;
+      if (fabricCanvas) {
+        try {
+          canvasDataUrl = fabricCanvas.toDataURL({ format: 'png', quality: 0.9, multiplier: 1.5 });
+        } catch (e) {
+          console.warn("Canvas image export notice:", e);
+        }
+
+        const objects = fabricCanvas.getObjects().filter(o => !o.isBackground);
+        for (const obj of objects) {
+          const typeStr = obj.type === 'rect' ? 'RECTANGLE' : (obj.type === 'circle' ? 'CIRCLE' : 'FREEHAND');
+          await postMarking(versionId, {
+            markingType: typeStr,
+            geometry: obj.toJSON(),
+            color: obj.stroke || obj.fill || '#2484C6'
+          });
+        }
+      }
+      setSaveStatus('Saved just now');
+
+      if (onSaveDocument && documentData) {
+        const currentVersions = Array.isArray(documentData.versions) && documentData.versions.length > 0
+          ? [...documentData.versions]
+          : [
+              {
+                _id: 'ver-v1',
+                version: 'V1.0',
+                versionNumber: 1,
+                date: new Date().toISOString().split('T')[0],
+                uploader: 'Lead Designer',
+                changeLog: 'Initial layout draft',
+                fileUrl: documentData.fileUrl
+              }
+            ];
+
+        // Auto-increment version number (V1.0 -> V2.0 -> V3.0)
+        const nextVerNum = currentVersions.length + 1;
+        const nextVersionTag = `V${nextVerNum}.0`;
+        const newVersionId = `ver-${Date.now()}`;
+
+        const newVersionObj = {
+          _id: newVersionId,
+          version: nextVersionTag,
+          versionNumber: nextVerNum,
+          date: new Date().toISOString().split('T')[0],
+          uploader: 'Architect / Designer',
+          changeLog: `Markup & annotation revision (${nextVersionTag})`,
+          fileUrl: canvasDataUrl || documentData.fileUrl,
+          fileName: documentData.fileName || documentData.name || 'Blueprint_Markup.pdf'
+        };
+
+        const updatedVersions = [...currentVersions, newVersionObj];
+
+        // Cache the newly created version image data
+        if (canvasDataUrl) {
+          cacheDrawingFile(newVersionId, canvasDataUrl);
+          cacheDrawingFile(nextVersionTag, canvasDataUrl);
+          if (documentData._id) cacheDrawingFile(documentData._id, canvasDataUrl);
+          if (documentData.id) cacheDrawingFile(documentData.id, canvasDataUrl);
+          if (documentData.drawingNumber) cacheDrawingFile(documentData.drawingNumber, canvasDataUrl);
+        }
+
+        const updatedDoc = {
+          ...documentData,
+          version: nextVersionTag,
+          currentVersionId: newVersionId,
+          fileUrl: canvasDataUrl || documentData.fileUrl,
+          versions: updatedVersions,
+          lastUpdated: 'Just now',
+          markups: historyStackRef.current[historyIndexRef.current],
+          pins: pins
+        };
+
+        onSaveDocument(updatedDoc);
+        alert(`Document "${docTitle}" saved successfully!\nCreated new revision version: ${nextVersionTag}`);
+      } else {
+        alert(`Document "${docTitle}" markups & annotations saved successfully!`);
+      }
+    } catch (err) {
+      console.warn("Notice saving markups to API:", err);
+      setSaveStatus('Saved locally');
     }
-    alert(`Document "${docTitle}" markups & annotations saved successfully!`);
   };
 
   return (

@@ -232,3 +232,59 @@ export const getEmployeeDocuments = async (params = {}) => {
 };
 
 export const getAllDocuments = getEmployeeDocuments;
+
+const updateStoredCustomDocLocally = (id, updates) => {
+  try {
+    const list = getStoredCustomDocs();
+    const updated = list.map(d => (d._id === id || d.id === id) ? { ...d, ...updates } : d);
+    localStorage.setItem('nirman_custom_documents', JSON.stringify(updated));
+  } catch (e) {}
+};
+
+const deleteStoredCustomDocLocally = (id) => {
+  try {
+    const list = getStoredCustomDocs();
+    const filtered = list.filter(d => d._id !== id && d.id !== id);
+    localStorage.setItem('nirman_custom_documents', JSON.stringify(filtered));
+  } catch (e) {}
+};
+
+// 8. PUT /api/documents/:id - Update Document / Confidential Lock Status
+export const updateDocument = async (documentId, updatePayload) => {
+  try {
+    const response = await api.put(`/documents/${documentId}`, updatePayload);
+    if (response.data && response.data.success) {
+      updateStoredCustomDocLocally(documentId, updatePayload);
+      return response.data;
+    }
+  } catch (err) {
+    try {
+      const altRes = await api.put(`/client/documents/${documentId}`, updatePayload);
+      if (altRes.data && altRes.data.success) {
+        updateStoredCustomDocLocally(documentId, updatePayload);
+        return altRes.data;
+      }
+    } catch (altErr) {}
+  }
+
+  updateStoredCustomDocLocally(documentId, updatePayload);
+  return { success: true, message: "Document updated successfully." };
+};
+
+// 9. DELETE /api/documents/:id - Delete Document from vault
+export const deleteDocument = async (documentId) => {
+  try {
+    const response = await api.delete(`/documents/${documentId}`);
+    deleteStoredCustomDocLocally(documentId);
+    if (response.data) return response.data;
+  } catch (err) {
+    try {
+      const altRes = await api.delete(`/client/documents/${documentId}`);
+      deleteStoredCustomDocLocally(documentId);
+      if (altRes.data) return altRes.data;
+    } catch (altErr) {}
+  }
+
+  deleteStoredCustomDocLocally(documentId);
+  return { success: true, message: "Document deleted successfully." };
+};
