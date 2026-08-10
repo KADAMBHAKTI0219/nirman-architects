@@ -68,7 +68,7 @@ export default function DrawingCompare({
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div>
-          <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest block">Side-by-Side Revision Comparison</span>
+          <span className="text-[9px] font-black text-sky-600 uppercase tracking-widest block">Side-by-Side Revision Comparison</span>
           <h2 className="text-base font-extrabold text-slate-900 tracking-tight leading-none mt-0.5">{drawing?.name || drawing?.title}</h2>
         </div>
       </div>
@@ -76,7 +76,7 @@ export default function DrawingCompare({
       {/* Version Dropdown Selectors */}
       <div className="bg-white p-4 rounded-3xl border border-slate-200/90 shadow-2xs flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100">
+          <div className="p-2 crm-brand-soft-bg text-sky-600 rounded-xl border border-sky-100">
             <GitCompare className="w-5 h-5" />
           </div>
           <div>
@@ -91,7 +91,7 @@ export default function DrawingCompare({
             <select
               value={versionA}
               onChange={(e) => setVersionA(e.target.value)}
-              className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 bg-white font-bold cursor-pointer"
+              className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400 text-slate-800 bg-white font-bold cursor-pointer"
             >
               {versions.map((v, idx) => {
                 const label = v.version || `V${v.versionNumber || (idx + 1)}.0`;
@@ -100,14 +100,14 @@ export default function DrawingCompare({
             </select>
           </div>
 
-          <span className="text-indigo-600 font-extrabold text-xs pt-4">&larr; VS &rarr;</span>
+          <span className="text-sky-600 font-extrabold text-xs pt-4">&larr; VS &rarr;</span>
 
           <div>
             <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Version B (Latest Revised)</label>
             <select
               value={versionB}
               onChange={(e) => setVersionB(e.target.value)}
-              className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 bg-white font-bold cursor-pointer"
+              className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400 text-slate-800 bg-white font-bold cursor-pointer"
             >
               {versions.map((v, idx) => {
                 const label = v.version || `V${v.versionNumber || (idx + 1)}.0`;
@@ -146,8 +146,8 @@ export default function DrawingCompare({
         <div className="bg-white border border-slate-100/90 rounded-3xl p-5 shadow-2xs space-y-4 text-slate-800">
           <div className="flex justify-between items-center border-b border-slate-100 pb-2">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-black text-indigo-600 uppercase">Revision {versionB}</span>
-              <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 border border-indigo-100 text-[9px] font-bold rounded-md">Latest Revision</span>
+              <span className="text-xs font-black text-sky-600 uppercase">Revision {versionB}</span>
+              <span className="px-2 py-0.5 crm-brand-soft-bg text-sky-700 border border-sky-200 text-[9px] font-bold rounded-md">Latest Revision</span>
             </div>
             <span className="text-[10px] text-slate-400 font-medium">By: {detailsB?.uploader || 'Sarah Connor'}</span>
           </div>

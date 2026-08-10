@@ -161,7 +161,7 @@ export default function DrawingVersionModal({
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="px-5 py-2 crm-brand-btn font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               {loading ? 'Uploading...' : 'Submit New Version'}
             </button>

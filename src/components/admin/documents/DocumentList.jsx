@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   Search, File, Lock, Unlock, Eye, Trash2, Database, BarChart2, Plus, Folder, ShieldCheck
 } from 'lucide-react';
 import { getProjects } from '../../../service/project';
@@ -45,22 +45,22 @@ export default function DocumentList({
   const projectsList = ['ALL PROJECTS', ...combinedProjects];
 
   // Dynamic Folders derived strictly from backend projectFolders or document categories
-  const folderItems = projectFolders.length > 0 
-    ? projectFolders 
+  const folderItems = projectFolders.length > 0
+    ? projectFolders
     : Array.from(new Set((documents || []).map(d => typeof d.folderId === 'object' ? d.folderId?.folderName : (d.folder || d.category)).filter(Boolean)))
-        .map(fName => ({ _id: fName, folderName: fName, createdBy: { name: 'Staff' } }));
+      .map(fName => ({ _id: fName, folderName: fName, createdBy: { name: 'Staff' } }));
 
   const foldersList = folderItems.map(fObj => typeof fObj === 'string' ? fObj : (fObj.folderName || fObj.name || 'Folder'));
 
   // Filters logic
   const filteredDocuments = documents.filter(doc => {
     const docTitle = doc.documentName || doc.fileName || doc.name || '';
-    const matchesSearch = docTitle.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (doc.id || doc._id || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = docTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (doc.id || doc._id || '').toLowerCase().includes(searchQuery.toLowerCase());
     const selProjNorm = (selectedProject || 'ALL PROJECTS').trim().toUpperCase();
     const docProjNorm = (doc.project || '').trim().toUpperCase();
     const matchesProject = selProjNorm === 'ALL PROJECTS' || selProjNorm === 'ALL' || docProjNorm === selProjNorm;
-    
+
     const docFolderName = typeof doc.folderId === 'object' ? doc.folderId?.folderName : (doc.folder || doc.category);
     const matchesFolder = selectedFolder === 'All' || doc.folder === selectedFolder || doc.category === selectedFolder || docFolderName === selectedFolder;
     const matchesType = typeFilter === 'All' || doc.type === typeFilter || doc.fileType === typeFilter;
@@ -74,7 +74,7 @@ export default function DocumentList({
 
   return (
     <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
-      
+
       {/* 0. TOP PAGE HEADER */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -87,9 +87,9 @@ export default function DocumentList({
         </div>
         <button
           onClick={onUploadClick}
-          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+          className="flex items-center gap-2 px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary  text-black font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
         >
-          <Plus className="w-4 h-4 text-white" />
+          <Plus className="w-4 h-4 text-black" />
           Upload Document
         </button>
       </div>
@@ -103,11 +103,10 @@ export default function DocumentList({
               setSelectedProject(proj);
               setViewReports(false);
             }}
-            className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex-shrink-0 border ${
-              selectedProject === proj
-                ? 'bg-brand-primary border-brand-primary text-slate-905 shadow-3xs font-extrabold'
-                : 'bg-white border-slate-205 text-slate-550 hover:bg-slate-50'
-            }`}
+            className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex-shrink-0 border ${selectedProject === proj
+              ? 'bg-brand-primary border-brand-primary text-slate-905 shadow-3xs font-extrabold'
+              : 'bg-white border-slate-205 text-slate-550 hover:bg-slate-50'
+              }`}
           >
             {proj}
           </button>
@@ -144,7 +143,7 @@ export default function DocumentList({
         <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-3xs space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+              <div className="w-8 h-8 rounded-xl bg-brand-primary flex items-center justify-center text-brand-accent">
                 <Folder className="w-4 h-4" />
               </div>
               <div>
@@ -156,7 +155,7 @@ export default function DocumentList({
                 </span>
               </div>
             </div>
-            <span className="text-[10px] font-extrabold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-100">
+            <span className="text-[10px] font-extrabold px-2.5 py-1 bg-brand-primary text-slate-900 rounded-lg border border-brand-secondary/40">
               {folderItems.length} Folders
             </span>
           </div>
@@ -172,18 +171,17 @@ export default function DocumentList({
               const creatorName = fObj.createdBy?.name || 'Staff';
 
               return (
-                <div 
+                <div
                   key={fObj._id || folderName}
                   onClick={() => setSelectedFolder(isSelected ? 'All' : folderName)}
-                  className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-2 ${
-                    isSelected 
-                      ? 'bg-indigo-50/60 border-indigo-300 ring-2 ring-indigo-400/20 shadow-xs' 
-                      : 'bg-slate-50/50 border-slate-200/80 hover:bg-slate-100/60 hover:border-slate-300'
-                  }`}
+                  className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-2 ${isSelected
+                    ? 'bg-brand-soft border-brand-secondary ring-2 ring-brand-secondary/40 shadow-xs'
+                    : 'bg-slate-50/50 border-slate-200/80 hover:bg-slate-100/60 hover:border-slate-300'
+                    }`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
-                      <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>
+                      <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-brand-secondary text-slate-900 font-bold' : 'bg-white text-slate-600 border border-slate-200'}`}>
                         <File className="w-3.5 h-3.5" />
                       </div>
                       <span className="text-xs font-black text-slate-800 line-clamp-1">{folderName}</span>
@@ -208,7 +206,7 @@ export default function DocumentList({
         <div className="flex items-center gap-3 flex-1 min-w-[240px]">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input 
+            <input
               type="text"
               placeholder="Search file catalog by title or ID..."
               value={searchQuery}
@@ -217,7 +215,7 @@ export default function DocumentList({
             />
           </div>
         </div>
-        
+
         <div className="flex items-center gap-3 flex-wrap">
           {/* Folders Dropdown */}
           <select
@@ -230,7 +228,7 @@ export default function DocumentList({
               <option key={folder} value={folder}>{folder}</option>
             ))}
           </select>
-          
+
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
@@ -298,11 +296,10 @@ export default function DocumentList({
                     </div>
                   </td>
                   <td className="px-4 py-4 align-middle">
-                    <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${
-                      doc.accessLevel === 'Admin Only' ? 'bg-rose-50 text-rose-605 border-rose-100' :
-                      doc.accessLevel.includes('Client') ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
-                      'bg-slate-50 text-slate-550 border-slate-105'
-                    }`}>{doc.accessLevel}</span>
+                    <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${doc.accessLevel === 'Admin Only' ? 'bg-rose-50 text-rose-605 border-rose-100' :
+                      doc.accessLevel.includes('Client') ? 'bg-brand-soft text-slate-800 border-brand-primary/50' :
+                        'bg-slate-50 text-slate-550 border-slate-105'
+                      }`}>{doc.accessLevel}</span>
                   </td>
                   <td className="px-4 py-4 text-right align-middle">
                     <div className="flex justify-end gap-2 items-center">
@@ -311,7 +308,7 @@ export default function DocumentList({
                           setAuditModalDoc(doc);
                           setIsAuditOpen(true);
                         }}
-                        className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-xl transition-all shadow-3xs cursor-pointer"
+                        className="p-1.5 bg-brand-soft hover:bg-brand-primary/60 text-slate-800 rounded-xl transition-all shadow-3xs cursor-pointer"
                         title="View DocumentAccessLog Audit History"
                       >
                         <ShieldCheck className="w-3.5 h-3.5" />
@@ -325,16 +322,15 @@ export default function DocumentList({
                       </button>
                       <button
                         onClick={() => onLockToggle(doc.id)}
-                        className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
-                          doc.locked 
-                            ? 'bg-indigo-50 border-indigo-200 text-indigo-650 shadow-3xs' 
-                            : 'bg-white border-slate-205 text-slate-405 hover:text-slate-600 hover:bg-slate-50 shadow-3xs'
-                        }`}
+                        className={`p-1.5 rounded-xl border transition-all cursor-pointer ${doc.locked
+                          ? 'bg-brand-soft border-brand-secondary text-slate-800 shadow-3xs'
+                          : 'bg-white border-slate-205 text-slate-405 hover:text-slate-600 hover:bg-slate-50 shadow-3xs'
+                          }`}
                         title={doc.locked ? "Unlock edits" : "Lock Version"}
                       >
                         {doc.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
                       </button>
-                      <button 
+                      <button
                         onClick={() => onDeleteFile(doc.id)}
                         className="p-1.5 text-slate-400 hover:text-rose-600 border border-slate-205 hover:bg-rose-50 hover:border-rose-100 rounded-xl shadow-3xs transition-all cursor-pointer"
                         title="Delete document"

@@ -158,7 +158,7 @@ export default function DocumentDetails({
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setIsFullMarkupMode(true)}
-            className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+            className="px-3.5 py-2 crm-brand-btn font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
           >
             <PenTool className="w-4 h-4" />
             <span>Open PDF Markup Editor</span>

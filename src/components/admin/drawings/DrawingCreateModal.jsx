@@ -360,7 +360,7 @@ export default function DrawingCreateModal({
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold shadow-xs transition-all cursor-pointer"
+              className="px-5 py-2 crm-brand-btn rounded-xl text-xs font-extrabold shadow-xs transition-all cursor-pointer"
             >
               Create Drawing Record
             </button>

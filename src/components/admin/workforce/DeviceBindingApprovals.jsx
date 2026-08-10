@@ -173,7 +173,7 @@ export default function DeviceBindingApprovals({ employees = [], onRefresh }) {
             
             <button
               onClick={() => setShowAssignModal(true)}
-              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-4 py-2.5 crm-brand-btn font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <Plus className="w-4 h-4" /> Direct Device Assign
             </button>
@@ -517,8 +517,7 @@ export default function DeviceBindingApprovals({ employees = [], onRefresh }) {
                 </button>
                 <button
                   type="submit"
-                  disabled={assignSubmitting}
-                  className="px-5 py-2 bg-indigo-600 text-white font-extrabold rounded-xl shadow-xs hover:bg-indigo-700 transition-all cursor-pointer"
+                  className="px-5 py-2 crm-brand-btn font-extrabold rounded-xl shadow-xs transition-all cursor-pointer text-xs"
                 >
                   {assignSubmitting ? 'Assigning...' : 'Submit Device Request'}
                 </button>

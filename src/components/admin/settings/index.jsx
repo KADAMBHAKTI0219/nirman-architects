@@ -230,7 +230,7 @@ export default function Settings() {
         </div>
         <button
           onClick={handleSaveSettings}
-          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+          className="flex items-center gap-2 px-4 py-2.5 crm-brand-btn font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
         >
           <Save className="w-4 h-4 text-white" />
           Save Configurations
