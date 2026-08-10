@@ -213,167 +213,61 @@ class HighlighterBrush extends fabric.PencilBrush {
 }
 
 /* ===========================================================
-   4. GRAPHITE PENCIL — thin, grainy: several faint jittered
-      passes layered into one group, like real graphite grain.
+   4. GRAPHITE PENCIL — crisp, grainy pencil stroke.
 =========================================================== */
 class PencilTextureBrush extends fabric.PencilBrush {
     createPath(pathData) {
-        const rnd = seededRandom(Math.floor(Math.random() * 1e9));
-        const base = new fabric.Path(pathData, {
+        const path = super.createPath(pathData);
+        path.set({
             stroke: this.color,
-            strokeWidth: Math.max(0.8, this.width * 0.22),
+            strokeWidth: Math.max(1, this.width * 0.4),
             fill: null,
-            opacity: 0.4,
+            opacity: (this.opacity ?? 1) * 0.8,
             strokeLineCap: 'round',
-            strokeLineJoin: 'round'
+            strokeLineJoin: 'round',
+            toolType: 'pencil'
         });
-        const layers = [base];
-        for (let i = 0; i < 2; i++) {
-            const jitterX = (rnd() - 0.5) * 1.6;
-            const jitterY = (rnd() - 0.5) * 1.6;
-            layers.push(new fabric.Path(pathData, {
-                stroke: this.color,
-                strokeWidth: Math.max(0.6, this.width * 0.16),
-                fill: null,
-                opacity: 0.14 + rnd() * 0.12,
-                strokeLineCap: 'round',
-                strokeLineJoin: 'round',
-                left: base.left + jitterX,
-                top: base.top + jitterY
-            }));
-        }
-        const group = new fabric.Group(layers, { selectable: true, evented: true, subTargetCheck: false });
-        group.set({ toolType: 'pencil' });
-        return group;
+        return path;
     }
 }
 
 /* ===========================================================
-   5. CRAYON / WAX PASTEL — Authentic Apple iOS Wax Texture
-      Bold core stroke + layered micro-dashed wax grain strands
+   5. CRAYON / WAX PASTEL — Authentic Wax Texture stroke.
 =========================================================== */
 class CrayonBrush extends fabric.PencilBrush {
   createPath(pathData) {
-    const rnd = seededRandom(Math.floor(Math.random() * 1e9));
-    const crayonWidth = Math.max(5, this.width * 1.6);
-    const layers = [];
-
-    // 1. Core Wax Body (Vibrant solid stroke)
-    const coreStroke = new fabric.Path(pathData, {
+    const crayonWidth = Math.max(4, this.width * 1.5);
+    const path = super.createPath(pathData);
+    path.set({
       stroke: this.color,
       strokeWidth: crayonWidth,
       fill: null,
-      opacity: 0.85,
+      opacity: (this.opacity ?? 1) * 0.85,
       strokeLineCap: 'round',
-      strokeLineJoin: 'round'
+      strokeLineJoin: 'round',
+      toolType: 'crayon'
     });
-    layers.push(coreStroke);
-
-    // 2. Micro-Dashed Wax Grain Layers (Paper tooth & chalk/wax texture)
-    const strandCount = 10;
-    for (let i = 0; i < strandCount; i++) {
-      const offsetX = (rnd() - 0.5) * crayonWidth * 0.4;
-      const offsetY = (rnd() - 0.5) * crayonWidth * 0.4;
-      const strandW = Math.max(1.2, crayonWidth * (0.15 + rnd() * 0.25));
-
-      const dash1 = Math.floor(6 + rnd() * 14);
-      const dash2 = Math.floor(3 + rnd() * 8);
-
-      layers.push(
-        new fabric.Path(pathData, {
-          stroke: this.color,
-          strokeWidth: strandW,
-          fill: null,
-          opacity: 0.22 + rnd() * 0.32,
-          strokeDashArray: [dash1, dash2],
-          strokeLineCap: 'round',
-          strokeLineJoin: 'round',
-          left: coreStroke.left + offsetX,
-          top: coreStroke.top + offsetY
-        })
-      );
-    }
-
-    const group = new fabric.Group(layers, {
-      selectable: true,
-      evented: true,
-      subTargetCheck: false
-    });
-    group.set({ toolType: 'crayon' });
-    return group;
+    return path;
   }
 }
 
 /* ===========================================================
-   6. ACRYLIC / WATERCOLOR BRUSH — Authentic Apple iOS Paintbrush
-      Rich acrylic paint core + dark pigment noise speckles &
-      bristle hair streaks
+   6. ACRYLIC / WATERCOLOR BRUSH — Rich acrylic paint stroke.
 =========================================================== */
 class AcrylicBrush extends fabric.PencilBrush {
   createPath(pathData) {
-    const rnd = seededRandom(Math.floor(Math.random() * 1e9));
-    const acrylicWidth = Math.max(8, this.width * 2);
-    const layers = [];
-
-    // 1. Base Soft Edge Glow
-    const baseGlow = new fabric.Path(pathData, {
-      stroke: this.color,
-      strokeWidth: acrylicWidth * 1.1,
-      fill: null,
-      opacity: 0.35,
-      strokeLineCap: 'round',
-      strokeLineJoin: 'round',
-      shadow: new fabric.Shadow({ color: this.color, blur: acrylicWidth * 0.3, offsetX: 0, offsetY: 0 })
-    });
-    layers.push(baseGlow);
-
-    // 2. Rich Core Acrylic Paint Body
-    const coreStroke = new fabric.Path(pathData, {
+    const acrylicWidth = Math.max(6, this.width * 1.8);
+    const path = super.createPath(pathData);
+    path.set({
       stroke: this.color,
       strokeWidth: acrylicWidth,
       fill: null,
-      opacity: 0.88,
+      opacity: (this.opacity ?? 1) * 0.9,
       strokeLineCap: 'round',
-      strokeLineJoin: 'round'
+      strokeLineJoin: 'round',
+      toolType: 'acrylic'
     });
-    layers.push(coreStroke);
-
-    // 3. Bristle Hair Streaks (Rich paint bristle lines & dark pigment speckles)
-    const bristleCount = 12;
-    for (let i = 0; i < bristleCount; i++) {
-      const offsetX = (rnd() - 0.5) * acrylicWidth * 0.5;
-      const offsetY = (rnd() - 0.5) * acrylicWidth * 0.5;
-      const bristleW = Math.max(1.5, acrylicWidth * (0.12 + rnd() * 0.18));
-
-      const dash1 = Math.floor(8 + rnd() * 16);
-      const dash2 = Math.floor(4 + rnd() * 10);
-
-      const isDarkSpeckle = i % 4 === 0;
-      const strokeColor = isDarkSpeckle ? '#000000' : this.color;
-      const strokeOpacity = isDarkSpeckle ? (0.12 + rnd() * 0.12) : (0.3 + rnd() * 0.35);
-
-      layers.push(
-        new fabric.Path(pathData, {
-          stroke: strokeColor,
-          strokeWidth: bristleW,
-          fill: null,
-          opacity: strokeOpacity,
-          strokeDashArray: [dash1, dash2],
-          strokeLineCap: 'round',
-          strokeLineJoin: 'round',
-          left: coreStroke.left + offsetX,
-          top: coreStroke.top + offsetY
-        })
-      );
-    }
-
-    const group = new fabric.Group(layers, {
-      selectable: true,
-      evented: true,
-      subTargetCheck: false
-    });
-    group.set({ toolType: 'acrylic' });
-    return group;
+    return path;
   }
 }
 
