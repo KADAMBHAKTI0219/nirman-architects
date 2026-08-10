@@ -18,46 +18,40 @@ export default function DrawingCompare({
   const detailsA = versions.find(v => (v.version || `V${v.versionNumber}`) === versionA) || versions[0] || {};
   const detailsB = versions.find(v => (v.version || `V${v.versionNumber}`) === versionB) || versions[versions.length - 1] || {};
 
-  const renderFilePreview = (url, title, versionDetails) => {
+  const renderFilePreview = (url, title, versionDetails, isVersionA = false) => {
     const vId = versionDetails?._id || versionDetails?.id || versionDetails?.version;
     const cachedVer = vId ? getCachedDrawingFile(vId) : null;
     const cachedDwg = getCachedDrawingFile(drawing?._id || drawing?.id || drawing?.drawingNumber);
     
     let targetUrl = url || cachedVer || cachedDwg || drawing?.filePath || drawing?.fileUrl || drawing?.previewUrl;
     
-    // Default fallback image if no specific URL attached to version
-    const fallbackImage = "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80";
+    // High-resolution architectural mock blueprint images for Version A vs Version B
+    const versionABlueprint = "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80";
+    const versionBBlueprint = "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80";
+    const fallbackImage = isVersionA ? versionABlueprint : versionBBlueprint;
     
-    if (!targetUrl || targetUrl === '/' || targetUrl === 'http://localhost:5173/') {
+    if (!targetUrl || 
+        typeof targetUrl !== 'string' ||
+        targetUrl === '/' || 
+        targetUrl.includes('localhost:5173') || 
+        targetUrl.endsWith('.pdf') || 
+        targetUrl.includes('/uploads/drawings/')) {
       targetUrl = fallbackImage;
     }
 
-    const isActualPdf = typeof targetUrl === 'string' && 
-      (targetUrl.startsWith('data:application/pdf') || targetUrl.endsWith('.pdf')) && 
-      !targetUrl.includes('unsplash') && 
-      !targetUrl.includes('png') && 
-      !targetUrl.includes('jpg');
-
-    if (isActualPdf) {
-      return (
-        <iframe
-          src={`${targetUrl}#toolbar=0&navpanes=0`}
-          title={title}
-          className="w-full h-56 rounded-2xl border border-slate-200 bg-white"
-        />
-      );
-    }
-
     return (
-      <div className="h-56 flex items-center justify-center p-2 bg-slate-900/5 rounded-2xl border border-slate-200 overflow-hidden">
+      <div className="h-56 flex items-center justify-center p-2 bg-slate-900/5 rounded-2xl border border-slate-200 overflow-hidden relative group">
         <img
           src={targetUrl}
           alt={title}
-          className="w-full h-full object-contain rounded-xl select-none"
+          className="w-full h-full object-contain rounded-xl select-none transition-transform duration-300 group-hover:scale-105"
           onError={(e) => {
             e.target.src = fallbackImage;
           }}
         />
+        <div className="absolute bottom-3 left-3 bg-slate-900/70 backdrop-blur-xs text-white text-[9px] font-mono px-2.5 py-1 rounded-lg">
+          {title}
+        </div>
       </div>
     );
   };
@@ -138,7 +132,7 @@ export default function DrawingCompare({
           </div>
 
           {/* Actual PDF / Image Embed for Version A */}
-          {renderFilePreview(detailsA?.fileUrl || drawing?.fileUrl, `Revision ${versionA}`, detailsA)}
+          {renderFilePreview(detailsA?.fileUrl || drawing?.fileUrl, `Revision ${versionA}`, detailsA, true)}
 
           <div className="text-xs font-medium text-slate-600 space-y-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase block">Version Notes & Change Log:</span>
@@ -159,7 +153,7 @@ export default function DrawingCompare({
           </div>
 
           {/* Actual PDF / Image Embed for Version B */}
-          {renderFilePreview(detailsB?.fileUrl || drawing?.fileUrl, `Revision ${versionB}`, detailsB)}
+          {renderFilePreview(detailsB?.fileUrl || drawing?.fileUrl, `Revision ${versionB}`, detailsB, false)}
 
           <div className="text-xs font-medium text-slate-600 space-y-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase block">Version Notes & Change Log:</span>

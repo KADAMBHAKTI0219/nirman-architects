@@ -430,3 +430,48 @@ export const getComments = async (drawingId) => {
   }
 };
 export const getDrawingComments = getComments;
+
+// 17.1 GET /api/client/projects/:projectId/drawings
+export const getClientProjectDrawings = async (projectId) => {
+  try {
+    const response = await api.get(`/client/projects/${projectId}/drawings`);
+    if (response.data) return response.data;
+  } catch (err) {}
+  return { success: true, pendingApproval: [], approved: [], changesRequested: [] };
+};
+
+// 17.2 GET /api/client/drawings/:drawingId
+export const getClientDrawingDetail = async (drawingId) => {
+  try {
+    const response = await api.get(`/client/drawings/${drawingId}`);
+    if (response.data) return response.data;
+  } catch (err) {}
+  return { success: true, drawing: null, versionHistory: [] };
+};
+
+// 17.3 GET /api/client/drawings/:drawingId/versions
+export const getClientDrawingVersions = async (drawingId) => {
+  try {
+    const response = await api.get(`/client/drawings/${drawingId}/versions`);
+    if (response.data) return response.data;
+  } catch (err) {}
+  return { success: true, versions: [] };
+};
+
+// 17.4 GET /api/client/drawings/:drawingId/compare
+export const getClientDrawingCompare = async (drawingId, params = {}) => {
+  try {
+    const response = await api.get(`/client/drawings/${drawingId}/compare`, { params });
+    if (response.data) return response.data;
+  } catch (err) {}
+  return { success: true, versionA: null, versionB: null };
+};
+
+// 17.9 GET /api/drawings/:drawingId/client-approval-log
+export const getDrawingClientApprovalLogInternal = async (drawingId) => {
+  try {
+    const response = await api.get(`/drawings/${drawingId}/client-approval-log`);
+    if (response.data) return response.data;
+  } catch (err) {}
+  return { success: true, approvalLog: [] };
+};
