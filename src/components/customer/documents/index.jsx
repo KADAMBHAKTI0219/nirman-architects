@@ -37,9 +37,18 @@ export default function CustomerDocuments() {
         folder: selectedFolder === 'All' ? '' : selectedFolder,
         search: searchQuery
       });
-      if (res && res.documentsByFolder) {
-        setDocumentsByFolder(res.documentsByFolder);
-        setAllDocuments(res.allDocuments || []);
+      if (res && res.allDocuments) {
+        // Enforce visibleToClient === true check for Client Portal
+        const clientVisible = res.allDocuments.filter(d => d.visibleToClient === true || (d.accessLevel && d.accessLevel.includes('Public')));
+        setAllDocuments(clientVisible);
+
+        const grouped = {};
+        clientVisible.forEach(doc => {
+          const cat = doc.category || doc.folder || 'Other Shared Documents';
+          if (!grouped[cat]) grouped[cat] = [];
+          grouped[cat].push(doc);
+        });
+        setDocumentsByFolder(grouped);
       }
     } catch (err) {
       console.error("Error fetching client documents:", err);

@@ -28,11 +28,18 @@ export default function ProjectList({
     }
   };
 
-  // Calculate summary metrics
-  const activeProjectsCount = projects.filter(p => p.status !== 'Completed').length;
-  const delayedSitesCount = projects.filter(p => p.delayFlag).length;
-  const totalPendingApprovals = projects.reduce((acc, p) => acc + (p.pendingApprovals || 0), 0);
-  const totalValuation = projects.reduce((acc, p) => acc + (p.budget || 0), 0);
+  // Calculate summary metrics dynamically from backend projects
+  const activeProjectsCount = projects.filter(p => p.status !== 'Completed' && p.status !== 'Archived').length;
+  const delayedSitesCount = projects.filter(p => p.delayFlag || p.isDelayed || p.status === 'Delayed').length;
+  const totalPendingApprovals = projects.reduce((acc, p) => acc + (p.pendingApprovals || (Array.isArray(p.drawings) ? p.drawings.filter(d => d.status?.includes('Pending') || d.status === 'DESIGNER_UPLOADED').length : 0)), 0);
+  const totalValuation = projects.reduce((acc, p) => acc + (Number(p.budget) || 0), 0);
+
+  const formatValuation = (val) => {
+    if (!val || isNaN(val) || val === 0) return '$0';
+    if (val >= 1000000) return `$${(val / 1000000).toFixed(2)}M`;
+    if (val >= 1000) return `$${(val / 1000).toFixed(0)}k`;
+    return `$${val.toLocaleString()}`;
+  };
 
   // Filter project cards
   const filteredProjects = projects.filter(p => {
@@ -133,7 +140,7 @@ export default function ProjectList({
               </div>
               <div>
                 <span className="text-xs font-normal text-slate-400 block">Portfolio Valuation</span>
-                <span className="text-2xl font-semibold text-slate-900 block mt-0.5">${(totalValuation / 1000).toFixed(0)}k</span>
+                <span className="text-2xl font-semibold text-slate-900 block mt-0.5">{formatValuation(totalValuation)}</span>
               </div>
             </div>
             <ChevronRight className="w-4 h-4 text-slate-400" />

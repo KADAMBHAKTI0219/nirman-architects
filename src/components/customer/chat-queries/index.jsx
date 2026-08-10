@@ -14,6 +14,7 @@ import {
   markChatAsRead 
 } from '../../../service/chat';
 import { getClientDashboard } from '../../../service/crm/clientPortal';
+import { getProjects } from '../../../service/project';
 
 export default function CustomerChatQueries({ userPermissionLevel = 'OWNER' }) {
   const [projectId, setProjectId] = useState('proj-1');
@@ -39,12 +40,24 @@ export default function CustomerChatQueries({ userPermissionLevel = 'OWNER' }) {
 
   const loadProjects = async () => {
     try {
-      const res = await getClientDashboard();
-      if (res?.success && Array.isArray(res.activeProjects) && res.activeProjects.length > 0) {
-        const channels = res.activeProjects.map((p, idx) => ({
-          id: p.projectId || p._id || `proj-${idx + 1}`,
-          name: p.projectName || p.name || 'Architectural Project',
-          code: `PROJ-00${idx + 1}`,
+      let projectsList = [];
+      const dashRes = await getClientDashboard().catch(() => null);
+      if (dashRes?.success && Array.isArray(dashRes.activeProjects) && dashRes.activeProjects.length > 0) {
+        projectsList = dashRes.activeProjects;
+      } else {
+        const prjRes = await getProjects().catch(() => null);
+        if (prjRes?.projects && Array.isArray(prjRes.projects) && prjRes.projects.length > 0) {
+          projectsList = prjRes.projects;
+        } else if (prjRes?.data && Array.isArray(prjRes.data)) {
+          projectsList = prjRes.data;
+        }
+      }
+
+      if (projectsList.length > 0) {
+        const channels = projectsList.map((p, idx) => ({
+          id: p._id || p.id || p.projectId || `proj-${idx + 1}`,
+          name: p.projectName || p.name || 'Architectural Project Workspace',
+          code: p.code || `PROJ-00${idx + 1}`,
           pm: 'Project Manager & Lead Architect',
           avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80'
         }));

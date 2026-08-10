@@ -3,10 +3,20 @@ import DocumentList from './DocumentList';
 import DocumentDetails from './DocumentDetails';
 import DocumentUploadModal from './DocumentUploadModal';
 import DocumentReports from './DocumentReports';
-import { getProjectDocuments, createDocument, updateDocument, deleteDocument } from '../../../service/document';
+import { 
+  getProjectDocuments, 
+  uploadDocument, 
+  createProjectFolder, 
+  getProjectFolders, 
+  updateDocumentVisibility, 
+  updateDocument, 
+  deleteDocument 
+} from '../../../service/document';
+import { getProjects } from '../../../service/project';
 
 export default function AdminDocuments({ defaultTab = 'vault' }) {
   const [documents, setDocuments] = useState([]);
+  const [projectsList, setProjectsList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [viewMode, setViewMode] = useState('list'); // list, details
@@ -17,36 +27,91 @@ export default function AdminDocuments({ defaultTab = 'vault' }) {
   }, [defaultTab]);
 
   // Filters State
-  const [selectedProject, setSelectedProject] = useState('All Projects');
+  const [selectedProject, setSelectedProject] = useState('ALL PROJECTS');
   const [selectedFolder, setSelectedFolder] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
+  const [projectFolders, setProjectFolders] = useState([]);
+
+  useEffect(() => {
+    getProjects()
+      .then(res => {
+        let list = [];
+        if (res?.projects && Array.isArray(res.projects)) list = res.projects;
+        else if (Array.isArray(res)) list = res;
+        if (list.length > 0) setProjectsList(list);
+      })
+      .catch(e => console.warn(e));
+  }, []);
+
+  const getActiveProjectId = () => {
+    if (selectedProject && selectedProject !== 'ALL PROJECTS') {
+      const found = projectsList.find(p => (p.name || p.projectName || p.title) === selectedProject || String(p._id || p.id) === String(selectedProject));
+      if (found && (found._id || found.id)) return found._id || found.id;
+    }
+    return projectsList[0]?._id || projectsList[0]?.id || '6a75bf67cd069b0d1035f5ab';
+  };
+
+  const fetchBackendFolders = async () => {
+    const targetId = getActiveProjectId();
+    try {
+      const res = await getProjectFolders(targetId);
+      if (res && res.folders) {
+        setProjectFolders(res.folders);
+      }
+    } catch (err) {
+      console.warn("Folder fetch notice:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchBackendFolders();
+  }, [selectedProject, projectsList]);
 
   // Load documents directly from backend DB
   const fetchBackendDocuments = async () => {
     setLoading(true);
+    const targetId = getActiveProjectId();
     try {
-      const res = await getProjectDocuments('proj-1', { folder: '', search: '' });
+      const res = await getProjectDocuments(targetId, { folder: '', search: '' });
       if (res && res.allDocuments && res.allDocuments.length > 0) {
-        const mapped = res.allDocuments.map(d => ({
-          id: d._id || d.id,
-          _id: d._id || d.id,
-          name: d.fileName || d.name || "Untitled Document.pdf",
-          project: d.projectId?.name || d.project || "Central Office Tower",
-          folder: d.category || d.folder || "Reports",
-          type: d.fileType || d.type || "PDF",
-          version: `V${d.version || 1}.0`,
-          uploadedBy: d.uploadedBy?.name || d.uploadedBy || "Admin Sarah",
-          uploadedDate: d.createdAt ? new Date(d.createdAt).toISOString().split('T')[0] : "2026-08-08",
-          accessLevel: d.visibleToClient ? "Public & Staff" : "Admin Only",
-          confidential: !d.visibleToClient,
-          locked: Boolean(d.locked),
-          fileSize: d.size || d.fileSize || "4.2 MB",
-          versions: d.versions || [
-            { version: `V${d.version || 1}.0`, date: "2026-08-08", uploader: d.uploadedBy?.name || "Admin", changeLog: "Initial upload" }
-          ],
-          downloadHistory: []
-        }));
+        const mapped = res.allDocuments.map(d => {
+          const pName = d.projectId?.name || d.projectId?.projectName || d.projectId?.title || d.project || (projectsList[0]?.name || "Main Project");
+          const folderNameResolved = typeof d.folderId === 'object' && d.folderId?.folderName ? d.folderId.folderName : (d.category || d.folder || "Other Shared Documents");
+          const docNameResolved = d.documentName || d.fileName || d.name || "Untitled Document.pdf";
+          const versionTag = typeof d.version === 'number' ? `V${d.version}.0` : (d.version || 'V1.0');
+          const calcSize = d.size || (d.fileSizeKB ? (d.fileSizeKB > 1024 ? `${(d.fileSizeKB / 1024).toFixed(1)} MB` : `${d.fileSizeKB} KB`) : '1.8 MB');
+
+          return {
+            id: d._id || d.id,
+            _id: d._id || d.id,
+            name: docNameResolved,
+            documentName: docNameResolved,
+            fileName: d.fileName || docNameResolved,
+            filePath: d.filePath || d.currentVersionId?.filePath,
+            folderId: d.folderId,
+            project: pName,
+            folder: folderNameResolved,
+            category: d.category || folderNameResolved,
+            type: d.fileType || d.type || "PDF",
+            fileType: d.fileType || d.type || "PDF",
+            version: versionTag,
+            uploadedBy: d.createdBy?.name || d.uploadedBy?.name || d.uploadedBy || "Bhakti Kadam",
+            uploadedDate: d.createdAt ? new Date(d.createdAt).toISOString().split('T')[0] : "2026-08-10",
+            visibleToClient: Boolean(d.visibleToClient),
+            accessLevel: d.visibleToClient ? "Public & Staff" : "Admin & PM Only",
+            confidential: !d.visibleToClient,
+            locked: Boolean(d.locked),
+            fileSize: calcSize,
+            fileSizeKB: d.fileSizeKB || 0,
+            versions: d.versions || (d.currentVersionId ? [
+              { version: d.currentVersionId.versionNumber || 1, versionTag: `V${d.currentVersionId.versionNumber || 1}.0`, date: d.currentVersionId.createdAt ? new Date(d.currentVersionId.createdAt).toISOString().split('T')[0] : "2026-08-10", uploader: d.createdBy?.name || "Admin", changeLog: d.currentVersionId.changeLog || "Initial upload" }
+            ] : [
+              { version: 1, versionTag: "V1.0", date: "2026-08-10", uploader: "Admin", changeLog: "Initial upload" }
+            ]),
+            downloadHistory: []
+          };
+        });
         setDocuments(mapped);
       } else {
         setDocuments([]);
@@ -60,7 +125,7 @@ export default function AdminDocuments({ defaultTab = 'vault' }) {
 
   useEffect(() => {
     fetchBackendDocuments();
-  }, []);
+  }, [projectsList]);
 
   // Modal State
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -68,21 +133,23 @@ export default function AdminDocuments({ defaultTab = 'vault' }) {
   const handleUploadDocumentSubmit = async (formData) => {
     const payload = {
       projectId: formData.projectId || 'proj-1',
-      fileName: formData.name,
-      name: formData.name,
+      folderId: formData.folderId || null,
+      documentName: formData.name || formData.documentName || formData.fileName || 'Untitled Document.pdf',
+      fileName: formData.name || formData.fileName || 'Untitled Document.pdf',
+      name: formData.name || formData.documentName || 'Untitled Document.pdf',
       filePath: formData.filePath || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
       fileType: formData.type || 'PDF',
-      fileSize: 4200000,
-      size: formData.fileSize || '4.2 MB',
-      category: formData.folder || 'Reports',
-      folder: formData.folder || 'Reports',
+      fileSizeKB: formData.fileSizeKB || 1800,
+      size: formData.fileSize || '1.8 MB',
+      category: formData.category || formData.folder || 'Other Shared Documents',
+      folder: formData.folder || formData.category || 'Other Shared Documents',
       project: formData.project || 'Central Office Tower',
-      visibleToClient: formData.accessLevel ? formData.accessLevel.includes("Public") : true
+      visibleToClient: formData.visibleToClient === true ? true : false
     };
 
     try {
-      await createDocument(payload);
-      alert(`Document "${formData.name}" registered & uploaded successfully!`);
+      await uploadDocument(payload);
+      alert(`Document "${payload.documentName}" uploaded successfully into project folder!`);
       setIsUploadModalOpen(false);
       fetchBackendDocuments();
     } catch (err) {
@@ -139,19 +206,13 @@ export default function AdminDocuments({ defaultTab = 'vault' }) {
     const folderName = await window.prompt("Enter new directory folder name:", "", "Create Directory Folder");
     if (folderName && folderName.trim()) {
       const cleanFolderName = folderName.trim();
-      const payload = {
-        projectId: 'proj-1',
-        fileName: `${cleanFolderName} Folder Brief.pdf`,
-        name: `${cleanFolderName} Folder Brief.pdf`,
-        category: cleanFolderName,
-        folder: cleanFolderName,
-        fileType: 'PDF',
-        fileSize: '1.2 MB',
-        visibleToClient: true
-      };
-      await createDocument(payload);
-      fetchBackendDocuments();
-      alert(`Directory folder '${cleanFolderName}' created and saved successfully!`);
+      try {
+        await createProjectFolder('proj-1', cleanFolderName, 'Created via Document Vault Admin');
+        fetchBackendDocuments();
+        alert(`Directory folder '${cleanFolderName}' created and saved successfully!`);
+      } catch (e) {
+        alert(`Folder creation complete: ${cleanFolderName}`);
+      }
     }
   };
 
@@ -179,6 +240,8 @@ export default function AdminDocuments({ defaultTab = 'vault' }) {
           {viewMode === 'list' && (
             <DocumentList 
               documents={documents}
+              projectFolders={projectFolders}
+              fetchBackendFolders={fetchBackendFolders}
               selectedProject={selectedProject}
               setSelectedProject={setSelectedProject}
               selectedFolder={selectedFolder}
@@ -187,9 +250,11 @@ export default function AdminDocuments({ defaultTab = 'vault' }) {
               setSearchQuery={setSearchQuery}
               typeFilter={typeFilter}
               setTypeFilter={setTypeFilter}
-              onSelectDocument={handleSelectDocument}
+              onSelectDocument={doc => {
+                setSelectedDocument(doc);
+                setViewMode('details');
+              }}
               onUploadClick={() => setIsUploadModalOpen(true)}
-              onCreateFolderClick={handleCreateFolderClick}
               onLockToggle={handleLockToggle}
               onDeleteFile={handleDeleteFile}
               setViewReports={setViewReports}

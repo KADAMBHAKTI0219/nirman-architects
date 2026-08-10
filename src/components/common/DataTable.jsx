@@ -10,7 +10,8 @@ export default function DataTable({
   filterOptions = [],
   exportTitle = "Report",
   actions,
-  loading = false
+  loading = false,
+  showExport = true
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterValue, setFilterValue] = useState('all');
@@ -89,32 +90,34 @@ export default function DataTable({
 
         <div className="flex items-center gap-2">
           {actions}
-          <div className="flex items-center border border-slate-200 bg-white rounded-xl p-1 gap-1">
-            <button
-              onClick={() => handleExport('csv')}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 rounded-lg transition-all"
-              title="Export as CSV"
-            >
-              <Download className="w-3.5 h-3.5" />
-              CSV
-            </button>
-            <button
-              onClick={() => handleExport('excel')}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 rounded-lg transition-all"
-              title="Export as Excel"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Excel
-            </button>
-            <button
-              onClick={() => handleExport('pdf')}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 rounded-lg transition-all"
-              title="Export as PDF"
-            >
-              <Download className="w-3.5 h-3.5" />
-              PDF
-            </button>
-          </div>
+          {showExport && (
+            <div className="flex items-center border border-slate-200 bg-white rounded-xl p-1 gap-1">
+              <button
+                onClick={() => handleExport('csv')}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 rounded-lg transition-all"
+                title="Export as CSV"
+              >
+                <Download className="w-3.5 h-3.5" />
+                CSV
+              </button>
+              <button
+                onClick={() => handleExport('excel')}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 rounded-lg transition-all"
+                title="Export as Excel"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Excel
+              </button>
+              <button
+                onClick={() => handleExport('pdf')}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 rounded-lg transition-all"
+                title="Export as PDF"
+              >
+                <Download className="w-3.5 h-3.5" />
+                PDF
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

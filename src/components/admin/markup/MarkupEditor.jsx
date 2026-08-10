@@ -15,18 +15,38 @@ import {
   postMarking, 
   deleteMarking 
 } from '../../../service/drawingReview';
-import { cacheDrawingFile } from '../../../service/drawing';
-
+import { cacheDrawingFile, getCachedDrawingFile } from '../../../service/drawing';
 export default function MarkupEditor({
   documentData = null,
   onBack,
   onSaveDocument
 }) {
-  const docTitle = documentData?.name || documentData?.title || 'ARCHITECTURE_INTERIOR_BLUEPRINT.PDF';
+  const docTitle = documentData?.name || documentData?.fileName || documentData?.title || 'ARCHITECTURE_INTERIOR_BLUEPRINT.PDF';
   const [currentTitle, setCurrentTitle] = useState(docTitle);
-  const docVersion = documentData?.version || 'V1.0';
+  const docVersion = documentData?.versionTag || `V${documentData?.version || 1}.0`;
   const docStatus = documentData?.status || 'GFC Released';
-  const targetPdfUrl = documentData?.originalFileUrl || (Array.isArray(documentData?.versions) && documentData.versions.length > 0 ? documentData.versions[0].fileUrl : null) || documentData?.fileUrl || documentData?.pdfUrl || '/architecture.pdf';
+
+  const resolveTargetUrl = (d) => {
+    if (!d) return null;
+    if (d instanceof File || d instanceof Blob) return d;
+    
+    const cached = getCachedDrawingFile(d._id || d.id || d.drawingNumber || d.documentName || d.drawingName);
+    const verPath = d.currentVersionId && typeof d.currentVersionId === 'object' ? (d.currentVersionId.filePath || d.currentVersionId.fileUrl) : null;
+    const raw = cached || d.filePath || d.fileUrl || d.url || d.file || d.previewUrl || d.originalFileUrl || d.pdfUrl || verPath ||
+      (Array.isArray(d.versions) && d.versions.length > 0 ? (d.versions[d.versions.length - 1]?.filePath || d.versions[d.versions.length - 1]?.fileUrl) : null);
+    
+    if (!raw) return null;
+    if (typeof raw === 'string') {
+      const clean = raw.trim();
+      if (!clean) return null;
+      if (clean.startsWith('http') || clean.startsWith('data:') || clean.startsWith('blob:')) return clean;
+      if (clean.startsWith('/')) return `https://nirman-architects.onrender.com${clean}`;
+      return `https://nirman-architects.onrender.com/${clean}`;
+    }
+    return raw;
+  };
+
+  const targetPdfUrl = resolveTargetUrl(documentData) || '/architecture.pdf';
   const versionId = documentData?.currentVersionId || documentData?._id || documentData?.id || 'ver-1';
 
   const [bgBlueprintSrc, setBgBlueprintSrc] = useState(null);

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   getCachedDrawingFile, 
+  getDrawingById,
   pmReview, 
   adminReview, 
   promoteToGFC, 
@@ -10,10 +11,11 @@ import {
 } from '../../../service/drawing';
 import { 
   ArrowLeft, Lock, Unlock, ZoomIn, ZoomOut, Plus, 
-  CheckCircle, PenTool, AlertCircle, FileText, History, ShieldAlert
+  CheckCircle, PenTool, AlertCircle, FileText, History, ShieldAlert, Upload
 } from 'lucide-react';
 import Card from '../../common/Card';
 import MarkupEditor from '../markup/MarkupEditor';
+import DrawingVersionModal from './DrawingVersionModal';
 
 export default function DrawingDetails({
   drawing,
@@ -27,8 +29,6 @@ export default function DrawingDetails({
   const [newPinMessage, setNewPinMessage] = useState('');
   const [isAddingPin, setIsAddingPin] = useState(false);
   const [tempCoords, setTempCoords] = useState(null);
-
-  // Review & Unlock Modals
   const [reviewModalType, setReviewModalType] = useState(null); // 'PM_REJECT', 'ADMIN_REJECT', 'GFC_UNLOCK', 'PROCESS_DWG_EDIT'
   const [reviewComments, setReviewComments] = useState('');
   const [unlockReason, setUnlockReason] = useState('');
@@ -36,6 +36,9 @@ export default function DrawingDetails({
   const [approvalLogs, setApprovalLogs] = useState([]);
   const [showApprovalLogs, setShowApprovalLogs] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [liveDrawing, setLiveDrawing] = useState(drawing);
+  const [versionHistoryList, setVersionHistoryList] = useState(drawing?.versions || []);
+  const [isVersionModalOpen, setIsVersionModalOpen] = useState(false);
 
   const userStr = localStorage.getItem('user') || '{}';
   const currentUser = JSON.parse(userStr);
@@ -44,9 +47,29 @@ export default function DrawingDetails({
   const isAdmin = isSuperAdmin || userRole === 'ADMIN' || userRole === 'Admin';
   const isPM = isAdmin || userRole === 'PROJECT_MANAGER' || userRole === 'ProjectManager' || userRole === 'PM';
 
+  const drawingId = liveDrawing ? (liveDrawing._id || liveDrawing.id) : null;
+
+  const fetchFreshDrawingDetails = async () => {
+    if (!drawingId) return;
+    try {
+      const res = await getDrawingById(drawingId);
+      if (res && res.success && res.drawing) {
+        setLiveDrawing(res.drawing);
+        if (res.versionHistory && Array.isArray(res.versionHistory)) {
+          setVersionHistoryList(res.versionHistory);
+        } else if (res.drawing.versions && Array.isArray(res.drawing.versions)) {
+          setVersionHistoryList(res.drawing.versions);
+        }
+      }
+    } catch (e) {
+      console.warn("Notice fetching fresh drawing by id:", e);
+    }
+  };
+
   useEffect(() => {
-    if (drawing?._id || drawing?.id) {
-      getClientApprovalLog(drawing._id || drawing.id)
+    fetchFreshDrawingDetails();
+    if (drawingId) {
+      getClientApprovalLog(drawingId)
         .then(res => {
           if (res?.approvalLogs || res?.logs) {
             setApprovalLogs(res.approvalLogs || res.logs || []);
@@ -54,7 +77,7 @@ export default function DrawingDetails({
         })
         .catch(err => console.warn(err));
     }
-  }, [drawing]);
+  }, [drawingId]);
 
   const handleBlueprintClick = (e) => {
     if (!isAddingPin) return;
@@ -113,7 +136,8 @@ export default function DrawingDetails({
     }
     setActionLoading(true);
     try {
-      const targetVersionId = drawing.currentVersionId || drawing._id || drawing.id;
+      const verObj = drawing.currentVersionId;
+      const targetVersionId = (typeof verObj === 'object' && verObj !== null) ? (verObj._id || verObj.id) : (verObj || drawing._id || drawing.id);
       const res = await pmReview(targetVersionId, { decision, comments: reviewComments });
       if (res?.success) {
         const newStatus = decision === 'APPROVE' ? 'PM Approved' : 'PM Rejected';
@@ -137,7 +161,8 @@ export default function DrawingDetails({
     }
     setActionLoading(true);
     try {
-      const targetVersionId = drawing.currentVersionId || drawing._id || drawing.id;
+      const verObj = drawing.currentVersionId;
+      const targetVersionId = (typeof verObj === 'object' && verObj !== null) ? (verObj._id || verObj.id) : (verObj || drawing._id || drawing.id);
       const res = await adminReview(targetVersionId, { decision, comments: reviewComments });
       if (res?.success) {
         const newStatus = decision === 'APPROVE' ? 'Pending Client Approval' : 'Admin Rejected';
@@ -203,7 +228,8 @@ export default function DrawingDetails({
     }
     setActionLoading(true);
     try {
-      const targetVersionId = drawing.currentVersionId || drawing._id || drawing.id;
+      const verObj = drawing.currentVersionId;
+      const targetVersionId = (typeof verObj === 'object' && verObj !== null) ? (verObj._id || verObj.id) : (verObj || drawing._id || drawing.id);
       const res = await editInPlaceProcessDwg(targetVersionId, { updatedFilePath: editFilePath, changeLog: reviewComments });
       if (res?.success) {
         onUpdateDrawing({ ...drawing, fileUrl: editFilePath });
@@ -345,25 +371,59 @@ export default function DrawingDetails({
               >
                 {(() => {
                   const cached = getCachedDrawingFile(drawing._id || drawing.id || drawing.drawingNumber);
-                  const targetUrl = cached || drawing.fileUrl || drawing.pdfUrl;
-                  const rawUrl = typeof targetUrl === 'string' ? targetUrl : (targetUrl instanceof File || targetUrl instanceof Blob ? URL.createObjectURL(targetUrl) : '');
-                  const isPdf = typeof rawUrl === 'string' && (rawUrl.startsWith('data:application/pdf') || rawUrl.endsWith('.pdf') || rawUrl.includes('.pdf') || rawUrl.includes('cloudinary'));
+                  const currentVerPath = versionHistoryList && versionHistoryList.length > 0 ? (versionHistoryList[0].filePath || versionHistoryList[0].fileUrl) : null;
+                  const targetUrl = cached || drawing.fileUrl || drawing.filePath || drawing.pdfUrl || currentVerPath;
+                  
+                  let rawUrl = '';
+                  if (targetUrl instanceof File || targetUrl instanceof Blob) {
+                    rawUrl = URL.createObjectURL(targetUrl);
+                  } else if (typeof targetUrl === 'string' && targetUrl.trim()) {
+                    const clean = targetUrl.trim();
+                    if (clean.startsWith('http') || clean.startsWith('data:') || clean.startsWith('blob:')) {
+                      rawUrl = clean;
+                    } else if (clean.startsWith('/')) {
+                      rawUrl = `https://nirman-architects.onrender.com${clean}`;
+                    } else {
+                      rawUrl = `https://nirman-architects.onrender.com/${clean}`;
+                    }
+                  }
+
+                  const isPdf = typeof rawUrl === 'string' && (rawUrl.toLowerCase().includes('.pdf') || rawUrl.startsWith('data:application/pdf'));
+                  const isDwg = typeof rawUrl === 'string' && rawUrl.toLowerCase().includes('.dwg');
+
                   if (isPdf && rawUrl) {
                     const iframeSrc = rawUrl.includes('#') ? rawUrl : `${rawUrl}#toolbar=1&navpanes=1`;
                     return (
                       <iframe
                         src={iframeSrc}
-                        title={drawing.name || drawing.title}
+                        title={drawing.name || drawing.drawingName || drawing.title}
                         className="w-full h-full min-h-[480px] rounded-2xl border border-slate-800 bg-white shadow-xl"
                       />
                     );
                   }
+
+                  // Default architectural blueprint fallback image
+                  const defaultBlueprint = "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80";
+                  const imageSrc = (rawUrl && !isDwg) ? rawUrl : defaultBlueprint;
+
                   return (
-                    <img 
-                      src={rawUrl || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80"} 
-                      alt={drawing.name || drawing.title} 
-                      className="w-full h-full object-contain rounded-2xl select-none"
-                    />
+                    <div className="w-full h-full flex flex-col items-center justify-center relative">
+                      <img 
+                        src={imageSrc} 
+                        alt={drawing.name || drawing.drawingName || drawing.title} 
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = defaultBlueprint;
+                        }}
+                        className="w-full h-full object-contain rounded-2xl select-none"
+                      />
+                      {isDwg && (
+                        <div className="absolute top-4 right-4 bg-slate-900/90 text-sky-300 border border-sky-500/30 px-3 py-1.5 rounded-xl text-[10px] font-extrabold flex items-center gap-2 backdrop-blur-md shadow-lg">
+                          <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
+                          DWG CAD FILE: {rawUrl.split('/').pop()}
+                        </div>
+                      )}
+                    </div>
                   );
                 })()}
 
@@ -420,29 +480,58 @@ export default function DrawingDetails({
           </div>
 
           {/* Revision Version timeline history */}
-          <Card title="Revision History Vault" subtitle="Chronological blueprint uploads list. Previous versions remain accessible">
-            <div className="space-y-4 pt-2">
-              {(drawing.versions || []).map((ver, idx) => (
-                <div key={idx} className="flex justify-between items-center p-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs flex-wrap gap-2">
-                  <div className="flex items-center gap-3">
-                    <span className="p-2 bg-white border border-slate-150 rounded-xl font-black text-[10px] text-slate-650">
-                      {ver.version || `v${ver.versionNumber || idx + 1}`}
-                    </span>
-                    <div>
-                      <strong className="text-slate-805 block">Changes: {ver.changeLog || ver.notes || "Revision release"}</strong>
-                      <span className="text-[10px] text-slate-400 mt-0.5 block font-semibold">Uploaded by {ver.uploader || "Architect"} on {ver.date || "Today"}</span>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => window.open(ver.fileUrl || drawing.fileUrl, '_blank')}
-                    className="px-3.5 py-1.5 bg-white border border-slate-205 hover:bg-slate-50 text-slate-700 rounded-xl text-[10px] font-black uppercase transition-all shadow-3xs cursor-pointer"
-                  >
-                    View File
-                  </button>
-                </div>
-              ))}
+          <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-2xs space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-sm font-black text-slate-900">Revision History Vault</h3>
+                <p className="text-xs text-slate-500 font-medium">Version history & blueprint logs</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsVersionModalOpen(true)}
+                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>+ Upload New Version</span>
+              </button>
             </div>
-          </Card>
+
+            <div className="space-y-3">
+              {(versionHistoryList.length > 0 ? versionHistoryList : (liveDrawing.versions || [])).map((ver, idx) => {
+                const vNum = ver.versionNumber ? `V${ver.versionNumber}.0` : (ver.version || `V${idx + 1}.0`);
+                const fileTarget = ver.filePath || ver.fileUrl || liveDrawing.fileUrl || '';
+                const uploaderName = typeof ver.uploadedBy === 'object' ? (ver.uploadedBy?.name || ver.uploadedBy?.email) : (ver.uploadedBy || 'Bhakti Kadam');
+                const notesStr = ver.changeLog || ver.notes || 'Revision release';
+                const dateStr = ver.uploadDate ? new Date(ver.uploadDate).toLocaleDateString() : (ver.uploadedAt ? new Date(ver.uploadedAt).toLocaleDateString() : '2026-08-10');
+
+                return (
+                  <div key={ver._id || idx} className="flex justify-between items-center p-3.5 bg-slate-50/80 border border-slate-200/90 rounded-2xl text-xs flex-wrap gap-2 hover:bg-slate-100/50 transition-all">
+                    <div className="flex items-center gap-3">
+                      <span className="px-2.5 py-1 bg-white border border-slate-200 rounded-xl font-black text-[10px] text-indigo-700 shadow-3xs">
+                        {vNum}
+                      </span>
+                      <div>
+                        <strong className="text-slate-800 block font-bold">Notes: {notesStr}</strong>
+                        <span className="text-[10px] text-slate-400 mt-0.5 block font-semibold">
+                          Uploaded by {uploaderName} on {dateStr}
+                        </span>
+                      </div>
+                    </div>
+                    {fileTarget && (
+                      <a 
+                        href={fileTarget}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-[10px] font-bold transition-all shadow-3xs cursor-pointer"
+                      >
+                        View File
+                      </a>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
           {/* 25.9 Client Approval Audit Log */}
           {approvalLogs.length > 0 && (
@@ -731,6 +820,14 @@ export default function DrawingDetails({
           </div>
         </div>
       )}
+
+      {/* Upload New Version Modal */}
+      <DrawingVersionModal
+        isOpen={isVersionModalOpen}
+        onClose={() => setIsVersionModalOpen(false)}
+        drawing={liveDrawing}
+        onSuccess={() => fetchFreshDrawingDetails()}
+      />
 
     </div>
   );

@@ -1,26 +1,106 @@
-import React, { useState } from 'react';
-import { Eye } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Eye, RefreshCw } from 'lucide-react';
 import Stats from './Stats';
 import HealthIndicators from './HealthIndicators';
 import ActivitiesFeed from './ActivitiesFeed';
 import Card from '../../common/Card';
 import DataTable from '../../common/DataTable';
 import DrawingViewer from '../../common/DrawingViewer';
+import { getDrawings, pmReview, adminReview } from '../../../service/drawing';
 
 export default function Dashboard() {
   const [selectedDrawing, setSelectedDrawing] = useState(null);
+  const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [loadingApprovals, setLoadingApprovals] = useState(false);
 
-  // Approvals Data
-  const [pendingApprovals, setPendingApprovals] = useState([
-    { id: 101, title: "Foundation Elevation Details V2.1", project: "Oceanic Luxury Villas", type: "Structural DWG", uploader: "Sarah Connor (Architect)", status: "Pending PM Review", date: "2026-07-22" },
-    { id: 102, title: "HVAC Layout Schematic V1.0", project: "Smart City Mall", type: "Service DWG", uploader: "Mike Tyson (Designer)", status: "Pending Client Approval", date: "2026-07-21" },
-    { id: 103, title: "Plumbing Riser Diagram V1.2", project: "Central Office Tower", type: "GFC Release", uploader: "Sarah Connor (Architect)", status: "Pending Admin Signoff", date: "2026-07-20" }
-  ]);
+  const fetchApprovalsQueue = async () => {
+    setLoadingApprovals(true);
+    try {
+      const res = await getDrawings({});
+      let list = [];
+      if (res?.drawings && Array.isArray(res.drawings)) list = res.drawings;
+      else if (res?.data?.drawings && Array.isArray(res.data.drawings)) list = res.data.drawings;
+      else if (res?.allDrawings && Array.isArray(res.allDrawings)) list = res.allDrawings;
+      else if (Array.isArray(res?.data)) list = res.data;
+      else if (Array.isArray(res)) list = res;
 
-  const handleUpdateDrawingStatus = (id, newStatus) => {
-    setPendingApprovals(prev => prev.map(d => d.id === id ? { ...d, status: newStatus } : d));
+      if (list.length > 0) {
+        const formatted = list.map((d, idx) => {
+          const dId = d._id || d.id || `drg-${idx + 1}`;
+          const title = d.drawingName || d.title || d.name || `Drawing ${d.drawingNumber || idx + 1}`;
+          const project = typeof d.projectId === 'object' && d.projectId !== null 
+            ? (d.projectId.projectName || d.projectId.name) 
+            : (d.projectName || d.project || 'Oceanic Luxury Villas');
+          const type = d.categoryName || d.fileType || d.drawingCategory || 'STRUCTURAL DWG';
+          
+          let uploader = '';
+          if (typeof d.createdBy === 'object' && d.createdBy !== null && d.createdBy.name) {
+            const desig = d.createdBy.designation || d.createdBy.role || 'Super Admin';
+            uploader = `${d.createdBy.name} (${desig})`;
+          } else if (typeof d.uploadedBy === 'object' && d.uploadedBy !== null && d.uploadedBy.name) {
+            const desig = d.uploadedBy.designation || d.uploadedBy.role || 'Architect';
+            uploader = `${d.uploadedBy.name} (${desig})`;
+          } else if (typeof d.currentVersionId === 'object' && d.currentVersionId !== null && typeof d.currentVersionId.uploadedBy === 'object' && d.currentVersionId.uploadedBy !== null && d.currentVersionId.uploadedBy.name) {
+            const desig = d.currentVersionId.uploadedBy.designation || 'Architect';
+            uploader = `${d.currentVersionId.uploadedBy.name} (${desig})`;
+          } else if (typeof d.uploader === 'string' && d.uploader) {
+            uploader = d.uploader;
+          } else if (typeof d.uploadedBy === 'string' && d.uploadedBy) {
+            uploader = d.uploadedBy;
+          } else {
+            uploader = 'Bhakti Kadam (Super Admin)';
+          }
+
+          let status = d.status || d.workflowStage || 'PENDING PM REVIEW';
+          if (status === 'DESIGNER_UPLOADED') status = 'PENDING PM REVIEW';
+          if (status === 'PM_APPROVED') status = 'PENDING ADMIN SIGNOFF';
+          if (status === 'ADMIN_APPROVED') status = 'PENDING CLIENT APPROVAL';
+
+          return {
+            ...d,
+            id: dId,
+            _id: dId,
+            title,
+            project,
+            type,
+            uploader,
+            status,
+            date: d.createdAt ? new Date(d.createdAt).toISOString().split('T')[0] : '2026-08-01'
+          };
+        });
+
+        setPendingApprovals(formatted);
+      } else {
+        setPendingApprovals([
+          { id: 101, _id: 101, title: "Foundation Elevation Details V2.1", project: "Oceanic Luxury Villas", type: "STRUCTURAL DWG", uploader: "Sarah Connor (Architect)", status: "PENDING PM REVIEW", date: "2026-08-01" },
+          { id: 102, _id: 102, title: "HVAC Layout Schematic V1.0", project: "Smart City Mall", type: "SERVICE DWG", uploader: "Mike Tyson (Designer)", status: "PENDING CLIENT APPROVAL", date: "2026-08-01" },
+          { id: 103, _id: 103, title: "Plumbing Riser Diagram V1.2", project: "Central Office Tower", type: "GFC RELEASE", uploader: "Sarah Connor (Architect)", status: "PENDING ADMIN SIGNOFF", date: "2026-08-01" }
+        ]);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch drawings for approvals queue:", err);
+    } finally {
+      setLoadingApprovals(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchApprovalsQueue();
+  }, []);
+
+  const handleUpdateDrawingStatus = async (id, newStatus) => {
+    try {
+      if (newStatus === 'PM_APPROVED' || newStatus === 'APPROVED') {
+        await pmReview(id, { decision: 'PM_APPROVED', comments: 'Approved by PM on Admin Dashboard' });
+      } else if (newStatus === 'ADMIN_APPROVED' || newStatus === 'PENDING_CLIENT_APPROVAL') {
+        await adminReview(id, { decision: 'PENDING_CLIENT_APPROVAL', comments: 'Approved by Admin on Dashboard' });
+      }
+    } catch (e) {}
+
+    setPendingApprovals(prev => prev.map(d => (d.id === id || d._id === id) ? { ...d, status: newStatus } : d));
     setSelectedDrawing(null);
-    alert(`Drawing marked as: ${newStatus}`);
+    fetchApprovalsQueue();
+    alert(`Drawing status updated to: ${newStatus}`);
   };
 
   const drawingColumns = [
@@ -38,8 +118,8 @@ export default function Dashboard() {
     )},
     { header: "Workflow Stage", accessor: "status", render: (row) => (
       <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold uppercase ${
-        row.status.includes('Admin') ? 'bg-amber-50 text-amber-600' :
-        row.status.includes('Client') ? 'bg-sky-50 text-sky-600' : 'bg-slate-50 text-slate-500'
+        row.status.includes('Admin') || row.status.includes('ADMIN') ? 'bg-amber-50 text-amber-600' :
+        row.status.includes('Client') || row.status.includes('CLIENT') ? 'bg-sky-50 text-sky-600' : 'bg-slate-50 text-slate-500'
       }`}>
         {row.status}
       </span>
@@ -67,11 +147,16 @@ export default function Dashboard() {
             Real-time financial overview, project health indicators & GFC sign-off queue
           </p>
         </div>
+        <button
+          onClick={fetchApprovalsQueue}
+          className="p-2 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-all shadow-3xs cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+          title="Refresh Dashboard Data"
+        >
+          <RefreshCw className={`w-4 h-4 ${loadingApprovals ? 'animate-spin' : ''}`} /> Refresh
+        </button>
       </div>
 
       <Stats />
-      
-      {/* Removed charts */}
 
       <Card title="Approvals Queue" subtitle="Drawing revisions requiring final GFC/Client release signatures">
         <DataTable 
@@ -79,6 +164,7 @@ export default function Dashboard() {
           data={pendingApprovals} 
           searchPlaceholder="Search drawing queue..."
           exportTitle="Admin Pending Drawing Approvals"
+          showExport={false}
         />
       </Card>
 

@@ -1,73 +1,107 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Card from '../../common/Card';
 import { motion } from 'framer-motion';
-import { Calendar, CheckCircle2, Clock, AlertTriangle, ChevronRight, Users } from 'lucide-react';
+import { Calendar, CheckCircle2, Clock, AlertTriangle, ChevronRight, Users, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-
-const pmProjects = [
-  { 
-    id: 1, 
-    name: "Central Office Tower", 
-    phase: "GFC Release Phase",
-    progress: 75, 
-    deadline: "2026-09-15", 
-    status: "On Track", 
-    color: "from-emerald-500 to-teal-600",
-    badgeColor: "bg-emerald-50 text-emerald-700 border-emerald-200/70",
-    nextMilestone: "Facade Inspection & Sealant Signoff",
-    team: [
-      { name: "Sarah Connor", avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80" },
-      { name: "John Doe", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80" }
-    ]
-  },
-  { 
-    id: 2, 
-    name: "Oceanic Luxury Villas", 
-    phase: "Structural DWG",
-    progress: 62, 
-    deadline: "2026-10-30", 
-    status: "On Track", 
-    color: "from-sky-500 to-blue-600",
-    badgeColor: "bg-sky-50 text-sky-700 border-sky-200/70",
-    nextMilestone: "Basement Slab Concrete Pour",
-    team: [
-      { name: "Alice Smith", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80" },
-      { name: "Bob Johnson", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80" }
-    ]
-  },
-  { 
-    id: 3, 
-    name: "Smart City Mall", 
-    phase: "HVAC Schematics",
-    progress: 48, 
-    deadline: "2026-08-20", 
-    status: "Delayed / At Risk", 
-    color: "from-rose-500 to-red-600",
-    badgeColor: "bg-rose-50 text-rose-700 border-rose-200/70",
-    nextMilestone: "Electrical Load Clearance Approval",
-    team: [
-      { name: "Charlie Brown", avatar: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=120&q=80" }
-    ]
-  },
-  { 
-    id: 4, 
-    name: "Metro Station Phase 3", 
-    phase: "Final Handover",
-    progress: 92, 
-    deadline: "2026-07-30", 
-    status: "Nearing Completion", 
-    color: "from-indigo-500 to-purple-600",
-    badgeColor: "bg-indigo-50 text-indigo-700 border-indigo-200/70",
-    nextMilestone: "Safety & Compliance Audit Signoff",
-    team: [
-      { name: "Sarah Connor", avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80" },
-      { name: "Frank Castle", avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=120&q=80" }
-    ]
-  }
-];
+import { getProjects } from '../../../service/project';
 
 export default function ProjectTimelineList() {
   const navigate = useNavigate();
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    setLoading(true);
+    try {
+      const res = await getProjects();
+      if (res && res.success && Array.isArray(res.projects) && res.projects.length > 0) {
+        const mapped = res.projects.map((p, idx) => {
+          const progress = Number(p.progressPercentage || p.progressPercent || 0);
+          const isDelayed = p.delayFlag || p.isDelayed || p.status === 'Delayed';
+          
+          let statusText = 'On Track';
+          let badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200/70';
+          let color = 'from-emerald-500 to-teal-600';
+
+          if (isDelayed) {
+            statusText = 'Delayed / At Risk';
+            badgeColor = 'bg-rose-50 text-rose-700 border-rose-200/70';
+            color = 'from-rose-500 to-red-600';
+          } else if (progress > 80) {
+            statusText = 'Nearing Completion';
+            badgeColor = 'bg-indigo-50 text-indigo-700 border-indigo-200/70';
+            color = 'from-indigo-500 to-purple-600';
+          } else if (progress > 40) {
+            statusText = 'In Progress';
+            badgeColor = 'bg-sky-50 text-sky-700 border-sky-200/70';
+            color = 'from-sky-500 to-blue-600';
+          }
+
+          const nextMs = Array.isArray(p.milestones) && p.milestones.length > 0
+            ? p.milestones[0].name || p.milestones[0].title
+            : 'Foundation Inspection & Structural Audit';
+
+          return {
+            id: p._id || p.id || idx,
+            name: p.projectName || p.name || 'Architectural Project',
+            phase: p.status || 'Active Phase',
+            progress,
+            deadline: p.estimatedCompletion ? new Date(p.estimatedCompletion).toISOString().split('T')[0] : (p.startDate ? new Date(p.startDate).toISOString().split('T')[0] : '2026-09-15'),
+            status: statusText,
+            color,
+            badgeColor,
+            nextMilestone: nextMs,
+            team: [
+              { name: p.createdBy?.name || "Bhakti Kadam", avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80" },
+              { name: "Project Lead", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80" }
+            ]
+          };
+        });
+        setProjects(mapped);
+      } else {
+        setProjects([
+          { 
+            id: 1, 
+            name: "Central Office Tower", 
+            phase: "GFC Release Phase",
+            progress: 75, 
+            deadline: "2026-09-15", 
+            status: "On Track", 
+            color: "from-emerald-500 to-teal-600",
+            badgeColor: "bg-emerald-50 text-emerald-700 border-emerald-200/70",
+            nextMilestone: "Facade Inspection & Sealant Signoff",
+            team: [
+              { name: "Sarah Connor", avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80" },
+              { name: "John Doe", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80" }
+            ]
+          },
+          { 
+            id: 2, 
+            name: "Oceanic Luxury Villas", 
+            phase: "Structural DWG",
+            progress: 62, 
+            deadline: "2026-10-30", 
+            status: "On Track", 
+            color: "from-sky-500 to-blue-600",
+            badgeColor: "bg-sky-50 text-sky-700 border-sky-200/70",
+            nextMilestone: "Basement Slab Concrete Pour",
+            team: [
+              { name: "Alice Smith", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80" },
+              { name: "Bob Johnson", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80" }
+            ]
+          }
+        ]);
+      }
+    } catch (e) {
+      console.warn("Failed to fetch timeline projects", e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Card 
@@ -84,13 +118,19 @@ export default function ProjectTimelineList() {
       }
     >
       <div className="space-y-4 pt-1">
-        {pmProjects.map((p, idx) => (
+        {loading ? (
+          <div className="py-8 text-center text-slate-400 space-y-2">
+            <RefreshCw className="w-5 h-5 animate-spin mx-auto text-sky-500" />
+            <p className="text-xs font-normal">Loading project timelines...</p>
+          </div>
+        ) : projects.map((p, idx) => (
           <motion.div 
             key={p.id}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.25, delay: idx * 0.05 }}
-            className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:bg-white hover:border-slate-300 hover:shadow-xs transition-all space-y-3 group"
+            onClick={() => navigate('/project-manager/projects')}
+            className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:bg-white hover:border-slate-300 hover:shadow-xs transition-all space-y-3 group cursor-pointer"
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="space-y-1">

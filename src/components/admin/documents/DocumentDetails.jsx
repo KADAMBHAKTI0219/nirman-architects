@@ -1,155 +1,122 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  ArrowLeft, Lock, Unlock, ShieldAlert, Clock, Eye, FileDown, 
+  ArrowLeft, Lock, Unlock, ShieldCheck, Clock, Eye, FileDown, 
   Send, Layers, Calendar, CheckSquare, Plus, FileText, CheckCircle2,
-  PenTool, Maximize2
+  PenTool, Maximize2, Globe, Shield, RefreshCw, Upload, Edit3, Image as ImageIcon
 } from 'lucide-react';
 import Card from '../../common/Card';
 import MarkupEditor from '../markup/MarkupEditor';
+import { 
+  uploadDocumentVersion, 
+  updateDocumentVersion,
+  updateDocumentVisibility, 
+  getDocumentAccessLog,
+  previewDocument,
+  downloadDocument 
+} from '../../../service/document';
+import DocumentVersionModal from './DocumentVersionModal';
 
 export default function DocumentDetails({
   doc,
   onBack,
   onUpdateDocument
 }) {
-  const [isFullMarkupMode, setIsFullMarkupMode] = useState(true);
+  const [isFullMarkupMode, setIsFullMarkupMode] = useState(false);
   const [commentText, setCommentText] = useState('');
-  const [newVersionLabel, setNewVersionLabel] = useState('');
-  const [newChangeLog, setNewChangeLog] = useState('');
-  const [selectedRole, setSelectedRole] = useState('Public & Staff');
+  const [selectedRole, setSelectedRole] = useState(doc.accessLevel || 'Public & Staff');
+  const [accessLogs, setAccessLogs] = useState([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+  const [isVersionModalOpen, setIsVersionModalOpen] = useState(false);
+  const [versionModalMode, setVersionModalMode] = useState('upload');
 
-  // Preview Simulator contents
-  const renderPreviewSimulator = () => {
-    switch (doc.type) {
-      case 'PDF':
-        return (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-slate-100 font-mono text-[10px] space-y-3 h-80 overflow-y-auto">
-            <div className="border-b border-slate-700 pb-2 text-center text-xs font-bold text-sky-400">
-              DOCUMENT VIEWER: {doc.name.toUpperCase()}
-            </div>
-            <p className="text-slate-400"># Section 1. PROJECT SPECIFICATIONS & CHARTER</p>
-            <p>1.1 NIRMAN ARCHITECTS agrees to provide detailed structural blueprints, site excavation coordinates, and GFC drawings catalogued under contract {doc.project}.</p>
-            <p>1.2 The project manager {doc.uploadedBy} is designated lead signatory for drawing releases.</p>
-            <p className="text-slate-400"># Section 2. REGULATORY & MATERIAL STANDARDS</p>
-            <p>2.1 Concrete footings shall undergo soil bearing capacity checks as outlined in Geotechnical logs.</p>
-            <p>2.2 All mechanical HVAC drafts require CFM flow verification mapping before site installation.</p>
-          </div>
-        );
-      case 'XLSX':
-        return (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-slate-300 font-mono text-[9px] h-80 overflow-y-auto">
-            <div className="border-b border-slate-700 pb-2 text-center text-xs font-bold text-emerald-400 mb-2">
-              SPREADSHEET PREVIEW: {doc.name.toUpperCase()}
-            </div>
-            <div className="grid grid-cols-4 gap-1.5 border-b border-slate-800 pb-1 text-slate-400 font-bold uppercase">
-              <div>A: Item</div>
-              <div>B: Target limit</div>
-              <div>C: Spent Value</div>
-              <div>D: Status</div>
-            </div>
-            {[
-              ["Excavation", "150,000", "148,000", "Complete"],
-              ["Footing Cast", "280,005", "291,000", "Review"],
-              ["Steel Rebars", "420,000", "310,000", "In Progress"],
-              ["Lobby Framing", "95,000", "0", "Planned"]
-            ].map((row, idx) => (
-              <div key={idx} className="grid grid-cols-4 gap-1.5 py-1 border-b border-slate-800/40">
-                <div>{row[0]}</div>
-                <div>${row[1]}</div>
-                <div>${row[2]}</div>
-                <div className={row[3] === 'Complete' ? 'text-emerald-450' : 'text-amber-450'}>{row[3]}</div>
-              </div>
-            ))}
-          </div>
-        );
-      case 'ZIP':
-        return (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-slate-300 font-mono text-[10px] h-80 overflow-y-auto">
-            <div className="border-b border-slate-700 pb-2 text-center text-xs font-bold text-indigo-400 mb-3">
-              ARCHIVE TREE: {doc.name.toUpperCase()}
-            </div>
-            <div className="space-y-2">
-              <div className="text-slate-400">&darr; Root Directory</div>
-              <div className="pl-4">&rarr; drawings/foundation_treads.dwg (3.5 MB)</div>
-              <div className="pl-4">&rarr; certificates/soil_bearing.pdf (1.2 MB)</div>
-              <div className="pl-4">&rarr; invoices/compaction_tests.xlsx (250 KB)</div>
-              <div className="pl-4">&rarr; readme.txt (1.2 KB)</div>
-            </div>
-          </div>
-        );
-      default:
-        // JPEG, PNG, DWG
-        return (
-          <div className="bg-[#0B1E33] border border-slate-800 rounded-2xl p-6 h-80 flex flex-col items-center justify-center relative">
-            <div className="absolute top-3 left-3 bg-slate-900/60 px-2 py-0.5 rounded text-[8px] font-black uppercase text-sky-400">
-              IMAGE/BLUEPRINT PREVIEW
-            </div>
-            <svg viewBox="0 0 100 80" className="w-48 h-48 stroke-sky-450 fill-none stroke-[0.8] opacity-75">
-              <rect x="10" y="10" width="80" height="60" stroke="#2484C6" />
-              <line x1="10" y1="40" x2="90" y2="40" />
-              <line x1="50" y1="10" x2="50" y2="70" />
-              <circle cx="50" cy="40" r="10" />
-            </svg>
-            <span className="text-[10px] text-slate-400 font-bold block mt-2">{doc.name}</span>
-          </div>
-        );
+  const docId = doc ? (doc._id || doc.id) : null;
+  const docTitle = doc?.documentName || doc?.fileName || doc?.name || 'Untitled Document.pdf';
+  const rawFileUrl = doc?.filePath || doc?.fileUrl || doc?.url || doc?.currentVersionId?.filePath || doc?.currentVersionId?.fileUrl || '';
+  
+  const resolveDocFileUrl = (urlStr) => {
+    if (!urlStr || typeof urlStr !== 'string') return null;
+    const clean = urlStr.trim();
+    if (!clean) return null;
+    if (clean.startsWith('http') || clean.startsWith('data:') || clean.startsWith('blob:')) return clean;
+    if (clean.startsWith('/')) return `https://nirman-architects.onrender.com${clean}`;
+    return `https://nirman-architects.onrender.com/${clean}`;
+  };
+
+  const fileUrl = resolveDocFileUrl(rawFileUrl);
+  const fileExt = (doc?.fileType || doc?.type || docTitle.split('.').pop() || 'PDF').toUpperCase();
+  const isImage = ['JPG', 'JPEG', 'PNG', 'WEBP', 'GIF', 'SVG'].includes(fileExt) || (fileUrl && fileUrl.match(/\.(jpg|jpeg|png|webp|gif|svg)$/i));
+  const isPdf = fileExt === 'PDF' || (fileUrl && fileUrl.toLowerCase().includes('.pdf'));
+
+  const fetchAccessLog = async () => {
+    if (!docId) return;
+    setLoadingLogs(true);
+    try {
+      await previewDocument(docId);
+      const res = await getDocumentAccessLog(docId);
+      if (res && res.accessLogs) setAccessLogs(res.accessLogs);
+      else if (res && res.data) setAccessLogs(res.data);
+    } catch (e) {
+      // Catch access log 403/404 silently
+    } finally {
+      setLoadingLogs(false);
     }
   };
 
-  // Submit Comments
+  useEffect(() => {
+    fetchAccessLog();
+  }, [docId]);
+
+  // Handle Download File with Access Logging
+  const handleDownloadFile = async () => {
+    try {
+      const res = await downloadDocument(docId);
+      if (res && res.downloadUrl) {
+        window.open(res.downloadUrl, '_blank');
+      } else if (fileUrl) {
+        window.open(fileUrl, '_blank');
+      } else {
+        alert(`Download action logged for "${docTitle}".`);
+      }
+      fetchAccessLog();
+    } catch (e) {
+      if (fileUrl) window.open(fileUrl, '_blank');
+    }
+  };
+
+  // Toggle Client Handoff Visibility (PUT /api/documents/:id/visibility)
+  const handleVisibilityToggle = async () => {
+    const nextVis = !doc.visibleToClient;
+    try {
+      await updateDocumentVisibility(docId, nextVis);
+      if (onUpdateDocument) {
+        onUpdateDocument({
+          ...doc,
+          visibleToClient: nextVis
+        });
+      }
+      fetchAccessLog();
+    } catch (err) {
+      if (onUpdateDocument) {
+        onUpdateDocument({ ...doc, visibleToClient: nextVis });
+      }
+    }
+  };
+
+  // Post Comment Annotation
   const handlePostComment = (e) => {
     e.preventDefault();
     if (!commentText.trim()) return;
     const newHistory = [
-      ...doc.downloadHistory, // using downloadHistory or custom comments logs
+      ...(doc.downloadHistory || []),
       { user: "Super Admin", role: "Admin", date: "Just now", version: `Comment: ${commentText}` }
     ];
-    onUpdateDocument({
-      ...doc,
-      downloadHistory: newHistory
-    });
+    if (onUpdateDocument) {
+      onUpdateDocument({
+        ...doc,
+        downloadHistory: newHistory
+      });
+    }
     setCommentText('');
-  };
-
-  // Upload new version
-  const handleUpgradeVersion = (e) => {
-    e.preventDefault();
-    if (!newVersionLabel.trim() || !newChangeLog.trim()) return;
-
-    const newVerObj = {
-      version: newVersionLabel,
-      date: new Date().toISOString().split('T')[0],
-      uploader: "Super Admin",
-      changeLog: newChangeLog
-    };
-
-    onUpdateDocument({
-      ...doc,
-      version: newVersionLabel,
-      versions: [...doc.versions, newVerObj],
-      uploadedDate: new Date().toISOString().split('T')[0],
-      uploadedBy: "Super Admin"
-    });
-
-    setNewVersionLabel('');
-    setNewChangeLog('');
-    alert(`Version upgraded successfully to ${newVersionLabel}!`);
-  };
-
-  // Toggle confidentiality
-  const handleConfidentialToggle = () => {
-    onUpdateDocument({
-      ...doc,
-      confidential: !doc.confidential
-    });
-  };
-
-  // Lock toggle
-  const handleLockToggle = () => {
-    onUpdateDocument({
-      ...doc,
-      locked: !doc.locked
-    });
   };
 
   if (isFullMarkupMode) {
@@ -165,240 +132,313 @@ export default function DocumentDetails({
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       
-      {/* Header bar */}
-      <div className="flex items-center justify-between pb-2 border-b border-slate-100 flex-wrap gap-3">
+      {/* Top Header Navigation Bar */}
+      <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button 
             onClick={onBack}
-            className="p-1.5 hover:bg-slate-150 bg-white border border-slate-205 text-slate-600 rounded-xl transition-all shadow-3xs"
+            className="p-2 hover:bg-slate-100 text-slate-600 rounded-xl transition-all border border-slate-200 cursor-pointer"
+            title="Back to Document Vault"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{doc.id} Document Details</span>
-            <h2 className="text-base font-black text-slate-905 tracking-tight leading-none mt-0.5">{doc.name}</h2>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                {docId}
+              </span>
+              <span className="text-[9px] font-black px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 uppercase border border-indigo-100">
+                {fileExt}
+              </span>
+            </div>
+            <h2 className="text-base font-black text-slate-900 leading-tight">{docTitle}</h2>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setIsFullMarkupMode(true)}
-            className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+            className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
           >
             <PenTool className="w-4 h-4" />
             <span>Open PDF Markup Editor</span>
           </button>
-          {doc.confidential && (
-            <span className="text-[9px] px-2 py-1 bg-rose-50 text-rose-600 border border-rose-100 font-black uppercase rounded-lg">
-              Confidential
-            </span>
-          )}
-          <span className={`text-[9px] px-2 py-1 rounded-full font-black uppercase tracking-wider border ${
-            doc.locked ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-slate-50 text-slate-500 border-slate-200'
-          }`}>
-            {doc.locked ? 'Locked' : 'Editable'}
-          </span>
+
+          <button
+            onClick={handleVisibilityToggle}
+            className={`px-3.5 py-2 text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 ${
+              doc.visibleToClient 
+                ? 'bg-amber-500 hover:bg-amber-600 text-white' 
+                : 'bg-slate-800 hover:bg-slate-900 text-white'
+            }`}
+          >
+            <Globe className="w-4 h-4" />
+            <span>{doc.visibleToClient ? 'Hide from Client' : 'Publish to Client'}</span>
+          </button>
         </div>
       </div>
 
-      {/* Grid view */}
+      {/* Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Left pane (2/3 width) - Preview & Versioning */}
+        {/* Left Pane (2/3 Width) - Preview & Version Vault */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Simulated File Preview Canvas */}
-          {renderPreviewSimulator()}
+          {/* File Preview Canvas */}
+          <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-3">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Eye className="w-4 h-4 text-indigo-600" />
+                <span className="text-xs font-black text-slate-800 uppercase tracking-wider">Document File Preview</span>
+              </div>
+              {fileUrl && (
+                <a 
+                  href={fileUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-[11px] font-extrabold text-indigo-600 hover:underline flex items-center gap-1"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" /> Fullscreen View
+                </a>
+              )}
+            </div>
 
-          {/* Version Chronology logs */}
-          <Card title="Revision & Version Vault" subtitle="Document history. Previous file versions remain accessible">
-            <div className="space-y-3 pt-2">
-              {doc.versions.map((ver, idx) => (
-                <div key={idx} className="flex justify-between items-center p-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs">
-                  <div className="flex items-center gap-2.5">
-                    <span className="px-2 py-1 bg-white border border-slate-200 rounded-xl text-[9px] font-black text-slate-600">
-                      {ver.version}
+            {isPdf && fileUrl ? (
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-2 min-h-[380px] overflow-hidden">
+                <iframe 
+                  src={fileUrl.includes('#') ? fileUrl : `${fileUrl}#toolbar=1`}
+                  title={docTitle}
+                  className="w-full h-[400px] rounded-xl border-none"
+                />
+              </div>
+            ) : isImage ? (
+              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 min-h-[320px] max-h-[460px] flex flex-col items-center justify-center relative overflow-hidden group">
+                <img 
+                  src={fileUrl || "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=1200&q=80"} 
+                  alt={docTitle}
+                  className="max-h-[380px] w-auto object-contain rounded-xl shadow-lg transition-transform duration-300 group-hover:scale-[1.01]"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=1200&q=80";
+                  }}
+                />
+                <span className="text-[10px] text-slate-400 font-mono mt-3">
+                  Image Resolution: High quality • File Type: {fileExt}
+                </span>
+              </div>
+            ) : (
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-slate-100 font-mono text-xs space-y-3 min-h-[300px] overflow-y-auto">
+                <div className="border-b border-slate-700 pb-2 flex justify-between items-center text-xs font-bold text-sky-400">
+                  <span>DOCUMENT PREVIEW: {docTitle.toUpperCase()}</span>
+                  <span className="text-[10px] text-slate-400">{fileExt} FORMAT</span>
+                </div>
+                <div className="text-slate-300 space-y-2 pt-2 text-[11px] leading-relaxed">
+                  <p className="text-slate-400"># SECTION 1. PROJECT CHARTER & SPECIFICATION SHEET</p>
+                  <p>1.1 NIRMAN ARCHITECTS agrees to provide detailed structural blueprints, site excavation coordinates, and GFC drawings catalogued under contract {doc.project || 'Tower Phase'}.</p>
+                  <p>1.2 The designated project manager lead is authorized for document handoffs and version releases.</p>
+                  <p className="text-slate-400"># SECTION 2. COMPLIANCE & MATERIAL STANDARDS</p>
+                  <p>2.1 Concrete footings shall undergo soil bearing capacity checks as outlined in Geotechnical logs.</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Revision & Version Vault */}
+          <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Revision & Version Vault</h3>
+                <p className="text-xs text-slate-500">Document history & past revision logs</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVersionModalMode('edit');
+                    setIsVersionModalOpen(true);
+                  }}
+                  className="px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs rounded-xl border border-amber-200 transition-all flex items-center gap-1 cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  Edit Revision Log
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVersionModalMode('upload');
+                    setIsVersionModalOpen(true);
+                  }}
+                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-2xs transition-all flex items-center gap-1 cursor-pointer"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  + Upload New Version
+                </button>
+              </div>
+            </div>
+
+            {/* Version Items */}
+            <div className="space-y-2.5">
+              {(doc.versions || [
+                { version: 1, versionTag: "V1.0", date: doc.uploadedDate || "2026-08-10", uploader: doc.uploadedBy || "Staff", changeLog: "Initial document release" }
+              ]).map((ver, idx) => (
+                <div key={idx} className="p-3.5 bg-slate-50/80 border border-slate-200/90 rounded-2xl flex items-center justify-between gap-3 hover:bg-slate-100/50 transition-all text-xs">
+                  <div className="flex items-center gap-3">
+                    <span className="px-2.5 py-1 bg-white border border-slate-200 rounded-xl text-[10px] font-black text-indigo-700 shadow-3xs">
+                      {ver.versionTag || `V${ver.version || 1}.0`}
                     </span>
                     <div>
-                      <strong className="text-slate-805 block">Changes: {ver.changeLog}</strong>
-                      <span className="text-[9px] text-slate-400 mt-0.5 block font-semibold">Uploaded by {ver.uploader} on {ver.date}</span>
+                      <strong className="text-slate-800 block font-bold">Changes: {ver.changeLog || "No notes"}</strong>
+                      <span className="text-[10px] text-slate-400 mt-0.5 block font-semibold">
+                        Uploaded by {ver.uploader || "Staff"} on {ver.date || "2026-08-10"}
+                      </span>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => alert(`Downloading document version: ${ver.version}`)}
-                    className="px-3 py-1 bg-white border border-slate-205 hover:bg-slate-50 text-slate-700 rounded-lg text-[9px] font-bold uppercase transition-all shadow-3xs"
-                  >
-                    Download
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => {
+                        setVersionModalMode('edit');
+                        setIsVersionModalOpen(true);
+                      }}
+                      className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-[10px] font-bold transition-all shadow-3xs cursor-pointer"
+                    >
+                      Edit Log
+                    </button>
+                    <button 
+                      onClick={handleDownloadFile}
+                      className="px-3 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 rounded-xl text-[10px] font-bold transition-all shadow-3xs cursor-pointer"
+                    >
+                      Download
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
-          </Card>
-
-          {/* Upgrade Version Form */}
-          {!doc.locked ? (
-            <form onSubmit={handleUpgradeVersion} className="bg-white p-5 rounded-3xl border border-slate-100 shadow-2xs space-y-4">
-              <div className="border-b border-slate-100 pb-2">
-                <strong className="text-xs font-black text-slate-900 uppercase block">Upload Revision Version</strong>
-                <span className="text-[10px] text-slate-400 block mt-0.5 font-bold">Replace file with new updated version logs</span>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">New Version Tag</label>
-                  <input 
-                    type="text" 
-                    required 
-                    value={newVersionLabel}
-                    onChange={(e) => setNewVersionLabel(e.target.value)}
-                    placeholder="e.g. V1.3"
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-800 bg-white font-semibold"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Revision Change notes</label>
-                  <input 
-                    type="text" 
-                    required 
-                    value={newChangeLog}
-                    onChange={(e) => setNewChangeLog(e.target.value)}
-                    placeholder="e.g. Adjusted stairs deadweight load coefficients"
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-800 bg-white font-semibold"
-                  />
-                </div>
-              </div>
-              <button 
-                type="submit"
-                className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-905 rounded-xl text-xs font-black uppercase transition-all shadow-3xs"
-              >
-                Upload Revision Upgrade
-              </button>
-            </form>
-          ) : (
-            <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-start gap-2">
-              <Lock className="w-4 h-4 text-indigo-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <strong className="text-indigo-805 text-xs font-bold block">Document Locked</strong>
-                <span className="text-[10px] text-indigo-750 block mt-0.5 leading-relaxed">
-                  This document has been locked as a final contract release. To upload new revisions, toggle document edit locks first.
-                </span>
-              </div>
-            </div>
-          )}
+          </div>
 
         </div>
 
-        {/* Right pane (1/3 width) - Metadata, Sharing, download logs */}
+        {/* Right Pane (1/3 Width) - Metadata, Client Handoff, Access Audit Log */}
         <div className="space-y-6">
           
           {/* Metadata Card */}
-          <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-2xs space-y-4">
-            <h4 className="text-[10px] font-black text-slate-450 uppercase tracking-widest block border-b border-slate-55 pb-2">Document Metadata</h4>
-            <div className="grid grid-cols-2 gap-3.5 text-xs">
+          <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-3">
+            <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider pb-2 border-b border-slate-100">
+              Document Metadata
+            </h4>
+            <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <span className="text-[9px] font-bold text-slate-400 block uppercase">Project Link</span>
-                <span className="font-extrabold text-slate-700">{doc.project}</span>
+                <span className="text-[10px] font-bold text-slate-400 block uppercase">Project Link</span>
+                <strong className="font-extrabold text-slate-800 block">{doc.project || 'Tower Phase'}</strong>
               </div>
               <div>
-                <span className="text-[9px] font-bold text-slate-400 block uppercase">Folder</span>
-                <span className="font-bold text-slate-700">{doc.folder}</span>
+                <span className="text-[10px] font-bold text-slate-400 block uppercase">Folder</span>
+                <strong className="font-bold text-slate-800 block">{doc.folder || doc.category || 'Contracts'}</strong>
               </div>
               <div>
-                <span className="text-[9px] font-bold text-slate-400 block uppercase">Uploaded Date</span>
-                <span className="font-semibold text-slate-700">{doc.uploadedDate}</span>
+                <span className="text-[10px] font-bold text-slate-400 block uppercase">Uploaded Date</span>
+                <span className="font-semibold text-slate-700 block">{doc.uploadedDate || '2026-08-10'}</span>
               </div>
               <div>
-                <span className="text-[9px] font-bold text-slate-400 block uppercase">Uploaded By</span>
-                <span className="font-semibold text-slate-700">{doc.uploadedBy}</span>
+                <span className="text-[10px] font-bold text-slate-400 block uppercase">Uploaded By</span>
+                <span className="font-semibold text-slate-700 block">{doc.uploadedBy || 'Bhakti Kadam'}</span>
               </div>
             </div>
           </div>
 
-          {/* Sharing Permissions */}
-          <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-2xs space-y-4">
-            <h4 className="text-[10px] font-black text-slate-450 uppercase tracking-widest block border-b border-slate-55 pb-2">Access Rules</h4>
-            <div className="space-y-3">
-              <div>
-                <label className="text-[9px] font-bold text-slate-400 block uppercase mb-1">Share by Role</label>
-                <select
-                  value={selectedRole}
-                  onChange={(e) => {
-                    setSelectedRole(e.target.value);
-                    onUpdateDocument({ ...doc, accessLevel: e.target.value });
-                    alert(`Access permissions changed to: ${e.target.value}`);
-                  }}
-                  className="w-full px-3 py-2 text-xs border border-slate-205 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-750 bg-white font-semibold"
-                >
-                  <option value="Admin Only">Admin Only</option>
-                  <option value="Admin & PM Only">Admin & PM Only</option>
-                  <option value="Public & Staff">Public & Staff</option>
-                </select>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={handleConfidentialToggle}
-                  className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-all ${
-                    doc.confidential 
-                      ? 'bg-rose-50 border-rose-150 text-rose-600 font-extrabold' 
-                      : 'bg-white border-slate-205 text-slate-500 hover:bg-slate-50'
-                  }`}
-                >
-                  {doc.confidential ? 'Mark Confidential' : 'Confidential Off'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleLockToggle}
-                  className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-all ${
-                    doc.locked 
-                      ? 'bg-indigo-50 border-indigo-150 text-indigo-600 font-extrabold' 
-                      : 'bg-white border-slate-205 text-slate-500 hover:bg-slate-50'
-                  }`}
-                >
-                  {doc.locked ? 'Unlock Edits' : 'Lock Document'}
-                </button>
-              </div>
+          {/* CRM Client Handoff Control */}
+          <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">Access Rules & Client Handoff</h4>
+              <span className={`text-[9px] font-black px-2 py-0.5 rounded-md uppercase border ${
+                doc.visibleToClient ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+              }`}>
+                {doc.visibleToClient ? 'Client Visible' : 'Client Hidden'}
+              </span>
             </div>
-          </div>
 
-          {/* Activity / Download Logs */}
-          <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-2xs space-y-4">
-            <h4 className="text-[10px] font-black text-slate-450 uppercase tracking-widest block border-b border-slate-55 pb-2">Activity & Download Logs</h4>
-            <div className="max-h-48 overflow-y-auto space-y-2.5 pr-1">
-              {doc.downloadHistory.map((hist, idx) => (
-                <div key={idx} className="p-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs space-y-1">
-                  <div className="flex justify-between text-[8px] text-slate-450 font-bold uppercase">
-                    <span>{hist.user} ({hist.role})</span>
-                    <span>{hist.date}</span>
-                  </div>
-                  <p className="font-semibold text-slate-700 leading-normal">
-                    {hist.version.startsWith('Comment:') ? hist.version : `Downloaded version ${hist.version}`}
-                  </p>
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                  <Globe className="w-4 h-4 text-indigo-600" />
+                  <span>CRM Client Portal Handoff</span>
                 </div>
-              ))}
+                <button
+                  type="button"
+                  onClick={handleVisibilityToggle}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all shadow-3xs cursor-pointer ${
+                    doc.visibleToClient
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                  }`}
+                >
+                  {doc.visibleToClient ? 'Hide from Client' : 'Publish to Client'}
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-500 font-medium">
+                {doc.visibleToClient 
+                  ? 'Document is currently published & visible in CRM Module 6 Client Portal.' 
+                  : 'Document is internal-only. Toggle to handoff and make it visible in Client Portal.'}
+              </p>
             </div>
-            
-            {/* Add Comments */}
-            <form onSubmit={handlePostComment} className="flex gap-2">
-              <input 
-                type="text" 
-                placeholder="Add annotation note..." 
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                className="flex-1 px-3 py-1.5 border border-slate-205 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-xs font-semibold bg-white"
-              />
+          </div>
+
+          {/* Document Access Log Audit */}
+          <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-3">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">Access Log Audit</h4>
+              </div>
               <button 
-                type="submit"
-                className="px-3 py-1.5 bg-brand-primary hover:bg-brand-secondary text-slate-905 rounded-xl text-xs font-black shadow-3xs"
+                onClick={fetchAccessLog}
+                className="text-[10px] font-extrabold text-indigo-600 hover:underline flex items-center gap-1 cursor-pointer"
               >
-                Send
+                <RefreshCw className={`w-3 h-3 ${loadingLogs ? 'animate-spin' : ''}`} /> Refresh
               </button>
-            </form>
+            </div>
+
+            <div className="max-h-56 overflow-y-auto space-y-2 pr-1">
+              {accessLogs && accessLogs.length > 0 ? (
+                accessLogs.map((log, idx) => (
+                  <div key={log.id || idx} className="p-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs space-y-1">
+                    <div className="flex justify-between text-[9px] font-bold">
+                      <span className={`uppercase font-black ${
+                        log.action === 'DOWNLOAD' ? 'text-emerald-600' : 'text-sky-600'
+                      }`}>
+                        {log.action || 'VIEW'}
+                      </span>
+                      <span className="text-slate-400">
+                        {log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : 'Recent'}
+                      </span>
+                    </div>
+                    <p className="font-semibold text-slate-700 text-[11px]">
+                      By {log.performedBy || 'User'} ({log.userRole || 'Staff'}) • IP: {log.ipAddress || 'Internal'}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div className="py-6 text-center text-slate-400 text-xs bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                  No access audit log entries recorded yet.
+                </div>
+              )}
+            </div>
           </div>
 
         </div>
 
       </div>
+
+      {/* Version Modal (POST / PUT) */}
+      <DocumentVersionModal
+        isOpen={isVersionModalOpen}
+        onClose={() => setIsVersionModalOpen(false)}
+        doc={doc}
+        mode={versionModalMode}
+        onSuccess={(updatedRes) => {
+          if (onUpdateDocument) onUpdateDocument({ ...doc, ...updatedRes?.data });
+          fetchAccessLog();
+        }}
+      />
 
     </div>
   );

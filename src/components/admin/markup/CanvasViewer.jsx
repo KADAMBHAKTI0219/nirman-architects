@@ -190,7 +190,11 @@ export default function CanvasViewer({
     };
 
     imgElement.onerror = (err) => {
-      console.warn('Background image failed to load:', err);
+      console.warn('Background image failed to load, loading fallback architectural drawing artwork:', err);
+      const fallbackBlueprint = "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80";
+      if (imgElement.src !== fallbackBlueprint) {
+        imgElement.src = fallbackBlueprint;
+      }
     };
   }, [bgImageSrc]);
 

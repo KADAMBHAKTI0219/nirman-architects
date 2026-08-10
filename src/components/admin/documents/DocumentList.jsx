@@ -1,10 +1,14 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Search, File, Lock, Unlock, Eye, Trash2, Database, BarChart2, Plus
+  Search, File, Lock, Unlock, Eye, Trash2, Database, BarChart2, Plus, Folder, ShieldCheck
 } from 'lucide-react';
+import { getProjects } from '../../../service/project';
+import DocumentAccessLogModal from './DocumentAccessLogModal';
 
 export default function DocumentList({
   documents,
+  projectFolders = [],
+  fetchBackendFolders,
   selectedProject,
   setSelectedProject,
   selectedFolder,
@@ -19,23 +23,47 @@ export default function DocumentList({
   onDeleteFile,
   setViewReports
 }) {
-  
-  // Dynamic Projects List
-  const uniqueProjects = Array.from(new Set((documents || []).map(d => d.project).filter(Boolean)));
-  const projectsList = ['All Projects', ...(uniqueProjects.length > 0 ? uniqueProjects : ['Central Office Tower', 'Oceanic Luxury Villas', 'Smart City Mall'])];
+  const [liveProjects, setLiveProjects] = useState([]);
+  const [auditModalDoc, setAuditModalDoc] = useState(null);
+  const [isAuditOpen, setIsAuditOpen] = useState(false);
 
-  // Dynamic Folders / Categories List
-  const defaultFolders = ['Drawings', 'Reports', 'Client Files', 'Approvals', 'Site Photos', 'Contracts', 'Meeting Notes', 'Financial Files'];
-  const uniqueFolders = Array.from(new Set((documents || []).map(d => d.folder).filter(Boolean)));
-  const foldersList = Array.from(new Set([...defaultFolders, ...uniqueFolders]));
+  useEffect(() => {
+    getProjects()
+      .then(res => {
+        let list = [];
+        if (res?.projects && Array.isArray(res.projects)) list = res.projects;
+        else if (Array.isArray(res)) list = res;
+        setLiveProjects(list);
+      })
+      .catch(err => console.warn(err));
+  }, []);
+
+  // Dynamic Projects List from backend API + document references
+  const apiProjects = liveProjects.map(p => p.name || p.projectName || p.title).filter(Boolean);
+  const docProjects = (documents || []).map(d => d.project).filter(Boolean);
+  const combinedProjects = Array.from(new Set([...apiProjects, ...docProjects]));
+  const projectsList = ['ALL PROJECTS', ...combinedProjects];
+
+  // Dynamic Folders derived strictly from backend projectFolders or document categories
+  const folderItems = projectFolders.length > 0 
+    ? projectFolders 
+    : Array.from(new Set((documents || []).map(d => typeof d.folderId === 'object' ? d.folderId?.folderName : (d.folder || d.category)).filter(Boolean)))
+        .map(fName => ({ _id: fName, folderName: fName, createdBy: { name: 'Staff' } }));
+
+  const foldersList = folderItems.map(fObj => typeof fObj === 'string' ? fObj : (fObj.folderName || fObj.name || 'Folder'));
 
   // Filters logic
   const filteredDocuments = documents.filter(doc => {
-    const matchesSearch = (doc.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (doc.id || '').toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesProject = selectedProject === 'All Projects' || doc.project === selectedProject;
-    const matchesFolder = selectedFolder === 'All' || doc.folder === selectedFolder;
-    const matchesType = typeFilter === 'All' || doc.type === typeFilter;
+    const docTitle = doc.documentName || doc.fileName || doc.name || '';
+    const matchesSearch = docTitle.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          (doc.id || doc._id || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const selProjNorm = (selectedProject || 'ALL PROJECTS').trim().toUpperCase();
+    const docProjNorm = (doc.project || '').trim().toUpperCase();
+    const matchesProject = selProjNorm === 'ALL PROJECTS' || selProjNorm === 'ALL' || docProjNorm === selProjNorm;
+    
+    const docFolderName = typeof doc.folderId === 'object' ? doc.folderId?.folderName : (doc.folder || doc.category);
+    const matchesFolder = selectedFolder === 'All' || doc.folder === selectedFolder || doc.category === selectedFolder || docFolderName === selectedFolder;
+    const matchesType = typeFilter === 'All' || doc.type === typeFilter || doc.fileType === typeFilter;
     return matchesSearch && matchesProject && matchesFolder && matchesType;
   });
 
@@ -98,18 +126,82 @@ export default function DocumentList({
         <div className="bg-white p-4 rounded-2xl border border-slate-100/90 shadow-3xs flex flex-col justify-between h-20">
           <span className="text-[9px] font-bold text-slate-400 uppercase block">Confidential / Locked</span>
           <div className="flex items-end justify-between mt-1">
-            <span className="text-lg font-black text-indigo-705">{confidentialCount} / {lockedCount} Files</span>
-            <Lock className="w-4 h-4 text-indigo-500" />
+            <span className="text-lg font-black text-amber-600">{confidentialCount} Internal</span>
+            <Lock className="w-4 h-4 text-amber-500" />
           </div>
         </div>
         <div className="bg-white p-4 rounded-2xl border border-slate-100/90 shadow-3xs flex flex-col justify-between h-20">
-          <span className="text-[9px] font-bold text-slate-400 uppercase block">Space Valuation Capacity</span>
+          <span className="text-[9px] font-bold text-slate-400 uppercase block">Client Shared Handoffs</span>
           <div className="flex items-end justify-between mt-1">
-            <span className="text-lg font-black text-slate-755">{totalStorageUsed.toFixed(1)} MB</span>
-            <span className="text-[10px] text-slate-400 font-semibold">100 GB Cap</span>
+            <span className="text-lg font-black text-emerald-600">{documents.filter(d => d.visibleToClient).length} Shared</span>
+            <Unlock className="w-4 h-4 text-emerald-500" />
           </div>
         </div>
       </div>
+
+      {/* 2.5 PROJECT DOCUMENT FOLDERS */}
+      {folderItems.length > 0 && (
+        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-3xs space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+                <Folder className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wide">
+                  Project Document Folders
+                </h3>
+                <span className="text-[10px] text-slate-400 font-bold block">
+                  Active folder directories for selected project
+                </span>
+              </div>
+            </div>
+            <span className="text-[10px] font-extrabold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-100">
+              {folderItems.length} Folders
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pt-1">
+            {folderItems.map(fObj => {
+              const folderName = fObj.folderName || fObj.name || 'Folder';
+              const docCount = documents.filter(d => {
+                const dFolder = typeof d.folderId === 'object' ? d.folderId?.folderName : (d.folder || d.category);
+                return dFolder === folderName || d.category === folderName;
+              }).length;
+              const isSelected = selectedFolder === folderName;
+              const creatorName = fObj.createdBy?.name || 'Staff';
+
+              return (
+                <div 
+                  key={fObj._id || folderName}
+                  onClick={() => setSelectedFolder(isSelected ? 'All' : folderName)}
+                  className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-2 ${
+                    isSelected 
+                      ? 'bg-indigo-50/60 border-indigo-300 ring-2 ring-indigo-400/20 shadow-xs' 
+                      : 'bg-slate-50/50 border-slate-200/80 hover:bg-slate-100/60 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>
+                        <File className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-xs font-black text-slate-800 line-clamp-1">{folderName}</span>
+                    </div>
+                    <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                      Active
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-slate-400 font-semibold pt-1 border-t border-slate-100">
+                    <span>Created: {creatorName}</span>
+                    <span className="font-extrabold text-slate-700">{docCount} Files</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 3. Search, Filters & Action Buttons Row (Full Width) */}
       <div className="bg-white p-4 rounded-3xl border border-slate-100/90 shadow-xs flex flex-wrap gap-4 items-center justify-between">
@@ -215,15 +307,25 @@ export default function DocumentList({
                   <td className="px-4 py-4 text-right align-middle">
                     <div className="flex justify-end gap-2 items-center">
                       <button
+                        onClick={() => {
+                          setAuditModalDoc(doc);
+                          setIsAuditOpen(true);
+                        }}
+                        className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-xl transition-all shadow-3xs cursor-pointer"
+                        title="View DocumentAccessLog Audit History"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                      </button>
+                      <button
                         onClick={() => onSelectDocument(doc)}
-                        className="p-1.5 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 rounded-xl transition-all shadow-3xs"
+                        className="p-1.5 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 rounded-xl transition-all shadow-3xs cursor-pointer"
                         title="Inspect File"
                       >
                         <Eye className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => onLockToggle(doc.id)}
-                        className={`p-1.5 rounded-xl border transition-all ${
+                        className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
                           doc.locked 
                             ? 'bg-indigo-50 border-indigo-200 text-indigo-650 shadow-3xs' 
                             : 'bg-white border-slate-205 text-slate-405 hover:text-slate-600 hover:bg-slate-50 shadow-3xs'
@@ -234,7 +336,7 @@ export default function DocumentList({
                       </button>
                       <button 
                         onClick={() => onDeleteFile(doc.id)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 border border-slate-205 hover:bg-rose-50 hover:border-rose-100 rounded-xl shadow-3xs transition-all"
+                        className="p-1.5 text-slate-400 hover:text-rose-600 border border-slate-205 hover:bg-rose-50 hover:border-rose-100 rounded-xl shadow-3xs transition-all cursor-pointer"
                         title="Delete document"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -256,6 +358,11 @@ export default function DocumentList({
         </div>
       </div>
 
+      <DocumentAccessLogModal
+        isOpen={isAuditOpen}
+        onClose={() => setIsAuditOpen(false)}
+        doc={auditModalDoc}
+      />
     </div>
   );
 }

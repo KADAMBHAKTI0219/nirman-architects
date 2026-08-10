@@ -150,35 +150,42 @@ export default function TaskDetails({
           {/* Left Column (2/3 width): Stepper, Description, Checklist, Dependencies */}
           <div className="lg:col-span-2 space-y-6">
             
-            {/* Status Stepper Timeline */}
-            <div className="bg-slate-50 p-4 border border-slate-200/80 rounded-2xl">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-3">Workflow Status Stepper (Click to update status)</span>
-              <div className="flex items-center justify-between overflow-x-auto pb-2 gap-2">
-                {STEPS.map((step, idx) => {
-                  const isActive = task.status === step;
-                  const isCompleted = STEPS.indexOf(task.status) >= idx;
-                  return (
-                    <button
-                      key={step}
-                      type="button"
-                      onClick={() => handleMoveStatus(step)}
-                      className={`flex items-center gap-1.5 p-1.5 rounded-xl transition-all cursor-pointer text-left ${
-                        isActive ? 'bg-brand-soft border border-brand-secondary/40 ring-2 ring-brand-primary/20' : 'hover:bg-slate-200/60'
-                      }`}
-                    >
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-extrabold transition-all border ${
-                        isActive ? 'bg-brand-primary border-brand-secondary text-slate-900 shadow-2xs' :
-                        isCompleted ? 'bg-emerald-500 border-emerald-500 text-white' :
-                        'bg-white border-slate-300 text-slate-400'
-                      }`}>
-                        {idx + 1}
-                      </div>
-                      <span className={`text-[10px] font-bold uppercase tracking-wider ${isActive ? 'text-slate-900' : 'text-slate-500'}`}>
-                        {step}
-                      </span>
-                    </button>
-                  );
-                })}
+            {/* Workflow Status Dropdown Selector */}
+            <div className="bg-slate-50 p-4 border border-slate-200/80 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                  Current Workflow Status
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`w-3 h-3 rounded-full ${
+                    task.status === 'Completed' ? 'bg-emerald-500' :
+                    task.status === 'Approved' ? 'bg-sky-500' :
+                    task.status === 'Review' ? 'bg-amber-500' :
+                    task.status === 'In Progress' ? 'bg-indigo-500' :
+                    task.status === 'Accepted' ? 'bg-blue-500' :
+                    task.status === 'Rejected' ? 'bg-rose-500' : 'bg-slate-400'
+                  }`}></span>
+                  <span className="text-sm font-extrabold text-slate-900">{task.status || 'Pending'}</span>
+                </div>
+              </div>
+
+              <div className="w-full sm:w-auto">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                  Update Task Status
+                </label>
+                <select
+                  value={task.status || 'Pending'}
+                  onChange={(e) => handleMoveStatus(e.target.value)}
+                  className="w-full sm:w-56 px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 shadow-2xs focus:outline-none focus:ring-2 focus:ring-brand-primary/40 cursor-pointer"
+                >
+                  <option value="Pending">1. Pending</option>
+                  <option value="Accepted">2. Accepted</option>
+                  <option value="In Progress">3. In Progress</option>
+                  <option value="Review">4. Review</option>
+                  <option value="Approved">5. Approved</option>
+                  <option value="Completed">6. Completed</option>
+                  <option value="Rejected">7. Rejected</option>
+                </select>
               </div>
             </div>
 

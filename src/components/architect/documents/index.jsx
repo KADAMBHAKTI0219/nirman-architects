@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Search, Folder, FileText, Download, Eye, Upload, X, ArrowLeft, RefreshCw 
+  Search, Folder, FileText, Download, Eye, Upload, X, ArrowLeft, RefreshCw, FolderPlus 
 } from 'lucide-react';
 import Card from '../../common/Card';
 import { 
   getProjectDocuments, 
   previewDocument, 
   downloadDocument, 
-  createDocument, 
+  uploadDocument, 
+  uploadDocumentVersion, 
+  createProjectFolder, 
+  getProjectFolders, 
   getEmployeeDocuments 
 } from '../../../service/document';
 
@@ -55,7 +58,7 @@ export default function Documents() {
 
   const handleUpload = async (e) => {
     e.preventDefault();
-    const title = await window.prompt("Enter Document Title / Folder Name:", "", "Upload Architectural Document");
+    const title = await window.prompt("Enter Document Title:", "", "Upload Architectural Document");
     if (!title || !title.trim()) return;
     
     try {
@@ -67,14 +70,26 @@ export default function Documents() {
         folder: selectedCategory === 'All' ? 'Design briefs' : selectedCategory,
         size: "2.4 MB",
         date: new Date().toISOString().split('T')[0],
-        version: "V1.0",
-        visibleToClient: true
+        uploadedBy: "Architect Staff",
+        visibleToClient: false // Default visibleToClient: false per spec 28.2
       };
-      await createDocument(payload);
+      await uploadDocument(payload);
       fetchDocs();
-      alert(`Document "${docName}" created successfully!`);
+      alert(`Document "${docName}" uploaded successfully with V1 (visibleToClient: false by default)!`);
     } catch (err) {
       alert("Error uploading document");
+    }
+  };
+
+  const handleCreateFolder = async () => {
+    const folderName = await window.prompt("Enter new Project Folder name:", "", "Create Folder");
+    if (!folderName || !folderName.trim()) return;
+    try {
+      await createProjectFolder('proj-1', folderName.trim(), 'Created by Architect');
+      fetchDocs();
+      alert(`Folder "${folderName.trim()}" created successfully!`);
+    } catch (err) {
+      alert("Error creating folder");
     }
   };
 
@@ -112,8 +127,17 @@ export default function Documents() {
           </div>
           
           <button
+            onClick={handleCreateFolder}
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-extrabold transition-all border border-slate-200 flex items-center gap-1 shrink-0 cursor-pointer"
+            title="Create Project Document Folder"
+          >
+            <FolderPlus className="w-4 h-4 text-indigo-600" />
+            <span>New Folder</span>
+          </button>
+          
+          <button
             onClick={handleUpload}
-            className="px-4 py-2 bg-brand-primary text-slate-905 rounded-xl text-xs font-black uppercase transition-all shadow-3xs flex items-center gap-1 shrink-0"
+            className="px-4 py-2 bg-brand-primary text-slate-905 rounded-xl text-xs font-black uppercase transition-all shadow-3xs flex items-center gap-1 shrink-0 cursor-pointer"
           >
             <Upload className="w-4 h-4" />
             Upload File

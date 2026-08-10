@@ -6,7 +6,7 @@ import Card from '../../common/Card';
 import DrawingViewer from '../../common/DrawingViewer';
 import MarkupEditor from '../../admin/markup/MarkupEditor';
 import { getProjectAttendance, getHRDashboardWidgets } from '../../../service/mockApi';
-import { getProjectDrawings, approveDrawing, uploadDrawing } from '../../../service/drawing';
+import { getDrawings, getProjectDrawings, approveDrawing, uploadDrawing } from '../../../service/drawing';
 import SiteLocationManagerModal from '../projects/SiteLocationManagerModal';
 import TaskCreateModal from '../../admin/tasks/TaskCreateModal';
 import { createTask } from '../../../service/task';
@@ -85,19 +85,58 @@ export default function Dashboard() {
         }
 
         // Try loading drawings from drawing service
-        const drawingsRes = await getProjectDrawings('proj-1');
-        if (drawingsRes && drawingsRes.allDrawings && drawingsRes.allDrawings.length > 0) {
-          const apiQueue = drawingsRes.allDrawings.map((d, index) => ({
-            id: d._id || d.id || index + 10,
-            title: d.title || "Blueprint Document",
-            project: d.projectName || "Oceanic Luxury Villas",
-            type: (d.category || "STRUCTURAL DWG").toUpperCase(),
-            uploader: d.uploadedBy?.name || "Sarah Connor",
-            role: d.uploadedBy?.role || "Architect",
-            avatar: d.uploadedBy?.avatar || "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80",
-            status: d.status || "AWAITING PM APPROVAL",
-            date: d.createdAt ? d.createdAt.split('T')[0] : "2026-07-22"
-          }));
+        const drawingsRes = await getDrawings({}).catch(() => null);
+        let list = [];
+        if (drawingsRes?.drawings && Array.isArray(drawingsRes.drawings)) list = drawingsRes.drawings;
+        else if (drawingsRes?.data?.drawings && Array.isArray(drawingsRes.data.drawings)) list = drawingsRes.data.drawings;
+        else if (drawingsRes?.allDrawings && Array.isArray(drawingsRes.allDrawings)) list = drawingsRes.allDrawings;
+        else if (Array.isArray(drawingsRes?.data)) list = drawingsRes.data;
+        else if (Array.isArray(drawingsRes)) list = drawingsRes;
+
+        if (list.length > 0) {
+          const apiQueue = list.map((d, index) => {
+            const dId = d._id || d.id || `drg-${index + 1}`;
+            const title = d.drawingName || d.title || d.name || `Blueprint Document V${index + 1}.0`;
+            const project = typeof d.projectId === 'object' && d.projectId !== null 
+              ? (d.projectId.projectName || d.projectId.name) 
+              : (d.projectName || d.project || 'Oceanic Luxury Villas');
+            const type = (d.categoryName || d.category || d.fileType || d.drawingCategory || 'STRUCTURAL DWG').toUpperCase();
+            
+            let uploaderName = 'Bhakti Kadam';
+            let uploaderRole = 'Super Admin';
+
+            if (typeof d.createdBy === 'object' && d.createdBy !== null && d.createdBy.name) {
+              uploaderName = d.createdBy.name;
+              uploaderRole = d.createdBy.designation || d.createdBy.role || 'Super Admin';
+            } else if (typeof d.uploadedBy === 'object' && d.uploadedBy !== null && d.uploadedBy.name) {
+              uploaderName = d.uploadedBy.name;
+              uploaderRole = d.uploadedBy.designation || d.uploadedBy.role || 'Architect';
+            } else if (typeof d.currentVersionId === 'object' && d.currentVersionId !== null && typeof d.currentVersionId.uploadedBy === 'object' && d.currentVersionId.uploadedBy !== null && d.currentVersionId.uploadedBy.name) {
+              uploaderName = d.currentVersionId.uploadedBy.name;
+              uploaderRole = d.currentVersionId.uploadedBy.designation || 'Architect';
+            } else if (typeof d.uploader === 'string' && d.uploader) {
+              uploaderName = d.uploader;
+            }
+
+            let status = d.status || d.stage || d.workflowStage || 'AWAITING PM APPROVAL';
+            if (status === 'DESIGNER_UPLOADED' || status === 'PENDING') status = 'AWAITING PM APPROVAL';
+            if (status === 'PM_APPROVED') status = 'AWAITING ADMIN SIGNOFF';
+            if (status === 'ADMIN_APPROVED') status = 'AWAITING CLIENT SIGNOFF';
+
+            return {
+              ...d,
+              id: dId,
+              _id: dId,
+              title,
+              project,
+              type,
+              uploader: uploaderName,
+              role: uploaderRole,
+              avatar: d.uploadedBy?.avatar || "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80",
+              status,
+              date: d.createdAt ? new Date(d.createdAt).toISOString().split('T')[0] : "2026-08-01"
+            };
+          });
           setDrawingQueue(apiQueue);
         }
       } catch (err) {

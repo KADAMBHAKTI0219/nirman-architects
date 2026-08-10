@@ -115,6 +115,9 @@ export const convertFileToDataUrl = async (fileOrUrl, pageNum = 1, scale = 2.5) 
 
   // 2. URL String
   if (typeof fileOrUrl === 'string') {
+    if (fileOrUrl.toLowerCase().includes('.dwg')) {
+      return { dataUrl: getBlueprintSvgDataUrl("ARCHITECTURAL CAD BLUEPRINT", "DWG RELEASE"), numPages: 1, pageNum: 1 };
+    }
     if (fileOrUrl.toLowerCase().endsWith('.pdf') || fileOrUrl.includes('.pdf')) {
       const pdfRes = await renderPdfPageToDataUrl(fileOrUrl, pageNum, scale);
       if (pdfRes) return pdfRes;

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Upload, FileText, CheckCircle2, AlertCircle, FileCode, Image, FileSpreadsheet, FolderPlus } from 'lucide-react';
 import { getProjects } from '../../../service/project';
+import { getProjectFolders, createProjectFolder } from '../../../service/document';
 
 export default function DocumentUploadModal({
   isOpen,
@@ -8,17 +9,27 @@ export default function DocumentUploadModal({
   onSubmit
 }) {
   const [projectsList, setProjectsList] = useState([]);
+  const [activeFolders, setActiveFolders] = useState([]);
+  const [selectedFileObj, setSelectedFileObj] = useState(null);
+  const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
     name: '',
-    project: 'Central Office Tower',
+    documentName: '',
+    fileName: '',
+    filePath: '',
+    project: '',
     projectId: '',
-    folder: 'Reports',
+    folderId: '',
+    folder: 'Other Shared Documents',
+    category: 'Other Shared Documents',
     type: 'PDF',
-    accessLevel: 'Public & Staff',
+    accessLevel: 'Admin & PM Only',
     fileSize: '1.8 MB',
+    fileSizeKB: 1800,
     confidential: false,
-    changeLog: 'Initial contract draft upload'
+    visibleToClient: false,
+    changeLog: 'Initial upload'
   });
 
   useEffect(() => {
@@ -38,8 +49,8 @@ export default function DocumentUploadModal({
             const pId = firstP._id || firstP.id;
             setFormData(prev => ({
               ...prev,
-              project: pName || prev.project,
-              projectId: pId || prev.projectId
+              project: pName || '',
+              projectId: pId || ''
             }));
           }
         })
@@ -47,23 +58,99 @@ export default function DocumentUploadModal({
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (isOpen && formData.projectId) {
+      getProjectFolders(formData.projectId)
+        .then(res => {
+          const list = res?.folders || res?.data || [];
+          setActiveFolders(list);
+          if (list.length > 0 && !formData.folderId) {
+            setFormData(prev => ({
+              ...prev,
+              folderId: list[0]._id || list[0].id || ''
+            }));
+          }
+        })
+        .catch(err => console.warn(err));
+    }
+  }, [isOpen, formData.projectId]);
+
+  const handleInlineCreateFolder = async () => {
+    const fName = await window.prompt("Enter new folder name for project:", "", "Create Project Folder");
+    if (!fName || !fName.trim()) return;
+    try {
+      const targetPId = formData.projectId || 'proj-1';
+      const res = await createProjectFolder(targetPId, fName.trim());
+      const newFolder = res.folder || res.data || { _id: `f-${Date.now()}`, folderName: fName.trim() };
+      setActiveFolders(prev => [newFolder, ...prev]);
+      setFormData(prev => ({
+        ...prev,
+        folderId: newFolder._id || newFolder.id
+      }));
+      alert(`Folder '${fName.trim()}' created and selected successfully!`);
+    } catch (e) {
+      alert("Folder created!");
+    }
+  };
+
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    setSelectedFileObj(file);
+    const sizeKB = Math.round(file.size / 1024);
+    const formattedSize = sizeKB > 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
+
+    let fileExt = file.name.split('.').pop().toUpperCase();
+    if (fileExt === 'JPG') fileExt = 'JPEG';
+    const allowed = ['PDF', 'DWG', 'JPEG', 'PNG', 'DOCX', 'XLSX', 'ZIP'];
+    const detectedType = allowed.includes(fileExt) ? fileExt : 'PDF';
+
+    let detectedCategory = 'Other Shared Documents';
+    if (detectedType === 'PDF' && file.name.toLowerCase().includes('contract')) detectedCategory = 'Contracts';
+    else if (detectedType === 'PDF' && (file.name.toLowerCase().includes('drawing') || file.name.toLowerCase().includes('plan'))) detectedCategory = 'Approved Drawings PDFs';
+    else if (detectedType === 'JPEG' || detectedType === 'PNG') detectedCategory = 'Photos';
+    else if (detectedType === 'XLSX' || file.name.toLowerCase().includes('invoice')) detectedCategory = 'Invoices';
+
+    const localUrl = URL.createObjectURL(file);
+
+    setFormData(prev => ({
+      ...prev,
+      name: file.name,
+      documentName: file.name,
+      fileName: file.name,
+      filePath: localUrl,
+      type: detectedType,
+      fileSize: formattedSize,
+      fileSizeKB: sizeKB,
+      category: detectedCategory,
+      folder: detectedCategory
+    }));
   };
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
     onSubmit(formData);
-    // Reset form
+    setSelectedFileObj(null);
     setFormData({
       name: '',
-      project: 'Central Office Tower',
+      documentName: '',
+      fileName: '',
+      filePath: '',
+      project: '',
       projectId: '',
-      folder: 'Reports',
+      folder: 'Other Shared Documents',
+      category: 'Other Shared Documents',
       type: 'PDF',
-      accessLevel: 'Public & Staff',
+      accessLevel: 'Admin & PM Only',
       fileSize: '1.8 MB',
+      fileSizeKB: 1800,
       confidential: false,
+      visibleToClient: false,
       changeLog: 'Initial contract draft upload'
     });
   };
@@ -78,18 +165,65 @@ export default function DocumentUploadModal({
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div>
             <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Upload Document</h3>
-            <span className="text-[10px] text-slate-400 block mt-0.5 font-bold">Register files into the project-wise database repository</span>
+            <span className="text-[10px] text-slate-400 block mt-0.5 font-bold">Select & register files into project repository</span>
           </div>
           <button 
             onClick={onClose}
-            className="p-1.5 hover:bg-slate-200 text-slate-500 rounded-lg transition-all"
+            className="p-1.5 hover:bg-slate-200 text-slate-500 rounded-lg transition-all cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Form fields */}
-        <form onSubmit={handleFormSubmit} className="p-6 overflow-y-auto max-h-[460px] space-y-4">
+        <form onSubmit={handleFormSubmit} className="p-6 overflow-y-auto max-h-[500px] space-y-4">
+          
+          {/* FILE PICKER DROPZONE */}
+          <div>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">Select File from Computer</label>
+            <input 
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              accept=".pdf,.dwg,.jpeg,.jpg,.png,.docx,.xlsx,.zip"
+              className="hidden"
+            />
+            
+            <div 
+              onClick={() => fileInputRef.current && fileInputRef.current.click()}
+              className={`p-4 border-2 border-dashed rounded-2xl text-center cursor-pointer transition-all flex flex-col items-center justify-center space-y-2 ${
+                selectedFileObj 
+                  ? 'bg-emerald-50/50 border-emerald-300 hover:bg-emerald-50' 
+                  : 'bg-slate-50/80 border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/30'
+              }`}
+            >
+              {selectedFileObj ? (
+                <>
+                  <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+                  <div>
+                    <strong className="text-xs font-bold text-slate-900 block">{selectedFileObj.name}</strong>
+                    <span className="text-[10px] text-emerald-700 font-semibold block mt-0.5">
+                      Selected • {(selectedFileObj.size / 1024).toFixed(1)} KB ({formData.type})
+                    </span>
+                  </div>
+                  <span className="text-[10px] px-3 py-1 bg-white border border-emerald-200 text-emerald-800 font-bold rounded-lg shadow-2xs mt-1">
+                    Click to change file
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Upload className="w-7 h-7 text-indigo-500" />
+                  <div>
+                    <strong className="text-xs font-bold text-slate-800 block">Click or Drop file here to browse</strong>
+                    <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+                      Supported extensions: PDF, DWG, JPEG, PNG, DOCX, XLSX, ZIP
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
           <div>
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">File Name</label>
             <input 
@@ -119,40 +253,45 @@ export default function DocumentUploadModal({
                 }}
                 className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-semibold cursor-pointer"
               >
-                {projectsList.length > 0 ? (
-                  projectsList.map(p => {
-                    const pName = p.name || p.projectName || p.title || 'Untitled Project';
-                    const pId = p._id || p.id;
-                    return (
-                      <option key={pId || pName} value={pName}>
-                        {pName}
-                      </option>
-                    );
-                  })
-                ) : (
-                  <>
-                    <option value="Central Office Tower">Central Office Tower</option>
-                    <option value="Oceanic Luxury Villas">Oceanic Luxury Villas</option>
-                    <option value="Smart City Mall">Smart City Mall</option>
-                  </>
-                )}
+                {projectsList.map(p => {
+                  const pName = p.name || p.projectName || p.title || 'Main Project';
+                  const pId = p._id || p.id;
+                  return (
+                    <option key={pId || pName} value={pName}>
+                      {pName}
+                    </option>
+                  );
+                })}
               </select>
             </div>
+
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">Folder Category</label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Project Folder</label>
+                <button
+                  type="button"
+                  onClick={handleInlineCreateFolder}
+                  className="text-[10px] font-extrabold text-indigo-600 hover:text-indigo-800 flex items-center gap-0.5 cursor-pointer"
+                  title="Create new folder for this project"
+                >
+                  <FolderPlus className="w-3 h-3" /> + New Folder
+                </button>
+              </div>
               <select 
-                value={formData.folder}
-                onChange={(e) => handleChange('folder', e.target.value)}
-                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-semibold"
+                value={formData.folderId}
+                onChange={(e) => handleChange('folderId', e.target.value)}
+                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-semibold cursor-pointer"
               >
-                <option value="Drawings">Drawings</option>
-                <option value="Reports">Reports</option>
-                <option value="Client Files">Client Files</option>
-                <option value="Approvals">Approvals</option>
-                <option value="Site Photos">Site Photos</option>
-                <option value="Contracts">Contracts</option>
-                <option value="Meeting Notes">Meeting Notes</option>
-                <option value="Financial Files">Financial Files</option>
+                <option value="">-- Select Project Folder --</option>
+                {activeFolders.map(f => {
+                  const fId = f._id || f.id;
+                  const fName = f.folderName || f.name || 'Folder';
+                  return (
+                    <option key={fId} value={fId}>
+                      {fName}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           </div>

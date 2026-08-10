@@ -180,33 +180,48 @@ export default function Tasks({ filter = 'all' }) {
   };
 
   const handleUpdateTaskStatus = async (taskId, newStatus) => {
-    const targetTask = tasks.find(t => (t._id && t._id === taskId) || t.id === taskId);
-    if (targetTask && targetTask._id) {
-      try {
-        if (newStatus === 'Accepted') await acceptTask(targetTask._id);
-        else if (newStatus === 'In Progress') await startTask(targetTask._id);
-        else if (newStatus === 'Review') await submitTaskForReview(targetTask._id);
-        else if (newStatus === 'Approved') await approveTask(targetTask._id);
-        else if (newStatus === 'Completed') await completeTask(targetTask._id);
-      } catch (err) {
-        console.warn("Backend status update notice:", err);
-      }
-    }
-
+    const targetTask = tasks.find(t => 
+      (t._id && (t._id === taskId || t.id === taskId)) || 
+      (t.id && (t.id === taskId || t._id === taskId))
+    );
+    
     const updated = tasks.map(t => {
-      const isMatch = (t._id && targetTask?._id) ? (t._id === targetTask._id) : (t.id === taskId);
+      const isMatch = (t._id && targetTask?._id && t._id === targetTask._id) || 
+                      (t.id && targetTask?.id && t.id === targetTask.id) ||
+                      (t._id === taskId || t.id === taskId);
       if (isMatch) {
         return {
           ...t, 
           status: newStatus, 
-          progress: newStatus === 'Completed' ? 100 : t.progress 
+          progress: newStatus === 'Completed' ? 100 : (newStatus === 'Approved' ? 80 : (newStatus === 'Review' ? 60 : (newStatus === 'In Progress' ? 40 : (newStatus === 'Accepted' ? 20 : t.progress))))
         };
       }
       return t;
     });
+
     setTasks(updated);
-    if (selectedTask && ((selectedTask._id && targetTask?._id && selectedTask._id === targetTask._id) || selectedTask.id === taskId)) {
-      setSelectedTask({ ...selectedTask, status: newStatus, progress: newStatus === 'Completed' ? 100 : selectedTask.progress });
+
+    if (selectedTask) {
+      setSelectedTask(prev => ({ 
+        ...prev, 
+        status: newStatus, 
+        progress: newStatus === 'Completed' ? 100 : (newStatus === 'Approved' ? 80 : (newStatus === 'Review' ? 60 : (newStatus === 'In Progress' ? 40 : (newStatus === 'Accepted' ? 20 : prev?.progress))))
+      }));
+    }
+
+    const realId = targetTask?._id || taskId;
+    if (realId) {
+      try {
+        if (newStatus === 'Accepted') await acceptTask(realId);
+        else if (newStatus === 'In Progress') await startTask(realId);
+        else if (newStatus === 'Review') await submitTaskForReview(realId);
+        else if (newStatus === 'Approved') await approveTask(realId);
+        else if (newStatus === 'Completed') await completeTask(realId);
+        else if (newStatus === 'Rejected') await rejectTask(realId);
+        else await updateTask(realId, { status: newStatus });
+      } catch (err) {
+        console.warn("Backend status update notice:", err);
+      }
     }
   };
 

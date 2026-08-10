@@ -179,26 +179,35 @@ export default function Tasks() {
   });
 
   const handleUpdateStatus = async (id, newStatus) => {
-    const targetTask = tasks.find(t => (t._id && t._id === id) || t.id === id);
-    if (targetTask && targetTask._id) {
-      try {
-        if (newStatus === 'Accepted') await acceptTask(targetTask._id);
-        else if (newStatus === 'In Progress') await startTask(targetTask._id);
-        else if (newStatus === 'Review') await submitTaskForReview(targetTask._id);
-        else if (newStatus === 'Approved') await approveTask(targetTask._id);
-        else if (newStatus === 'Completed') await completeTask(targetTask._id);
-      } catch (err) {
-        console.warn("Backend status update notice:", err);
-      }
-    }
+    const targetTask = tasks.find(t => 
+      (t._id && (t._id === id || t.id === id)) || 
+      (t.id && (t.id === id || t._id === id))
+    );
 
     setTasks(prev => prev.map(t => {
-      const isMatch = (t._id && targetTask?._id) ? (t._id === targetTask._id) : (t.id === id);
+      const isMatch = (t._id && targetTask?._id && t._id === targetTask._id) || 
+                      (t.id && targetTask?.id && t.id === targetTask.id) ||
+                      (t._id === id || t.id === id);
       return isMatch ? { ...t, status: newStatus } : t;
     }));
 
-    if (selectedTask && ((selectedTask._id && targetTask?._id && selectedTask._id === targetTask._id) || selectedTask.id === id)) {
+    if (selectedTask) {
       setSelectedTask(prev => ({ ...prev, status: newStatus }));
+    }
+
+    const realId = targetTask?._id || id;
+    if (realId) {
+      try {
+        if (newStatus === 'Accepted') await acceptTask(realId);
+        else if (newStatus === 'In Progress') await startTask(realId);
+        else if (newStatus === 'Review') await submitTaskForReview(realId);
+        else if (newStatus === 'Approved') await approveTask(realId);
+        else if (newStatus === 'Completed') await completeTask(realId);
+        else if (newStatus === 'Rejected') await rejectTask(realId);
+        else await updateTask(realId, { status: newStatus });
+      } catch (err) {
+        console.warn("Backend status update notice:", err);
+      }
     }
   };
 

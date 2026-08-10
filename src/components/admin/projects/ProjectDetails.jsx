@@ -29,7 +29,12 @@ import {
   getProgressBreakdown
 } from '../../../service/project';
 import { getProjectDrawings, createDrawing, uploadDrawingVersion } from '../../../service/drawing';
+import { getProjectFolders, getProjectDocuments, uploadDocument, updateDocumentVisibility } from '../../../service/document';
+import { getTasks, createTask } from '../../../service/task';
 import DrawingCreateModal from '../drawings/DrawingCreateModal';
+import DocumentUploadModal from '../documents/DocumentUploadModal';
+import DocumentAccessLogModal from '../documents/DocumentAccessLogModal';
+import TaskCreateModal from '../tasks/TaskCreateModal';
 
 export default function ProjectDetails({
   project,
@@ -96,15 +101,54 @@ export default function ProjectDetails({
   const [loadingProjectDrawings, setLoadingProjectDrawings] = useState(false);
   const [isUploadDrawingModalOpen, setIsUploadDrawingModalOpen] = useState(false);
 
+  // ERP Module 2: Project Tasks State
+  const [projectTasksList, setProjectTasksList] = useState(project.tasks || []);
+  const [loadingProjectTasks, setLoadingProjectTasks] = useState(false);
+  const [isTaskCreateModalOpen, setIsTaskCreateModalOpen] = useState(false);
+
   useEffect(() => {
     if (project) {
       setProgressVal(project.progressPercentage ?? project.progressPercent ?? project.progress ?? 0);
       setProgressOverride(project.progressIsManualOverride || false);
       if (Array.isArray(project.drawings)) setProjectDrawingsList(project.drawings);
+      if (Array.isArray(project.tasks)) setProjectTasksList(project.tasks);
     }
   }, [project]);
 
   const projectId = project ? (project.id || project._id || project.code || 'proj-1') : null;
+
+  const fetchProjectTasksList = async () => {
+    if (!projectId) return;
+    setLoadingProjectTasks(true);
+    try {
+      const res = await getTasks({ projectId });
+      let list = [];
+      if (res?.tasks && Array.isArray(res.tasks)) list = res.tasks;
+      else if (res?.data && Array.isArray(res.data)) list = res.data;
+      else if (Array.isArray(res)) list = res;
+
+      const filtered = list.filter(t => {
+        const pId = typeof t.projectId === 'object' && t.projectId !== null ? (t.projectId._id || t.projectId.id) : t.projectId;
+        return pId === projectId || t.project === project.name || t.projectName === project.name;
+      });
+
+      if (filtered.length > 0) {
+        setProjectTasksList(filtered);
+      } else if (list.length > 0) {
+        setProjectTasksList(list);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch project tasks list", err);
+    } finally {
+      setLoadingProjectTasks(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'tasks') {
+      fetchProjectTasksList();
+    }
+  }, [activeTab, projectId]);
 
   const fetchProjectDrawingsList = async () => {
     if (!projectId) return;
@@ -158,6 +202,61 @@ export default function ProjectDetails({
     }
   };
 
+  // ERP Module 6: Document Management State for Tabs
+  const [tabProjectFolders, setTabProjectFolders] = useState([]);
+  const [tabProjectDocs, setTabProjectDocs] = useState([]);
+  const [loadingTabDocs, setLoadingTabDocs] = useState(false);
+  const [selectedTabFolder, setSelectedTabFolder] = useState('All');
+  const [isDocUploadModalOpen, setIsDocUploadModalOpen] = useState(false);
+  const [selectedAuditDoc, setSelectedAuditDoc] = useState(null);
+  const [isAuditLogModalOpen, setIsAuditLogModalOpen] = useState(false);
+
+  const fetchTabProjectDocuments = async () => {
+    if (!projectId) return;
+    setLoadingTabDocs(true);
+    try {
+      const [foldersRes, docsRes] = await Promise.all([
+        getProjectFolders(projectId),
+        getProjectDocuments(projectId)
+      ]);
+      if (foldersRes && (foldersRes.folders || foldersRes.data)) {
+        setTabProjectFolders(foldersRes.folders || foldersRes.data || []);
+      }
+      if (docsRes && (docsRes.allDocuments || docsRes.documents)) {
+        setTabProjectDocs(docsRes.allDocuments || docsRes.documents || []);
+      } else if (Array.isArray(project.documents) && project.documents.length > 0) {
+        setTabProjectDocs(project.documents);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch project tab documents", err);
+    } finally {
+      setLoadingTabDocs(false);
+    }
+  };
+
+  const handleUploadTabDocSubmit = async (formData) => {
+    try {
+      const payload = {
+        projectId: projectId,
+        folderId: formData.folderId || null,
+        documentName: formData.name || formData.documentName || formData.fileName || 'Untitled Document.pdf',
+        fileName: formData.name || formData.fileName || 'Untitled Document.pdf',
+        filePath: formData.filePath || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+        fileType: formData.type || 'PDF',
+        fileSizeKB: formData.fileSizeKB || 1800,
+        category: formData.category || formData.folder || 'Other Shared Documents',
+        visibleToClient: formData.visibleToClient === true ? true : false
+      };
+      await uploadDocument(payload);
+      alert(`Document "${payload.documentName}" uploaded successfully into project!`);
+      setIsDocUploadModalOpen(false);
+      fetchTabProjectDocuments();
+    } catch (e) {
+      setIsDocUploadModalOpen(false);
+      fetchTabProjectDocuments();
+    }
+  };
+
   useEffect(() => {
     setActiveTab(defaultTab);
   }, [defaultTab]);
@@ -174,6 +273,8 @@ export default function ProjectDetails({
       fetchStatusHistoryLogs();
     } else if (activeTab === 'drawings') {
       fetchProjectDrawingsList();
+    } else if (activeTab === 'documents') {
+      fetchTabProjectDocuments();
     }
   }, [activeTab, projectId]);
 
@@ -437,6 +538,29 @@ export default function ProjectDetails({
       console.error("Error fetching project client links:", err);
     } finally {
       setLoadingLinks(false);
+    }
+  };
+
+  const handleCreateTaskSubmit = async (taskPayload) => {
+    try {
+      const res = await createTask({
+        ...taskPayload,
+        projectId: projectId
+      });
+      if (res?.success || res?.task) {
+        const newTask = res.task || res.data?.task || res.data;
+        if (newTask) {
+          setProjectTasksList(prev => [newTask, ...prev]);
+        }
+        alert("Task created successfully.");
+        fetchProjectTasksList();
+      } else {
+        alert(res?.message || "Failed to create task.");
+      }
+    } catch (err) {
+      alert("Error creating task: " + err.message);
+    } finally {
+      setIsTaskCreateModalOpen(false);
     }
   };
 
@@ -840,6 +964,98 @@ export default function ProjectDetails({
           </div>
         )}
 
+        {/* PROJECT TASKS PANEL */}
+        {activeTab === 'tasks' && (
+          <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100 flex-wrap gap-2">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Project Tasks ({projectTasksList.length})</h3>
+                <p className="text-xs text-slate-500">Structural load analysis, design reviews & execution tasks for this project</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={fetchProjectTasksList}
+                  className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl transition-all border border-slate-200 cursor-pointer"
+                  title="Refresh Tasks"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loadingProjectTasks ? 'animate-spin' : ''}`} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsTaskCreateModalOpen(true)}
+                  className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-bold text-xs rounded-xl shadow-2xs transition-all border border-brand-secondary/40 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 text-slate-900" /> Create Task
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200/80 bg-slate-50/50 text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+                    <th className="px-4 py-3">Task Name</th>
+                    <th className="px-4 py-3">Assigned Employee</th>
+                    <th className="px-4 py-3">Priority</th>
+                    <th className="px-4 py-3">Deadline</th>
+                    <th className="px-4 py-3">Est. Time</th>
+                    <th className="px-4 py-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs">
+                  {projectTasksList.length > 0 ? (
+                    projectTasksList.map((t, idx) => {
+                      const tName = t.taskName || t.title || t.name || 'Structural Task';
+                      const assigneeObj = typeof t.assignedEmployee === 'object' && t.assignedEmployee !== null ? t.assignedEmployee : null;
+                      const assigneeName = assigneeObj ? (assigneeObj.name || assigneeObj.email) : (t.assignee || 'Assigned Staff');
+                      const priority = t.priority || 'Medium';
+                      const deadlineStr = t.deadline ? formatDate(t.deadline) : 'N/A';
+                      const status = t.status || 'Pending';
+
+                      return (
+                        <tr key={t._id || t.id || `task-${idx}`} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="px-4 py-3 font-semibold text-slate-900">
+                            <div>{tName}</div>
+                            {t.description && <div className="text-[10px] text-slate-400 font-normal line-clamp-1">{t.description}</div>}
+                          </td>
+                          <td className="px-4 py-3 text-slate-700 font-medium">{assigneeName}</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border ${
+                              priority === 'High' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                              priority === 'Medium' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                              'bg-sky-50 text-sky-700 border-sky-200'
+                            }`}>
+                              {priority}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-slate-600 font-mono text-[11px]">{deadlineStr}</td>
+                          <td className="px-4 py-3 text-slate-600 font-mono text-[11px]">{t.estimatedTime || t.estTime || 12} hrs</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border ${
+                              status === 'Completed' || status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                              status === 'In Progress' || status === 'IN_PROGRESS' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                              'bg-slate-100 text-slate-600 border-slate-200'
+                            }`}>
+                              {status}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="py-10 text-center text-slate-400 font-medium">
+                        No tasks created for this project yet. Click "Create Task" above to assign project work.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* CLIENT CHAT PANEL (WhatsApp Style Client Communication Hub) */}
         {activeTab === 'chat' && (
           <div className="bg-white border border-slate-200/90 rounded-3xl p-4 shadow-2xs space-y-4">
@@ -1146,33 +1362,222 @@ export default function ProjectDetails({
 
         {/* DOCUMENTS PANEL */}
         {activeTab === 'documents' && (
-          <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
+          <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-5">
             <div className="flex justify-between items-center pb-3 border-b border-slate-100">
               <div>
-                <h3 className="text-sm font-semibold text-slate-900">Project Documents & Repository</h3>
+                <h3 className="text-sm font-bold text-slate-900">Project Documents & Repository</h3>
                 <p className="text-xs text-slate-500">Shared PDF contracts, approved drawing sets, invoices, and photo archives</p>
               </div>
+              <button
+                onClick={() => setIsDocUploadModalOpen(true)}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Upload Document
+              </button>
             </div>
 
-            {Array.isArray(project.documents) && project.documents.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-normal">
-                {project.documents.map((doc, i) => (
-                  <div key={doc._id || i} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-3">
-                    <div className="space-y-1">
-                      <span className="text-slate-900 font-semibold text-xs block">{doc.name || doc.originalName}</span>
-                      <span className="text-[10px] text-indigo-600 uppercase">{doc.category || doc.folder || 'General'}</span>
-                    </div>
-                    <button onClick={() => alert(`Previewing ${doc.name}`)} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl text-xs font-medium cursor-pointer">
-                      View
+            {/* Folder Directories Cards Grid */}
+            {tabProjectFolders.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-black text-slate-800 uppercase tracking-wider">Project Folders ({tabProjectFolders.length})</span>
+                  {selectedTabFolder !== 'All' && (
+                    <button 
+                      onClick={() => setSelectedTabFolder('All')}
+                      className="text-[11px] font-extrabold text-indigo-600 hover:underline cursor-pointer"
+                    >
+                      Show All Files
                     </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-10 text-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-                <p className="text-xs font-normal">No documents uploaded for this project yet.</p>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {tabProjectFolders.map((fObj, idx) => {
+                    const fName = fObj.folderName || fObj.name || 'Folder';
+                    const fId = fObj._id || fObj.id;
+                    const isSelected = selectedTabFolder === fId || selectedTabFolder === fName || (typeof selectedTabFolder === 'object' && selectedTabFolder._id === fId);
+                    
+                    const docCount = tabProjectDocs.filter(d => {
+                      const docFId = typeof d.folderId === 'object' ? (d.folderId?._id || d.folderId?.id) : d.folderId;
+                      const docFName = typeof d.folderId === 'object' ? d.folderId?.folderName : (d.folder || d.category);
+                      if (fId && docFId && String(fId) === String(docFId)) return true;
+                      if (fName && docFName && String(fName).toLowerCase() === String(docFName).toLowerCase()) return true;
+                      return false;
+                    }).length;
+
+                    const creatorName = fObj.createdBy?.name || 'Super Admin';
+
+                    return (
+                      <div 
+                        key={fId || idx}
+                        onClick={() => setSelectedTabFolder(isSelected ? 'All' : fObj)}
+                        className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between space-y-2 ${
+                          isSelected
+                            ? 'bg-indigo-50/70 border-indigo-300 ring-2 ring-indigo-400/20 shadow-xs'
+                            : 'bg-slate-50/60 border-slate-200/80 hover:bg-slate-100/70'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <FileText className={`w-4 h-4 ${isSelected ? 'text-indigo-600' : 'text-slate-500'}`} />
+                            <span className="text-xs font-bold text-slate-800 line-clamp-1">{fName}</span>
+                          </div>
+                          <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                            Active
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-slate-400 font-semibold pt-1 border-t border-slate-100">
+                          <span>Created: {creatorName}</span>
+                          <span className="font-extrabold text-slate-700">{docCount} Files</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
+
+            {/* Document Files List */}
+            {loadingTabDocs ? (
+              <div className="py-10 text-center text-slate-400">
+                <RefreshCw className="w-5 h-5 animate-spin mx-auto text-indigo-500 mb-1" />
+                <p className="text-xs">Loading project documents...</p>
+              </div>
+            ) : (() => {
+              const selectedName = typeof selectedTabFolder === 'object' ? selectedTabFolder.folderName : selectedTabFolder;
+              const selectedId = typeof selectedTabFolder === 'object' ? selectedTabFolder._id : selectedTabFolder;
+
+              const displayDocs = tabProjectDocs.filter(d => {
+                if (!selectedTabFolder || selectedTabFolder === 'All') return true;
+
+                const docFId = typeof d.folderId === 'object' ? (d.folderId?._id || d.folderId?.id) : d.folderId;
+                const docFName = typeof d.folderId === 'object' ? d.folderId?.folderName : (d.folder || d.category);
+
+                if (selectedId && docFId && String(selectedId) === String(docFId)) return true;
+                if (selectedName && docFName && String(selectedName).toLowerCase() === String(docFName).toLowerCase()) return true;
+
+                return false;
+              });
+
+              if (displayDocs.length === 0) {
+                return (
+                  <div className="py-10 text-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 space-y-2">
+                    <FileText className="w-8 h-8 text-slate-300 mx-auto" />
+                    <p className="text-xs font-normal">
+                      {selectedTabFolder === 'All' 
+                        ? 'No documents uploaded for this project yet.' 
+                        : `No documents inside folder "${selectedTabFolder}".`}
+                    </p>
+                    <button
+                      onClick={() => setIsDocUploadModalOpen(true)}
+                      className="px-4 py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow-xs inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      + Upload Document
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-2 pt-2">
+                  <div className="flex justify-between items-center px-1">
+                    <span className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                      Files List {selectedTabFolder !== 'All' ? `(${selectedTabFolder})` : ''}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-bold">{displayDocs.length} Total Files</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2.5">
+                    {displayDocs.map((doc, idx) => {
+                      const docTitle = doc.documentName || doc.fileName || doc.name || 'Untitled Document.pdf';
+                      const folderName = typeof doc.folderId === 'object' ? doc.folderId?.folderName : (doc.folder || doc.category || 'General');
+                      const uploader = doc.createdBy?.name || doc.uploadedBy?.name || doc.uploadedBy || 'Staff';
+                      const sizeStr = doc.size || (doc.fileSizeKB ? `${(doc.fileSizeKB / 1024).toFixed(1)} MB` : '1.8 MB');
+                      const dateStr = doc.createdAt ? new Date(doc.createdAt).toISOString().split('T')[0] : '2026-08-10';
+
+                      return (
+                        <div key={doc._id || doc.id || idx} className="p-3.5 bg-slate-50/80 border border-slate-200/90 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:bg-slate-100/50 transition-all">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-white border border-slate-200 rounded-xl text-indigo-600 shadow-2xs">
+                              <FileText className="w-5 h-5" />
+                            </div>
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <strong className="text-xs font-black text-slate-900">{docTitle}</strong>
+                                <span className="text-[9px] px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-bold border border-indigo-100">
+                                  {folderName}
+                                </span>
+                                <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold ${
+                                  doc.visibleToClient 
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                                    : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                }`}>
+                                  {doc.visibleToClient ? 'Client Shared' : 'Admin Only'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 text-[10px] text-slate-400 font-medium">
+                                <span>Uploaded by: <strong className="text-slate-600">{uploader}</strong></span>
+                                <span>Date: {dateStr}</span>
+                                <span>Size: {sizeStr}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                            <button
+                              onClick={() => {
+                                setSelectedAuditDoc(doc);
+                                setIsAuditLogModalOpen(true);
+                              }}
+                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-extrabold rounded-xl border border-slate-200 transition-all cursor-pointer"
+                              title="View DocumentAccessLog audit history for this file"
+                            >
+                              Audit Log
+                            </button>
+
+                            {(doc.filePath || doc.fileUrl) ? (
+                              <a
+                                href={doc.filePath || doc.fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={() => {
+                                  setSelectedAuditDoc(doc);
+                                  setIsAuditLogModalOpen(true);
+                                }}
+                                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold rounded-xl shadow-2xs transition-all"
+                              >
+                                View Document
+                              </a>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setSelectedAuditDoc(doc);
+                                  setIsAuditLogModalOpen(true);
+                                }}
+                                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold rounded-xl shadow-2xs transition-all cursor-pointer"
+                              >
+                                View Document
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            <DocumentUploadModal
+              isOpen={isDocUploadModalOpen}
+              onClose={() => setIsDocUploadModalOpen(false)}
+              onSubmit={handleUploadTabDocSubmit}
+            />
+
+            <DocumentAccessLogModal
+              isOpen={isAuditLogModalOpen}
+              onClose={() => setIsAuditLogModalOpen(false)}
+              doc={selectedAuditDoc}
+            />
           </div>
         )}
 
@@ -1558,6 +1963,13 @@ export default function ProjectDetails({
           </div>
         </div>
       )}
+
+      {/* CREATE TASK MODAL */}
+      <TaskCreateModal
+        isOpen={isTaskCreateModalOpen}
+        onClose={() => setIsTaskCreateModalOpen(false)}
+        onSubmit={handleCreateTaskSubmit}
+      />
 
     </div>
   );

@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import Card from '../../common/Card';
 import { getOfferLetterMetadata, downloadOfferLetterPDF } from '../../../service/hrm/offerLetter';
-import { getEmployeeDocuments, downloadDocument } from '../../../service/document';
+import { getEmployeeDocuments, downloadDocument, previewDocument } from '../../../service/document';
 
 export default function EmployeeDocs() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -254,14 +254,18 @@ export default function EmployeeDocs() {
 
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   <button
-                    onClick={() => setInspectingDoc(doc)}
+                    onClick={async () => {
+                      setInspectingDoc(doc);
+                      try { await previewDocument(doc._id || doc.id); } catch(e){}
+                    }}
                     className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-705 rounded-xl transition-all shadow-3xs cursor-pointer"
-                    title="Inspect Document"
+                    title="Inspect Document (Logs VIEW in audit log)"
                   >
                     <Eye className="w-3.5 h-3.5" />
                   </button>
                   <button
-                    onClick={() => {
+                    onClick={async () => {
+                      try { await downloadDocument(doc._id || doc.id); } catch(e){}
                       if (doc.fileUrl || doc.url) {
                         window.open(doc.fileUrl || doc.url, '_blank');
                       } else {
@@ -269,7 +273,7 @@ export default function EmployeeDocs() {
                       }
                     }}
                     className="p-1.5 bg-white border border-slate-205 hover:bg-slate-50 text-slate-500 rounded-xl transition-all shadow-3xs cursor-pointer"
-                    title="Download file"
+                    title="Download file (Logs DOWNLOAD in audit log)"
                   >
                     <Download className="w-3.5 h-3.5" />
                   </button>

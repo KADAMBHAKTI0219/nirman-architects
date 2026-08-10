@@ -294,21 +294,22 @@ export default function DrawingList({
 
                   {/* STATUS */}
                   <td className="px-6 py-5 align-middle">
-                    {d.status === 'Pending Review' && (
-                      <span className="px-3.5 py-1.5 bg-[#FEF3C7] text-[#D97706] font-bold text-[10px] uppercase tracking-wider rounded-full inline-block">
-                        PENDING REVIEW
-                      </span>
-                    )}
-                    {d.status === 'Approved' && (
-                      <span className="px-3.5 py-1.5 bg-[#D1FAE5] text-[#059669] font-bold text-[10px] uppercase tracking-wider rounded-full inline-block">
-                        APPROVED
-                      </span>
-                    )}
-                    {d.status === 'GFC Locked' && (
-                      <span className="px-3.5 py-1.5 bg-[#EEF2FF] text-[#4F46E5] font-bold text-[10px] uppercase tracking-wider rounded-full inline-block">
-                        GFC LOCKED
-                      </span>
-                    )}
+                    {(() => {
+                      const s = String(d.status || 'DESIGNER_UPLOADED').toUpperCase();
+                      if (s.includes('GFC') || s.includes('LOCKED')) {
+                        return <span className="px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 font-extrabold text-[10px] uppercase tracking-wider rounded-full inline-block">GFC LOCKED</span>;
+                      }
+                      if (s.includes('APPROV') && !s.includes('PENDING')) {
+                        return <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 font-extrabold text-[10px] uppercase tracking-wider rounded-full inline-block">APPROVED</span>;
+                      }
+                      if (s.includes('PENDING') || s.includes('REVIEW')) {
+                        return <span className="px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200 font-extrabold text-[10px] uppercase tracking-wider rounded-full inline-block">PENDING REVIEW</span>;
+                      }
+                      if (s.includes('REVISION') || s.includes('REJECT') || s.includes('CHANGE')) {
+                        return <span className="px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 font-extrabold text-[10px] uppercase tracking-wider rounded-full inline-block">REVISIONS REQUIRED</span>;
+                      }
+                      return <span className="px-3 py-1 bg-sky-50 text-sky-700 border border-sky-200 font-extrabold text-[10px] uppercase tracking-wider rounded-full inline-block">DESIGNER UPLOADED</span>;
+                    })()}
                   </td>
 
                   {/* ACTIONS */}

@@ -934,19 +934,370 @@ exports.getAggregatedReviewData = async (req, res) => {
   }
 };
 
-const express = require('express');
-const router = express.Router();
-const drawingCategoryController = require('../controllers/drawingCategory.controller');
-const authMiddleware = require('../middlewares/auth.middleware');
-const roleMiddleware = require('../middlewares/role.middleware');
+const Drawing = require('../models/Drawing');
+const ClientApprovalLog = require('../models/ClientApprovalLog');
+const DrawingComment = require('../models/DrawingComment');
+const ClientProjectLink = require('../models/ClientProjectLink');
+const { sendSuccess, sendError } = require('../utils/response');
 
-router.use(authMiddleware);
+/**
+ * Helper to verify client-project security linkage
+ */
+async function verifyProjectLink(clientId, projectId) {
+  return await ClientProjectLink.findOne({
+    clientId,
+    projectId,
+    isActive: true,
+    visibleToClient: true
+  });
+}
 
-router.post('/create', roleMiddleware(['ADMIN', 'SUPER_ADMIN']), drawingCategoryController.createCategory);
-router.get('/active', drawingCategoryController.getActiveCategories);
-router.put('/:id/deactivate', roleMiddleware(['ADMIN', 'SUPER_ADMIN']), drawingCategoryController.deactivateCategory);
+/**
+ * GET /api/client/projects/:projectId/drawings
+ * Returns drawings grouped into pendingApproval, approved, and changesRequested.
+ */
+exports.getProjectDrawings = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const clientId = req.clientContact.clientId;
 
-module.exports = router;
+    // Security Isolation: Verify project is genuinely linked & visible to this Client
+    const link = await verifyProjectLink(clientId, projectId);
+    if (!link) {
+      return sendError(res, 403, 'Access denied. This project is not linked or visible to your Client account.');
+    }
+
+    const drawings = await Drawing.find({
+      projectId,
+      visibleToClient: true,
+      status: { $in: ['PENDING_CLIENT_APPROVAL', 'APPROVED', 'CHANGES_REQUESTED'] }
+    }).sort({ updatedAt: -1 });
+
+    const pendingApproval = [];
+    const approved = [];
+    const changesRequested = [];
+
+    for (const dwg of drawings) {
+      if (dwg.status === 'PENDING_CLIENT_APPROVAL') {
+        pendingApproval.push(dwg);
+      } else if (dwg.status === 'APPROVED') {
+        approved.push(dwg);
+      } else if (dwg.status === 'CHANGES_REQUESTED') {
+        changesRequested.push(dwg);
+      }
+    }
+
+    return sendSuccess(res, 200, 'Client drawings retrieved successfully.', {
+      pendingApproval,
+      approved,
+      changesRequested,
+      totalCount: drawings.length
+    });
+  } catch (error) {
+    console.error('Error fetching project drawings for client:', error);
+    return sendError(res, 500, error.message || 'Failed to retrieve drawings.');
+  }
+};
+
+/**
+ * GET /api/client/drawings/:drawingId
+ * Full drawing detail + version history list.
+ */
+exports.getDrawingDetail = async (req, res) => {
+  try {
+    const { drawingId } = req.params;
+    const clientId = req.clientContact.clientId;
+
+    const drawing = await Drawing.findById(drawingId);
+    if (!drawing || !drawing.visibleToClient) {
+      return sendError(res, 404, 'Drawing not found or not accessible.');
+    }
+
+    // Security Isolation Check
+    const link = await verifyProjectLink(clientId, drawing.projectId);
+    if (!link) {
+      return sendError(res, 403, 'Access denied. You do not have access to this drawing.');
+    }
+
+    return sendSuccess(res, 200, 'Drawing details retrieved successfully.', { drawing });
+  } catch (error) {
+    console.error('Error fetching drawing detail:', error);
+    return sendError(res, 500, error.message || 'Failed to retrieve drawing detail.');
+  }
+};
+
+/**
+ * GET /api/client/drawings/:drawingId/versions
+ * All versions of a drawing, independently viewable/downloadable.
+ */
+exports.getDrawingVersions = async (req, res) => {
+  try {
+    const { drawingId } = req.params;
+    const clientId = req.clientContact.clientId;
+
+    const drawing = await Drawing.findById(drawingId);
+    if (!drawing || !drawing.visibleToClient) {
+      return sendError(res, 404, 'Drawing not found.');
+    }
+
+    const link = await verifyProjectLink(clientId, drawing.projectId);
+    if (!link) {
+      return sendError(res, 403, 'Access denied. You do not have access to this drawing.');
+    }
+
+    return sendSuccess(res, 200, 'Drawing versions retrieved successfully.', {
+      drawingId: drawing._id,
+      currentVersion: drawing.currentVersion,
+      versions: drawing.versions || []
+    });
+  } catch (error) {
+    console.error('Error fetching drawing versions:', error);
+    return sendError(res, 500, error.message || 'Failed to retrieve drawing versions.');
+  }
+};
+
+/**
+ * GET /api/client/drawings/:drawingId/compare?versionA=&versionB=
+ * Comparison data between two specified versions.
+ */
+exports.compareDrawingVersions = async (req, res) => {
+  try {
+    const { drawingId } = req.params;
+    const { versionA, versionB } = req.query;
+    const clientId = req.clientContact.clientId;
+
+    const drawing = await Drawing.findById(drawingId);
+    if (!drawing || !drawing.visibleToClient) {
+      return sendError(res, 404, 'Drawing not found.');
+    }
+
+    const link = await verifyProjectLink(clientId, drawing.projectId);
+    if (!link) {
+      return sendError(res, 403, 'Access denied. You do not have access to this drawing.');
+    }
+
+    const numA = Number(versionA);
+    const numB = Number(versionB);
+
+    const vA = drawing.versions.find(v => v.versionNumber === numA) || 
+               (drawing.currentVersion === numA ? { versionNumber: drawing.currentVersion, fileUrl: drawing.fileUrl, thumbnailUrl: drawing.thumbnailUrl } : null);
+               
+    const vB = drawing.versions.find(v => v.versionNumber === numB) || 
+               (drawing.currentVersion === numB ? { versionNumber: drawing.currentVersion, fileUrl: drawing.fileUrl, thumbnailUrl: drawing.thumbnailUrl } : null);
+
+    return sendSuccess(res, 200, 'Drawing version comparison retrieved successfully.', {
+      drawingId: drawing._id,
+      versionA: vA || null,
+      versionB: vB || null
+    });
+  } catch (error) {
+    console.error('Error comparing drawing versions:', error);
+    return sendError(res, 500, error.message || 'Failed to compare drawing versions.');
+  }
+};
+
+/**
+ * POST /api/client/drawings/:drawingId/approve
+ * Client approves drawing (OWNER / MEMBER only).
+ */
+exports.approveDrawing = async (req, res) => {
+  try {
+    const { drawingId } = req.params;
+    const { comments } = req.body;
+    const { clientId, contactId, permissionLevel } = req.clientContact;
+
+    // Permission Check: OWNER or MEMBER only
+    if (['VIEW_ONLY'].includes(permissionLevel)) {
+      return sendError(res, 403, 'Access denied. View Only accounts cannot approve drawings.');
+    }
+
+    const drawing = await Drawing.findById(drawingId);
+    if (!drawing || !drawing.visibleToClient) {
+      return sendError(res, 404, 'Drawing not found or not accessible.');
+    }
+
+    // Linkage Verification
+    const link = await verifyProjectLink(clientId, drawing.projectId);
+    if (!link) {
+      return sendError(res, 403, 'Access denied. You do not have access to this drawing.');
+    }
+
+    // Double-Approval Race Condition Handling & Status Check
+    if (drawing.status === 'APPROVED') {
+      const latestLog = await ClientApprovalLog.findOne({ drawingId: drawing._id, action: 'APPROVED' })
+        .populate('contactId', 'name email');
+
+      const approverName = latestLog && latestLog.contactId ? latestLog.contactId.name : 'another client contact';
+      const approvedAt = latestLog && latestLog.actedAt ? latestLog.actedAt.toISOString() : drawing.updatedAt.toISOString();
+
+      return sendError(res, 409, `Drawing was already approved by ${approverName} at ${approvedAt}.`);
+    }
+
+    if (drawing.status !== 'PENDING_CLIENT_APPROVAL') {
+      return sendError(res, 400, `Drawing cannot be approved from its current status: ${drawing.status}`);
+    }
+
+    drawing.status = 'APPROVED';
+    await drawing.save();
+
+    const log = await ClientApprovalLog.create({
+      clientId,
+      contactId,
+      drawingId: drawing._id,
+      projectId: drawing.projectId,
+      action: 'APPROVED',
+      comments: comments ? comments.trim() : null
+    });
+
+    // Hook point for Module 10 Notifications (Internal Team notification)
+    console.log(`[NOTIFICATION HOOK] Internal team notified: Drawing "${drawing.title}" approved by contact ${contactId}`);
+
+    return sendSuccess(res, 200, 'Drawing approved successfully.', {
+      drawing,
+      log
+    });
+  } catch (error) {
+    console.error('Error approving drawing:', error);
+    return sendError(res, 500, error.message || 'Failed to approve drawing.');
+  }
+};
+
+/**
+ * POST /api/client/drawings/:drawingId/request-changes
+ * Client requests changes on drawing (OWNER / MEMBER only, comments required).
+ */
+exports.requestChanges = async (req, res) => {
+  try {
+    const { drawingId } = req.params;
+    const { comments } = req.body;
+    const { clientId, contactId, permissionLevel } = req.clientContact;
+
+    // Permission Check: OWNER or MEMBER only
+    if (['VIEW_ONLY'].includes(permissionLevel)) {
+      return sendError(res, 403, 'Access denied. View Only accounts cannot request changes.');
+    }
+
+    // Mandatory comments validation
+    if (!comments || !comments.trim()) {
+      return sendError(res, 400, 'Comments are mandatory when requesting changes.');
+    }
+
+    const drawing = await Drawing.findById(drawingId);
+    if (!drawing || !drawing.visibleToClient) {
+      return sendError(res, 404, 'Drawing not found or not accessible.');
+    }
+
+    // Linkage Verification
+    const link = await verifyProjectLink(clientId, drawing.projectId);
+    if (!link) {
+      return sendError(res, 403, 'Access denied. You do not have access to this drawing.');
+    }
+
+    // Lock check on approved drawing
+    if (drawing.status === 'APPROVED') {
+      return sendError(res, 400, 'Approved drawings are locked. A new revision must be uploaded by the design team to make changes.');
+    }
+
+    drawing.status = 'CHANGES_REQUESTED';
+    await drawing.save();
+
+    const log = await ClientApprovalLog.create({
+      clientId,
+      contactId,
+      drawingId: drawing._id,
+      projectId: drawing.projectId,
+      action: 'CHANGES_REQUESTED',
+      comments: comments.trim()
+    });
+
+    // Hook point for Module 10 Notifications (Designer & PM notification)
+    console.log(`[NOTIFICATION HOOK] Designer & PM notified: Drawing "${drawing.title}" changes requested by contact ${contactId}`);
+
+    return sendSuccess(res, 200, 'Changes requested successfully.', {
+      drawing,
+      log
+    });
+  } catch (error) {
+    console.error('Error requesting changes for drawing:', error);
+    return sendError(res, 500, error.message || 'Failed to request changes.');
+  }
+};
+
+/**
+ * POST /api/client/drawings/:drawingId/comments
+ * Add comment or image annotation to drawing (draft or shared).
+ */
+exports.addComment = async (req, res) => {
+  try {
+    const { drawingId } = req.params;
+    const { commentText, annotationCoords, isDraft } = req.body;
+    const { clientId, contactId } = req.clientContact;
+
+    if (!commentText || !commentText.trim()) {
+      return sendError(res, 400, 'Comment text is required.');
+    }
+
+    const drawing = await Drawing.findById(drawingId);
+    if (!drawing || !drawing.visibleToClient) {
+      return sendError(res, 404, 'Drawing not found or not accessible.');
+    }
+
+    const link = await verifyProjectLink(clientId, drawing.projectId);
+    if (!link) {
+      return sendError(res, 403, 'Access denied. You do not have access to this drawing.');
+    }
+
+    const comment = await DrawingComment.create({
+      drawingId: drawing._id,
+      drawingVersionId: drawing.currentVersionId || null,
+      authorType: 'CLIENT_CONTACT',
+      authorId: contactId,
+      authorModel: 'ClientContact',
+      commentText: commentText.trim(),
+      annotationCoords: annotationCoords || null,
+      isDraft: Boolean(isDraft)
+    });
+
+    return sendSuccess(res, 201, 'Comment added successfully.', { comment });
+  } catch (error) {
+    console.error('Error adding drawing comment:', error);
+    return sendError(res, 500, error.message || 'Failed to add comment.');
+  }
+};
+
+/**
+ * GET /api/client/drawings/:drawingId/comments
+ * Retrieve non-draft comments PLUS calling contact's own draft comments.
+ */
+exports.getComments = async (req, res) => {
+  try {
+    const { drawingId } = req.params;
+    const { clientId, contactId } = req.clientContact;
+
+    const drawing = await Drawing.findById(drawingId);
+    if (!drawing || !drawing.visibleToClient) {
+      return sendError(res, 404, 'Drawing not found or not accessible.');
+    }
+
+    const link = await verifyProjectLink(clientId, drawing.projectId);
+    if (!link) {
+      return sendError(res, 403, 'Access denied. You do not have access to this drawing.');
+    }
+
+    const comments = await DrawingComment.find({
+      drawingId: drawing._id,
+      $or: [
+        { isDraft: false },
+        { isDraft: true, authorId: contactId }
+      ]
+    }).sort({ createdAt: 1 });
+
+    return sendSuccess(res, 200, 'Drawing comments retrieved successfully.', { comments });
+  } catch (error) {
+    console.error('Error fetching drawing comments:', error);
+    return sendError(res, 500, error.message || 'Failed to retrieve comments.');
+  }
+};
 
 const express = require('express');
 const router = express.Router();
@@ -982,939 +1333,225 @@ router.get('/versions/:versionId/client-approval-log', drawingController.getClie
 
 module.exports = router;
 
-const Drawing = require('../models/Drawing');
-const DrawingVersion = require('../models/DrawingVersion');
-const DrawingCategory = require('../models/DrawingCategory');
-const DrawingVersionStatusHistory = require('../models/DrawingVersionStatusHistory');
-const ClientApprovalLog = require('../models/ClientApprovalLog');
-const Project = require('../models/Project');
-const RoleMaster = require('../models/RoleMaster');
-const { sendSuccess, sendError } = require('../utils/response');
+const express = require('express');
+const router = express.Router();
+const drawingCategoryController = require('../controllers/drawingCategory.controller');
+const authMiddleware = require('../middlewares/auth.middleware');
+const roleMiddleware = require('../middlewares/role.middleware');
+
+router.use(authMiddleware);
+
+router.post('/create', roleMiddleware(['ADMIN', 'SUPER_ADMIN']), drawingCategoryController.createCategory);
+router.get('/active', drawingCategoryController.getActiveCategories);
+router.put('/:id/deactivate', roleMiddleware(['ADMIN', 'SUPER_ADMIN']), drawingCategoryController.deactivateCategory);
+
+module.exports = router;
+const express = require('express');
+const router = express.Router();
+const drawingReviewController = require('../controllers/drawingReview.controller');
+const authMiddleware = require('../middlewares/auth.middleware');
+
+router.use(authMiddleware);
+
+// Aggregated Review Data Payload for Viewer Component
+router.get('/:versionId/review-data', drawingReviewController.getAggregatedReviewData);
+
+// Pinned Notes & General Comments
+router.post('/:versionId/comments', drawingReviewController.postCommentOrNote);
+router.get('/:versionId/comments', drawingReviewController.getVersionComments);
+
+// Freehand & Shape Markings
+router.post('/:versionId/markings', drawingReviewController.postMarking);
+router.get('/:versionId/markings', drawingReviewController.getVersionMarkings);
+router.delete('/:versionId/markings/:markingId', drawingReviewController.deleteMarking);
+
+module.exports = router;
+
+const mongoose = require('mongoose');
+
+const embeddedVersionSchema = new mongoose.Schema({
+  versionNumber:   { type: Number, required: true },
+  fileUrl:         { type: String, required: true },
+  thumbnailUrl:    { type: String, default: null },
+  notes:           { type: String, default: null },
+  uploadedBy:      { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  uploadedAt:      { type: Date, default: Date.now }
+}, { _id: false });
+
+const drawingSchema = new mongoose.Schema({
+  projectId:        { type: mongoose.Schema.Types.ObjectId, ref: 'Project', required: true },
+  drawingName:      { type: String, required: true, trim: true },
+  drawingNumber:    { type: String, trim: true },
+  categoryId:       { type: mongoose.Schema.Types.ObjectId, ref: 'DrawingCategory' },
+  categoryName:     { type: String, default: 'Concept Drawings' }, // Fallback string category
+  currentVersionId: { type: mongoose.Schema.Types.ObjectId, ref: 'DrawingVersion', default: null },
+
+  // Embedded backward-compatibility state synced with currentVersionId for CRM Module 5
+  status: {
+    type: String,
+    enum: [
+      'DESIGNER_UPLOADED',
+      'PM_APPROVED',
+      'PM_REJECTED',
+      'ADMIN_REJECTED',
+      'PENDING_CLIENT_APPROVAL',
+      'APPROVED',
+      'CHANGES_REQUESTED'
+    ],
+    default: 'DESIGNER_UPLOADED'
+  },
+  visibleToClient:  { type: Boolean, default: false },
+  fileUrl:          { type: String, default: '' },
+  thumbnailUrl:     { type: String, default: null },
+  currentVersion:   { type: Number, default: 1 },
+  versions:         [embeddedVersionSchema],
+
+  isGFCLocked:      { type: Boolean, default: false },
+  gfcLockedAt:      { type: Date, default: null },
+  gfcLockedBy:      { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+
+  createdBy:        { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  isActive:         { type: Boolean, default: true }
+}, { timestamps: true });
+
+// Virtual getter mapping title -> drawingName for CRM 5
+drawingSchema.virtual('title').get(function() {
+  return this.drawingName;
+}).set(function(v) {
+  this.drawingName = v;
+});
+
+// Virtual category string fallback
+drawingSchema.virtual('category').get(function() {
+  return this.categoryName || 'Concept Drawings';
+}).set(function(v) {
+  this.categoryName = v;
+});
+
+drawingSchema.set('toJSON', { virtuals: true });
+drawingSchema.set('toObject', { virtuals: true });
+
+drawingSchema.index({ projectId: 1, visibleToClient: 1, status: 1 });
+
+module.exports = mongoose.model('Drawing', drawingSchema);
+
+const mongoose = require('mongoose');
+
+const drawingCategorySchema = new mongoose.Schema({
+  name:                   { type: String, required: true, unique: true, trim: true },
+  requiresClientApproval: { type: Boolean, default: true },
+  restrictedEditing:      { type: Boolean, default: false },
+  isActive:               { type: Boolean, default: true },
+  createdBy:              { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+}, { timestamps: true });
+
+module.exports = mongoose.model('DrawingCategory', drawingCategorySchema);
+const mongoose = require('mongoose');
+
+const drawingCommentSchema = new mongoose.Schema({
+  drawingId:        { type: mongoose.Schema.Types.ObjectId, ref: 'Drawing', required: true },
+  drawingVersionId: { type: mongoose.Schema.Types.ObjectId, ref: 'DrawingVersion', default: null },
+  authorType:       { type: String, enum: ['CLIENT_CONTACT', 'EMPLOYEE'], required: true },
+  authorId:         { type: mongoose.Schema.Types.ObjectId, required: true, refPath: 'authorModel' },
+  authorModel:      { type: String, enum: ['ClientContact', 'User'], required: true },
+  commentText:      { type: String, required: true },
+  annotationCoords: { type: Object, default: null },  // e.g. {x, y} or region marker data, for image-pinned comments
+  isDraft:          { type: Boolean, default: false }, // client's private draft note, not yet submitted
+  createdAt:        { type: Date, default: Date.now }
+}, { timestamps: true });
+
+drawingCommentSchema.index({ drawingId: 1, isDraft: 1 });
+drawingCommentSchema.index({ drawingVersionId: 1, isDraft: 1 });
+
+module.exports = mongoose.model('DrawingComment', drawingCommentSchema);
+
+const mongoose = require('mongoose');
 
 /**
- * Helper to get role code
+ * DrawingMarking Model
+ * Stores shape/freehand marking tool annotations on a specific DrawingVersion image.
  */
-async function getUserRoleCode(user) {
-  if (!user) return '';
-  if (user.roleId && typeof user.roleId === 'object' && user.roleId.roleCode) {
-    return user.roleId.roleCode;
-  }
-  if (user.roleId) {
-    const role = await RoleMaster.findById(user.roleId);
-    return role ? role.roleCode : '';
-  }
-  return '';
-}
-
-/**
- * POST /api/drawings/create
- * Creates parent Drawing record
- */
-exports.createDrawing = async (req, res) => {
-  try {
-    const { projectId, drawingName, categoryId, drawingNumber } = req.body;
-
-    if (!projectId || !drawingName || !drawingName.trim() || !categoryId) {
-      return sendError(res, 400, 'projectId, drawingName, and categoryId are required.');
-    }
-
-    const project = await Project.findById(projectId);
-    if (!project || !project.isActive) {
-      return sendError(res, 404, 'Project not found.');
-    }
-
-    const category = await DrawingCategory.findById(categoryId);
-    if (!category || !category.isActive) {
-      return sendError(res, 404, 'Drawing category not found.');
-    }
-
-    const userId = req.user ? (req.user._id || req.user.id) : null;
-
-    const drawing = await Drawing.create({
-      projectId,
-      drawingName: drawingName.trim(),
-      drawingNumber: drawingNumber ? drawingNumber.trim() : null,
-      categoryId: category._id,
-      categoryName: category.name,
-      createdBy: userId
-    });
-
-    return sendSuccess(res, 201, 'Parent drawing created successfully.', { drawing });
-  } catch (error) {
-    console.error('Error creating drawing:', error);
-    return sendError(res, 500, error.message || 'Failed to create drawing.');
-  }
-};
-
-/**
- * POST /api/drawings/:drawingId/versions/upload
- * Uploads a new DrawingVersion ("never permanently replaced" rule)
- */
-exports.uploadVersion = async (req, res) => {
-  try {
-    const { drawingId } = req.params;
-    const { filePath, fileType, changeLog, thumbnailUrl } = req.body;
-    const userId = req.user ? (req.user._id || req.user.id) : null;
-
-    if (!filePath || !filePath.trim()) {
-      return sendError(res, 400, 'filePath is required.');
-    }
-
-    const drawing = await Drawing.findById(drawingId);
-    if (!drawing || !drawing.isActive) {
-      return sendError(res, 404, 'Drawing not found.');
-    }
-
-    if (drawing.isGFCLocked) {
-      return sendError(res, 400, 'Drawing is GFC locked. Version upload is blocked.');
-    }
-
-    // Auto-increment version number
-    const latestVersion = await DrawingVersion.findOne({ drawingId }).sort({ versionNumber: -1 });
-    const nextVersionNumber = latestVersion ? latestVersion.versionNumber + 1 : 1;
-
-    const version = await DrawingVersion.create({
-      drawingId: drawing._id,
-      versionNumber: nextVersionNumber,
-      filePath: filePath.trim(),
-      thumbnailUrl: thumbnailUrl ? thumbnailUrl.trim() : null,
-      fileType: fileType ? fileType.trim().toUpperCase() : 'DWG',
-      uploadedBy: userId,
-      changeLog: changeLog ? changeLog.trim() : null,
-      status: 'DESIGNER_UPLOADED',
-      visibleToClient: false
-    });
-
-    // Update parent Drawing pointer and backward compatibility embedded state
-    drawing.currentVersionId = version._id;
-    drawing.currentVersion = nextVersionNumber;
-    drawing.status = 'DESIGNER_UPLOADED';
-    drawing.visibleToClient = false;
-    drawing.fileUrl = version.filePath;
-    drawing.thumbnailUrl = version.thumbnailUrl;
-
-    drawing.versions.push({
-      versionNumber: nextVersionNumber,
-      fileUrl: version.filePath,
-      thumbnailUrl: version.thumbnailUrl,
-      notes: version.changeLog,
-      uploadedBy: userId,
-      uploadedAt: version.uploadDate
-    });
-
-    await drawing.save();
-
-    await DrawingVersionStatusHistory.create({
-      drawingVersionId: version._id,
-      fromStatus: null,
-      toStatus: 'DESIGNER_UPLOADED',
-      changedBy: userId,
-      notes: changeLog || 'Initial version upload'
-    });
-
-    const populatedDrawing = await Drawing.findById(drawing._id)
-      .populate('categoryId', 'name requiresClientApproval restrictedEditing')
-      .populate('currentVersionId');
-
-    return sendSuccess(res, 201, `Drawing version v${nextVersionNumber} uploaded successfully.`, {
-      drawing: populatedDrawing,
-      version
-    });
-  } catch (error) {
-    console.error('Error uploading drawing version:', error);
-    return sendError(res, 500, error.message || 'Failed to upload drawing version.');
-  }
-};
-
-/**
- * GET /api/drawings
- */
-exports.getDrawings = async (req, res) => {
-  try {
-    const { projectId, categoryId, status, page = 1, limit = 10 } = req.query;
-    const pageNum = parseInt(page, 10) || 1;
-    const limitNum = parseInt(limit, 10) || 10;
-    const skip = (pageNum - 1) * limitNum;
-
-    const filter = { isActive: true };
-
-    if (projectId) filter.projectId = projectId;
-    if (categoryId) filter.categoryId = categoryId;
-    if (status) filter.status = status;
-
-    const totalCount = await Drawing.countDocuments(filter);
-    const drawings = await Drawing.find(filter)
-      .populate('projectId', 'projectName name')
-      .populate('categoryId', 'name requiresClientApproval restrictedEditing')
-      .populate('currentVersionId')
-      .populate('createdBy', 'name email designation')
-      .sort({ updatedAt: -1 })
-      .skip(skip)
-      .limit(limitNum);
-
-    return sendSuccess(res, 200, 'Drawings retrieved successfully.', {
-      drawings,
-      totalCount,
-      totalPages: Math.ceil(totalCount / limitNum),
-      currentPage: pageNum
-    });
-  } catch (error) {
-    console.error('Error fetching drawings:', error);
-    return sendError(res, 500, error.message || 'Failed to retrieve drawings.');
-  }
-};
-
-/**
- * GET /api/drawings/:id
- */
-exports.getDrawingById = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const drawing = await Drawing.findById(id)
-      .populate('projectId', 'projectName name')
-      .populate('categoryId', 'name requiresClientApproval restrictedEditing')
-      .populate('currentVersionId')
-      .populate('createdBy', 'name email designation');
-
-    if (!drawing || !drawing.isActive) {
-      return sendError(res, 404, 'Drawing not found.');
-    }
-
-    const versionHistory = await DrawingVersion.find({ drawingId: id })
-      .populate('uploadedBy', 'name email designation')
-      .populate('pmReviewedBy', 'name email designation')
-      .populate('adminReviewedBy', 'name email designation')
-      .sort({ versionNumber: -1 });
-
-    return sendSuccess(res, 200, 'Drawing details retrieved successfully.', {
-      drawing,
-      versionHistory
-    });
-  } catch (error) {
-    console.error('Error fetching drawing detail:', error);
-    return sendError(res, 500, error.message || 'Failed to retrieve drawing details.');
-  }
-};
-
-/**
- * GET /api/drawings/:id/versions
- */
-exports.getDrawingVersions = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const drawing = await Drawing.findById(id);
-
-    if (!drawing || !drawing.isActive) {
-      return sendError(res, 404, 'Drawing not found.');
-    }
-
-    const versions = await DrawingVersion.find({ drawingId: id })
-      .populate('uploadedBy', 'name email designation')
-      .sort({ versionNumber: -1 });
-
-    return sendSuccess(res, 200, 'Drawing versions list retrieved successfully.', { versions });
-  } catch (error) {
-    console.error('Error fetching drawing versions:', error);
-    return sendError(res, 500, error.message || 'Failed to retrieve drawing versions.');
-  }
-};
-
-/**
- * PUT /api/drawing-versions/:versionId/pm-review
- */
-exports.pmReview = async (req, res) => {
-  try {
-    const { versionId } = req.params;
-    const { decision, comments } = req.body;
-    const userId = req.user ? (req.user._id || req.user.id) : null;
-
-    if (!['APPROVE', 'REJECT'].includes(decision)) {
-      return sendError(res, 400, 'decision must be APPROVE or REJECT.');
-    }
-
-    if (decision === 'REJECT' && (!comments || !comments.trim())) {
-      return sendError(res, 400, 'Comments are mandatory when PM rejects a drawing version.');
-    }
-
-    const roleCode = await getUserRoleCode(req.user);
-    if (!['ADMIN', 'SUPER_ADMIN', 'PROJECT_MANAGER'].includes(roleCode)) {
-      return sendError(res, 403, 'Access denied. Only PM or Admin can perform PM review.');
-    }
-
-    const version = await DrawingVersion.findById(versionId);
-    if (!version) {
-      return sendError(res, 404, 'Drawing version not found.');
-    }
-
-    if (!['DESIGNER_UPLOADED', 'PM_REJECTED'].includes(version.status)) {
-      return sendError(res, 400, `Version cannot undergo PM review from status "${version.status}".`);
-    }
-
-    const fromStatus = version.status;
-    const toStatus = decision === 'APPROVE' ? 'PM_APPROVED' : 'PM_REJECTED';
-
-    version.status = toStatus;
-    version.pmReviewComments = comments ? comments.trim() : null;
-    version.pmReviewedBy = userId;
-    version.pmReviewedAt = new Date();
-    await version.save();
-
-    // Update parent Drawing status if this is current version
-    const drawing = await Drawing.findById(version.drawingId);
-    if (drawing && drawing.currentVersionId && drawing.currentVersionId.toString() === version._id.toString()) {
-      drawing.status = toStatus;
-      await drawing.save();
-    }
-
-    await DrawingVersionStatusHistory.create({
-      drawingVersionId: version._id,
-      fromStatus,
-      toStatus,
-      changedBy: userId,
-      notes: comments ? comments.trim() : `PM ${decision.toLowerCase()}d version`
-    });
-
-    return sendSuccess(res, 200, `PM review completed: ${toStatus}`, { version });
-  } catch (error) {
-    console.error('Error during PM review:', error);
-    return sendError(res, 500, error.message || 'Failed to process PM review.');
-  }
-};
-
-/**
- * PUT /api/drawing-versions/:versionId/admin-review
- * THE HANDOFF POINT TO CRM MODULE 5!
- */
-exports.adminReview = async (req, res) => {
-  try {
-    const { versionId } = req.params;
-    const { decision, comments } = req.body;
-    const userId = req.user ? (req.user._id || req.user.id) : null;
-
-    if (!['APPROVE', 'REJECT'].includes(decision)) {
-      return sendError(res, 400, 'decision must be APPROVE or REJECT.');
-    }
-
-    if (decision === 'REJECT' && (!comments || !comments.trim())) {
-      return sendError(res, 400, 'Comments are mandatory when Admin rejects a drawing version.');
-    }
-
-    const roleCode = await getUserRoleCode(req.user);
-    if (!['ADMIN', 'SUPER_ADMIN'].includes(roleCode)) {
-      return sendError(res, 403, 'Access denied. Only Admin or Super Admin can perform Admin review.');
-    }
-
-    const version = await DrawingVersion.findById(versionId);
-    if (!version) {
-      return sendError(res, 404, 'Drawing version not found.');
-    }
-
-    // Admin can review if PM_APPROVED or direct Admin bypass from DESIGNER_UPLOADED
-    if (!['PM_APPROVED', 'DESIGNER_UPLOADED'].includes(version.status)) {
-      return sendError(res, 400, `Version cannot undergo Admin review from status "${version.status}".`);
-    }
-
-    const fromStatus = version.status;
-    const toStatus = decision === 'APPROVE' ? 'PENDING_CLIENT_APPROVAL' : 'ADMIN_REJECTED';
-    const isClientVisible = decision === 'APPROVE';
-
-    version.status = toStatus;
-    version.visibleToClient = isClientVisible;
-    version.adminReviewComments = comments ? comments.trim() : null;
-    version.adminReviewedBy = userId;
-    version.adminReviewedAt = new Date();
-    await version.save();
-
-    // Update parent Drawing - THE HANDOFF TO CRM MODULE 5!
-    const drawing = await Drawing.findById(version.drawingId);
-    if (drawing) {
-      drawing.status = toStatus;
-      drawing.visibleToClient = isClientVisible;
-
-      // Ensure embedded version object status & fileUrl are updated for CRM 5 query
-      if (drawing.versions && drawing.versions.length > 0) {
-        const lastEmb = drawing.versions[drawing.versions.length - 1];
-        if (lastEmb.versionNumber === version.versionNumber) {
-          lastEmb.fileUrl = version.filePath;
-        }
-      }
-      await drawing.save();
-    }
-
-    await DrawingVersionStatusHistory.create({
-      drawingVersionId: version._id,
-      fromStatus,
-      toStatus,
-      changedBy: userId,
-      notes: comments ? comments.trim() : `Admin ${decision.toLowerCase()}d version. Handed off to client portal.`
-    });
-
-    return sendSuccess(res, 200, `Admin review completed: ${toStatus}. Visible to client: ${isClientVisible}`, {
-      version,
-      drawing
-    });
-  } catch (error) {
-    console.error('Error during Admin review:', error);
-    return sendError(res, 500, error.message || 'Failed to process Admin review.');
-  }
-};
-
-/**
- * GET /api/drawings/:id/compare?versionA=&versionB=
- */
-exports.compareVersions = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { versionA, versionB } = req.query;
-
-    const drawing = await Drawing.findById(id);
-    if (!drawing || !drawing.isActive) {
-      return sendError(res, 404, 'Drawing not found.');
-    }
-
-    const numA = parseInt(versionA, 10);
-    const numB = parseInt(versionB, 10);
-
-    const vA = await DrawingVersion.findOne({ drawingId: id, versionNumber: numA }).populate('uploadedBy', 'name email');
-    const vB = await DrawingVersion.findOne({ drawingId: id, versionNumber: numB }).populate('uploadedBy', 'name email');
-
-    return sendSuccess(res, 200, 'Drawing versions comparison data retrieved successfully.', {
-      drawingId: drawing._id,
-      drawingName: drawing.drawingName,
-      versionA: vA || null,
-      versionB: vB || null
-    });
-  } catch (error) {
-    console.error('Error comparing drawing versions:', error);
-    return sendError(res, 500, error.message || 'Failed to compare drawing versions.');
-  }
-};
-
-/**
- * PUT /api/drawings/:id/promote-to-gfc
- */
-exports.promoteToGFC = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const roleCode = await getUserRoleCode(req.user);
-    if (!['ADMIN', 'SUPER_ADMIN'].includes(roleCode)) {
-      return sendError(res, 403, 'Access denied. Only Admin or Super Admin can promote a drawing to GFC.');
-    }
-
-    const drawing = await Drawing.findById(id);
-    if (!drawing || !drawing.isActive) {
-      return sendError(res, 404, 'Drawing not found.');
-    }
-
-    drawing.isGFCLocked = true;
-    drawing.gfcLockedAt = new Date();
-    drawing.gfcLockedBy = req.user ? (req.user._id || req.user.id) : null;
-    await drawing.save();
-
-    return sendSuccess(res, 200, 'Drawing promoted to locked GFC state.', { drawing });
-  } catch (error) {
-    console.error('Error promoting drawing to GFC:', error);
-    return sendError(res, 500, error.message || 'Failed to promote drawing to GFC.');
-  }
-};
-
-/**
- * PUT /api/drawings/:id/unlock-gfc
- */
-exports.unlockGFC = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { reason } = req.body;
-
-    const roleCode = await getUserRoleCode(req.user);
-    if (roleCode !== 'SUPER_ADMIN') {
-      return sendError(res, 403, 'Access denied. Only Super Admin can unlock a GFC drawing.');
-    }
-
-    if (!reason || !reason.trim()) {
-      return sendError(res, 400, 'Mandatory reason required to unlock GFC drawing.');
-    }
-
-    const drawing = await Drawing.findById(id);
-    if (!drawing || !drawing.isActive) {
-      return sendError(res, 404, 'Drawing not found.');
-    }
-
-    drawing.isGFCLocked = false;
-    drawing.gfcLockedAt = null;
-    drawing.gfcLockedBy = null;
-    await drawing.save();
-
-    return sendSuccess(res, 200, 'GFC drawing unlocked successfully.', { drawing, unlockReason: reason.trim() });
-  } catch (error) {
-    console.error('Error unlocking GFC drawing:', error);
-    return sendError(res, 500, error.message || 'Failed to unlock GFC drawing.');
-  }
-};
-
-/**
- * PUT /api/drawing-versions/:versionId/edit-in-place
- * In-place edit for Process DWG category only
- */
-exports.editInPlaceProcessDwg = async (req, res) => {
-  try {
-    const { versionId } = req.params;
-    const { updatedFilePath, changeLog } = req.body;
-    const userId = req.user ? (req.user._id || req.user.id) : null;
-
-    const roleCode = await getUserRoleCode(req.user);
-    if (!['ADMIN', 'SUPER_ADMIN'].includes(roleCode)) {
-      return sendError(res, 403, 'Access denied. Only Admin or Super Admin can edit Process DWG in place.');
-    }
-
-    if (!updatedFilePath || !updatedFilePath.trim()) {
-      return sendError(res, 400, 'updatedFilePath is required.');
-    }
-
-    const version = await DrawingVersion.findById(versionId);
-    if (!version) {
-      return sendError(res, 404, 'Drawing version not found.');
-    }
-
-    const drawing = await Drawing.findById(version.drawingId).populate('categoryId');
-    if (!drawing) {
-      return sendError(res, 404, 'Parent drawing not found.');
-    }
-
-    // Verify Process DWG category restriction
-    const isProcessDwg = (drawing.categoryName === 'Process DWG') ||
-      (drawing.categoryId && drawing.categoryId.restrictedEditing);
-
-    if (!isProcessDwg) {
-      return sendError(res, 400, 'In-place file editing is restricted ONLY to Process DWG category drawings.');
-    }
-
-    const oldPath = version.filePath;
-    version.filePath = updatedFilePath.trim();
-    if (changeLog) version.changeLog = changeLog.trim();
-    await version.save();
-
-    if (drawing.currentVersionId && drawing.currentVersionId.toString() === version._id.toString()) {
-      drawing.fileUrl = version.filePath;
-      await drawing.save();
-    }
-
-    await DrawingVersionStatusHistory.create({
-      drawingVersionId: version._id,
-      fromStatus: version.status,
-      toStatus: version.status,
-      changedBy: userId,
-      notes: `In-place edit Process DWG from ${oldPath} to ${version.filePath}`
-    });
-
-    return sendSuccess(res, 200, 'Process DWG file edited in place successfully.', { version });
-  } catch (error) {
-    console.error('Error during Process DWG in-place edit:', error);
-    return sendError(res, 500, error.message || 'Failed to edit Process DWG in place.');
-  }
-};
-
-/**
- * GET /api/drawing-versions/:versionId/client-approval-log
- */
-exports.getClientApprovalLog = async (req, res) => {
-  try {
-    const { versionId } = req.params;
-    const version = await DrawingVersion.findById(versionId);
-
-    if (!version) {
-      return sendError(res, 404, 'Drawing version not found.');
-    }
-
-    const approvalLogs = await ClientApprovalLog.find({ drawingId: version.drawingId })
-      .populate('contactId', 'name email permissionLevel')
-      .populate('clientId', 'companyName clientCode')
-      .sort({ createdAt: -1 });
-
-    return sendSuccess(res, 200, 'Client approval log retrieved successfully.', { approvalLogs });
-  } catch (error) {
-    console.error('Error fetching client approval log:', error);
-    return sendError(res, 500, error.message || 'Failed to retrieve client approval log.');
-  }
-};
-
-/**
- * GET /api/projects/:projectId/drawings/breakdown
- */
-exports.getProjectDrawingsBreakdown = async (req, res) => {
-  try {
-    const { projectId } = req.params;
-    const project = await Project.findById(projectId);
-
-    if (!project || !project.isActive) {
-      return sendError(res, 404, 'Project not found.');
-    }
-
-    const drawings = await Drawing.find({ projectId, isActive: true });
-    const totalDrawings = drawings.length;
-
-    const approvedCount = drawings.filter(d => d.status === 'APPROVED').length;
-    const pendingReviewCount = drawings.filter(d => ['DESIGNER_UPLOADED', 'PM_APPROVED'].includes(d.status)).length;
-    const pendingClientApprovalCount = drawings.filter(d => d.status === 'PENDING_CLIENT_APPROVAL').length;
-    const changesRequestedCount = drawings.filter(d => ['CHANGES_REQUESTED', 'PM_REJECTED', 'ADMIN_REJECTED'].includes(d.status)).length;
-
-    return sendSuccess(res, 200, 'Project drawings breakdown retrieved successfully.', {
-      projectId,
-      totalDrawings,
-      approvedCount,
-      pendingReviewCount,
-      pendingClientApprovalCount,
-      changesRequestedCount,
-      approvalRate: totalDrawings > 0 ? Math.round((approvedCount / totalDrawings) * 100) : 0
-    });
-  } catch (error) {
-    console.error('Error fetching project drawings breakdown:', error);
-    return sendError(res, 500, error.message || 'Failed to retrieve drawings breakdown.');
-  }
-};
-
-const DrawingCategory = require('../models/DrawingCategory');
-const { sendSuccess, sendError } = require('../utils/response');
-
-/**
- * POST /api/drawing-category/create
- */
-exports.createCategory = async (req, res) => {
-  try {
-    const { name, requiresClientApproval, restrictedEditing } = req.body;
-
-    if (!name || !name.trim()) {
-      return sendError(res, 400, 'Category name is required.');
-    }
-
-    const existing = await DrawingCategory.findOne({ name: name.trim() });
-    if (existing) {
-      if (!existing.isActive) {
-        existing.isActive = true;
-        if (requiresClientApproval !== undefined) existing.requiresClientApproval = !!requiresClientApproval;
-        if (restrictedEditing !== undefined) existing.restrictedEditing = !!restrictedEditing;
-        await existing.save();
-        return sendSuccess(res, 200, 'Drawing category reactivated successfully.', { category: existing });
-      }
-      return sendError(res, 400, `Drawing category "${name.trim()}" already exists.`);
-    }
-
-    const userId = req.user ? (req.user._id || req.user.id) : null;
-
-    const category = await DrawingCategory.create({
-      name: name.trim(),
-      requiresClientApproval: requiresClientApproval !== undefined ? !!requiresClientApproval : true,
-      restrictedEditing: restrictedEditing !== undefined ? !!restrictedEditing : false,
-      createdBy: userId
-    });
-
-    return sendSuccess(res, 201, 'Drawing category created successfully.', { category });
-  } catch (error) {
-    console.error('Error creating drawing category:', error);
-    return sendError(res, 500, error.message || 'Failed to create drawing category.');
-  }
-};
-
-/**
- * GET /api/drawing-category/active
- */
-exports.getActiveCategories = async (req, res) => {
-  try {
-    let categories = await DrawingCategory.find({ isActive: true }).sort({ name: 1 });
-
-    // Seed default categories if none exist
-    if (categories.length === 0) {
-      const defaults = [
-        { name: 'Concept Drawings', requiresClientApproval: true, restrictedEditing: false },
-        { name: 'Working Drawings', requiresClientApproval: true, restrictedEditing: false },
-        { name: 'Process DWG', requiresClientApproval: false, restrictedEditing: true },
-        { name: 'GFC Drawings', requiresClientApproval: false, restrictedEditing: false },
-        { name: 'Site', requiresClientApproval: true, restrictedEditing: false },
-        { name: 'Interior Drawings', requiresClientApproval: true, restrictedEditing: false }
-      ];
-
-      categories = await DrawingCategory.insertMany(defaults);
-    }
-
-    return sendSuccess(res, 200, 'Active drawing categories retrieved successfully.', { categories });
-  } catch (error) {
-    console.error('Error fetching drawing categories:', error);
-    return sendError(res, 500, error.message || 'Failed to retrieve drawing categories.');
-  }
-};
-
-/**
- * PUT /api/drawing-category/:id/deactivate
- */
-exports.deactivateCategory = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const category = await DrawingCategory.findById(id);
-
-    if (!category || !category.isActive) {
-      return sendError(res, 404, 'Drawing category not found or already inactive.');
-    }
-
-    category.isActive = false;
-    await category.save();
-
-    return sendSuccess(res, 200, 'Drawing category deactivated successfully.', { category });
-  } catch (error) {
-    console.error('Error deactivating drawing category:', error);
-    return sendError(res, 500, error.message || 'Failed to deactivate drawing category.');
-  }
-};
-
-const DrawingVersion = require('../models/DrawingVersion');
-const Drawing = require('../models/Drawing');
-const DrawingComment = require('../models/DrawingComment');
-const DrawingMarking = require('../models/DrawingMarking');
-const RoleMaster = require('../models/RoleMaster');
-const { sendSuccess, sendError } = require('../utils/response');
-
-/**
- * Helper to get user role code
- */
-async function getUserRoleCode(user) {
-  if (!user) return '';
-  if (user.roleId && typeof user.roleId === 'object' && user.roleId.roleCode) {
-    return user.roleId.roleCode;
-  }
-  if (user.roleId) {
-    const role = await RoleMaster.findById(user.roleId);
-    return role ? role.roleCode : '';
-  }
-  return '';
-}
-
-/**
- * POST /api/drawing-versions/:versionId/comments
- * Employee posts a general Comment or coordinate-pinned Note on a drawing version
- */
-exports.postCommentOrNote = async (req, res) => {
-  try {
-    const { versionId } = req.params;
-    const { commentText, annotationCoords, isDraft } = req.body;
-    const userId = req.user ? (req.user._id || req.user.id) : null;
-
-    if (!commentText || !commentText.trim()) {
-      return sendError(res, 400, 'commentText is required.');
-    }
-
-    const version = await DrawingVersion.findById(versionId);
-    if (!version) {
-      return sendError(res, 404, 'Drawing version not found.');
-    }
-
-    const comment = await DrawingComment.create({
-      drawingId: version.drawingId,
-      drawingVersionId: version._id,
-      authorType: 'EMPLOYEE',
-      authorId: userId,
-      authorModel: 'User',
-      commentText: commentText.trim(),
-      annotationCoords: annotationCoords || null,
-      isDraft: isDraft || false
-    });
-
-    const populated = await DrawingComment.findById(comment._id)
-      .populate('authorId', 'name email designation');
-
-    return sendSuccess(res, 201, annotationCoords ? 'Pinned note created successfully.' : 'Comment posted successfully.', { comment: populated });
-  } catch (error) {
-    console.error('Error posting comment or note:', error);
-    return sendError(res, 500, error.message || 'Failed to post comment or note.');
-  }
-};
-
-/**
- * GET /api/drawing-versions/:versionId/comments
- * Retrieves all non-draft comments/notes for a version + user's own draft notes
- */
-exports.getVersionComments = async (req, res) => {
-  try {
-    const { versionId } = req.params;
-    const userId = req.user ? (req.user._id || req.user.id) : null;
-
-    const version = await DrawingVersion.findById(versionId);
-    if (!version) {
-      return sendError(res, 404, 'Drawing version not found.');
-    }
-
-    const comments = await DrawingComment.find({
-      $or: [
-        { drawingVersionId: versionId },
-        { drawingId: version.drawingId, drawingVersionId: null }
-      ],
-      $or: [
-        { isDraft: false },
-        { authorId: userId }
-      ]
-    })
-    .populate('authorId', 'name email designation permissionLevel')
-    .sort({ createdAt: 1 });
-
-    return sendSuccess(res, 200, 'Version comments and notes retrieved successfully.', { comments, count: comments.length });
-  } catch (error) {
-    console.error('Error fetching version comments:', error);
-    return sendError(res, 500, error.message || 'Failed to retrieve version comments.');
-  }
-};
-
-/**
- * POST /api/drawing-versions/:versionId/markings
- * Creates a freehand or shape marking annotation on a drawing version
- */
-exports.postMarking = async (req, res) => {
-  try {
-    const { versionId } = req.params;
-    const { markingType, geometry, color, linkedCommentId } = req.body;
-    const userId = req.user ? (req.user._id || req.user.id) : null;
-
-    const validTypes = ['FREEHAND', 'RECTANGLE', 'CIRCLE', 'ARROW', 'HIGHLIGHT_AREA'];
-    if (!markingType || !validTypes.includes(markingType.toUpperCase())) {
-      return sendError(res, 400, `markingType must be one of: ${validTypes.join(', ')}.`);
-    }
-
-    if (!geometry || typeof geometry !== 'object') {
-      return sendError(res, 400, 'geometry object is required.');
-    }
-
-    const version = await DrawingVersion.findById(versionId);
-    if (!version) {
-      return sendError(res, 404, 'Drawing version not found.');
-    }
-
-    const marking = await DrawingMarking.create({
-      drawingVersionId: version._id,
-      drawingId: version.drawingId,
-      authorType: 'EMPLOYEE',
-      authorId: userId,
-      authorModel: 'User',
-      markingType: markingType.toUpperCase(),
-      geometry,
-      color: color || '#FF0000',
-      linkedCommentId: linkedCommentId || null
-    });
-
-    const populated = await DrawingMarking.findById(marking._id)
-      .populate('authorId', 'name email designation')
-      .populate('linkedCommentId', 'commentText annotationCoords');
-
-    return sendSuccess(res, 201, 'Marking annotation created successfully.', { marking: populated });
-  } catch (error) {
-    console.error('Error posting marking annotation:', error);
-    return sendError(res, 500, error.message || 'Failed to post marking annotation.');
-  }
-};
-
-/**
- * GET /api/drawing-versions/:versionId/markings
- * Retrieves all markings for a specific drawing version
- */
-exports.getVersionMarkings = async (req, res) => {
-  try {
-    const { versionId } = req.params;
-
-    const version = await DrawingVersion.findById(versionId);
-    if (!version) {
-      return sendError(res, 404, 'Drawing version not found.');
-    }
-
-    const markings = await DrawingMarking.find({ drawingVersionId: versionId })
-      .populate('authorId', 'name email designation permissionLevel')
-      .populate('linkedCommentId', 'commentText annotationCoords')
-      .sort({ createdAt: 1 });
-
-    return sendSuccess(res, 200, 'Version markings retrieved successfully.', { markings, count: markings.length });
-  } catch (error) {
-    console.error('Error fetching version markings:', error);
-    return sendError(res, 500, error.message || 'Failed to retrieve version markings.');
-  }
-};
-
-/**
- * DELETE /api/drawing-versions/:versionId/markings/:markingId
- * Author or Admin/SuperAdmin override
- */
-exports.deleteMarking = async (req, res) => {
-  try {
-    const { versionId, markingId } = req.params;
-    const userId = req.user ? (req.user._id || req.user.id) : null;
-
-    const marking = await DrawingMarking.findById(markingId);
-    if (!marking) {
-      return sendError(res, 404, 'Marking annotation not found.');
-    }
-
-    const roleCode = await getUserRoleCode(req.user);
-    const isAuthor = marking.authorId.toString() === userId.toString();
-    const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(roleCode);
-
-    if (!isAuthor && !isAdmin) {
-      return sendError(res, 403, 'Access denied. You can only delete your own markings.');
-    }
-
-    await DrawingMarking.findByIdAndDelete(markingId);
-
-    return sendSuccess(res, 200, 'Marking annotation deleted successfully.', { markingId });
-  } catch (error) {
-    console.error('Error deleting marking annotation:', error);
-    return sendError(res, 500, error.message || 'Failed to delete marking annotation.');
-  }
-};
-
-/**
- * GET /api/drawing-versions/:versionId/review-data
- * Single aggregated response returning version metadata, comments, and markings for viewer initialization
- */
-exports.getAggregatedReviewData = async (req, res) => {
-  try {
-    const { versionId } = req.params;
-    const userId = req.user ? (req.user._id || req.user.id) : null;
-
-    const version = await DrawingVersion.findById(versionId)
-      .populate('uploadedBy', 'name email designation')
-      .populate('pmReviewedBy', 'name email designation')
-      .populate('adminReviewedBy', 'name email designation');
-
-    if (!version) {
-      return sendError(res, 404, 'Drawing version not found.');
-    }
-
-    const drawing = await Drawing.findById(version.drawingId)
-      .populate('projectId', 'projectName name')
-      .populate('categoryId', 'name requiresClientApproval restrictedEditing');
-
-    const comments = await DrawingComment.find({
-      $or: [
-        { drawingVersionId: versionId },
-        { drawingId: version.drawingId, drawingVersionId: null }
-      ],
-      $or: [
-        { isDraft: false },
-        { authorId: userId }
-      ]
-    })
-    .populate('authorId', 'name email designation permissionLevel')
-    .sort({ createdAt: 1 });
-
-    const markings = await DrawingMarking.find({ drawingVersionId: versionId })
-      .populate('authorId', 'name email designation permissionLevel')
-      .populate('linkedCommentId', 'commentText annotationCoords')
-      .sort({ createdAt: 1 });
-
-    return sendSuccess(res, 200, 'Aggregated review data retrieved successfully for viewer.', {
-      drawingVersion: version,
-      drawing,
-      comments,
-      markings
-    });
-  } catch (error) {
-    console.error('Error fetching aggregated review data:', error);
-    return sendError(res, 500, error.message || 'Failed to retrieve aggregated review data.');
-  }
-};
-
+const drawingMarkingSchema = new mongoose.Schema({
+  drawingVersionId: { type: mongoose.Schema.Types.ObjectId, ref: 'DrawingVersion', required: true },
+  drawingId:        { type: mongoose.Schema.Types.ObjectId, ref: 'Drawing', required: true },
+  authorType:       { type: String, enum: ['EMPLOYEE', 'CLIENT_CONTACT'], required: true },
+  authorId:         { type: mongoose.Schema.Types.ObjectId, required: true, refPath: 'authorModel' },
+  authorModel:      { type: String, enum: ['User', 'ClientContact'], required: true },
+  markingType:      { 
+    type: String, 
+    enum: ['FREEHAND', 'RECTANGLE', 'CIRCLE', 'ARROW', 'HIGHLIGHT_AREA'], 
+    required: true 
+  },
+  geometry:         { type: Object, required: true },
+  color:            { type: String, default: '#FF0000' },
+  linkedCommentId:  { type: mongoose.Schema.Types.ObjectId, ref: 'DrawingComment', default: null },
+  createdAt:        { type: Date, default: Date.now }
+}, { timestamps: true });
+
+drawingMarkingSchema.index({ drawingVersionId: 1 });
+drawingMarkingSchema.index({ drawingId: 1 });
+
+module.exports = mongoose.model('DrawingMarking', drawingMarkingSchema);
+
+const mongoose = require('mongoose');
+
+const drawingVersionSchema = new mongoose.Schema({
+  drawingId:         { type: mongoose.Schema.Types.ObjectId, ref: 'Drawing', required: true },
+  versionNumber:     { type: Number, required: true },
+  filePath:          { type: String, required: true },
+  thumbnailUrl:      { type: String, default: null },
+  fileType:          { type: String, required: true, default: 'DWG' },
+  uploadedBy:        { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  uploadDate:        { type: Date, default: Date.now },
+  changeLog:         { type: String, default: null },
+
+  status: {
+    type: String,
+    enum: [
+      'DESIGNER_UPLOADED',
+      'PM_APPROVED',
+      'PM_REJECTED',
+      'ADMIN_REJECTED',
+      'PENDING_CLIENT_APPROVAL',
+      'APPROVED',
+      'CHANGES_REQUESTED'
+    ],
+    default: 'DESIGNER_UPLOADED'
+  },
+
+  visibleToClient:   { type: Boolean, default: false },
+
+  pmReviewComments:   { type: String, default: null },
+  pmReviewedBy:        { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  pmReviewedAt:         { type: Date, default: null },
+
+  adminReviewComments: { type: String, default: null },
+  adminReviewedBy:      { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  adminReviewedAt:       { type: Date, default: null }
+}, { timestamps: true });
+
+drawingVersionSchema.index({ drawingId: 1, versionNumber: 1 }, { unique: true });
+
+// Virtual fileUrl mapping for backward compatibility
+drawingVersionSchema.virtual('fileUrl').get(function() {
+  return this.filePath;
+});
+
+drawingVersionSchema.set('toJSON', { virtuals: true });
+drawingVersionSchema.set('toObject', { virtuals: true });
+
+module.exports = mongoose.model('DrawingVersion', drawingVersionSchema);
+
+const mongoose = require('mongoose');
+
+const drawingVersionStatusHistorySchema = new mongoose.Schema({
+  drawingVersionId: { type: mongoose.Schema.Types.ObjectId, ref: 'DrawingVersion', required: true },
+  fromStatus:       { type: String, default: null },
+  toStatus:         { type: String, required: true },
+  changedBy:        { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  changedByClient:  { type: mongoose.Schema.Types.ObjectId, ref: 'ClientContact', default: null },
+  changedAt:        { type: Date, default: Date.now },
+  notes:            { type: String, default: null }
+}, { timestamps: true });
+
+module.exports = mongoose.model('DrawingVersionStatusHistory', drawingVersionStatusHistorySchema);
