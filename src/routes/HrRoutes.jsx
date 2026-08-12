@@ -7,7 +7,6 @@ const HRDashboard = lazy(() => import('../components/hr/dashboard/index'));
 const HREmployees = lazy(() => import('../components/hr/employees/index'));
 const HRAttendance = lazy(() => import('../components/hr/attendance/index'));
 const HRLeaves = lazy(() => import('../components/hr/leaves-holidays/index'));
-const HRShifts = lazy(() => import('../components/hr/shifts/index'));
 const HRPayroll = lazy(() => import('../components/hr/payroll-data/index'));
 const HRReviews = lazy(() => import('../components/hr/reviews/index'));
 const HRDocs = lazy(() => import('../components/hr/docs/index'));
@@ -85,11 +84,6 @@ export default function getHrRoutes(handleRoleChange) {
       <Route path="/hr/leaves" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Leaves & Holidays">
           <LazyWrap><HRLeaves defaultTab="company" /></LazyWrap>
-        </DashboardLayout>
-      } />
-      <Route path="/hr/shifts" element={
-        <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Shifts">
-          <LazyWrap><HRShifts /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/hr/payroll" element={

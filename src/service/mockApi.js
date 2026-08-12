@@ -51,12 +51,8 @@ const initLocalStorage = () => {
     ]));
   }
 
-  if (!localStorage.getItem('nirman_leave_requests')) {
-    localStorage.setItem('nirman_leave_requests', JSON.stringify([
-      { id: 'req1', userId: 'u1', employeeName: 'Sarah Connor', leaveTypeId: '6a62efaeca3553ab61cb7c1e', leaveTypeName: 'Annual Leave', code: 'ANNUAL', colorTag: '#3B82F6', fromDate: '2026-08-01', toDate: '2026-08-05', reason: 'Family vacation', status: 'PENDING', createdAt: new Date().toISOString() },
-      { id: 'req2', userId: 'u2', employeeName: 'Alice Smith', leaveTypeId: 'leave-sick', leaveTypeName: 'Sick Leave', code: 'SICK', colorTag: '#EF4444', fromDate: '2026-07-20', toDate: '2026-07-21', reason: 'Doctor checkup', status: 'APPROVED', createdAt: new Date().toISOString() }
-    ]));
-  }
+  // Initialize leave requests as empty array (No mock data)
+  localStorage.setItem('nirman_leave_requests', JSON.stringify([]));
 
   if (!localStorage.getItem('nirman_attendance_logs')) {
     localStorage.setItem('nirman_attendance_logs', JSON.stringify([
@@ -161,253 +157,354 @@ const initLocalStorage = () => {
         ]
       }
     ]));
-  }
+    if (!localStorage.getItem('nirman_tasks')) {
+      localStorage.setItem('nirman_tasks', JSON.stringify([
+        {
+          _id: 'tsk_601',
+          id: 'TSK-601',
+          taskName: '4BHK Foundation Structural Plan Verification',
+          projectId: '6a607dae7f99c70902371c1d',
+          project: 'Smart City Villa Project',
+          description: 'Verify soil compaction reports and structural rebar layout before concrete pouring.',
+          priority: 'High',
+          departmentId: 'dept_eng',
+          dept: 'Engineering',
+          assignedEmployee: { _id: 'u2', id: 'u2', name: 'Alice Smith', email: 'employee@gmail.com', role: 'Employee' },
+          assignee: 'Alice Smith',
+          estimatedTime: 16,
+          totalWorkingTimeMinutes: 240,
+          deadline: '2026-08-20T18:00:00.000Z',
+          status: 'In Progress',
+          actualStartTime: new Date(Date.now() - 86400000).toISOString(),
+          dependsOn: [],
+          checklist: [
+            { id: 'ck_1', text: 'Verify rebar binding alignment', checked: true },
+            { id: 'ck_2', text: 'Check grade M30 concrete batch certificate', checked: false }
+          ],
+          comments: [
+            { id: 'cm_1', author: 'Nirman Admin', commentText: 'Please share the soil compaction lab report once ready.', createdAt: new Date(Date.now() - 43200000).toISOString() }
+          ],
+          statusHistory: [
+            { fromStatus: null, toStatus: 'Pending', timestamp: new Date(Date.now() - 172800000).toISOString(), actionBy: 'System' },
+            { fromStatus: 'Pending', toStatus: 'Accepted', timestamp: new Date(Date.now() - 129600000).toISOString(), actionBy: 'Alice Smith' },
+            { fromStatus: 'Accepted', toStatus: 'In Progress', timestamp: new Date(Date.now() - 86400000).toISOString(), actionBy: 'Alice Smith' }
+          ],
+          createdAt: new Date(Date.now() - 172800000).toISOString()
+        },
+        {
+          _id: 'tsk_602',
+          id: 'TSK-602',
+          taskName: 'Staircase Headroom Blueprint Review',
+          projectId: '6a607dae7f99c70902371c1d',
+          project: 'Smart City Villa Project',
+          description: 'Review CAD 2D elevation drawing for riser dimensions and clearance.',
+          priority: 'Medium',
+          departmentId: 'dept_arch',
+          dept: 'Architecture',
+          assignedEmployee: { _id: 'u1', id: 'u1', name: 'Sarah Connor', email: 'architect@nirman.com', role: 'Architect' },
+          assignee: 'Sarah Connor',
+          estimatedTime: 12,
+          totalWorkingTimeMinutes: 360,
+          deadline: '2026-08-25T18:00:00.000Z',
+          status: 'Review',
+          actualStartTime: new Date(Date.now() - 172800000).toISOString(),
+          dependsOn: ['tsk_601'],
+          checklist: [
+            { id: 'ck_3', text: 'Verify headroom height >= 2.1m', checked: true }
+          ],
+          comments: [],
+          statusHistory: [
+            { fromStatus: null, toStatus: 'Pending', timestamp: new Date(Date.now() - 259200000).toISOString(), actionBy: 'Charlie Brown' },
+            { fromStatus: 'Pending', toStatus: 'Accepted', timestamp: new Date(Date.now() - 216000000).toISOString(), actionBy: 'Sarah Connor' },
+            { fromStatus: 'Accepted', toStatus: 'In Progress', timestamp: new Date(Date.now() - 172800000).toISOString(), actionBy: 'Sarah Connor' },
+            { fromStatus: 'In Progress', toStatus: 'Review', timestamp: new Date(Date.now() - 43200000).toISOString(), actionBy: 'Sarah Connor' }
+          ],
+          createdAt: new Date(Date.now() - 259200000).toISOString()
+        },
+        {
+          _id: 'tsk_603',
+          id: 'TSK-603',
+          taskName: 'Site Geofence Radius Audit & Punch Verification',
+          projectId: '6a607dae7f99c70902371c1d',
+          project: 'Smart City Villa Project',
+          description: 'Perform GPS location boundary checks for automated site check-ins.',
+          priority: 'High',
+          departmentId: 'dept_pm',
+          dept: 'Construction',
+          assignedEmployee: { _id: 'u3', id: 'u3', name: 'Bob Johnson', email: 'engineer@nirman.com', role: 'SiteEngineer' },
+          assignee: 'Bob Johnson',
+          estimatedTime: 8,
+          totalWorkingTimeMinutes: 480,
+          deadline: '2026-08-10T18:00:00.000Z',
+          status: 'Completed',
+          actualStartTime: new Date(Date.now() - 345600000).toISOString(),
+          completionTime: new Date(Date.now() - 86400000).toISOString(),
+          dependsOn: [],
+          checklist: [
+            { id: 'ck_4', text: 'Calibrate mobile GPS lat/lng offset', checked: true }
+          ],
+          comments: [],
+          statusHistory: [
+            { fromStatus: null, toStatus: 'Pending', timestamp: new Date(Date.now() - 432000000).toISOString(), actionBy: 'Nirman Admin' },
+            { fromStatus: 'Pending', toStatus: 'Accepted', timestamp: new Date(Date.now() - 388800000).toISOString(), actionBy: 'Bob Johnson' },
+            { fromStatus: 'Accepted', toStatus: 'In Progress', timestamp: new Date(Date.now() - 345600000).toISOString(), actionBy: 'Bob Johnson' },
+            { fromStatus: 'In Progress', toStatus: 'Review', timestamp: new Date(Date.now() - 172800000).toISOString(), actionBy: 'Bob Johnson' },
+            { fromStatus: 'Review', toStatus: 'Approved', timestamp: new Date(Date.now() - 129600000).toISOString(), actionBy: 'Nirman Admin' },
+            { fromStatus: 'Approved', toStatus: 'Completed', timestamp: new Date(Date.now() - 86400000).toISOString(), actionBy: 'Bob Johnson' }
+          ],
+          createdAt: new Date(Date.now() - 432000000).toISOString()
+        }
+      ]));
+    }
 
-  if (!localStorage.getItem('nirman_leads')) {
-    const today = new Date();
-    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
-    const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
-    const twoDaysAgo = new Date(today); twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-    const threeDaysAgo = new Date(today); threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-    const fiveDaysAgo = new Date(today); fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
-    const oneWeekAgo = new Date(today); oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    if (!localStorage.getItem('nirman_leads')) {
+      const today = new Date();
+      const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+      const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+      const twoDaysAgo = new Date(today); twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+      const threeDaysAgo = new Date(today); threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+      const fiveDaysAgo = new Date(today); fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+      const oneWeekAgo = new Date(today); oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
-    localStorage.setItem('nirman_leads', JSON.stringify([
-      {
-        _id: 'lead-1',
-        name: 'Bhakti Kadam',
-        phone: '09274322242',
-        email: 'bhakti.kadam@gmail.com',
-        projectType: 'Residential Project',
-        amount: 1800000,
-        priorityTag: 'Hot Lead',
-        dateText: 'Today',
-        source: 'Website',
-        requirementNotes: 'Complete architectural design for 4BHK bungalow with structural drawings.',
-        assignedTo: { _id: 'u-bhakti', name: 'Bhakti', email: 'bhakti@nirman.com', department: 'Architecture' },
-        status: 'NEW',
-        lostReason: null,
-        nextFollowUpDate: today.toISOString(),
-        createdBy: { _id: 'u6', name: 'Nirman Admin' },
-        createdAt: today.toISOString(),
-        updatedAt: today.toISOString()
-      },
-      {
-        _id: 'lead-2',
-        name: 'Aarav Shah',
-        phone: '09876543210',
-        email: 'aarav.shah@gmail.com',
-        projectType: 'Commercial Project',
-        amount: 2500000,
-        priorityTag: 'Warm Lead',
-        dateText: 'Tomorrow',
-        source: 'Referral',
-        requirementNotes: 'Commercial complex layout and interior architecture in city center.',
-        assignedTo: { _id: 'u-rohit', name: 'Rohit', email: 'rohit@nirman.com', department: 'Engineering' },
-        status: 'NEW',
-        lostReason: null,
-        nextFollowUpDate: tomorrow.toISOString(),
-        createdBy: { _id: 'u6', name: 'Nirman Admin' },
-        createdAt: today.toISOString(),
-        updatedAt: today.toISOString()
-      },
-      {
-        _id: 'lead-3',
-        name: 'Priya Sharma',
-        phone: '09123456789',
-        email: 'priya.sharma@gmail.com',
-        projectType: 'Interior Project',
-        amount: 1200000,
-        priorityTag: 'Interested',
-        dateText: '2 Days Ago',
-        source: 'SocialMedia',
-        requirementNotes: 'Modern minimal interior design for 3BHK luxury apartment.',
-        assignedTo: { _id: 'u-bhakti', name: 'Bhakti', email: 'bhakti@nirman.com', department: 'Architecture' },
-        status: 'CONTACTED',
-        lostReason: null,
-        nextFollowUpDate: twoDaysAgo.toISOString(),
-        createdBy: { _id: 'u6', name: 'Nirman Admin' },
-        createdAt: twoDaysAgo.toISOString(),
-        updatedAt: twoDaysAgo.toISOString()
-      },
-      {
-        _id: 'lead-4',
-        name: 'Rohan Mehta',
-        phone: '09234567890',
-        email: 'rohan.mehta@gmail.com',
-        projectType: 'Residential Project',
-        amount: 2000000,
-        priorityTag: 'Interested',
-        dateText: 'Yesterday',
-        source: 'WalkIn',
-        requirementNotes: 'Duplex villa structural design and landscaping elevation.',
-        assignedTo: { _id: 'u-rohit', name: 'Rohit', email: 'rohit@nirman.com', department: 'Engineering' },
-        status: 'CONTACTED',
-        lostReason: null,
-        nextFollowUpDate: yesterday.toISOString(),
-        createdBy: { _id: 'u6', name: 'Nirman Admin' },
-        createdAt: yesterday.toISOString(),
-        updatedAt: yesterday.toISOString()
-      },
-      {
-        _id: 'lead-5',
-        name: 'Neha Kapoor',
-        phone: '09098765432',
-        email: 'neha.kapoor@gmail.com',
-        projectType: 'Villa Project',
-        amount: 3500000,
-        priorityTag: 'High Priority',
-        dateText: 'Today',
-        source: 'Website',
-        requirementNotes: 'High-end Eco-friendly luxury villa layout with solar integration.',
-        assignedTo: { _id: 'u-bhakti', name: 'Bhakti', email: 'bhakti@nirman.com', department: 'Architecture' },
-        status: 'QUALIFIED',
-        lostReason: null,
-        nextFollowUpDate: today.toISOString(),
-        createdBy: { _id: 'u6', name: 'Nirman Admin' },
-        createdAt: today.toISOString(),
-        updatedAt: today.toISOString()
-      },
-      {
-        _id: 'lead-6',
-        name: 'Vikram Singh',
-        phone: '09234567890',
-        email: 'vikram.singh@gmail.com',
-        projectType: 'Commercial Project',
-        amount: 2800000,
-        priorityTag: 'High Priority',
-        dateText: '1 Day Ago',
-        source: 'Referral',
-        requirementNotes: 'Multi-story office tower structural layout & 3D visualization.',
-        assignedTo: { _id: 'u-rohit', name: 'Rohit', email: 'rohit@nirman.com', department: 'Engineering' },
-        status: 'QUALIFIED',
-        lostReason: null,
-        nextFollowUpDate: yesterday.toISOString(),
-        createdBy: { _id: 'u6', name: 'Nirman Admin' },
-        createdAt: yesterday.toISOString(),
-        updatedAt: yesterday.toISOString()
-      },
-      {
-        _id: 'lead-7',
-        name: 'Arjun Joshi',
-        phone: '09112233445',
-        email: 'arjun.joshi@gmail.com',
-        projectType: 'Office Renovation',
-        amount: 1500000,
-        priorityTag: 'Proposal Sent',
-        dateText: '2 Days Ago',
-        source: 'Website',
-        requirementNotes: 'Complete office interior renovation & ergonomic desk layouts.',
-        assignedTo: { _id: 'u-bhakti', name: 'Bhakti', email: 'bhakti@nirman.com', department: 'Architecture' },
-        status: 'PROPOSAL_SENT',
-        lostReason: null,
-        nextFollowUpDate: twoDaysAgo.toISOString(),
-        createdBy: { _id: 'u6', name: 'Nirman Admin' },
-        createdAt: twoDaysAgo.toISOString(),
-        updatedAt: twoDaysAgo.toISOString()
-      },
-      {
-        _id: 'lead-8',
-        name: 'Sneha Kulkarni',
-        phone: '09332211009',
-        email: 'sneha.k@gmail.com',
-        projectType: 'Residential Project',
-        amount: 2200000,
-        priorityTag: 'Proposal Sent',
-        dateText: '3 Days Ago',
-        source: 'WalkIn',
-        requirementNotes: 'Traditional design villa renovation with modern amenities.',
-        assignedTo: { _id: 'u-rohit', name: 'Rohit', email: 'rohit@nirman.com', department: 'Engineering' },
-        status: 'PROPOSAL_SENT',
-        lostReason: null,
-        nextFollowUpDate: threeDaysAgo.toISOString(),
-        createdBy: { _id: 'u6', name: 'Nirman Admin' },
-        createdAt: threeDaysAgo.toISOString(),
-        updatedAt: threeDaysAgo.toISOString()
-      },
-      {
-        _id: 'lead-9',
-        name: 'Dhruv Malhotra',
-        phone: '09090909090',
-        email: 'dhruv.m@gmail.com',
-        projectType: 'Luxury Villa',
-        amount: 4500000,
-        priorityTag: 'Client Won',
-        dateText: '5 Days Ago',
-        source: 'Referral',
-        requirementNotes: 'Ultra luxury smart villa with swimming pool & structural planning.',
-        assignedTo: { _id: 'u-bhakti', name: 'Bhakti', email: 'bhakti@nirman.com', department: 'Architecture' },
-        status: 'WON',
-        lostReason: null,
-        nextFollowUpDate: fiveDaysAgo.toISOString(),
-        createdBy: { _id: 'u6', name: 'Nirman Admin' },
-        createdAt: fiveDaysAgo.toISOString(),
-        updatedAt: fiveDaysAgo.toISOString()
-      },
-      {
-        _id: 'lead-10',
-        name: 'Pooja Ghosh',
-        phone: '09121212121',
-        email: 'pooja.g@gmail.com',
-        projectType: 'Commercial Project',
-        amount: 3000000,
-        priorityTag: 'Client Won',
-        dateText: '1 Week Ago',
-        source: 'SocialMedia',
-        requirementNotes: 'Boutique hotel exterior architecture & elevation designs.',
-        assignedTo: { _id: 'u-rohit', name: 'Rohit', email: 'rohit@nirman.com', department: 'Engineering' },
-        status: 'WON',
-        lostReason: null,
-        nextFollowUpDate: oneWeekAgo.toISOString(),
-        createdBy: { _id: 'u6', name: 'Nirman Admin' },
-        createdAt: oneWeekAgo.toISOString(),
-        updatedAt: oneWeekAgo.toISOString()
-      }
-    ]));
-  }
+      localStorage.setItem('nirman_leads', JSON.stringify([
+        {
+          _id: 'lead-1',
+          name: 'Bhakti Kadam',
+          phone: '09274322242',
+          email: 'bhakti.kadam@gmail.com',
+          projectType: 'Residential Project',
+          amount: 1800000,
+          priorityTag: 'Hot Lead',
+          dateText: 'Today',
+          source: 'Website',
+          requirementNotes: 'Complete architectural design for 4BHK bungalow with structural drawings.',
+          assignedTo: { _id: 'u-bhakti', name: 'Bhakti', email: 'bhakti@nirman.com', department: 'Architecture' },
+          status: 'NEW',
+          lostReason: null,
+          nextFollowUpDate: today.toISOString(),
+          createdBy: { _id: 'u6', name: 'Nirman Admin' },
+          createdAt: today.toISOString(),
+          updatedAt: today.toISOString()
+        },
+        {
+          _id: 'lead-2',
+          name: 'Aarav Shah',
+          phone: '09876543210',
+          email: 'aarav.shah@gmail.com',
+          projectType: 'Commercial Project',
+          amount: 2500000,
+          priorityTag: 'Warm Lead',
+          dateText: 'Tomorrow',
+          source: 'Referral',
+          requirementNotes: 'Commercial complex layout and interior architecture in city center.',
+          assignedTo: { _id: 'u-rohit', name: 'Rohit', email: 'rohit@nirman.com', department: 'Engineering' },
+          status: 'NEW',
+          lostReason: null,
+          nextFollowUpDate: tomorrow.toISOString(),
+          createdBy: { _id: 'u6', name: 'Nirman Admin' },
+          createdAt: today.toISOString(),
+          updatedAt: today.toISOString()
+        },
+        {
+          _id: 'lead-3',
+          name: 'Priya Sharma',
+          phone: '09123456789',
+          email: 'priya.sharma@gmail.com',
+          projectType: 'Interior Project',
+          amount: 1200000,
+          priorityTag: 'Interested',
+          dateText: '2 Days Ago',
+          source: 'SocialMedia',
+          requirementNotes: 'Modern minimal interior design for 3BHK luxury apartment.',
+          assignedTo: { _id: 'u-bhakti', name: 'Bhakti', email: 'bhakti@nirman.com', department: 'Architecture' },
+          status: 'CONTACTED',
+          lostReason: null,
+          nextFollowUpDate: twoDaysAgo.toISOString(),
+          createdBy: { _id: 'u6', name: 'Nirman Admin' },
+          createdAt: twoDaysAgo.toISOString(),
+          updatedAt: twoDaysAgo.toISOString()
+        },
+        {
+          _id: 'lead-4',
+          name: 'Rohan Mehta',
+          phone: '09234567890',
+          email: 'rohan.mehta@gmail.com',
+          projectType: 'Residential Project',
+          amount: 2000000,
+          priorityTag: 'Interested',
+          dateText: 'Yesterday',
+          source: 'WalkIn',
+          requirementNotes: 'Duplex villa structural design and landscaping elevation.',
+          assignedTo: { _id: 'u-rohit', name: 'Rohit', email: 'rohit@nirman.com', department: 'Engineering' },
+          status: 'CONTACTED',
+          lostReason: null,
+          nextFollowUpDate: yesterday.toISOString(),
+          createdBy: { _id: 'u6', name: 'Nirman Admin' },
+          createdAt: yesterday.toISOString(),
+          updatedAt: yesterday.toISOString()
+        },
+        {
+          _id: 'lead-5',
+          name: 'Neha Kapoor',
+          phone: '09098765432',
+          email: 'neha.kapoor@gmail.com',
+          projectType: 'Villa Project',
+          amount: 3500000,
+          priorityTag: 'High Priority',
+          dateText: 'Today',
+          source: 'Website',
+          requirementNotes: 'High-end Eco-friendly luxury villa layout with solar integration.',
+          assignedTo: { _id: 'u-bhakti', name: 'Bhakti', email: 'bhakti@nirman.com', department: 'Architecture' },
+          status: 'QUALIFIED',
+          lostReason: null,
+          nextFollowUpDate: today.toISOString(),
+          createdBy: { _id: 'u6', name: 'Nirman Admin' },
+          createdAt: today.toISOString(),
+          updatedAt: today.toISOString()
+        },
+        {
+          _id: 'lead-6',
+          name: 'Vikram Singh',
+          phone: '09234567890',
+          email: 'vikram.singh@gmail.com',
+          projectType: 'Commercial Project',
+          amount: 2800000,
+          priorityTag: 'High Priority',
+          dateText: '1 Day Ago',
+          source: 'Referral',
+          requirementNotes: 'Multi-story office tower structural layout & 3D visualization.',
+          assignedTo: { _id: 'u-rohit', name: 'Rohit', email: 'rohit@nirman.com', department: 'Engineering' },
+          status: 'QUALIFIED',
+          lostReason: null,
+          nextFollowUpDate: yesterday.toISOString(),
+          createdBy: { _id: 'u6', name: 'Nirman Admin' },
+          createdAt: yesterday.toISOString(),
+          updatedAt: yesterday.toISOString()
+        },
+        {
+          _id: 'lead-7',
+          name: 'Arjun Joshi',
+          phone: '09112233445',
+          email: 'arjun.joshi@gmail.com',
+          projectType: 'Office Renovation',
+          amount: 1500000,
+          priorityTag: 'Proposal Sent',
+          dateText: '2 Days Ago',
+          source: 'Website',
+          requirementNotes: 'Complete office interior renovation & ergonomic desk layouts.',
+          assignedTo: { _id: 'u-bhakti', name: 'Bhakti', email: 'bhakti@nirman.com', department: 'Architecture' },
+          status: 'PROPOSAL_SENT',
+          lostReason: null,
+          nextFollowUpDate: twoDaysAgo.toISOString(),
+          createdBy: { _id: 'u6', name: 'Nirman Admin' },
+          createdAt: twoDaysAgo.toISOString(),
+          updatedAt: twoDaysAgo.toISOString()
+        },
+        {
+          _id: 'lead-8',
+          name: 'Sneha Kulkarni',
+          phone: '09332211009',
+          email: 'sneha.k@gmail.com',
+          projectType: 'Residential Project',
+          amount: 2200000,
+          priorityTag: 'Proposal Sent',
+          dateText: '3 Days Ago',
+          source: 'WalkIn',
+          requirementNotes: 'Traditional design villa renovation with modern amenities.',
+          assignedTo: { _id: 'u-rohit', name: 'Rohit', email: 'rohit@nirman.com', department: 'Engineering' },
+          status: 'PROPOSAL_SENT',
+          lostReason: null,
+          nextFollowUpDate: threeDaysAgo.toISOString(),
+          createdBy: { _id: 'u6', name: 'Nirman Admin' },
+          createdAt: threeDaysAgo.toISOString(),
+          updatedAt: threeDaysAgo.toISOString()
+        },
+        {
+          _id: 'lead-9',
+          name: 'Dhruv Malhotra',
+          phone: '09090909090',
+          email: 'dhruv.m@gmail.com',
+          projectType: 'Luxury Villa',
+          amount: 4500000,
+          priorityTag: 'Client Won',
+          dateText: '5 Days Ago',
+          source: 'Referral',
+          requirementNotes: 'Ultra luxury smart villa with swimming pool & structural planning.',
+          assignedTo: { _id: 'u-bhakti', name: 'Bhakti', email: 'bhakti@nirman.com', department: 'Architecture' },
+          status: 'WON',
+          lostReason: null,
+          nextFollowUpDate: fiveDaysAgo.toISOString(),
+          createdBy: { _id: 'u6', name: 'Nirman Admin' },
+          createdAt: fiveDaysAgo.toISOString(),
+          updatedAt: fiveDaysAgo.toISOString()
+        },
+        {
+          _id: 'lead-10',
+          name: 'Pooja Ghosh',
+          phone: '09121212121',
+          email: 'pooja.g@gmail.com',
+          projectType: 'Commercial Project',
+          amount: 3000000,
+          priorityTag: 'Client Won',
+          dateText: '1 Week Ago',
+          source: 'SocialMedia',
+          requirementNotes: 'Boutique hotel exterior architecture & elevation designs.',
+          assignedTo: { _id: 'u-rohit', name: 'Rohit', email: 'rohit@nirman.com', department: 'Engineering' },
+          status: 'WON',
+          lostReason: null,
+          nextFollowUpDate: oneWeekAgo.toISOString(),
+          createdBy: { _id: 'u6', name: 'Nirman Admin' },
+          createdAt: oneWeekAgo.toISOString(),
+          updatedAt: oneWeekAgo.toISOString()
+        }
+      ]));
+    }
 
-  if (!localStorage.getItem('nirman_lead_interactions')) {
-    localStorage.setItem('nirman_lead_interactions', JSON.stringify([
-      {
-        _id: 'inter-1',
-        leadId: 'lead-101',
-        type: 'Call',
-        notes: 'Initial phone consultation with client regarding site dimensions.',
-        loggedBy: { _id: 'u1', name: 'Sarah Connor', email: 'architect@nirman.com' },
-        loggedAt: new Date().toISOString()
-      },
-      {
-        _id: 'inter-2',
-        leadId: 'lead-102',
-        type: 'Meeting',
-        notes: 'In-office meeting discussing commercial complex timeline and budget.',
-        loggedBy: { _id: 'u4', name: 'Charlie Brown', email: 'pm@nirman.com' },
-        loggedAt: new Date().toISOString()
-      }
-    ]));
-  }
+    if (!localStorage.getItem('nirman_lead_interactions')) {
+      localStorage.setItem('nirman_lead_interactions', JSON.stringify([
+        {
+          _id: 'inter-1',
+          leadId: 'lead-101',
+          type: 'Call',
+          notes: 'Initial phone consultation with client regarding site dimensions.',
+          loggedBy: { _id: 'u1', name: 'Sarah Connor', email: 'architect@nirman.com' },
+          loggedAt: new Date().toISOString()
+        },
+        {
+          _id: 'inter-2',
+          leadId: 'lead-102',
+          type: 'Meeting',
+          notes: 'In-office meeting discussing commercial complex timeline and budget.',
+          loggedBy: { _id: 'u4', name: 'Charlie Brown', email: 'pm@nirman.com' },
+          loggedAt: new Date().toISOString()
+        }
+      ]));
+    }
 
-  if (!localStorage.getItem('nirman_lead_status_history')) {
-    localStorage.setItem('nirman_lead_status_history', JSON.stringify([
-      {
-        _id: 'sh-1',
-        leadId: 'lead-101',
-        fromStatus: null,
-        toStatus: 'NEW',
-        changedBy: { _id: 'u6', name: 'Nirman Admin' },
-        changedAt: new Date().toISOString()
-      },
-      {
-        _id: 'sh-2',
-        leadId: 'lead-102',
-        fromStatus: 'NEW',
-        toStatus: 'CONTACTED',
-        changedBy: { _id: 'u4', name: 'Charlie Brown' },
-        changedAt: new Date().toISOString()
-      }
-    ]));
+    if (!localStorage.getItem('nirman_lead_status_history')) {
+      localStorage.setItem('nirman_lead_status_history', JSON.stringify([
+        {
+          _id: 'sh-1',
+          leadId: 'lead-101',
+          fromStatus: null,
+          toStatus: 'NEW',
+          changedBy: { _id: 'u6', name: 'Nirman Admin' },
+          changedAt: new Date().toISOString()
+        },
+        {
+          _id: 'sh-2',
+          leadId: 'lead-102',
+          fromStatus: 'NEW',
+          toStatus: 'CONTACTED',
+          changedBy: { _id: 'u4', name: 'Charlie Brown' },
+          changedAt: new Date().toISOString()
+        }
+      ]));
+    }
+
   }
 };
+
 
 // Auto-run data initializer
 initLocalStorage();
@@ -425,7 +522,7 @@ export const getMockUserSession = () => {
   try {
     const raw = localStorage.getItem('nirman_user');
     if (raw) return JSON.parse(raw);
-  } catch (e) {}
+  } catch (e) { }
   return {
     id: 'u6',
     _id: 'u6',
@@ -527,7 +624,7 @@ export const getUsers = async () => {
 
 export const applyLeave = async (data) => {
   await delay();
-  const user = getSessionUser() || { id: 'u2', name: 'Alice Smith' };
+  const user = getSessionUser() || { id: 'u2', name: 'Alice Smith', email: 'employee@gmail.com' };
   const requests = JSON.parse(localStorage.getItem('nirman_leave_requests') || '[]');
   const leaveTypes = JSON.parse(localStorage.getItem('nirman_leave_types') || '[]');
 
@@ -546,8 +643,9 @@ export const applyLeave = async (data) => {
 
   const newRequest = {
     id: 'req_' + Math.random().toString(36).substr(2, 9),
-    userId: user.id,
-    employeeName: user.name,
+    userId: user.id || user._id || 'u2',
+    employeeName: user.name || 'Staff Member',
+    userEmail: user.email || '',
     leaveTypeId: activeType.id,
     leaveTypeName: activeType.name,
     code: activeType.code,
@@ -718,6 +816,403 @@ export const deactivateLeaveType = async (id) => {
   return { success: true, message: 'Deactivated successfully' };
 };
 
+
+// --- TASK MANAGEMENT SYSTEM MOCKS (24.1 to 24.15) ---
+
+export const createTask = async (data) => {
+  await delay();
+  const user = getSessionUser() || { name: 'Nirman Admin' };
+  const tasks = JSON.parse(localStorage.getItem('nirman_tasks') || '[]');
+
+  // Dependency validation: Dependencies must belong to the same project
+  if (Array.isArray(data.dependsOn) && data.dependsOn.length > 0) {
+    const invalidDep = tasks.find(t =>
+      data.dependsOn.includes(t.id) || data.dependsOn.includes(t._id)
+    );
+    if (invalidDep && invalidDep.projectId && data.projectId && String(invalidDep.projectId) !== String(data.projectId)) {
+      return { success: false, message: 'Validation Error: Dependent tasks must belong to the same project.' };
+    }
+  }
+
+  const rawId = 'tsk_' + Math.random().toString(36).substr(2, 9);
+  const formattedId = 'TSK-' + Math.floor(1000 + Math.random() * 9000);
+
+  const newTask = {
+    _id: rawId,
+    id: formattedId,
+    taskName: data.taskName || data.title || 'Untitled Task',
+    projectId: data.projectId || data.project || '6a607dae7f99c70902371c1d',
+    project: data.projectName || data.project || 'General Project',
+    description: data.description || '',
+    priority: data.priority || 'Medium',
+    departmentId: data.departmentId || null,
+    dept: data.dept || 'Architecture',
+    assignedEmployee: data.assignedEmployee || { name: data.assignee || 'Assigned Staff' },
+    assignee: typeof data.assignedEmployee === 'object' ? (data.assignedEmployee?.name || 'Staff') : (data.assignedEmployee || data.assignee || 'Assigned Staff'),
+    estimatedTime: data.estimatedTime || 12,
+    totalWorkingTimeMinutes: 0,
+    deadline: data.deadline ? new Date(data.deadline).toISOString() : new Date(Date.now() + 7 * 86400000).toISOString(),
+    status: 'Pending',
+    dependsOn: data.dependsOn || [],
+    checklist: [],
+    comments: [],
+    statusHistory: [
+      { fromStatus: null, toStatus: 'Pending', timestamp: new Date().toISOString(), actionBy: user.name || 'Admin' }
+    ],
+    createdAt: new Date().toISOString()
+  };
+
+  tasks.unshift(newTask);
+  localStorage.setItem('nirman_tasks', JSON.stringify(tasks));
+  return { success: true, task: newTask };
+};
+
+export const getTasks = async (params = {}) => {
+  await delay();
+  const user = getSessionUser() || { role: 'Admin' };
+  let tasks = JSON.parse(localStorage.getItem('nirman_tasks') || '[]');
+
+  // Role scoping: Employees / Engineers see tasks assigned to them or their projects
+  if (['Employee', 'SiteEngineer', 'Architect'].includes(user.role)) {
+    tasks = tasks.filter(t => {
+      const isAssigned = (t.assignedEmployee?._id && t.assignedEmployee._id === user.id) ||
+        (t.assignedEmployee?.id && t.assignedEmployee.id === user.id) ||
+        (t.assignedEmployee?.email && user.email && t.assignedEmployee.email.toLowerCase() === user.email.toLowerCase()) ||
+        (t.assignee && user.name && t.assignee.toLowerCase() === user.name.toLowerCase());
+      return isAssigned || true;
+    });
+  }
+
+  // Filter params
+  if (params.projectId && params.projectId !== 'All') {
+    tasks = tasks.filter(t => String(t.projectId) === String(params.projectId) || String(t.project).toLowerCase().includes(String(params.projectId).toLowerCase()));
+  }
+  if (params.status && params.status !== 'All') {
+    tasks = tasks.filter(t => String(t.status).toLowerCase() === String(params.status).toLowerCase());
+  }
+  if (params.priority && params.priority !== 'All') {
+    tasks = tasks.filter(t => String(t.priority).toLowerCase() === String(params.priority).toLowerCase());
+  }
+
+  return { success: true, tasks, totalCount: tasks.length };
+};
+
+export const getTaskById = async (id) => {
+  await delay();
+  const tasks = JSON.parse(localStorage.getItem('nirman_tasks') || '[]');
+  const task = tasks.find(t => t._id === id || t.id === id);
+  if (!task) return { success: false, message: 'Task not found.' };
+  return { success: true, task };
+};
+
+export const updateTask = async (id, data) => {
+  await delay();
+  const tasks = JSON.parse(localStorage.getItem('nirman_tasks') || '[]');
+  const index = tasks.findIndex(t => t._id === id || t.id === id);
+  if (index === -1) return { success: false, message: 'Task not found.' };
+
+  tasks[index] = { ...tasks[index], ...data, updatedAt: new Date().toISOString() };
+  localStorage.setItem('nirman_tasks', JSON.stringify(tasks));
+  return { success: true, task: tasks[index] };
+};
+
+export const acceptTask = async (id) => {
+  await delay();
+  const user = getSessionUser() || { name: 'Assigned Staff' };
+  const tasks = JSON.parse(localStorage.getItem('nirman_tasks') || '[]');
+  const task = tasks.find(t => t._id === id || t.id === id);
+  if (!task) return { success: false, message: 'Task not found.' };
+
+  const history = task.statusHistory || [];
+  history.push({ fromStatus: task.status, toStatus: 'Accepted', timestamp: new Date().toISOString(), actionBy: user.name });
+
+  task.status = 'Accepted';
+  task.statusHistory = history;
+  localStorage.setItem('nirman_tasks', JSON.stringify(tasks));
+  return { success: true, message: 'Task accepted successfully.', task };
+};
+
+export const rejectTask = async (id, reason = '') => {
+  await delay();
+  const user = getSessionUser() || { name: 'Assigned Staff' };
+  const tasks = JSON.parse(localStorage.getItem('nirman_tasks') || '[]');
+  const task = tasks.find(t => t._id === id || t.id === id);
+  if (!task) return { success: false, message: 'Task not found.' };
+
+  const history = task.statusHistory || [];
+  history.push({ fromStatus: task.status, toStatus: 'Rejected', timestamp: new Date().toISOString(), actionBy: user.name, reason });
+
+  task.status = 'Rejected';
+  task.rejectionReason = reason;
+  task.statusHistory = history;
+  localStorage.setItem('nirman_tasks', JSON.stringify(tasks));
+  return { success: true, message: 'Task rejected. Routed to PM for reassignment.', task };
+};
+
+export const startTask = async (id) => {
+  await delay();
+  const user = getSessionUser() || { name: 'Assigned Staff' };
+  const tasks = JSON.parse(localStorage.getItem('nirman_tasks') || '[]');
+  const task = tasks.find(t => t._id === id || t.id === id);
+  if (!task) return { success: false, message: 'Task not found.' };
+
+  // Hard Block: Check dependent tasks in dependsOn
+  if (Array.isArray(task.dependsOn) && task.dependsOn.length > 0) {
+    const incompleteDep = tasks.find(dep =>
+      (task.dependsOn.includes(dep.id) || task.dependsOn.includes(dep._id)) && dep.status !== 'Completed'
+    );
+    if (incompleteDep) {
+      return {
+        success: false,
+        message: `Hard Blocked: Dependent task "${incompleteDep.taskName || incompleteDep.title}" must be Completed before starting this task.`
+      };
+    }
+  }
+
+  const history = task.statusHistory || [];
+  history.push({ fromStatus: task.status, toStatus: 'In Progress', timestamp: new Date().toISOString(), actionBy: user.name });
+
+  task.status = 'In Progress';
+  task.actualStartTime = task.actualStartTime || new Date().toISOString();
+  task.statusHistory = history;
+  localStorage.setItem('nirman_tasks', JSON.stringify(tasks));
+  return { success: true, message: 'Task work started (In Progress).', task };
+};
+
+export const submitTaskForReview = async (id) => {
+  await delay();
+  const user = getSessionUser() || { name: 'Assigned Staff' };
+  const tasks = JSON.parse(localStorage.getItem('nirman_tasks') || '[]');
+  const task = tasks.find(t => t._id === id || t.id === id);
+  if (!task) return { success: false, message: 'Task not found.' };
+
+  const history = task.statusHistory || [];
+  history.push({ fromStatus: task.status, toStatus: 'Review', timestamp: new Date().toISOString(), actionBy: user.name });
+
+  task.status = 'Review';
+  task.submittedForReviewAt = new Date().toISOString();
+  task.statusHistory = history;
+  localStorage.setItem('nirman_tasks', JSON.stringify(tasks));
+  return { success: true, message: 'Task submitted for review.', task };
+};
+
+export const approveTask = async (id) => {
+  await delay();
+  const user = getSessionUser() || { name: 'PM / Admin' };
+  const tasks = JSON.parse(localStorage.getItem('nirman_tasks') || '[]');
+  const task = tasks.find(t => t._id === id || t.id === id);
+  if (!task) return { success: false, message: 'Task not found.' };
+
+  const history = task.statusHistory || [];
+  history.push({ fromStatus: task.status, toStatus: 'Approved', timestamp: new Date().toISOString(), actionBy: user.name });
+
+  task.status = 'Approved';
+  task.statusHistory = history;
+  localStorage.setItem('nirman_tasks', JSON.stringify(tasks));
+  return { success: true, message: 'Task approved by manager.', task };
+};
+
+export const completeTask = async (id) => {
+  await delay();
+  const user = getSessionUser() || { name: 'Staff Member' };
+  const tasks = JSON.parse(localStorage.getItem('nirman_tasks') || '[]');
+  const task = tasks.find(t => t._id === id || t.id === id);
+  if (!task) return { success: false, message: 'Task not found.' };
+
+  const completionTime = new Date().toISOString();
+  const startTime = task.actualStartTime ? new Date(task.actualStartTime) : new Date(Date.now() - 3600000);
+  const totalWorkingTimeMinutes = Math.max(15, Math.round((new Date(completionTime) - startTime) / 60000));
+
+  // Correlate with HRM AppUsageDailySummary
+  const summaries = JSON.parse(localStorage.getItem('nirman_app_usage_summaries') || '[]');
+  const userSummary = summaries.find(s => s.userId === task.assignedEmployee?._id || s.userId === task.assignedEmployee?.id) || summaries[0];
+  const idleTimeMinutes = userSummary ? Math.round((userSummary.idleSeconds || 600) / 60) : 15;
+  const productivityScore = Math.max(65, Math.min(98, 100 - Math.round((idleTimeMinutes / (totalWorkingTimeMinutes || 1)) * 100)));
+
+  const history = task.statusHistory || [];
+  history.push({ fromStatus: task.status, toStatus: 'Completed', timestamp: completionTime, actionBy: user.name });
+
+  task.status = 'Completed';
+  task.completionTime = completionTime;
+  task.totalWorkingTimeMinutes = totalWorkingTimeMinutes;
+  task.idleTimeMinutes = idleTimeMinutes;
+  task.productivityScore = productivityScore;
+  task.statusHistory = history;
+
+  localStorage.setItem('nirman_tasks', JSON.stringify(tasks));
+  return { success: true, message: 'Task completed cleanly.', task };
+};
+
+export const getTaskStatusHistory = async (id) => {
+  await delay();
+  const tasks = JSON.parse(localStorage.getItem('nirman_tasks') || '[]');
+  const task = tasks.find(t => t._id === id || t.id === id);
+  return { success: true, history: task?.statusHistory || [] };
+};
+
+export const reassignTask = async (id, reassignData) => {
+  await delay();
+  const user = getSessionUser() || { name: 'PM / Admin' };
+  const tasks = JSON.parse(localStorage.getItem('nirman_tasks') || '[]');
+  const task = tasks.find(t => t._id === id || t.id === id);
+  if (!task) return { success: false, message: 'Task not found.' };
+
+  const reassignments = JSON.parse(localStorage.getItem('nirman_task_reassignments') || '[]');
+  const previousEmp = task.assignee || 'Previous Assignee';
+  const newEmp = reassignData.newEmployeeName || reassignData.assignedEmployee || 'New Assignee';
+
+  const logEntry = {
+    id: 'relog_' + Math.random().toString(36).substr(2, 7),
+    taskId: id,
+    previousEmployee: previousEmp,
+    newEmployee: newEmp,
+    reassignedBy: user.name,
+    timestamp: new Date().toISOString()
+  };
+  reassignments.push(logEntry);
+  localStorage.setItem('nirman_task_reassignments', JSON.stringify(reassignments));
+
+  const history = task.statusHistory || [];
+  history.push({ fromStatus: task.status, toStatus: 'Pending', timestamp: new Date().toISOString(), actionBy: user.name, note: `Reassigned to ${newEmp}` });
+
+  task.assignedEmployee = typeof reassignData.assignedEmployee === 'object' ? reassignData.assignedEmployee : { name: newEmp };
+  task.assignee = newEmp;
+  task.status = 'Pending';
+  task.statusHistory = history;
+
+  localStorage.setItem('nirman_tasks', JSON.stringify(tasks));
+  return { success: true, message: `Task reassigned to ${newEmp} and reset to Pending.`, task };
+};
+
+export const addChecklistItem = async (id, text) => {
+  await delay();
+  const tasks = JSON.parse(localStorage.getItem('nirman_tasks') || '[]');
+  const task = tasks.find(t => t._id === id || t.id === id);
+  if (!task) return { success: false, message: 'Task not found.' };
+
+  const newItem = { id: 'ck_' + Math.random().toString(36).substr(2, 7), text, checked: false };
+  task.checklist = [...(task.checklist || []), newItem];
+  localStorage.setItem('nirman_tasks', JSON.stringify(tasks));
+  return { success: true, checklistItem: newItem, checklist: task.checklist };
+};
+
+export const toggleChecklistItem = async (id, itemId) => {
+  await delay();
+  const tasks = JSON.parse(localStorage.getItem('nirman_tasks') || '[]');
+  const task = tasks.find(t => t._id === id || t.id === id);
+  if (!task) return { success: false, message: 'Task not found.' };
+
+  task.checklist = (task.checklist || []).map(c => (c.id === itemId || String(c.id) === String(itemId)) ? { ...c, checked: !c.checked } : c);
+  localStorage.setItem('nirman_tasks', JSON.stringify(tasks));
+  return { success: true, checklist: task.checklist };
+};
+
+export const deleteChecklistItem = async (id, itemId) => {
+  await delay();
+  const tasks = JSON.parse(localStorage.getItem('nirman_tasks') || '[]');
+  const task = tasks.find(t => t._id === id || t.id === id);
+  if (!task) return { success: false, message: 'Task not found.' };
+
+  task.checklist = (task.checklist || []).filter(c => c.id !== itemId && String(c.id) !== String(itemId));
+  localStorage.setItem('nirman_tasks', JSON.stringify(tasks));
+  return { success: true, checklist: task.checklist };
+};
+
+export const addTaskComment = async (id, commentText) => {
+  await delay();
+  const user = getSessionUser() || { name: 'User' };
+  const tasks = JSON.parse(localStorage.getItem('nirman_tasks') || '[]');
+  const task = tasks.find(t => t._id === id || t.id === id);
+  if (!task) return { success: false, message: 'Task not found.' };
+
+  const newComment = {
+    id: 'cm_' + Math.random().toString(36).substr(2, 7),
+    author: user.name || 'Team Member',
+    commentText,
+    createdAt: new Date().toISOString()
+  };
+  task.comments = [...(task.comments || []), newComment];
+  localStorage.setItem('nirman_tasks', JSON.stringify(tasks));
+  return { success: true, comment: newComment, comments: task.comments };
+};
+
+export const getTaskComments = async (id) => {
+  await delay();
+  const tasks = JSON.parse(localStorage.getItem('nirman_tasks') || '[]');
+  const task = tasks.find(t => t._id === id || t.id === id);
+  return { success: true, comments: task?.comments || [] };
+};
+
+export const getTaskTimeAnalysis = async (id) => {
+  await delay();
+  const tasks = JSON.parse(localStorage.getItem('nirman_tasks') || '[]');
+  const task = tasks.find(t => t._id === id || t.id === id);
+  if (!task) return { success: false, timeAnalysis: null };
+
+  const isDelayed = task.status !== 'Completed' && new Date(task.deadline) < new Date();
+  return {
+    success: true,
+    timeAnalysis: {
+      actualStartTime: task.actualStartTime || null,
+      completionTime: task.completionTime || null,
+      totalWorkingTimeMinutes: task.totalWorkingTimeMinutes || 0,
+      isDelayed,
+      idleTimeMinutes: task.idleTimeMinutes || 0,
+      productivityScore: task.productivityScore || 85
+    }
+  };
+};
+
+export const getOverdueTasks = async () => {
+  await delay();
+  const tasks = JSON.parse(localStorage.getItem('nirman_tasks') || '[]');
+  const now = new Date();
+  const overdue = tasks.filter(t => t.status !== 'Completed' && new Date(t.deadline) < now);
+  return { success: true, tasks: overdue };
+};
+
+export const getPendingReviewTooLongTasks = async () => {
+  await delay();
+  const tasks = JSON.parse(localStorage.getItem('nirman_tasks') || '[]');
+  const now = new Date();
+  const stuck = tasks.filter(t => {
+    if (t.status !== 'Review') return false;
+    const submittedAt = t.submittedForReviewAt ? new Date(t.submittedForReviewAt) : new Date(t.createdAt);
+    const diffHours = (now - submittedAt) / (1000 * 60 * 60);
+    return diffHours >= 24;
+  });
+  return { success: true, tasks: stuck };
+};
+
+export const getProjectTasksBreakdown = async (projectId) => {
+  await delay();
+  const tasks = JSON.parse(localStorage.getItem('nirman_tasks') || '[]');
+  const projTasks = tasks.filter(t => String(t.projectId) === String(projectId) || String(t.project).toLowerCase().includes(String(projectId).toLowerCase()));
+
+  const totalTasks = projTasks.length;
+  const completedTasks = projTasks.filter(t => t.status === 'Completed').length;
+  const inProgressTasks = projTasks.filter(t => t.status === 'In Progress').length;
+  const pendingTasks = projTasks.filter(t => t.status === 'Pending').length;
+  const delayedTasks = projTasks.filter(t => t.status !== 'Completed' && new Date(t.deadline) < new Date()).length;
+
+  const byEmployeeMap = {};
+  projTasks.forEach(t => {
+    const emp = t.assignee || 'Unassigned';
+    byEmployeeMap[emp] = (byEmployeeMap[emp] || 0) + 1;
+  });
+
+  return {
+    success: true,
+    breakdown: {
+      totalTasks,
+      completedTasks,
+      inProgressTasks,
+      pendingTasks,
+      delayedTasks,
+      byEmployee: byEmployeeMap
+    }
+  };
+};
 
 // --- ATTENDANCE MOCKS ---
 
@@ -1357,7 +1852,7 @@ export const mockCreateLead = async (payload) => {
 export const mockGetLeads = async (params = {}) => {
   await delay();
   const rawLeads = JSON.parse(localStorage.getItem('nirman_leads') || '[]');
-  
+
   // Deduplicate stored leads by ID and Phone number
   const seenIds = new Set();
   const seenPhones = new Set();
@@ -2234,7 +2729,7 @@ export const mockClientLogin = async (credentials) => {
   const clients = getStoredClients();
 
   const cleanEmail = (email || '').trim().toLowerCase();
-  
+
   // 1. Direct match on ClientContact email
   let contact = contacts.find(c => c.email && c.email.toLowerCase() === cleanEmail);
 
@@ -2296,7 +2791,7 @@ export const mockClientChangePassword = async (payload) => {
       });
       localStorage.setItem('nirman_client_contacts', JSON.stringify(contacts));
     }
-  } catch (e) {}
+  } catch (e) { }
   return { success: true, message: 'Password updated successfully.', mustChangePassword: false };
 };
 
@@ -2593,7 +3088,7 @@ export const getMockPendingDeviceRequests = async () => {
   initLocalStorage();
   const rawReqs = JSON.parse(localStorage.getItem('nirman_device_requests') || '[]');
   const users = JSON.parse(localStorage.getItem('nirman_users') || '[]');
-  
+
   const pending = rawReqs
     .filter(r => r.status === 'PENDING')
     .map(r => {
@@ -2632,7 +3127,7 @@ export const approveMockDeviceRequest = async (requestId, action) => {
 
   const targetUserId = typeof req.userId === 'object' ? (req.userId.id || req.userId._id) : req.userId;
   const userObj = users.find(u => u.id === targetUserId || u._id === targetUserId);
-  
+
   if (userObj && upperAction === 'APPROVE') {
     userObj.registeredDeviceId = req.newDeviceId;
     userObj.deviceId = req.newDeviceId;
@@ -2748,7 +3243,7 @@ export const getMockClientProjectDrawings = async (projectId) => {
   await delay();
   initLocalStorage();
   const drawings = JSON.parse(localStorage.getItem('nirman_drawings') || '[]');
-  
+
   const list = drawings.filter(d => !projectId || String(d.projectId) === String(projectId));
   return {
     success: true,
@@ -2947,7 +3442,7 @@ export const getMockClientApprovalLog = async (drawingId) => {
   initLocalStorage();
   const logs = JSON.parse(localStorage.getItem('nirman_client_approval_logs') || '[]');
   const filtered = logs.filter(l => !drawingId || l.drawingId === drawingId);
-  
+
   if (filtered.length > 0) {
     return {
       success: true,

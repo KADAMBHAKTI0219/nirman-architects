@@ -14,6 +14,7 @@ import {
   getCachedDrawingFile
 } from '../../service/drawing';
 import MarkupEditor from '../admin/markup/MarkupEditor';
+import { detectFileType, getCleanFileUrl } from '../../utils/fileTypeDetector';
 
 export default function DrawingViewer({
   drawing,
@@ -352,24 +353,31 @@ export default function DrawingViewer({
             >
               {(() => {
                 const cached = getCachedDrawingFile(drawing._id || drawing.id || drawing.drawingNumber);
-                const targetUrl = cached || drawing.fileUrl || drawing.pdfUrl;
-                const rawUrl = typeof targetUrl === 'string' ? targetUrl : (targetUrl instanceof File || targetUrl instanceof Blob ? URL.createObjectURL(targetUrl) : '');
-                const isPdf = typeof rawUrl === 'string' && (rawUrl.startsWith('data:application/pdf') || rawUrl.endsWith('.pdf') || rawUrl.includes('.pdf') || rawUrl.includes('cloudinary'));
-                if (isPdf && rawUrl) {
+                const targetUrl = cached || drawing.fileUrl || drawing.filePath || drawing.pdfUrl || drawing.url;
+                const rawUrl = getCleanFileUrl(targetUrl);
+                const type = detectFileType(targetUrl || rawUrl, drawing);
+
+                if (type === 'pdf' && rawUrl) {
                   const iframeSrc = rawUrl.includes('#') ? rawUrl : `${rawUrl}#toolbar=1&navpanes=1`;
                   return (
                     <iframe
                       src={iframeSrc}
-                      title={drawing.title}
-                      className="w-[850px] h-[550px] rounded-xl border-0 bg-white shadow-2xl"
+                      title={drawing.title || drawing.name}
+                      className="w-[850px] h-[550px] max-w-full rounded-xl border-0 bg-white shadow-2xl"
                     />
                   );
                 }
+
+                const fallbackImg = "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80";
                 return (
                   <img 
-                    src={rawUrl || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80"} 
-                    alt={drawing.title} 
-                    className="max-w-full max-h-[550px] object-contain rounded-xl select-none"
+                    src={rawUrl || fallbackImg} 
+                    alt={drawing.title || drawing.name} 
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = fallbackImg;
+                    }}
+                    className="max-w-full max-h-[550px] object-contain rounded-xl select-none shadow-2xl"
                   />
                 );
               })()}

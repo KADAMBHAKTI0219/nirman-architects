@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import HRLeaves from './HRLeaves';
-import HRShifts from './HRShifts';
 import HRPayrollOps from './HRPayrollOps';
 import HRPerformance from './HRPerformance';
 import LeaveMaster from './LeaveMaster';
@@ -330,7 +329,6 @@ export default function HRPayroll({ defaultTab = 'payroll' }) {
     { id: 'overview', label: 'HR Overview' },
     { id: 'leaves', label: 'Leave Management' },
     { id: 'leave-master', label: 'Leave Master' },
-    { id: 'shifts', label: 'Shift planner' },
     { id: 'payroll', label: 'Payroll Center' },
     { id: 'performance', label: 'Performance score' }
   ];
@@ -341,8 +339,6 @@ export default function HRPayroll({ defaultTab = 'payroll' }) {
         return { title: 'Leave Management', subtitle: 'Review, approve, and track employee leave applications and leave balances' };
       case 'leave-master':
         return { title: 'Leave Master & Quotas', subtitle: 'Configure company leave types, annual quotas, and carry-forward policies' };
-      case 'shifts':
-        return { title: 'Shift Planner & Rota', subtitle: 'Assign work shifts, site rotas, and monitor active employee shifts' };
       case 'payroll':
         return { title: 'Payroll Processing Center', subtitle: 'Calculate salaries, deductions, overtime, and generate monthly payslips' };
       case 'performance':
@@ -388,15 +384,6 @@ export default function HRPayroll({ defaultTab = 'payroll' }) {
             leaveTypes={leaveTypes}
             onDeactivate={handleDeactivateLeaveType}
             onCreate={handleCreateLeaveType}
-          />
-        )}
-
-        {activeTab === 'shifts' && (
-          <HRShifts 
-            shiftList={SHIFT_CONFIGS}
-            swapRequests={swapRequests}
-            onApproveSwap={handleApproveSwap}
-            onRejectSwap={handleRejectSwap}
           />
         )}
 

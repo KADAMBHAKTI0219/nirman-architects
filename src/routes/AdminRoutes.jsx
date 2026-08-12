@@ -123,11 +123,6 @@ export default function getAdminRoutes(handleRoleChange) {
           <LazyWrap><AdminHRPayroll defaultTab="leave-master" /></LazyWrap>
         </DashboardLayout>
       } />
-      <Route path="/admin/hr/shifts" element={
-        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="HR & Payroll">
-          <LazyWrap><AdminHRPayroll defaultTab="shifts" /></LazyWrap>
-        </DashboardLayout>
-      } />
       <Route path="/admin/hr/payroll" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="HR & Payroll">
           <LazyWrap><AdminHRPayroll defaultTab="payroll" /></LazyWrap>

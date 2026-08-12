@@ -16,6 +16,7 @@ import {
 import Card from '../../common/Card';
 import MarkupEditor from '../markup/MarkupEditor';
 import DrawingVersionModal from './DrawingVersionModal';
+import { detectFileType, getCleanFileUrl } from '../../../utils/fileTypeDetector';
 
 export default function DrawingDetails({
   drawing,
@@ -376,22 +377,10 @@ export default function DrawingDetails({
                   const currentVerPath = versionHistoryList && versionHistoryList.length > 0 ? (versionHistoryList[0].filePath || versionHistoryList[0].fileUrl) : null;
                   const targetUrl = cached || drawing.fileUrl || drawing.filePath || drawing.pdfUrl || currentVerPath;
                   
-                  let rawUrl = '';
-                  if (targetUrl instanceof File || targetUrl instanceof Blob) {
-                    rawUrl = URL.createObjectURL(targetUrl);
-                  } else if (typeof targetUrl === 'string' && targetUrl.trim()) {
-                    const clean = targetUrl.trim();
-                    if (clean.startsWith('http') || clean.startsWith('data:') || clean.startsWith('blob:')) {
-                      rawUrl = clean;
-                    } else if (clean.startsWith('/')) {
-                      rawUrl = `https://nirman-architects.onrender.com${clean}`;
-                    } else {
-                      rawUrl = `https://nirman-architects.onrender.com/${clean}`;
-                    }
-                  }
-
-                  const isPdf = typeof rawUrl === 'string' && (rawUrl.toLowerCase().includes('.pdf') || rawUrl.startsWith('data:application/pdf'));
-                  const isDwg = typeof rawUrl === 'string' && rawUrl.toLowerCase().includes('.dwg');
+                  const rawUrl = getCleanFileUrl(targetUrl);
+                  const fileType = detectFileType(targetUrl || rawUrl, drawing);
+                  const isDwg = fileType === 'dwg';
+                  const isPdf = fileType === 'pdf';
 
                   if (isPdf && rawUrl) {
                     const iframeSrc = rawUrl.includes('#') ? rawUrl : `${rawUrl}#toolbar=1&navpanes=1`;

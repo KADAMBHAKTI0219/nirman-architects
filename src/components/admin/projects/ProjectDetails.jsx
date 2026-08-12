@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  ArrowLeft, Calendar, MapPin, Users, ShieldAlert, FileText, CheckCircle2,
+  ArrowLeft, Calendar, MapPin, Users, FileText, CheckCircle2,
   Clock, Send, HelpCircle, Building, Eye, EyeOff, Plus, Trash2, Link as LinkIcon, RefreshCw, UserCheck, Check, X
 } from 'lucide-react';
 import Card from '../../common/Card';
@@ -41,7 +41,7 @@ export default function ProjectDetails({
   onBack,
   onUpdateProject,
   onApproveDrawing,
-  defaultTab = 'overview'
+  defaultTab = 'timeline'
 }) {
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A';
@@ -693,7 +693,6 @@ export default function ProjectDetails({
         {/* 1. PILL NAVIGATION TAB BAR */}
         <div className="flex border-t border-slate-100 pt-3 overflow-x-auto gap-2 scrollbar-none">
           {[
-            { id: 'overview', label: 'Overview' },
             { id: 'timeline', label: 'Timeline & Milestones' },
             { id: 'tasks', label: 'Tasks' },
             { id: 'drawings', label: 'Drawings & GFC' },
@@ -722,127 +721,7 @@ export default function ProjectDetails({
       {/* 2. TAB PANELS CONTAINER */}
       <div className="space-y-6">
 
-        {/* OVERVIEW PANEL */}
-        {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            {/* Left 2 Columns: Executive Summary & Project Specs Grid */}
-            <div className="lg:col-span-2 space-y-6">
-              
-              <Card title="Executive Project Summary" subtitle="Scope description and general contractor charter">
-                <div className="space-y-4 text-xs">
-                  <p className="text-slate-700 leading-relaxed font-normal">
-                    {project.description || project.summary || `Project technical specifications and contractor operational charter for ${project.name || 'this project'}. Operations span structural planning, MEP engineering, CAD drawing sign-offs, and high-fidelity site execution.`}
-                  </p>
-                  {project.delayFlag && (
-                    <div className="p-4 bg-rose-50/80 border border-rose-200 rounded-2xl flex items-start gap-3">
-                      <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-                      <div>
-                        <span className="text-rose-900 font-semibold text-xs block">Schedule Risk Warning</span>
-                        <p className="text-rose-700 text-xs mt-0.5 leading-normal font-normal">
-                          {project.delayReason || 'Milestone target dates are experiencing delay risks.'}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </Card>
 
-              {/* 2-Column Specification Grid */}
-              <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
-                <h3 className="text-sm font-semibold text-slate-900">Project Technical Specifications</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-normal">
-                  <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-2xl space-y-1">
-                    <span className="text-[10px] text-slate-400 font-medium uppercase">Project Category</span>
-                    <span className="text-slate-800 block text-xs font-normal">
-                      {(project.projectCategoryId && typeof project.projectCategoryId === 'object') ? project.projectCategoryId.name : (project.category || 'N/A')}
-                    </span>
-                  </div>
-
-                  <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-2xl space-y-1">
-                    <span className="text-[10px] text-slate-400 font-medium uppercase">Site Location</span>
-                    <span className="text-slate-800 block text-xs font-normal">{project.address || project.location || 'N/A'}</span>
-                  </div>
-
-                  <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-2xl space-y-1">
-                    <span className="text-[10px] text-slate-400 font-medium uppercase">Client Organization</span>
-                    <span className="text-slate-800 block text-xs font-normal">{project.clientInformation || project.client || 'N/A'}</span>
-                  </div>
-
-                  <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-2xl space-y-1">
-                    <span className="text-[10px] text-slate-400 font-medium uppercase">Lead Project Manager</span>
-                    <span className="text-slate-800 block text-xs font-normal">
-                      {project.createdBy?.name || project.manager || 'Unassigned'}
-                    </span>
-                  </div>
-
-                  <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-2xl space-y-1">
-                    <span className="text-[10px] text-slate-400 font-medium uppercase">Start Date</span>
-                    <span className="text-slate-800 block text-xs font-normal">{formatDate(project.startDate)}</span>
-                  </div>
-
-                  <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-2xl space-y-1">
-                    <span className="text-[10px] text-slate-400 font-medium uppercase">Target Completion</span>
-                    <span className="text-slate-800 block text-xs font-normal">{formatDate(project.estimatedCompletion || project.estCompletion)}</span>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Right 1 Column: Health & Progress Cards */}
-            <div className="space-y-6">
-              <Card title="Project Health Metrics">
-                <div className="space-y-4 text-xs font-normal">
-                  
-                  {/* Overall Progress Gauge */}
-                  <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] text-slate-400 font-medium uppercase">Overall Progress</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-base font-semibold text-slate-900">{project.progressPercentage ?? project.progressPercent ?? project.progress ?? 0}%</span>
-                        <button
-                          onClick={() => setShowProgressModal(true)}
-                          className="px-2.5 py-1 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-semibold text-[10px] rounded-lg shadow-3xs transition-all cursor-pointer border border-brand-secondary/40"
-                          title="Update Overall Progress"
-                        >
-                          Update Progress
-                        </button>
-                      </div>
-                    </div>
-                    <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
-                      <div className="bg-gradient-to-r from-brand-secondary to-indigo-600 h-full rounded-full transition-all duration-300" style={{ width: `${project.progressPercentage ?? project.progressPercent ?? project.progress ?? 0}%` }}></div>
-                    </div>
-                  </div>
-
-                  {/* Health Score */}
-                  <div className="p-4 bg-emerald-50/60 border border-emerald-200/80 rounded-2xl flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] text-emerald-700 font-medium uppercase block">Health Score</span>
-                      <span className="text-lg font-semibold text-emerald-900">
-                        {Math.min(100, Math.max(0, Math.round(((project.progressPercentage || project.progress || 0) * 0.8) + 20)))} / 100
-                      </span>
-                    </div>
-                    <CheckCircle2 className="w-8 h-8 text-emerald-600" />
-                  </div>
-
-                  {/* Manager Avatar Card */}
-                  <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-slate-900 text-white font-semibold flex items-center justify-center text-xs">
-                      {((project.createdBy?.name || project.manager || 'PM').split(' ').map(n=>n[0]).join('')).toUpperCase()}
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 font-medium uppercase block">Project Manager</span>
-                      <span className="text-slate-800 block text-xs font-normal">{project.createdBy?.name || project.manager || 'Unassigned'}</span>
-                    </div>
-                  </div>
-
-                </div>
-              </Card>
-            </div>
-
-          </div>
-        )}
 
         {/* CRM MODULE 3: LINKED CLIENTS PANEL */}
         {activeTab === 'clients' && (

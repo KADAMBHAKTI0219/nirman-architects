@@ -48,7 +48,6 @@ const SIDEBAR_ITEMS = {
         { label: "Payroll Center", path: "/admin/hr/payroll" },
         { label: "Leave Management", path: "/admin/hr/leaves" },
         { label: "Leave Master", path: "/admin/hr/leave-master" },
-        { label: "Shift Planner", path: "/admin/hr/shifts" },
         { label: "Performance Score", path: "/admin/hr/performance" }
       ]
     },
@@ -101,7 +100,6 @@ const SIDEBAR_ITEMS = {
         { label: "My Personal Leaves", path: "/hr/leaves/personal" }
       ]
     },
-    { label: "Shift Rosters", path: "/hr/shifts", icon: "Clock3" },
     { category: "Operations & Reviews" },
     { label: "Payroll", path: "/hr/payroll", icon: "Briefcase" },
     { label: "Performance", path: "/hr/performance", icon: "Award" },

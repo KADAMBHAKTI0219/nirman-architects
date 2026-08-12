@@ -2,54 +2,118 @@ import React, { useState } from 'react';
 import { ArrowLeft, GitCompare, FileText, CheckCircle, Clock } from 'lucide-react';
 import Card from '../../common/Card';
 import { getCachedDrawingFile } from '../../../service/drawing';
+import { detectFileType, getCleanFileUrl } from '../../../utils/fileTypeDetector';
 
 export default function DrawingCompare({
   drawing,
   onBack
 }) {
-  const versions = drawing?.versions || [
-    { version: 'V1.0', date: '2026-07-10', uploader: 'Sarah Connor', changeLog: 'Initial layout draft PDF', fileUrl: drawing?.fileUrl },
-    { version: 'V2.1', date: '2026-07-20', uploader: 'Sarah Connor', changeLog: 'Revised column & elevator shaft PDF', fileUrl: drawing?.fileUrl }
-  ];
+  // Normalize & construct distinct versions list (V1.0 Initial Draft vs V2.0 Latest Revision)
+  const getNormalizedVersions = () => {
+    const rawVersions = Array.isArray(drawing?.versions) && drawing.versions.length > 0 ? drawing.versions : [];
+    const currentVerTag = drawing?.currentVersion 
+      ? (String(drawing.currentVersion).toUpperCase().startsWith('V') ? String(drawing.currentVersion).toUpperCase() : `V${drawing.currentVersion}`)
+      : 'V2.0';
 
-  const [versionA, setVersionA] = useState(versions[0]?.version || versions[0]?.versionNumber || 'V1.0');
-  const [versionB, setVersionB] = useState(versions[versions.length - 1]?.version || versions[versions.length - 1]?.versionNumber || 'V2.1');
+    if (rawVersions.length >= 2) {
+      const seen = new Set();
+      return rawVersions.map((v, idx) => {
+        let tag = v.version || (v.versionNumber ? `V${v.versionNumber}${String(v.versionNumber).includes('.') ? '' : '.0'}` : `V${idx + 1}.0`);
+        if (!tag.toUpperCase().startsWith('V')) tag = `V${tag}`;
+        if (seen.has(tag)) tag = `V${idx + 1}.0`;
+        seen.add(tag);
 
-  const detailsA = versions.find(v => (v.version || `V${v.versionNumber}`) === versionA) || versions[0] || {};
-  const detailsB = versions.find(v => (v.version || `V${v.versionNumber}`) === versionB) || versions[versions.length - 1] || {};
+        return {
+          id: v._id || v.id || tag,
+          version: tag,
+          versionNumber: v.versionNumber || (idx + 1),
+          date: v.date || (v.uploadedAt ? new Date(v.uploadedAt).toISOString().split('T')[0] : (idx === 0 ? '2026-07-10' : '2026-08-01')),
+          uploader: v.uploader || v.createdBy?.name || drawing?.createdBy?.name || 'Lead Designer',
+          changeLog: v.changeLog || v.notes || (idx === 0 ? 'Initial architectural layout release & structural draft' : 'Revised blueprint drawing version & column alignment update'),
+          fileUrl: v.fileUrl || v.filePath || drawing?.fileUrl || drawing?.filePath
+        };
+      });
+    }
+
+    // Default 2-step history when single version or no versions array is present
+    const firstVerTag = 'V1.0';
+    const latestVerTag = currentVerTag === 'V1.0' ? 'V2.0' : currentVerTag;
+
+    const firstDraftObj = rawVersions[0] || {};
+    return [
+      {
+        id: 'ver-initial',
+        version: firstVerTag,
+        versionNumber: 1.0,
+        date: firstDraftObj.date || '2026-07-10',
+        uploader: firstDraftObj.uploader || drawing?.createdBy?.name || 'Lead Designer',
+        changeLog: firstDraftObj.changeLog || 'Initial architectural layout release & structural draft',
+        fileUrl: firstDraftObj.fileUrl || drawing?.fileUrl || drawing?.filePath
+      },
+      {
+        id: 'ver-latest',
+        version: latestVerTag,
+        versionNumber: parseFloat(latestVerTag.replace(/[^0-9.]/g, '')) || 2.0,
+        date: drawing?.updatedAt ? new Date(drawing.updatedAt).toISOString().split('T')[0] : '2026-08-05',
+        uploader: drawing?.createdBy?.name || 'Lead Designer',
+        changeLog: drawing?.description || drawing?.notes || 'Revised blueprint drawing version & column alignment update',
+        fileUrl: drawing?.fileUrl || drawing?.filePath
+      }
+    ];
+  };
+
+  const versions = getNormalizedVersions();
+
+  const [versionA, setVersionA] = useState(versions[0]?.version || 'V1.0');
+  const [versionB, setVersionB] = useState(versions[versions.length - 1]?.version || 'V2.0');
+
+  const detailsA = versions.find(v => v.version === versionA) || versions[0] || {};
+  const detailsB = versions.find(v => v.version === versionB) || versions[versions.length - 1] || {};
 
   const renderFilePreview = (url, title, versionDetails, isVersionA = false) => {
-    const vId = versionDetails?._id || versionDetails?.id || versionDetails?.version;
+    const vId = versionDetails?.id || versionDetails?.version;
     const cachedVer = vId ? getCachedDrawingFile(vId) : null;
     const cachedDwg = getCachedDrawingFile(drawing?._id || drawing?.id || drawing?.drawingNumber);
     
-    let targetUrl = url || cachedVer || cachedDwg || drawing?.filePath || drawing?.fileUrl || drawing?.previewUrl;
-    
+    let targetUrl = url || cachedVer || cachedDwg || drawing?.filePath || drawing?.fileUrl;
+    const rawUrl = getCleanFileUrl(targetUrl);
+    const fileType = detectFileType(targetUrl || rawUrl, drawing);
+
     // High-resolution architectural mock blueprint images for Version A vs Version B
     const versionABlueprint = "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80";
     const versionBBlueprint = "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80";
     const fallbackImage = isVersionA ? versionABlueprint : versionBBlueprint;
-    
-    if (!targetUrl || 
-        typeof targetUrl !== 'string' ||
-        targetUrl === '/' || 
-        targetUrl.includes('localhost:5173') || 
-        targetUrl.endsWith('.pdf') || 
-        targetUrl.includes('/uploads/drawings/')) {
-      targetUrl = fallbackImage;
+
+    if (fileType === 'pdf' && rawUrl && !rawUrl.includes('unsplash')) {
+      const iframeSrc = rawUrl.includes('#') ? rawUrl : `${rawUrl}#toolbar=1&navpanes=1`;
+      return (
+        <div className="h-56 w-full rounded-2xl border border-slate-200 overflow-hidden relative shadow-inner bg-slate-900">
+          <iframe
+            src={iframeSrc}
+            title={title}
+            className="w-full h-full border-0 bg-white"
+          />
+          <div className="absolute bottom-3 left-3 bg-slate-900/80 backdrop-blur-xs text-white text-[9px] font-mono px-2.5 py-1 rounded-lg z-10 border border-slate-700">
+            {title}
+          </div>
+        </div>
+      );
     }
+
+    const imageSrc = (rawUrl && !rawUrl.includes('.pdf')) ? rawUrl : fallbackImage;
 
     return (
       <div className="h-56 flex items-center justify-center p-2 bg-slate-900/5 rounded-2xl border border-slate-200 overflow-hidden relative group">
         <img
-          src={targetUrl}
+          src={imageSrc}
           alt={title}
           className="w-full h-full object-contain rounded-xl select-none transition-transform duration-300 group-hover:scale-105"
           onError={(e) => {
+            e.target.onerror = null;
             e.target.src = fallbackImage;
           }}
         />
-        <div className="absolute bottom-3 left-3 bg-slate-900/70 backdrop-blur-xs text-white text-[9px] font-mono px-2.5 py-1 rounded-lg">
+        <div className="absolute bottom-3 left-3 bg-slate-900/80 backdrop-blur-xs text-white text-[9px] font-mono px-2.5 py-1 rounded-lg z-10 border border-slate-700 shadow-md">
           {title}
         </div>
       </div>
@@ -69,7 +133,7 @@ export default function DrawingCompare({
         </button>
         <div>
           <span className="text-[9px] font-black text-sky-600 uppercase tracking-widest block">Side-by-Side Revision Comparison</span>
-          <h2 className="text-base font-extrabold text-slate-900 tracking-tight leading-none mt-0.5">{drawing?.name || drawing?.title}</h2>
+          <h2 className="text-base font-extrabold text-slate-900 tracking-tight leading-none mt-0.5">{drawing?.name || drawing?.title || 'Drawing Blueprint Comparison'}</h2>
         </div>
       </div>
 
@@ -93,10 +157,9 @@ export default function DrawingCompare({
               onChange={(e) => setVersionA(e.target.value)}
               className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400 text-slate-800 bg-white font-bold cursor-pointer"
             >
-              {versions.map((v, idx) => {
-                const label = v.version || `V${v.versionNumber || (idx + 1)}.0`;
-                return <option key={label} value={label}>{label} ({v.date || 'Initial'})</option>;
-              })}
+              {versions.map((v) => (
+                <option key={v.version} value={v.version}>{v.version} ({v.date || 'Initial'})</option>
+              ))}
             </select>
           </div>
 
@@ -109,10 +172,9 @@ export default function DrawingCompare({
               onChange={(e) => setVersionB(e.target.value)}
               className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400 text-slate-800 bg-white font-bold cursor-pointer"
             >
-              {versions.map((v, idx) => {
-                const label = v.version || `V${v.versionNumber || (idx + 1)}.0`;
-                return <option key={label} value={label}>{label} ({v.date || 'Recent'})</option>;
-              })}
+              {versions.map((v) => (
+                <option key={v.version} value={v.version}>{v.version} ({v.date || 'Recent'})</option>
+              ))}
             </select>
           </div>
         </div>
@@ -126,18 +188,20 @@ export default function DrawingCompare({
           <div className="flex justify-between items-center border-b border-slate-100 pb-2">
             <div className="flex items-center gap-2">
               <span className="text-xs font-black text-sky-600 uppercase">Revision {versionA}</span>
-              <span className="px-2 py-0.5 bg-sky-50 text-sky-600 border border-sky-100 text-[9px] font-bold rounded-md">First Draft</span>
+              <span className="px-2 py-0.5 bg-sky-50 text-sky-600 border border-sky-100 text-[9px] font-bold rounded-md">
+                {versionA === versions[0]?.version ? 'First Draft' : 'Previous Draft'}
+              </span>
             </div>
-            <span className="text-[10px] text-slate-400 font-medium">By: {detailsA?.uploader || 'Sarah Connor'}</span>
+            <span className="text-[10px] text-slate-400 font-medium">By: {detailsA?.uploader || 'Lead Designer'}</span>
           </div>
 
           {/* Actual PDF / Image Embed for Version A */}
-          {renderFilePreview(detailsA?.fileUrl || drawing?.fileUrl, `Revision ${versionA}`, detailsA, true)}
+          {renderFilePreview(detailsA?.fileUrl, `Revision ${versionA}`, detailsA, true)}
 
           <div className="text-xs font-medium text-slate-600 space-y-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase block">Version Notes & Change Log:</span>
             <p className="text-slate-700 bg-slate-50/80 p-3 rounded-2xl border border-slate-200/60 text-[11px] leading-relaxed italic">
-              "{detailsA?.changeLog || detailsA?.notes || 'Initial architectural layout release'}"
+              "{detailsA?.changeLog || 'Initial architectural layout release & structural draft'}"
             </p>
           </div>
         </div>
@@ -147,18 +211,20 @@ export default function DrawingCompare({
           <div className="flex justify-between items-center border-b border-slate-100 pb-2">
             <div className="flex items-center gap-2">
               <span className="text-xs font-black text-sky-600 uppercase">Revision {versionB}</span>
-              <span className="px-2 py-0.5 crm-brand-soft-bg text-sky-700 border border-sky-200 text-[9px] font-bold rounded-md">Latest Revision</span>
+              <span className="px-2 py-0.5 crm-brand-soft-bg text-sky-700 border border-sky-200 text-[9px] font-bold rounded-md">
+                {versionB === versions[versions.length - 1]?.version ? 'Latest Revision' : 'Selected Revision'}
+              </span>
             </div>
-            <span className="text-[10px] text-slate-400 font-medium">By: {detailsB?.uploader || 'Sarah Connor'}</span>
+            <span className="text-[10px] text-slate-400 font-medium">By: {detailsB?.uploader || 'Lead Designer'}</span>
           </div>
 
           {/* Actual PDF / Image Embed for Version B */}
-          {renderFilePreview(detailsB?.fileUrl || drawing?.fileUrl, `Revision ${versionB}`, detailsB, false)}
+          {renderFilePreview(detailsB?.fileUrl, `Revision ${versionB}`, detailsB, false)}
 
           <div className="text-xs font-medium text-slate-600 space-y-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase block">Version Notes & Change Log:</span>
             <p className="text-slate-700 bg-slate-50/80 p-3 rounded-2xl border border-slate-200/60 text-[11px] leading-relaxed italic">
-              "{detailsB?.changeLog || detailsB?.notes || 'Updated columns & beam clearances revision'}"
+              "{detailsB?.changeLog || 'Revised blueprint drawing version & column alignment update'}"
             </p>
           </div>
         </div>

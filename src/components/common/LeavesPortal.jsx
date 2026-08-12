@@ -139,7 +139,7 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
             toDate: toDateStr,
             days: req.totalDays || diffDays || 1,
             reason: req.reason || '',
-            status: req.status ? (req.status.charAt(0) + req.status.slice(1).toLowerCase()) : 'Pending'
+            status: req.status ? (req.status.charAt(0).toUpperCase() + req.status.slice(1).toLowerCase()) : 'Pending'
           };
         });
         setRequests(mappedRequests);

@@ -93,13 +93,16 @@ export const renderPdfBufferToDataUrl = async (arrayBuffer, pageNum = 1, scale =
  * Universal File Converter: Converts ANY user-uploaded File (PDF or Image) or URL
  * into a High-Res Data URL for Fabric Canvas Background
  */
+import { detectFileType } from '../../../utils/fileTypeDetector';
+
 export const convertFileToDataUrl = async (fileOrUrl, pageNum = 1, scale = 2.5) => {
   if (!fileOrUrl) return null;
 
+  const type = detectFileType(fileOrUrl);
+
   // 1. User selected File or Blob object
   if (fileOrUrl instanceof File || fileOrUrl instanceof Blob) {
-    const isPdf = fileOrUrl.type === 'application/pdf' || (fileOrUrl.name && fileOrUrl.name.toLowerCase().endsWith('.pdf'));
-    if (isPdf) {
+    if (type === 'pdf') {
       const buffer = await fileOrUrl.arrayBuffer();
       const pdfRes = await renderPdfBufferToDataUrl(buffer, pageNum, scale);
       if (pdfRes) return pdfRes;
@@ -115,10 +118,10 @@ export const convertFileToDataUrl = async (fileOrUrl, pageNum = 1, scale = 2.5) 
 
   // 2. URL String
   if (typeof fileOrUrl === 'string') {
-    if (fileOrUrl.toLowerCase().includes('.dwg')) {
+    if (type === 'dwg') {
       return { dataUrl: getBlueprintSvgDataUrl("ARCHITECTURAL CAD BLUEPRINT", "DWG RELEASE"), numPages: 1, pageNum: 1 };
     }
-    if (fileOrUrl.toLowerCase().endsWith('.pdf') || fileOrUrl.includes('.pdf')) {
+    if (type === 'pdf') {
       const pdfRes = await renderPdfPageToDataUrl(fileOrUrl, pageNum, scale);
       if (pdfRes) return pdfRes;
     }

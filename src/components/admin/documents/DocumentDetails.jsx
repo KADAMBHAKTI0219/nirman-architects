@@ -15,6 +15,7 @@ import {
   downloadDocument 
 } from '../../../service/document';
 import DocumentVersionModal from './DocumentVersionModal';
+import { detectFileType, getCleanFileUrl } from '../../../utils/fileTypeDetector';
 
 export default function DocumentDetails({
   doc,
@@ -33,19 +34,11 @@ export default function DocumentDetails({
   const docTitle = doc?.documentName || doc?.fileName || doc?.name || 'Untitled Document.pdf';
   const rawFileUrl = doc?.filePath || doc?.fileUrl || doc?.url || doc?.currentVersionId?.filePath || doc?.currentVersionId?.fileUrl || '';
   
-  const resolveDocFileUrl = (urlStr) => {
-    if (!urlStr || typeof urlStr !== 'string') return null;
-    const clean = urlStr.trim();
-    if (!clean) return null;
-    if (clean.startsWith('http') || clean.startsWith('data:') || clean.startsWith('blob:')) return clean;
-    if (clean.startsWith('/')) return `https://nirman-architects.onrender.com${clean}`;
-    return `https://nirman-architects.onrender.com/${clean}`;
-  };
-
-  const fileUrl = resolveDocFileUrl(rawFileUrl);
+  const fileUrl = getCleanFileUrl(rawFileUrl);
+  const detectedType = detectFileType(rawFileUrl || fileUrl, doc);
+  const isImage = detectedType === 'image';
+  const isPdf = detectedType === 'pdf';
   const fileExt = (doc?.fileType || doc?.type || docTitle.split('.').pop() || 'PDF').toUpperCase();
-  const isImage = ['JPG', 'JPEG', 'PNG', 'WEBP', 'GIF', 'SVG'].includes(fileExt) || (fileUrl && fileUrl.match(/\.(jpg|jpeg|png|webp|gif|svg)$/i));
-  const isPdf = fileExt === 'PDF' || (fileUrl && fileUrl.toLowerCase().includes('.pdf'));
 
   const fetchAccessLog = async () => {
     if (!docId) return;
