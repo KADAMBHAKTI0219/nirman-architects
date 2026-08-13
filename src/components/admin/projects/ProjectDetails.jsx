@@ -35,6 +35,8 @@ import DrawingCreateModal from '../drawings/DrawingCreateModal';
 import DocumentUploadModal from '../documents/DocumentUploadModal';
 import DocumentAccessLogModal from '../documents/DocumentAccessLogModal';
 import TaskCreateModal from '../tasks/TaskCreateModal';
+import DrawingDetails from '../drawings/DrawingDetails';
+import DrawingCompare from '../drawings/DrawingCompare';
 
 export default function ProjectDetails({
   project,
@@ -43,6 +45,25 @@ export default function ProjectDetails({
   onApproveDrawing,
   defaultTab = 'timeline'
 }) {
+  const userStr = localStorage.getItem('user');
+  let loggedInUser = null;
+  if (userStr) {
+    try {
+      loggedInUser = JSON.parse(userStr);
+    } catch (e) {}
+  }
+  const isAuthorizedToLink = loggedInUser && (
+    loggedInUser.role === 'Admin' ||
+    loggedInUser.role === 'ProjectManager' ||
+    loggedInUser.role === 'HR' ||
+    loggedInUser.roleCode === 'SUPER_ADMIN' ||
+    loggedInUser.roleCode === 'ADMIN' ||
+    loggedInUser.roleCode === 'PROJECT_MANAGER' ||
+    loggedInUser.roleCode === 'PM' ||
+    loggedInUser.roleCode === 'HR_MANAGER' ||
+    loggedInUser.roleCode === 'HR'
+  );
+
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A';
     try {
@@ -100,6 +121,8 @@ export default function ProjectDetails({
   const [projectDrawingsList, setProjectDrawingsList] = useState(project.drawings || []);
   const [loadingProjectDrawings, setLoadingProjectDrawings] = useState(false);
   const [isUploadDrawingModalOpen, setIsUploadDrawingModalOpen] = useState(false);
+  const [selectedDrawingForView, setSelectedDrawingForView] = useState(null);
+  const [selectedDrawingForCompare, setSelectedDrawingForCompare] = useState(null);
 
   // ERP Module 2: Project Tasks State
   const [projectTasksList, setProjectTasksList] = useState(project.tasks || []);
@@ -172,6 +195,12 @@ export default function ProjectDetails({
       setLoadingProjectDrawings(false);
     }
   };
+
+  useEffect(() => {
+    if (activeTab === 'drawings') {
+      fetchProjectDrawingsList();
+    }
+  }, [activeTab, projectId]);
 
   const handleUploadProjectDrawingSubmit = async (formData) => {
     try {
@@ -646,8 +675,33 @@ export default function ProjectDetails({
   };
 
   const handleWorkflowApprove = (dwgCode) => {
-    onApproveDrawing(dwgCode);
+    if (onApproveDrawing) onApproveDrawing(dwgCode);
   };
+
+  if (selectedDrawingForCompare) {
+    return (
+      <DrawingCompare
+        drawing={selectedDrawingForCompare}
+        onBack={() => setSelectedDrawingForCompare(null)}
+      />
+    );
+  }
+
+  if (selectedDrawingForView) {
+    return (
+      <DrawingDetails
+        drawing={selectedDrawingForView}
+        onBack={() => setSelectedDrawingForView(null)}
+        onUpdateDrawing={(updated) => {
+          setSelectedDrawingForView(updated);
+          fetchProjectDrawingsList();
+        }}
+        onCompareTrigger={(drg) => {
+          setSelectedDrawingForCompare(drg);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200 font-sans text-slate-800">
@@ -721,6 +775,112 @@ export default function ProjectDetails({
       {/* 2. TAB PANELS CONTAINER */}
       <div className="space-y-6">
 
+        {/* DRAWINGS & GFC TAB PANEL */}
+        {activeTab === 'drawings' && (
+          <div className="space-y-4">
+            <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs flex justify-between items-center flex-wrap gap-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900">Project Drawings & Blueprints (GFC)</h3>
+                <p className="text-xs text-slate-500 font-medium">View, inspect, and manage architectural drawings, CAD files, and GFC releases</p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={fetchProjectDrawingsList}
+                  className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all border border-slate-200 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                  title="Refresh Drawings List"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loadingProjectDrawings ? 'animate-spin' : ''}`} />
+                </button>
+                <button
+                  onClick={() => setIsUploadDrawingModalOpen(true)}
+                  className="px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer border border-brand-secondary/40"
+                >
+                  <Plus className="w-4 h-4 text-brand-dark" /> Upload New Drawing
+                </button>
+              </div>
+            </div>
+
+            {/* Drawings Grid / List */}
+            {loadingProjectDrawings ? (
+              <div className="bg-white p-12 rounded-3xl border border-slate-200/90 shadow-2xs text-center space-y-3">
+                <RefreshCw className="w-8 h-8 text-brand-primary animate-spin mx-auto" />
+                <p className="text-xs font-bold text-slate-500">Loading project drawings...</p>
+              </div>
+            ) : projectDrawingsList.length === 0 ? (
+              <div className="bg-white p-12 rounded-3xl border border-slate-200/90 shadow-2xs text-center space-y-3">
+                <FileText className="w-10 h-10 text-slate-300 mx-auto" />
+                <h4 className="text-sm font-extrabold text-slate-800">No Drawings Found</h4>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">No architectural blueprints or CAD drawings have been uploaded for this project yet.</p>
+                <button
+                  onClick={() => setIsUploadDrawingModalOpen(true)}
+                  className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all inline-flex items-center gap-1.5 cursor-pointer border border-brand-secondary/40"
+                >
+                  <Plus className="w-4 h-4 text-brand-dark" /> Upload First Drawing
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {projectDrawingsList.map((drg, idx) => {
+                  const drgId = drg.id || drg._id || drg.drawingNumber || `DWG-${String(idx + 1).padStart(3, '0')}`;
+                  const drgName = drg.name || drg.drawingName || drg.title || 'Architectural Plan';
+                  const drgCategory = drg.category || drg.categoryName || 'Working Drawings';
+                  const drgStatus = drg.status || 'Designer Uploaded';
+
+                  return (
+                    <div
+                      key={drg._id || drg.id || idx}
+                      className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-brand-secondary/50 transition-all flex flex-col justify-between space-y-4 group"
+                    >
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 font-mono">
+                            {drgId}
+                          </span>
+                          <span className={`text-[10px] px-2.5 py-1 rounded-lg font-black uppercase tracking-wider border ${
+                            drg.locked || drgStatus === 'GFC Locked' || drgStatus === 'GFC_LOCKED'
+                              ? 'bg-slate-900 text-amber-300 border-slate-800'
+                              : drgStatus === 'Approved' || drgStatus === 'APPROVED'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-amber-50 text-amber-800 border-amber-200'
+                          }`}>
+                            {drgStatus}
+                          </span>
+                        </div>
+
+                        <div>
+                          <h4 
+                            onClick={() => setSelectedDrawingForView(drg)}
+                            className="text-sm font-black text-slate-900 leading-snug group-hover:text-indigo-600 transition-colors cursor-pointer"
+                          >
+                            {drgName}
+                          </h4>
+                          <span className="text-xs font-semibold text-slate-500 block mt-1">
+                            Category: <span className="text-slate-700 font-extrabold">{drgCategory}</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                        <span className="text-[11px] font-medium text-slate-400">
+                          ID: <strong className="font-mono text-slate-700">{drgId}</strong>
+                        </span>
+                        <button
+                          onClick={() => setSelectedDrawingForView(drg)}
+                          className="px-3.5 py-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer border border-brand-secondary/40"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-brand-dark" />
+                          <span>Inspect Drawing</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
 
 
         {/* CRM MODULE 3: LINKED CLIENTS PANEL */}
@@ -740,12 +900,14 @@ export default function ProjectDetails({
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${loadingLinks ? 'animate-spin' : ''}`} />
                 </button>
-                <button
-                  onClick={() => setShowAddClientLinkModal(true)}
-                  className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Plus className="w-4 h-4 text-brand-dark" /> Link Client Account
-                </button>
+                {isAuthorizedToLink && (
+                  <button
+                    onClick={() => setShowAddClientLinkModal(true)}
+                    className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4 text-brand-dark" /> Link Client Account
+                  </button>
+                )}
               </div>
             </div>
 
@@ -760,13 +922,13 @@ export default function ProjectDetails({
                       <th className="px-5 py-4">Contact Email</th>
                       <th className="px-5 py-4">Linked Date</th>
                       <th className="px-5 py-4">Portal Visibility</th>
-                      <th className="px-5 py-4 text-right">Actions</th>
+                      {isAuthorizedToLink && <th className="px-5 py-4 text-right">Actions</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium">
                     {loadingLinks ? (
                       <tr>
-                        <td colSpan="6" className="py-8 text-center text-slate-400">
+                        <td colSpan={isAuthorizedToLink ? "6" : "5"} className="py-8 text-center text-slate-400">
                           <RefreshCw className="w-5 h-5 animate-spin mx-auto text-indigo-500 mb-2" />
                           <span>Loading linked client accounts...</span>
                         </td>
@@ -801,38 +963,52 @@ export default function ProjectDetails({
                               {link.linkedAt ? new Date(link.linkedAt).toISOString().split('T')[0] : '2026-08-01'}
                             </td>
 
-                            {/* Visibility Toggle Switch */}
+                            {/* Visibility Switch */}
                             <td className="px-5 py-4 align-middle whitespace-nowrap">
-                              <button
-                                onClick={() => handleToggleLinkVisibility(link._id || link.id, link.visibleToClient)}
-                                className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border flex items-center gap-1.5 transition-all cursor-pointer ${link.visibleToClient
-                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                                  : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
-                                  }`}
-                                title="Click to toggle Client Portal visibility"
-                              >
-                                {link.visibleToClient ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                                {link.visibleToClient ? 'Visible to Client' : 'Hidden from Client'}
-                              </button>
+                              {isAuthorizedToLink ? (
+                                <button
+                                  onClick={() => handleToggleLinkVisibility(link._id || link.id, link.visibleToClient)}
+                                  className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border flex items-center gap-1.5 transition-all cursor-pointer ${link.visibleToClient
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                    : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
+                                    }`}
+                                  title="Click to toggle Client Portal visibility"
+                                >
+                                  {link.visibleToClient ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                                  {link.visibleToClient ? 'Visible to Client' : 'Hidden from Client'}
+                                </button>
+                              ) : (
+                                <span
+                                  className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border inline-flex items-center gap-1.5 transition-all ${link.visibleToClient
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : 'bg-slate-100 text-slate-500 border-slate-200'
+                                    }`}
+                                >
+                                  {link.visibleToClient ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                                  {link.visibleToClient ? 'Visible' : 'Hidden'}
+                                </span>
+                              )}
                             </td>
 
                             {/* Actions */}
-                            <td className="px-5 py-4 text-right align-middle whitespace-nowrap">
-                              <button
-                                onClick={() => handleUnlinkProject(link._id || link.id, clientName)}
-                                className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition-all border border-rose-200 cursor-pointer"
-                                title="Unlink Project (Admin / PM)"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </td>
+                            {isAuthorizedToLink && (
+                              <td className="px-5 py-4 text-right align-middle whitespace-nowrap">
+                                <button
+                                  onClick={() => handleUnlinkProject(link._id || link.id, clientName)}
+                                  className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition-all border border-rose-200 cursor-pointer"
+                                  title="Unlink Project (Admin / PM)"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         );
                       })
                     ) : (
                       <tr>
-                        <td colSpan="6" className="py-12 text-center text-slate-400 font-medium">
-                          No Client accounts currently linked to this project. Click "Link Client Account" to grant access.
+                        <td colSpan={isAuthorizedToLink ? "6" : "5"} className="py-12 text-center text-slate-400 font-medium">
+                          No Client accounts currently linked to this project.
                         </td>
                       </tr>
                     )}

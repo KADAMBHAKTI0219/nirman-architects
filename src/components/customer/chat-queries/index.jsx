@@ -15,9 +15,10 @@ import {
 } from '../../../service/chat';
 import { getClientDashboard } from '../../../service/crm/clientPortal';
 import { getProjects } from '../../../service/project';
+import { isMockSession } from '../../../service/auth';
 
 export default function CustomerChatQueries({ userPermissionLevel = 'OWNER' }) {
-  const [projectId, setProjectId] = useState('proj-1');
+  const [projectId, setProjectId] = useState('');
   const [projectChannels, setProjectChannels] = useState([]);
   const [messages, setMessages] = useState([]);
   const [unreadCounts, setUnreadCounts] = useState([]);
@@ -31,10 +32,19 @@ export default function CustomerChatQueries({ userPermissionLevel = 'OWNER' }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [showBanner, setShowBanner] = useState(true);
   const [showInfoDrawer, setShowInfoDrawer] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
 
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
+    try {
+      const savedUserStr = localStorage.getItem('user');
+      if (savedUserStr) {
+        setCurrentUser(JSON.parse(savedUserStr));
+      }
+    } catch (e) {
+      console.error("Failed to parse user in chat header:", e);
+    }
     loadProjects();
   }, []);
 
@@ -86,6 +96,7 @@ export default function CustomerChatQueries({ userPermissionLevel = 'OWNER' }) {
   };
 
   const fetchChatData = async () => {
+    if (!projectId) return;
     setLoading(true);
     try {
       const [unreadRes, chatRes] = await Promise.all([
@@ -201,15 +212,20 @@ export default function CustomerChatQueries({ userPermissionLevel = 'OWNER' }) {
     }
   };
 
-  const displayChannels = projectChannels.length > 0 ? projectChannels : [
-    { id: 'proj-1', name: 'Architectural Project Workspace', code: 'PROJ-001', pm: 'Project Manager & Lead Architect', avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80' }
-  ];
+  const displayChannels = projectChannels.length > 0
+    ? projectChannels
+    : (isMockSession()
+        ? [
+            { id: 'proj-1', name: 'Architectural Project Workspace', code: 'PROJ-001', pm: 'Project Manager & Lead Architect', avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80' }
+          ]
+        : []
+      );
 
   const currentChannel = displayChannels.find(p => p.id === projectId) || displayChannels[0];
 
   const filteredChannels = displayChannels.filter(p => 
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    p.code.toLowerCase().includes(searchQuery.toLowerCase())
+    String(p.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+    String(p.code || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -221,14 +237,26 @@ export default function CustomerChatQueries({ userPermissionLevel = 'OWNER' }) {
         {/* Sidebar Header */}
         <div className="h-16 bg-[#f0f2f5] px-4 flex items-center justify-between border-b border-[#e9edef]">
           <div className="flex items-center gap-3">
-            <img
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80"
-              alt="Client Avatar"
-              className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-200 cursor-pointer"
-            />
+            {currentUser?.name ? (
+              <div className="w-10 h-10 bg-brand-tint text-brand-dark border border-slate-200 rounded-full flex items-center justify-center font-black text-xs shadow-3xs cursor-pointer select-none">
+                {currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
+              </div>
+            ) : (
+              <img
+                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80"
+                alt="Client Avatar"
+                className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-200 cursor-pointer"
+              />
+            )}
             <div>
-              <strong className="text-slate-900 font-bold text-xs block">Client Portal</strong>
-              <span className="text-[10px] text-emerald-600 font-bold uppercase">{userPermissionLevel} ACCESS</span>
+              <strong className="text-slate-900 font-bold text-xs block">
+                {currentUser?.name || 'Client Contact'}
+              </strong>
+              <span className="text-[10px] text-emerald-600 font-bold uppercase">
+                {currentUser?.permissionLevel 
+                  ? `${currentUser.permissionLevel} ACCESS` 
+                  : (currentUser?.role ? `${currentUser.role.replace('_', ' ')} ACCESS` : `${userPermissionLevel} ACCESS`)}
+              </span>
             </div>
           </div>
 
@@ -328,207 +356,217 @@ export default function CustomerChatQueries({ userPermissionLevel = 'OWNER' }) {
 
       {/* 2. MAIN WHATSAPP WEB CHAT CONTAINER */}
       <div className="flex-1 flex flex-col justify-between overflow-hidden bg-[#efeae2] relative">
-        
-        {/* Chat Top Header */}
-        <div className="h-16 bg-[#f0f2f5] px-4 flex items-center justify-between border-b border-[#e9edef] shrink-0 z-10">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setShowInfoDrawer(prev => !prev)}>
-            <img
-              src={currentChannel.avatar}
-              alt={currentChannel.name}
-              className="w-10 h-10 rounded-full object-cover"
-            />
-            <div>
-              <h4 className="font-semibold text-sm text-slate-900 leading-tight">{currentChannel.name}</h4>
-              <span className="text-[11px] text-[#667781] block">{currentChannel.pm} &bull; Socket.io Live</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 text-[#54656f]">
-            {userPermissionLevel === 'VIEW_ONLY' && (
-              <span className="px-3 py-1 bg-slate-100 text-slate-800 text-xs font-bold rounded-full border border-slate-200 flex items-center gap-1">
-                <Lock className="w-3.5 h-3.5 text-slate-600" /> Read Only
-              </span>
-            )}
-            <button className="hover:text-slate-900 transition-colors p-1 cursor-pointer" title="Search Channel">
-              <Search className="w-5 h-5" />
-            </button>
-            <button className="hover:text-slate-900 transition-colors p-1 cursor-pointer" title="Menu" onClick={() => setShowInfoDrawer(prev => !prev)}>
-              <MoreVertical className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Chat Stream Wallpaper (#efeae2) */}
-        <div className="flex-1 p-6 overflow-y-auto space-y-4 bg-[#efeae2] bg-[radial-gradient(#dcd6cd_1px,transparent_1px)] [background-size:16px_16px] relative">
-          
-          {/* Encryption Notice Banner */}
-          <div className="bg-[#ffeecd] text-[#54656f] text-[11px] px-4 py-2 rounded-lg max-w-xl mx-auto text-center shadow-2xs font-medium flex items-center justify-center gap-1.5">
-            <Lock className="w-3.5 h-3.5 text-[#54656f] shrink-0" />
-            <span>Messages are end-to-end encrypted. No one outside of this chat, not even WhatsApp, can read or listen to them.</span>
-          </div>
-
-          {/* Floating Date Badge */}
-          <div className="text-center my-2">
-            <span className="bg-white text-[#54656f] text-[11px] font-semibold px-3 py-1 rounded-md shadow-2xs uppercase tracking-wider">
-              TODAY
-            </span>
-          </div>
-
-          {/* Message Stream */}
-          {messages.map((m, idx) => {
-            const isMe = m.authorType === 'CLIENT_CONTACT' || m.formattedAuthorName?.includes('OWNER') || m.isOfflineSync;
-            const authorName = m.formattedAuthorName || (m.authorId?.name ? `${m.authorId.name}` : 'Project Team');
-            const timeStr = m.sentAt || m.createdAt ? new Date(m.sentAt || m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '10:00';
-
-            return (
-              <div
-                key={m._id || m.id || idx}
-                className={`flex flex-col group ${isMe ? 'items-end' : 'items-start'}`}
-              >
-                {/* Speech Bubble */}
-                <div
-                  className={`relative max-w-md px-3.5 py-2 rounded-lg shadow-2xs transition-all group/bubble text-xs ${
-                    m.isInternal 
-                      ? 'bg-amber-100 text-amber-950 border border-amber-300 w-full max-w-lg mx-auto text-center' 
-                      : (isMe 
-                          ? 'bg-[#d9fdd3] text-slate-900 rounded-tr-none' 
-                          : 'bg-white text-slate-900 rounded-tl-none')
-                  }`}
-                >
-                  {/* Quick Reply Button */}
-                  <button
-                    onClick={() => setReplyToMsg(m)}
-                    className={`absolute top-1.5 p-1 rounded opacity-0 group-hover/bubble:opacity-100 transition-opacity cursor-pointer ${
-                      isMe ? '-left-7 text-[#54656f] bg-white shadow-2xs' : '-right-7 text-[#54656f] bg-white shadow-2xs'
-                    }`}
-                    title="Reply"
-                  >
-                    <CornerUpLeft className="w-3.5 h-3.5" />
-                  </button>
-
-                  {/* Author Title */}
-                  <div className={`text-[10px] font-bold mb-1 ${isMe ? 'text-[#008069]' : 'text-indigo-600'}`}>
-                    {authorName}
-                  </div>
-
-                  {/* Quoted Message */}
-                  {m.replyToMessageId && (
-                    <div className="p-2 rounded bg-black/5 border-l-4 border-[#008069] mb-1.5 text-[11px]">
-                      <strong className="block font-bold text-[#008069]">Quoted Message</strong>
-                      <p className="truncate text-slate-600 italic">Replying to previous discussion</p>
-                    </div>
-                  )}
-
-                  {/* Text Message Content */}
-                  <p className="text-xs leading-relaxed font-normal whitespace-pre-wrap pr-12">
-                    {m.messageText || m.text}
-                  </p>
-
-                  {/* Timestamp & Double Checkmarks inside bubble bottom-right */}
-                  <div className="flex items-center gap-1 text-[10px] text-[#667781] font-normal absolute bottom-1 right-2.5">
-                    <span>{timeStr}</span>
-                    {isMe && (
-                      <CheckCheck className="w-4 h-4 text-[#53bdeb]" />
-                    )}
-                  </div>
+        {currentChannel ? (
+          <>
+            {/* Chat Top Header */}
+            <div className="h-16 bg-[#f0f2f5] px-4 flex items-center justify-between border-b border-[#e9edef] shrink-0 z-10">
+              <div className="flex items-center gap-3 cursor-pointer" onClick={() => setShowInfoDrawer(prev => !prev)}>
+                <img
+                  src={currentChannel.avatar}
+                  alt={currentChannel.name}
+                  className="w-10 h-10 rounded-full object-cover"
+                />
+                <div>
+                  <h4 className="font-semibold text-sm text-slate-900 leading-tight">{currentChannel.name}</h4>
+                  <span className="text-[11px] text-[#667781] block">{currentChannel.pm} &bull; Socket.io Live</span>
                 </div>
               </div>
-            );
-          })}
 
-          <div ref={messagesEndRef} />
-
-          {/* Floating Scroll to Bottom Arrow Button */}
-          <button
-            onClick={scrollToBottom}
-            className="fixed bottom-20 right-8 w-9 h-9 bg-white text-[#54656f] rounded-full shadow-md flex items-center justify-center hover:bg-slate-50 transition-all cursor-pointer z-10"
-            title="Scroll to bottom"
-          >
-            <ChevronDown className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* 3. BOTTOM INPUT BAR */}
-        <div className="bg-[#f0f2f5] px-4 py-2.5 border-t border-[#e9edef] shrink-0 z-10">
-          
-          {/* Quote Reply Banner */}
-          <AnimatePresence>
-            {replyToMsg && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="mb-2 p-2 bg-white border-l-4 border-[#008069] rounded-lg flex items-center justify-between gap-3 text-xs shadow-2xs"
-              >
-                <div>
-                  <span className="text-[10px] font-bold text-[#008069] block">
-                    Replying to {replyToMsg.formattedAuthorName || 'Message'}
+              <div className="flex items-center gap-3 text-[#54656f]">
+                {userPermissionLevel === 'VIEW_ONLY' && (
+                  <span className="px-3 py-1 bg-slate-100 text-slate-800 text-xs font-bold rounded-full border border-slate-200 flex items-center gap-1">
+                    <Lock className="w-3.5 h-3.5 text-slate-600" /> Read Only
                   </span>
-                  <p className="text-slate-700 text-xs truncate max-w-md font-normal">
-                    "{replyToMsg.messageText || replyToMsg.text}"
-                  </p>
-                </div>
-                <button
-                  onClick={() => setReplyToMsg(null)}
-                  className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
+                )}
+                <button className="hover:text-slate-900 transition-colors p-1 cursor-pointer" title="Search Channel">
+                  <Search className="w-5 h-5" />
                 </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                <button className="hover:text-slate-900 transition-colors p-1 cursor-pointer" title="Menu" onClick={() => setShowInfoDrawer(prev => !prev)}>
+                  <MoreVertical className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
 
-          <form onSubmit={handleSendMessage} className="flex items-center gap-3">
-            
-            {/* Attachment & Emoji Buttons */}
-            <button
-              type="button"
-              onClick={() => alert("Upload Attachment: Blueprint file attachment supported")}
-              className="text-[#54656f] hover:text-slate-900 transition-colors p-1 cursor-pointer shrink-0"
-              title="Attach File"
-            >
-              <Paperclip className="w-5 h-5" />
-            </button>
+            {/* Chat Stream Wallpaper (#efeae2) */}
+            <div className="flex-1 p-6 overflow-y-auto space-y-4 bg-[#efeae2] bg-[radial-gradient(#dcd6cd_1px,transparent_1px)] [background-size:16px_16px] relative">
+              {/* Encryption Notice Banner */}
+              <div className="bg-[#ffeecd] text-[#54656f] text-[11px] px-4 py-2 rounded-lg max-w-xl mx-auto text-center shadow-2xs font-medium flex items-center justify-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-[#54656f] shrink-0" />
+                <span>Messages are end-to-end encrypted. No one outside of this chat, not even WhatsApp, can read or listen to them.</span>
+              </div>
 
-            <button
-              type="button"
-              className="text-[#54656f] hover:text-slate-900 transition-colors p-1 cursor-pointer shrink-0"
-              title="Emoji"
-            >
-              <Smile className="w-5 h-5" />
-            </button>
+              {/* Floating Date Badge */}
+              <div className="text-center my-2">
+                <span className="bg-white text-[#54656f] text-[11px] font-semibold px-3 py-1 rounded-md shadow-2xs uppercase tracking-wider">
+                  TODAY
+                </span>
+              </div>
 
-            {/* Input Box */}
-            <input
-              type="text"
-              value={newMsgText}
-              disabled={userPermissionLevel === 'VIEW_ONLY'}
-              onChange={(e) => setNewMsgText(e.target.value)}
-              placeholder={
-                userPermissionLevel === 'VIEW_ONLY' 
-                  ? "VIEW_ONLY contact level: Posting messages disabled" 
-                  : "Type a message here .."
-              }
-              className="flex-1 bg-white border-0 rounded-lg px-4 py-2.5 text-xs text-slate-800 placeholder-[#54656f] focus:outline-none shadow-2xs font-normal disabled:bg-slate-100 disabled:cursor-not-allowed"
-            />
+              {/* Message Stream */}
+              {messages.map((m, idx) => {
+                const isMe = m.authorType === 'CLIENT_CONTACT' || m.formattedAuthorName?.includes('OWNER') || m.isOfflineSync;
+                const authorName = m.formattedAuthorName || m.senderName || m.sender || (m.authorId?.name ? `${m.authorId.name}` : 'Project Team');
+                const timeStr = m.sentAt || m.createdAt ? new Date(m.sentAt || m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '10:00';
 
-            {/* Send Button */}
-            <button
-              type="submit"
-              disabled={userPermissionLevel === 'VIEW_ONLY'}
-              className="text-[#54656f] hover:text-[#008069] transition-colors p-1 cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Send Message"
-            >
-              <Send className="w-5 h-5 text-[#54656f] hover:text-[#008069]" />
-            </button>
-          </form>
-        </div>
+                return (
+                  <div
+                    key={m._id || m.id || idx}
+                    className={`flex flex-col group ${isMe ? 'items-end' : 'items-start'}`}
+                  >
+                    {/* Speech Bubble */}
+                    <div
+                      className={`relative max-w-md px-3.5 py-2 rounded-lg shadow-2xs transition-all group/bubble text-xs ${
+                        m.isInternal 
+                          ? 'bg-amber-100 text-amber-950 border border-amber-300 w-full max-w-lg mx-auto text-center' 
+                          : (isMe 
+                              ? 'bg-[#d9fdd3] text-slate-900 rounded-tr-none' 
+                              : 'bg-white text-slate-900 rounded-tl-none')
+                      }`}
+                    >
+                      {/* Quick Reply Button */}
+                      <button
+                        onClick={() => setReplyToMsg(m)}
+                        className={`absolute top-1.5 p-1 rounded opacity-0 group-hover/bubble:opacity-100 transition-opacity cursor-pointer ${
+                          isMe ? '-left-7 text-[#54656f] bg-white shadow-2xs' : '-right-7 text-[#54656f] bg-white shadow-2xs'
+                        }`}
+                        title="Reply"
+                      >
+                        <CornerUpLeft className="w-3.5 h-3.5" />
+                      </button>
 
+                      {/* Author Title */}
+                      <div className={`text-[10px] font-bold mb-1 ${isMe ? 'text-[#008069]' : 'text-indigo-600'}`}>
+                        {authorName}
+                      </div>
+
+                      {/* Quoted Message */}
+                      {m.replyToMessageId && (
+                        <div className="p-2 rounded bg-black/5 border-l-4 border-[#008069] mb-1.5 text-[11px]">
+                          <strong className="block font-bold text-[#008069]">Quoted Message</strong>
+                          <p className="truncate text-slate-600 italic">Replying to previous discussion</p>
+                        </div>
+                      )}
+
+                      {/* Text Message Content */}
+                      <p className="text-xs leading-relaxed font-normal whitespace-pre-wrap pr-12">
+                        {m.messageText || m.text}
+                      </p>
+
+                      {/* Timestamp & Double Checkmarks inside bubble bottom-right */}
+                      <div className="flex items-center gap-1 text-[10px] text-[#667781] font-normal absolute bottom-1 right-2.5">
+                        <span>{timeStr}</span>
+                        {isMe && (
+                          m.status === 'read' ? (
+                            <CheckCheck className="w-4 h-4 text-[#53bdeb]" />
+                          ) : (
+                            <CheckCheck className="w-4 h-4 text-[#8696a0]" />
+                          )
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              <div ref={messagesEndRef} />
+
+              {/* Floating Scroll to Bottom Arrow Button */}
+              <button
+                onClick={scrollToBottom}
+                className="fixed bottom-20 right-8 w-9 h-9 bg-white text-[#54656f] rounded-full shadow-md flex items-center justify-center hover:bg-slate-50 transition-all cursor-pointer z-10"
+                title="Scroll to bottom"
+              >
+                <ChevronDown className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* 3. BOTTOM INPUT BAR */}
+            <div className="bg-[#f0f2f5] px-4 py-2.5 border-t border-[#e9edef] shrink-0 z-10">
+              
+              {/* Quote Reply Banner */}
+              <AnimatePresence>
+                {replyToMsg && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mb-2 p-2 bg-white border-l-4 border-[#008069] rounded-lg flex items-center justify-between gap-3 text-xs shadow-2xs"
+                  >
+                    <div>
+                      <span className="text-[10px] font-bold text-[#008069] block">
+                        Replying to {replyToMsg.formattedAuthorName || 'Message'}
+                      </span>
+                      <p className="text-slate-700 text-xs truncate max-w-md font-normal">
+                        "{replyToMsg.messageText || replyToMsg.text}"
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setReplyToMsg(null)}
+                      className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <form onSubmit={handleSendMessage} className="flex items-center gap-3">
+                
+                {/* Attachment & Emoji Buttons */}
+                <button
+                  type="button"
+                  onClick={() => alert("Upload Attachment: Blueprint file attachment supported")}
+                  className="text-[#54656f] hover:text-slate-900 transition-colors p-1 cursor-pointer shrink-0"
+                  title="Attach File"
+                >
+                  <Paperclip className="w-5 h-5" />
+                </button>
+
+                <button
+                  type="button"
+                  className="text-[#54656f] hover:text-slate-900 transition-colors p-1 cursor-pointer shrink-0"
+                  title="Emoji"
+                >
+                  <Smile className="w-5 h-5" />
+                </button>
+
+                {/* Input Box */}
+                <input
+                  type="text"
+                  value={newMsgText}
+                  disabled={userPermissionLevel === 'VIEW_ONLY'}
+                  onChange={(e) => setNewMsgText(e.target.value)}
+                  placeholder={
+                    userPermissionLevel === 'VIEW_ONLY' 
+                      ? "VIEW_ONLY contact level: Posting messages disabled" 
+                      : "Type a message here .."
+                  }
+                  className="flex-1 bg-white border-0 rounded-lg px-4 py-2.5 text-xs text-slate-800 placeholder-[#54656f] focus:outline-none shadow-2xs font-normal disabled:bg-slate-100 disabled:cursor-not-allowed"
+                />
+
+                {/* Send Button */}
+                <button
+                  type="submit"
+                  disabled={userPermissionLevel === 'VIEW_ONLY'}
+                  className="text-[#54656f] hover:text-[#008069] transition-colors p-1 cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Send Message"
+                >
+                  <Send className="w-5 h-5 text-[#54656f] hover:text-[#008069]" />
+                </button>
+              </form>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-2">
+            <MessageSquare className="w-10 h-10 opacity-30 animate-pulse text-[#00a884]" />
+            <p className="text-xs font-black uppercase tracking-wider text-slate-500">No project workspace room selected</p>
+          </div>
+        )}
       </div>
 
       {/* 4. RIGHT SIDEBAR CHANNEL DRAWER */}
       <AnimatePresence>
-        {showInfoDrawer && (
+        {showInfoDrawer && currentChannel && (
           <motion.div
             initial={{ opacity: 0, width: 0 }}
             animate={{ opacity: 1, width: 320 }}

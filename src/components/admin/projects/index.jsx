@@ -35,7 +35,27 @@ export default function Projects({ defaultTab = 'directory' }) {
         priority: priorityFilter !== 'All' ? priorityFilter : undefined
       });
       if (res?.success && Array.isArray(res.projects)) {
-        const mapped = res.projects.map(p => ({
+        let list = res.projects;
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          try {
+            const userObj = JSON.parse(userStr);
+            const loggedInUid = userObj._id || userObj.id;
+            if (userObj.role === 'Architect' || userObj.role === 'SiteEngineer' || userObj.role === 'Employee') {
+              list = res.projects.filter(p => {
+                const team = Array.isArray(p.teamAssignments) ? p.teamAssignments : (Array.isArray(p.team) ? p.team : []);
+                return team.some(member => 
+                  String(member.userId) === String(loggedInUid) ||
+                  (member.name && userObj.name && member.name.toLowerCase() === userObj.name.toLowerCase())
+                );
+              });
+            }
+          } catch (e) {
+            console.error("Failed to parse user in ProjectsMaster:", e);
+          }
+        }
+
+        const mapped = list.map(p => ({
           ...p,
           code: p.code || `PRJ-${(p.projectName || p.name || 'PRJ').substring(0,3).toUpperCase()}-${(p._id || '').substring(0,4)}`,
           name: p.projectName || p.name || "Untitled Project",

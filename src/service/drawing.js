@@ -163,7 +163,8 @@ export const getDrawingDetails = getDrawingById;
 
 // 17.1 GET /api/client/projects/:projectId/drawings & GET /api/drawings?projectId=...
 export const getProjectDrawings = async (projectId) => {
-  if (isMockSession()) {
+  const isMockId = !projectId || typeof projectId !== 'string' || !/^[0-9a-fA-F]{24}$/.test(projectId);
+  if (isMockSession() || isMockId) {
     const res = await mockGetDrawings({ projectId });
     return {
       success: true,
@@ -171,18 +172,42 @@ export const getProjectDrawings = async (projectId) => {
     };
   }
   try {
+    const isClient = !!localStorage.getItem('clientToken');
+    if (isClient) {
+      const response2 = await api.get(`/client/projects/${projectId}/drawings`);
+      if (response2.data) {
+        const payload = response2.data.data || response2.data;
+        const pending = Array.isArray(payload.pendingApproval) ? payload.pendingApproval : [];
+        const apprv = Array.isArray(payload.approved) ? payload.approved : [];
+        const chg = Array.isArray(payload.changesRequested) ? payload.changesRequested : [];
+        
+        let list = Array.isArray(payload.allDrawings) ? payload.allDrawings : (Array.isArray(payload.drawings) ? payload.drawings : []);
+        if (list.length === 0) {
+          list = [...pending, ...apprv, ...chg];
+        }
+        return { success: true, allDrawings: list };
+      }
+    }
+
     const response = await api.get(`/drawings`, { params: { projectId } });
     if (response.data) {
       const data = response.data;
       const list = Array.isArray(data.drawings) ? data.drawings : (Array.isArray(data.allDrawings) ? data.allDrawings : (Array.isArray(data) ? data : []));
       return { success: true, allDrawings: list };
     }
-  } catch (err) {
+  } catch (error) {
     try {
       const response2 = await api.get(`/client/projects/${projectId}/drawings`);
       if (response2.data) {
-        const data = response2.data;
-        const list = Array.isArray(data.allDrawings) ? data.allDrawings : (Array.isArray(data.drawings) ? data.drawings : []);
+        const payload = response2.data.data || response2.data;
+        const pending = Array.isArray(payload.pendingApproval) ? payload.pendingApproval : [];
+        const apprv = Array.isArray(payload.approved) ? payload.approved : [];
+        const chg = Array.isArray(payload.changesRequested) ? payload.changesRequested : [];
+        
+        let list = Array.isArray(payload.allDrawings) ? payload.allDrawings : (Array.isArray(payload.drawings) ? payload.drawings : []);
+        if (list.length === 0) {
+          list = [...pending, ...apprv, ...chg];
+        }
         return { success: true, allDrawings: list };
       }
     } catch (err2) {

@@ -47,7 +47,7 @@ export default function CustomerTimeline() {
             name: p.projectName || p.name || 'Project',
             code: p.code || 'PRJ'
           }));
-        } else {
+        } else if (localStorage.getItem('token')) {
           const res = await getProjects();
           if (res && res.success && Array.isArray(res.projects) && res.projects.length > 0) {
             list = res.projects.map(p => ({

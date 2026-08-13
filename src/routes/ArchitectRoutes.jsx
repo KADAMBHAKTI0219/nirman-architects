@@ -13,6 +13,7 @@ const ArchitectNotifications = lazy(() => import('../components/architect/notifi
 const LeavesPortal = lazy(() => import('../components/common/LeavesPortal'));
 const EmployeeAttendance = lazy(() => import('../components/employee/attendance/index'));
 const AppUsageTracking = lazy(() => import('../components/admin/app-usage/AppUsageTracking'));
+const ArchitectProjects = lazy(() => import('../components/admin/projects/index'));
 
 const LazyWrap = ({ children }) => (
   <Suspense fallback={<BrandLoader message="Loading Design Studio..." />}>
@@ -26,6 +27,11 @@ export default function getArchitectRoutes(handleRoleChange) {
       <Route path="/architect" element={
         <DashboardLayout role="Architect" onChangeRole={handleRoleChange} title="Architect / Designer">
           <LazyWrap><ArchitectDashboard /></LazyWrap>
+        </DashboardLayout>
+      } />
+      <Route path="/architect/projects" element={
+        <DashboardLayout role="Architect" onChangeRole={handleRoleChange} title="My Projects">
+          <LazyWrap><ArchitectProjects /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/architect/leaves" element={

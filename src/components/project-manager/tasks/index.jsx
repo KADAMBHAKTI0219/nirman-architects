@@ -7,7 +7,8 @@ import {
 import Card from '../../common/Card';
 import { 
   getTasks, createTask, approveTask, completeTask, 
-  acceptTask, rejectTask, startTask, submitTaskForReview, reassignTask
+  acceptTask, rejectTask, startTask, submitTaskForReview, reassignTask,
+  updateTask
 } from '../../../service/task';
 import { getProjects } from '../../../service/project';
 import TaskCreateModal from '../../admin/tasks/TaskCreateModal';
@@ -27,7 +28,7 @@ export default function Tasks() {
     fetchPMTasks();
   }, []);
 
-  const fetchPMTasks = async () => {
+  async function fetchPMTasks() {
     setLoading(true);
     try {
       const res = await getTasks();

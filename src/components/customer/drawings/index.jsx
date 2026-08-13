@@ -13,6 +13,7 @@ import {
   requestDrawingChanges, 
   getClientApprovalLog 
 } from '../../../service/drawing';
+import { getClientDashboard } from '../../../service/crm/client';
 
 export default function CustomerDrawings() {
   const [drawings, setDrawings] = useState([]);
@@ -21,31 +22,61 @@ export default function CustomerDrawings() {
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [viewMode, setViewMode] = useState('table'); // 'table' or 'grid' (Table view matches Admin panel!)
   
+  const [projects, setProjects] = useState([]);
+  const [selectedProjId, setSelectedProjId] = useState(null);
+
   // Selected Drawing for Details / Full Screen Viewer
   const [selectedDwg, setSelectedDwg] = useState(null);
   const [viewerDwg, setViewerDwg] = useState(null);
   const [commentText, setCommentText] = useState('');
 
-  const loadDrawings = async () => {
+  const loadDashboardData = async () => {
+    try {
+      const res = await getClientDashboard();
+      if (res && res.activeProjects && res.activeProjects.length > 0) {
+        setProjects(res.activeProjects);
+        setSelectedProjId(res.activeProjects[0].projectId);
+      }
+    } catch (err) {
+      console.error("Failed to load customer projects:", err);
+    }
+  };
+
+  const loadDrawings = async (projectId) => {
+    const targetProjId = projectId || selectedProjId;
+    if (!targetProjId) return;
     setLoading(true);
     try {
-      const res = await getProjectDrawings('proj-1');
+      const res = await getProjectDrawings(targetProjId);
       if (res && res.allDrawings) {
         setDrawings(res.allDrawings);
-        if (!selectedDwg && res.allDrawings.length > 0) {
+        if (res.allDrawings.length > 0) {
           setSelectedDwg(res.allDrawings[0]);
+        } else {
+          setSelectedDwg(null);
         }
+      } else {
+        setDrawings([]);
+        setSelectedDwg(null);
       }
     } catch (err) {
       console.error("Failed to load customer drawings:", err);
+      setDrawings([]);
+      setSelectedDwg(null);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadDrawings();
+    loadDashboardData();
   }, []);
+
+  useEffect(() => {
+    if (selectedProjId) {
+      loadDrawings(selectedProjId);
+    }
+  }, [selectedProjId]);
 
   const filteredDrawings = (drawings || []).filter(d => {
     if (!d) return false;
@@ -164,18 +195,34 @@ export default function CustomerDrawings() {
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
             Client Drawing Approvals Hub
           </h1>
-          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
-            Review architectural blueprints, sign-off GFC releases, and submit design revision notes
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5 font-bold">
+            {projects.find(p => p.projectId === selectedProjId)?.projectName 
+              ? `Project Workspace: ${projects.find(p => p.projectId === selectedProjId).projectName}` 
+              : "Review architectural blueprints, sign-off GFC releases, and submit design revision notes"}
           </p>
         </div>
 
-        {/* View Switcher & Refresh */}
-        <div className="flex items-center gap-3">
+        {/* View Switcher, Project Selector & Refresh */}
+        <div className="flex flex-wrap items-center gap-3">
+          {projects.length > 0 && (
+            <select
+              value={selectedProjId || ''}
+              onChange={(e) => setSelectedProjId(e.target.value)}
+              className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-primary cursor-pointer shadow-3xs"
+            >
+              {projects.map(p => (
+                <option key={p.projectId} value={p.projectId}>
+                  {p.projectName}
+                </option>
+              ))}
+            </select>
+          )}
+
           <div className="p-1 bg-white border border-slate-200 rounded-xl flex gap-1 shadow-3xs">
             <button
               onClick={() => setViewMode('table')}
               className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
-                viewMode === 'table' ? 'bg-brand-primary text-slate-900' : 'text-slate-600 hover:text-slate-900'
+                viewMode === 'table' ? 'bg-brand-primary text-slate-900 shadow-3xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <List className="w-4 h-4" />
@@ -184,7 +231,7 @@ export default function CustomerDrawings() {
             <button
               onClick={() => setViewMode('grid')}
               className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
-                viewMode === 'grid' ? 'bg-brand-primary text-slate-900' : 'text-slate-600 hover:text-slate-900'
+                viewMode === 'grid' ? 'bg-brand-primary text-slate-900 shadow-3xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <LayoutGrid className="w-4 h-4" />
@@ -193,7 +240,7 @@ export default function CustomerDrawings() {
           </div>
 
           <button
-            onClick={loadDrawings}
+            onClick={() => loadDrawings()}
             className="p-2.5 bg-white hover:bg-slate-50 text-slate-700 rounded-xl transition-all border border-slate-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-3xs"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-brand-accent' : ''}`} />

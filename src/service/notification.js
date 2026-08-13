@@ -4,8 +4,12 @@ import api from './auth';
  * Fetch logged-in user notifications and unread counts
  */
 export const getMyNotifications = async () => {
-  const response = await api.get('/notifications/my');
-  return response.data;
+  try {
+    const response = await api.get('/notifications/my');
+    return response.data;
+  } catch (err) {
+    return { success: false, notifications: [], unreadCount: 0, message: err.response?.data?.message || err.message };
+  }
 };
 
 /**

@@ -10,6 +10,8 @@ import {
   downloadDocument 
 } from '../../../service/document';
 
+import { getClientDashboard } from '../../../service/crm/client';
+
 const FOLDERS = [
   'All',
   'Contracts',
@@ -26,14 +28,31 @@ export default function CustomerDocuments() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFolder, setSelectedFolder] = useState('All');
 
+  const [projects, setProjects] = useState([]);
+  const [selectedProjId, setSelectedProjId] = useState(null);
+
   // Preview Modal State
   const [previewingDoc, setPreviewingDoc] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
-  const fetchDocuments = async () => {
+  const loadDashboardData = async () => {
+    try {
+      const res = await getClientDashboard();
+      if (res && res.activeProjects && res.activeProjects.length > 0) {
+        setProjects(res.activeProjects);
+        setSelectedProjId(res.activeProjects[0].projectId);
+      }
+    } catch (err) {
+      console.error("Failed to load customer projects:", err);
+    }
+  };
+
+  const fetchDocuments = async (projectId) => {
+    const targetProjId = projectId || selectedProjId;
+    if (!targetProjId) return;
     setLoading(true);
     try {
-      const res = await getProjectDocuments('proj-1', {
+      const res = await getProjectDocuments(targetProjId, {
         folder: selectedFolder === 'All' ? '' : selectedFolder,
         search: searchQuery
       });
@@ -49,17 +68,28 @@ export default function CustomerDocuments() {
           grouped[cat].push(doc);
         });
         setDocumentsByFolder(grouped);
+      } else {
+        setAllDocuments([]);
+        setDocumentsByFolder({});
       }
     } catch (err) {
       console.error("Error fetching client documents:", err);
+      setAllDocuments([]);
+      setDocumentsByFolder({});
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchDocuments();
-  }, [selectedFolder, searchQuery]);
+    loadDashboardData();
+  }, []);
+
+  useEffect(() => {
+    if (selectedProjId) {
+      fetchDocuments(selectedProjId);
+    }
+  }, [selectedProjId, selectedFolder, searchQuery]);
 
   const handlePreview = async (doc) => {
     setPreviewLoading(true);
@@ -115,10 +145,26 @@ export default function CustomerDocuments() {
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
             Client Document Vault & Invoices
           </h1>
-          <p className="text-slate-500 text-xs sm:text-sm mt-0.5 font-medium">
-            Download project contracts, billing invoices, approval certificates & compliance files
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5 font-bold">
+            {projects.find(p => p.projectId === selectedProjId)?.projectName 
+              ? `Project Workspace: ${projects.find(p => p.projectId === selectedProjId).projectName}` 
+              : "Download project contracts, billing invoices, approval certificates & compliance files"}
           </p>
         </div>
+
+        {projects.length > 0 && (
+          <select
+            value={selectedProjId || ''}
+            onChange={(e) => setSelectedProjId(e.target.value)}
+            className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-primary cursor-pointer shadow-3xs"
+          >
+            {projects.map(p => (
+              <option key={p.projectId} value={p.projectId}>
+                {p.projectName}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* 1. FILTER & SEARCH HEADER */}

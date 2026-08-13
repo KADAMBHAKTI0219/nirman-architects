@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   X, User, Clock, FileText, CheckCircle2, ChevronRight, Send, 
-  Paperclip, Activity, FileCheck, Layers, ClipboardList, Plus 
+  Paperclip, Activity, FileCheck, Layers, ClipboardList, Plus, Lock
 } from 'lucide-react';
 import Card from '../../common/Card';
 
@@ -150,8 +150,8 @@ export default function TaskDetails({
           {/* Left Column (2/3 width): Stepper, Description, Checklist, Dependencies */}
           <div className="lg:col-span-2 space-y-6">
             
-            {/* Workflow Status Dropdown Selector */}
-            <div className="bg-slate-50 p-4 border border-slate-200/80 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+            {/* Workflow Status Card */}
+            <div className="bg-slate-50 p-4 border border-slate-200/80 rounded-2xl flex items-center justify-between gap-3 shadow-2xs">
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                   Current Workflow Status
@@ -167,25 +167,6 @@ export default function TaskDetails({
                   }`}></span>
                   <span className="text-sm font-extrabold text-slate-900">{task.status || 'Pending'}</span>
                 </div>
-              </div>
-
-              <div className="w-full sm:w-auto">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                  Update Task Status
-                </label>
-                <select
-                  value={task.status || 'Pending'}
-                  onChange={(e) => handleMoveStatus(e.target.value)}
-                  className="w-full sm:w-56 px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 shadow-2xs focus:outline-none focus:ring-2 focus:ring-brand-primary/40 cursor-pointer"
-                >
-                  <option value="Pending">1. Pending</option>
-                  <option value="Accepted">2. Accepted</option>
-                  <option value="In Progress">3. In Progress</option>
-                  <option value="Review">4. Review</option>
-                  <option value="Approved">5. Approved</option>
-                  <option value="Completed">6. Completed</option>
-                  <option value="Rejected">7. Rejected</option>
-                </select>
               </div>
             </div>
 
@@ -327,76 +308,12 @@ export default function TaskDetails({
 
         </div>
 
-        {/* Modal Footer (Workflow Progression Actions) */}
-        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 flex-wrap gap-3">
-          
-          <div className="flex gap-2">
-            {task.status === 'Pending' && (
-              <>
-                <button 
-                  onClick={() => handleMoveStatus('Accepted')}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-all shadow-2xs cursor-pointer"
-                >
-                  Accept Task
-                </button>
-                <button 
-                  onClick={() => handleMoveStatus('Rejected')}
-                  className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-semibold transition-all border border-rose-200 cursor-pointer"
-                >
-                  Reject Assignment
-                </button>
-              </>
-            )}
-            {task.status === 'Accepted' && (
-              <button 
-                onClick={() => handleMoveStatus('In Progress')}
-                className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-900 rounded-xl text-xs font-semibold transition-all shadow-2xs border border-brand-secondary/40 cursor-pointer"
-              >
-                Start In Progress
-              </button>
-            )}
-            {task.status === 'In Progress' && (
-              <button 
-                onClick={() => handleMoveStatus('Review')}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-all shadow-2xs cursor-pointer"
-              >
-                Submit for PM Review
-              </button>
-            )}
-            {task.status === 'Review' && (
-              <>
-                <button 
-                  onClick={() => handleMoveStatus('Approved')}
-                  className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-semibold transition-all shadow-2xs cursor-pointer"
-                >
-                  Approve Sign-off
-                </button>
-                <button 
-                  onClick={() => handleMoveStatus('In Progress')}
-                  className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-semibold transition-all border border-rose-200 cursor-pointer"
-                >
-                  Request Rework
-                </button>
-              </>
-            )}
-            {task.status === 'Approved' && (
-              <button 
-                onClick={() => handleMoveStatus('Completed')}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-all shadow-2xs cursor-pointer"
-              >
-                Mark Completed
-              </button>
-            )}
-            {task.status === 'Completed' && (
-              <div className="flex items-center gap-1.5 text-xs text-emerald-700 font-bold uppercase tracking-wider">
-                <CheckCircle2 className="w-4 h-4" /> Task Completed successfully
-              </div>
-            )}
-          </div>
-
+        {/* Modal Footer */}
+        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end bg-slate-50/50">
           <button 
+            type="button"
             onClick={handleCloseModal}
-            className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-extrabold shadow-2xs transition-all cursor-pointer"
           >
             Close Dialog
           </button>

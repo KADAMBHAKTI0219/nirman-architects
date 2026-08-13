@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, Search, RefreshCw, User, HardHat, Hammer, FileCheck, Menu, LayoutDashboard, CheckCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getMyNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../../service/notification';
+import { 
+  getMyNotifications, 
+  markNotificationAsRead, 
+  markAllNotificationsAsRead,
+  getClientNotificationsMy,
+  markClientNotificationRead,
+  markAllClientNotificationsRead 
+} from '../../service/notification';
 
 export default function Header({ currentRole, onChangeRole, title = "Dashboard", onToggleSidebar }) {
   const [showNotifications, setShowNotifications] = useState(false);
@@ -17,22 +24,39 @@ export default function Header({ currentRole, onChangeRole, title = "Dashboard",
       case 'Architect': return '/architect';
       case 'SiteEngineer': return '/site-engineer';
       case 'Employee': return '/employee';
+      case 'Customer': return '/customer';
       default: return '/';
     }
   };
 
   const fetchNotifications = async () => {
+    const token = localStorage.getItem('token');
+    const clientToken = localStorage.getItem('clientToken');
+    if (!token && !clientToken) return;
+
+    const isCustomer = currentRole === 'Customer' || (clientToken && !token);
+
     try {
-      const res = await getMyNotifications();
+      let res;
+      if (isCustomer) {
+        res = await getClientNotificationsMy();
+      } else {
+        res = await getMyNotifications();
+      }
+
       if (res && res.success && res.data) {
-        setRealNotifications(res.data.notifications || []);
+        setRealNotifications(res.data.notifications || (Array.isArray(res.data) ? res.data : []));
         setUnreadCount(res.data.unreadCount || 0);
       } else if (res && res.notifications) {
         setRealNotifications(res.notifications || []);
         setUnreadCount(res.unreadCount || 0);
+      } else if (res && Array.isArray(res.data)) {
+        setRealNotifications(res.data);
       }
     } catch (err) {
-      console.error("Failed to load notifications in Header:", err);
+      if (err?.response?.status !== 401) {
+        console.warn("Failed to load notifications in Header:", err?.message || err);
+      }
     }
   };
 
@@ -40,11 +64,19 @@ export default function Header({ currentRole, onChangeRole, title = "Dashboard",
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 25000);
     return () => clearInterval(interval);
-  }, []);
+  }, [currentRole]);
 
   const handleMarkAsRead = async (id) => {
+    const token = localStorage.getItem('token');
+    const clientToken = localStorage.getItem('clientToken');
+    const isCustomer = currentRole === 'Customer' || (clientToken && !token);
+
     try {
-      await markNotificationAsRead(id);
+      if (isCustomer) {
+        await markClientNotificationRead(id);
+      } else {
+        await markNotificationAsRead(id);
+      }
       fetchNotifications();
     } catch (err) {
       console.error("Failed to mark notification as read:", err);
@@ -52,8 +84,16 @@ export default function Header({ currentRole, onChangeRole, title = "Dashboard",
   };
 
   const handleMarkAllRead = async () => {
+    const token = localStorage.getItem('token');
+    const clientToken = localStorage.getItem('clientToken');
+    const isCustomer = currentRole === 'Customer' || (clientToken && !token);
+
     try {
-      await markAllNotificationsAsRead();
+      if (isCustomer) {
+        await markAllClientNotificationsRead();
+      } else {
+        await markAllNotificationsAsRead();
+      }
       fetchNotifications();
     } catch (err) {
       console.error("Failed to mark all as read in header:", err);

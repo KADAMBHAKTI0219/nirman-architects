@@ -504,11 +504,11 @@ export default function CustomerDashboard() {
         </Card>
       )}
 
-      {/* 5. TIMELINE & DIRECT CHAT QUERIES WIDGETS */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+      {/* 5. TIMELINE WIDGET */}
+      <div className="w-full">
         
-        {/* Project Timeline Widget (2/3 width) */}
-        <Card title="Formatted Project Timeline Events" subtitle="Verify development milestones, site kickoff and completion dates" className="lg:col-span-2">
+        {/* Project Timeline Widget (Full width) */}
+        <Card title="Formatted Project Timeline Events" subtitle="Verify development milestones, site kickoff and completion dates" className="w-full">
           {loadingDetails ? (
             <div className="py-12 text-center text-slate-400 flex items-center justify-center gap-2">
               <RefreshCw className="w-5 h-5 animate-spin text-brand-secondary" />
@@ -545,43 +545,6 @@ export default function CustomerDashboard() {
               ))}
             </div>
           )}
-        </Card>
-
-        {/* Support Queries Widget (1/3 width) */}
-        <Card title="Direct Support Queries" subtitle="Communicate directly with your design lead">
-          <div className="flex flex-col justify-between h-[300px]">
-            <div className="flex-1 overflow-y-auto space-y-3 mb-3 pr-1 scrollbar-none">
-              {chats.map(c => (
-                <div 
-                  key={c.id} 
-                  className={`p-3 rounded-2xl text-xs space-y-1 ${
-                    c.sender.includes('Me') 
-                      ? 'bg-brand-soft border border-brand-secondary/40 text-slate-900 ml-6 rounded-tr-none' 
-                      : 'bg-slate-50 text-slate-800 border border-slate-200 mr-6 rounded-tl-none'
-                  }`}
-                >
-                  <strong className="font-black text-[9px] block uppercase opacity-85">{c.sender}</strong>
-                  <p className="font-semibold leading-normal">{c.text}</p>
-                </div>
-              ))}
-            </div>
-
-            <form onSubmit={handleSendMessage} className="flex gap-2 border-t border-slate-100 pt-3">
-              <input 
-                type="text" 
-                placeholder="Ask a question..." 
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                className="flex-1 px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-secondary text-xs font-medium bg-white text-slate-800"
-              />
-              <button 
-                type="submit"
-                className="px-4 py-2 bg-brand-primary text-slate-900 rounded-xl text-xs font-extrabold hover:bg-brand-secondary transition-all shadow-3xs cursor-pointer"
-              >
-                Send
-              </button>
-            </form>
-          </div>
         </Card>
 
       </div>

@@ -281,17 +281,17 @@ export default function DrawingDetails({
         <div className="flex items-center gap-2.5 flex-wrap">
           <button
             onClick={() => setIsFullMarkupMode(true)}
-            className="px-4 py-2.5 crm-brand-btn font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer"
+            className="px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer border border-brand-secondary/50"
           >
-            <PenTool className="w-4 h-4" />
+            <PenTool className="w-4 h-4 text-brand-dark" />
             <span>Open Canvas Markup Editor</span>
           </button>
           
           <button
             onClick={() => onCompareTrigger(drawing)}
-            className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all border border-slate-200 cursor-pointer flex items-center gap-1.5"
+            className="px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-xl text-xs font-black transition-all border border-amber-300 shadow-2xs cursor-pointer flex items-center gap-2"
           >
-            <History className="w-3.5 h-3.5 text-slate-500" />
+            <History className="w-4 h-4 text-amber-700" />
             <span>Compare Revisions</span>
           </button>
 
@@ -301,7 +301,7 @@ export default function DrawingDetails({
                 setEditFilePath(drawing.fileUrl || '');
                 setReviewModalType('PROCESS_DWG_EDIT');
               }}
-              className="px-3.5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all shadow-xs cursor-pointer flex items-center gap-2"
             >
               In-Place Process DWG Edit
             </button>
@@ -328,36 +328,24 @@ export default function DrawingDetails({
         <div className="lg:col-span-2 space-y-6">
           
           {/* Blueprint Cad Viewer Container */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden relative shadow-lg">
+          <div className="bg-slate-100/90 border border-slate-200/90 rounded-3xl overflow-hidden relative shadow-2xs">
             
             {/* Control Floating Bar */}
-            <div className="absolute top-4 left-4 bg-slate-900/90 backdrop-blur-md px-3.5 py-2 rounded-2xl flex items-center gap-3 z-10 border border-slate-750 shadow-md">
+            <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-2xl flex items-center gap-3 z-10 border border-slate-200 shadow-md">
               <button 
                 onClick={() => setZoomLevel(prev => Math.max(0.5, prev - 0.25))}
-                className="text-slate-400 hover:text-white transition-all cursor-pointer p-1"
+                className="text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer p-1 rounded-lg"
                 title="Zoom Out"
               >
                 <ZoomOut className="w-4 h-4" />
               </button>
-              <span className="text-[11px] text-slate-200 font-mono font-bold min-w-[36px] text-center">{Math.round(zoomLevel * 100)}%</span>
+              <span className="text-[11px] text-slate-800 font-mono font-bold min-w-[36px] text-center">{Math.round(zoomLevel * 100)}%</span>
               <button 
                 onClick={() => setZoomLevel(prev => Math.min(2.5, prev + 0.25))}
-                className="text-slate-400 hover:text-white transition-all cursor-pointer p-1"
+                className="text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer p-1 rounded-lg"
                 title="Zoom In"
               >
                 <ZoomIn className="w-4 h-4" />
-              </button>
-              <div className="w-[1px] h-4 bg-slate-800"></div>
-              <button
-                onClick={() => setIsAddingPin(prev => !prev)}
-                className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider transition-all px-3 py-1 rounded-xl cursor-pointer ${
-                  isAddingPin 
-                    ? 'bg-rose-500 text-white animate-pulse shadow-md' 
-                    : 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700'
-                }`}
-              >
-                <Plus className="w-3.5 h-3.5" />
-                {isAddingPin ? 'Click Blueprint Area' : 'Add Note Pin'}
               </button>
             </div>
 
@@ -427,8 +415,8 @@ export default function DrawingDetails({
                     title={`${pin.author}: ${pin.message}`}
                   >
                     {pin.id}
-                    <div className="hidden group-hover:block absolute bottom-7 left-1/2 -translate-x-1/2 w-52 bg-slate-900 text-white p-3 rounded-2xl text-xs shadow-xl z-20 border border-slate-750 leading-normal font-medium">
-                      <strong className="block text-[9px] font-black uppercase text-rose-400 mb-0.5">{pin.author}</strong>
+                    <div className="hidden group-hover:block absolute bottom-7 left-1/2 -translate-x-1/2 w-56 bg-white text-slate-800 p-3 rounded-2xl text-xs shadow-xl z-20 border border-slate-200 leading-normal font-medium">
+                      <strong className="block text-[9px] font-black uppercase text-rose-600 mb-0.5">{pin.author}</strong>
                       {pin.message}
                     </div>
                   </div>
@@ -437,27 +425,27 @@ export default function DrawingDetails({
                 {/* Render temp pin placement overlay input */}
                 {tempCoords && (
                   <div 
-                    className="absolute z-20 bg-slate-900 border border-slate-750 p-3.5 rounded-2xl shadow-2xl w-60 flex flex-col gap-2.5"
+                    className="absolute z-20 bg-white border border-slate-200 p-3.5 rounded-2xl shadow-2xl w-64 flex flex-col gap-2.5"
                     style={{ left: `${tempCoords.x}%`, top: `${tempCoords.y}%` }}
                   >
-                    <span className="text-[9px] font-black text-rose-400 uppercase tracking-widest leading-none">Place Pin Annotation</span>
+                    <span className="text-[9px] font-black text-rose-600 uppercase tracking-widest leading-none">Place Pin Annotation</span>
                     <input 
                       type="text" 
                       placeholder="Comment for this area..." 
                       value={newPinMessage}
                       onChange={(e) => setNewPinMessage(e.target.value)}
-                      className="px-3 py-2 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-100 bg-slate-800 text-xs font-medium"
+                      className="px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/30 text-slate-900 bg-slate-50 text-xs font-medium"
                     />
                     <div className="flex gap-2 justify-end">
                       <button 
                         onClick={() => setTempCoords(null)}
-                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-xl text-xs font-bold cursor-pointer"
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold cursor-pointer"
                       >
                         Cancel
                       </button>
                       <button 
                         onClick={handleSavePin}
-                        className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-black uppercase cursor-pointer"
+                        className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-black uppercase cursor-pointer shadow-xs"
                       >
                         Save Pin
                       </button>
@@ -474,15 +462,15 @@ export default function DrawingDetails({
           <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-2xs space-y-4">
             <div className="flex justify-between items-center pb-3 border-b border-slate-100">
               <div>
-                <h3 className="text-base font-black text-slate-900">Revision History Vault</h3>
-                <p className="text-xs text-slate-500 font-medium">All historical version iterations & uploaded blueprints</p>
+                <h3 className="text-base font-black text-slate-900">Revision & Version History</h3>
+                <p className="text-xs text-slate-500 font-medium">All historical version iterations & uploaded blueprint revisions</p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsVersionModalOpen(true)}
-                className="px-4 py-2 crm-brand-btn font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer border border-brand-secondary/40"
               >
-                <Upload className="w-4 h-4" />
+                <Upload className="w-4 h-4 text-brand-dark" />
                 <span>+ Upload New Version</span>
               </button>
             </div>
@@ -525,11 +513,11 @@ export default function DrawingDetails({
             </div>
           </div>
 
-          {/* 25.9 Client Approval Audit Log (CRM Module 5 Integration) */}
+          {/* Client Approval Audit Log */}
           <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-2xs space-y-4">
             <div className="border-b border-slate-100 pb-3">
-              <h3 className="text-base font-black text-slate-900">Client Approval Audit Trail (CRM Module 5)</h3>
-              <p className="text-xs text-slate-500 font-medium">Verified log of client sign-off actions from Client Portal</p>
+              <h3 className="text-base font-black text-slate-900">Client Approval Audit Log</h3>
+              <p className="text-xs text-slate-500 font-medium">Verified records of client sign-off actions from Client Portal</p>
             </div>
             
             <div className="space-y-3 pt-1">
@@ -594,18 +582,18 @@ export default function DrawingDetails({
             </div>
           </div>
 
-          {/* Workflow Review Gates (25.5 PM Review, 25.6 Admin Review, 25.7 GFC Lock/Unlock) */}
+          {/* Workflow Review Gates */}
           <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-2xs space-y-4">
-            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest block border-b border-slate-100 pb-2.5">ERP Module 3 Review Gates</h4>
+            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest block border-b border-slate-100 pb-2.5">Review & Approval Sign-offs</h4>
             
             <div className="space-y-3.5">
 
-              {/* 25.5 PM Review Gate */}
+              {/* PM Review Gate */}
               {isPM && (drawing.status === 'Designer Uploaded' || drawing.status === 'DESIGNER_UPLOADED' || drawing.status === 'PM Rejected') && (
                 <div className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-2xl space-y-2.5">
                   <div className="flex items-center gap-2 text-amber-900 font-extrabold text-xs">
                     <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span>Gate 1: Project Manager Review</span>
+                    <span>Step 1: Project Manager Technical Review</span>
                   </div>
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     <button
@@ -626,23 +614,23 @@ export default function DrawingDetails({
                 </div>
               )}
 
-              {/* 25.6 Admin Review Gate (CRM Module 5 Handoff) */}
+              {/* Admin Review Gate */}
               {isAdmin && (drawing.status === 'PM Approved' || drawing.status === 'PM_APPROVED' || drawing.status === 'Designer Uploaded' || drawing.status === 'DESIGNER_UPLOADED') && (
                 <div className="p-4 bg-brand-soft/80 border border-brand-secondary/60 rounded-2xl space-y-2.5">
                   <div className="flex items-center gap-2 text-slate-900 font-extrabold text-xs">
-                    <ShieldAlert className="w-4 h-4 text-brand-accent shrink-0" />
-                    <span>Gate 2: Admin Review (CRM Handoff)</span>
+                    <ShieldAlert className="w-4 h-4 text-slate-800 shrink-0" />
+                    <span>Step 2: Executive Approval & Client Release</span>
                   </div>
                   <p className="text-xs text-slate-600 font-medium leading-relaxed">
-                    Approval sets <code className="text-brand-accent font-bold">visibleToClient: true</code> and hands off blueprint to CRM Module 5 for client sign-off.
+                    Approval publishes blueprint to Client Portal for client verification and site sign-off.
                   </p>
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     <button
                       disabled={actionLoading}
                       onClick={() => handleAdminReviewAction('APPROVE')}
-                      className="w-full py-2.5 crm-brand-btn rounded-xl text-xs font-extrabold uppercase cursor-pointer shadow-xs transition-all"
+                      className="w-full py-2.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold rounded-xl text-xs uppercase cursor-pointer shadow-xs transition-all border border-brand-secondary/40"
                     >
-                      Approve & Hand Off
+                      Approve & Release
                     </button>
                     <button
                       disabled={actionLoading}
@@ -670,9 +658,9 @@ export default function DrawingDetails({
               {/* 25.7 Unlock GFC (Super Admin Only) */}
               {(drawing.locked || drawing.status === 'GFC Locked' || drawing.status === 'GFC_LOCKED') && (
                 <div className="space-y-2.5">
-                  <div className="p-3.5 bg-slate-900 border border-slate-800 rounded-2xl flex items-start gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                    <p className="text-xs font-bold text-slate-200 leading-normal">
+                  <div className="p-4 bg-amber-50 border border-amber-200/90 rounded-2xl flex items-start gap-2.5">
+                    <CheckCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <p className="text-xs font-bold text-amber-950 leading-normal">
                       GFC Locked. Structural details are final and version uploads are blocked.
                     </p>
                   </div>
@@ -695,7 +683,7 @@ export default function DrawingDetails({
 
           {/* Comments Feed thread */}
           <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-2xs space-y-4">
-            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest block border-b border-slate-100 pb-2.5">Comments Thread</h4>
+            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest block border-b border-slate-100 pb-2.5">Team Discussion & Comments</h4>
             <div className="max-h-48 overflow-y-auto space-y-2.5 pr-1">
               {(drawing.comments || []).map(c => (
                 <div key={c.id} className="p-3 bg-slate-50 border border-slate-150 rounded-2xl text-xs space-y-1">
@@ -717,7 +705,7 @@ export default function DrawingDetails({
               />
               <button 
                 type="submit"
-                className="px-4 py-2 crm-brand-btn text-slate-900 rounded-xl text-xs font-black shadow-xs cursor-pointer"
+                className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold rounded-xl text-xs shadow-xs cursor-pointer border border-brand-secondary/40"
               >
                 Post
               </button>

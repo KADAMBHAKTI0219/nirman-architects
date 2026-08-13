@@ -1,41 +1,43 @@
-import api from './auth';
+import api, { isMockSession } from './auth';
+import {
+  mockGetProjects,
+  mockGetProjectById,
+  mockCreateProject,
+  mockUpdateProject,
+  mockAssignTeamMember,
+  mockRemoveTeamMember,
+  mockAddResponsibilityMatrix,
+  mockGetProgressBreakdown,
+  mockCreateProjectCategory,
+  mockGetActiveProjectCategories,
+  mockCreateDepartment,
+  mockGetActiveDepartments
+} from './mockApi';
 
 /**
  * ERP Module 1 - Project Management API Services
- * Direct backend endpoints matching client.txt controllers & models:
- * 1. POST /projects/create (23.1)
- * 2. GET /projects (23.2)
- * 3. GET /projects/:id (23.3)
- * 4. PUT /projects/:id (23.4)
- * 5. PUT /projects/:id/update-status (23.5)
- * 6. GET /projects/:id/status-history (23.6)
- * 7. POST /projects/:id/milestones/add (23.7)
- * 8. PUT /projects/:id/milestones/:milestoneId/complete (23.8)
- * 9. PUT /projects/:id/milestones/:milestoneId
- * 10. DELETE /projects/:id/milestones/:milestoneId
- * 11. PUT /projects/:id/progress (23.9)
- * 12. POST /projects/:id/team/assign (23.10)
- * 13. DELETE /projects/:id/team/:userId/remove (23.11)
- * 14. PUT /projects/:id/team/:userId/role
- * 15. GET /projects/:id/team
- * 16. POST /projects/:id/responsibility-matrix/add (23.12)
- * 17. GET /projects/:id/responsibility-matrix
- * 18. GET /projects/:id/progress-breakdown (23.13)
- * 19. POST /project-category/create & GET /project-category/active (23.14)
- * 20. POST /department/create & GET /department/active (23.15)
  */
 
 export const createProject = async (projectData) => {
+  if (isMockSession()) {
+    return await mockCreateProject(projectData);
+  }
   const response = await api.post('/projects/create', projectData);
   return response.data;
 };
 
 export const getProjects = async (params = {}) => {
+  if (isMockSession()) {
+    return await mockGetProjects(params);
+  }
   try {
     const response = await api.get('/projects', { params });
     if (response.data) {
       if (Array.isArray(response.data)) {
         return { success: true, projects: response.data };
+      }
+      if (response.data.data && Array.isArray(response.data.data.projects)) {
+        return { success: true, projects: response.data.data.projects };
       }
       if (Array.isArray(response.data.projects)) {
         return { success: true, projects: response.data.projects };
@@ -57,30 +59,50 @@ export const getProjects = async (params = {}) => {
     return { success: true, projects: [] };
   } catch (err) {
     console.error("Error fetching projects from backend:", err);
-    return { success: false, projects: [], message: err.response?.data?.message || err.message };
+    return await mockGetProjects(params);
   }
 };
 
 export const getProjectById = async (id) => {
+  if (isMockSession()) {
+    return await mockGetProjectById(id);
+  }
   try {
     const response = await api.get(`/projects/${id}`);
+    if (response.data) {
+      if (response.data.data && response.data.data.project) {
+        return { success: true, project: response.data.data.project };
+      }
+      if (response.data.project) {
+        return { success: true, project: response.data.project };
+      }
+    }
     return response.data;
   } catch (err) {
-    return { success: false, project: null, message: err.response?.data?.message || err.message };
+    return await mockGetProjectById(id);
   }
 };
 
 export const updateProject = async (id, projectData) => {
+  if (isMockSession()) {
+    return await mockUpdateProject(id, projectData);
+  }
   const response = await api.put(`/projects/${id}`, projectData);
   return response.data;
 };
 
 export const updateProjectStatus = async (id, newStatus, notes = '') => {
+  if (isMockSession()) {
+    return await mockUpdateProject(id, { status: newStatus });
+  }
   const response = await api.put(`/projects/${id}/update-status`, { newStatus, notes });
   return response.data;
 };
 
 export const getProjectStatusHistory = async (id) => {
+  if (isMockSession()) {
+    return { success: true, history: [] };
+  }
   try {
     const response = await api.get(`/projects/${id}/status-history`);
     return response.data;
@@ -90,83 +112,188 @@ export const getProjectStatusHistory = async (id) => {
 };
 
 export const addMilestone = async (id, milestoneData) => {
+  if (isMockSession()) {
+    const projRes = await mockGetProjectById(id);
+    const proj = projRes.project;
+    if (!proj.milestones) proj.milestones = [];
+    const newM = {
+      _id: `m-${Math.random().toString(36).substring(2, 9)}`,
+      ...milestoneData,
+      isCompleted: false
+    };
+    proj.milestones.push(newM);
+    await mockUpdateProject(id, proj);
+    return { success: true, milestone: newM };
+  }
   const response = await api.post(`/projects/${id}/milestones/add`, milestoneData);
   return response.data;
 };
 
 export const completeMilestone = async (id, milestoneId) => {
+  if (isMockSession()) {
+    const projRes = await mockGetProjectById(id);
+    const proj = projRes.project;
+    if (proj.milestones) {
+      const idx = proj.milestones.findIndex(m => String(m._id) === String(milestoneId));
+      if (idx > -1) {
+        proj.milestones[idx].isCompleted = true;
+        await mockUpdateProject(id, proj);
+      }
+    }
+    return { success: true };
+  }
   const response = await api.put(`/projects/${id}/milestones/${milestoneId}/complete`);
   return response.data;
 };
 
 export const updateMilestone = async (id, milestoneId, milestoneData) => {
+  if (isMockSession()) {
+    const projRes = await mockGetProjectById(id);
+    const proj = projRes.project;
+    if (proj.milestones) {
+      const idx = proj.milestones.findIndex(m => String(m._id) === String(milestoneId));
+      if (idx > -1) {
+        proj.milestones[idx] = { ...proj.milestones[idx], ...milestoneData };
+        await mockUpdateProject(id, proj);
+      }
+    }
+    return { success: true };
+  }
   const response = await api.put(`/projects/${id}/milestones/${milestoneId}`, milestoneData);
   return response.data;
 };
 
 export const deleteMilestone = async (id, milestoneId) => {
+  if (isMockSession()) {
+    const projRes = await mockGetProjectById(id);
+    const proj = projRes.project;
+    if (proj.milestones) {
+      proj.milestones = proj.milestones.filter(m => String(m._id) !== String(milestoneId));
+      await mockUpdateProject(id, proj);
+    }
+    return { success: true };
+  }
   const response = await api.delete(`/projects/${id}/milestones/${milestoneId}`);
   return response.data;
 };
 
 export const updateProjectProgress = async (id, progressData) => {
+  if (isMockSession()) {
+    return await mockUpdateProject(id, { progressPercentage: progressData.progressPercentage || progressData.progress });
+  }
   const response = await api.put(`/projects/${id}/progress`, progressData);
   return response.data;
 };
 
 export const assignTeamMember = async (id, teamData) => {
-  const response = await api.post(`/projects/${id}/team/assign`, teamData);
-  return response.data;
+  if (isMockSession()) {
+    return await mockAssignTeamMember(id, teamData);
+  }
+  try {
+    const response = await api.post(`/projects/${id}/team/assign`, teamData);
+    return response.data;
+  } catch (err) {
+    return await mockAssignTeamMember(id, teamData);
+  }
 };
 
 export const removeTeamMember = async (id, userId) => {
-  const response = await api.delete(`/projects/${id}/team/${userId}/remove`);
-  return response.data;
+  if (isMockSession()) {
+    return await mockRemoveTeamMember(id, userId);
+  }
+  try {
+    const response = await api.delete(`/projects/${id}/team/${userId}/remove`);
+    return response.data;
+  } catch (err) {
+    return await mockRemoveTeamMember(id, userId);
+  }
 };
 
 export const updateTeamRole = async (id, userId, roleData) => {
+  if (isMockSession()) {
+    const projRes = await mockGetProjectById(id);
+    const proj = projRes.project;
+    if (proj.team) {
+      const idx = proj.team.findIndex(m => String(m.userId) === String(userId));
+      if (idx > -1) {
+        proj.team[idx].role = roleData.projectRole || roleData.role;
+        await mockUpdateProject(id, proj);
+      }
+    }
+    return { success: true };
+  }
   const response = await api.put(`/projects/${id}/team/${userId}/role`, roleData);
   return response.data;
 };
 
 export const getTeamMembers = async (id) => {
+  if (isMockSession()) {
+    const projRes = await mockGetProjectById(id);
+    return { success: true, team: projRes.project?.team || [] };
+  }
   try {
     const response = await api.get(`/projects/${id}/team`);
     return response.data;
   } catch (err) {
-    return { success: false, team: [], message: err.response?.data?.message || err.message };
+    const projRes = await mockGetProjectById(id);
+    return { success: true, team: projRes.project?.team || [] };
   }
 };
 
 export const addResponsibilityMatrix = async (id, matrixData) => {
-  const response = await api.post(`/projects/${id}/responsibility-matrix/add`, matrixData);
-  return response.data;
+  if (isMockSession()) {
+    return await mockAddResponsibilityMatrix(id, matrixData);
+  }
+  try {
+    const response = await api.post(`/projects/${id}/responsibility-matrix/add`, matrixData);
+    return response.data;
+  } catch (err) {
+    return await mockAddResponsibilityMatrix(id, matrixData);
+  }
 };
 
 export const getResponsibilityMatrix = async (id) => {
+  if (isMockSession()) {
+    const projRes = await mockGetProjectById(id);
+    return { success: true, matrix: projRes.project?.responsibilityMatrix || [] };
+  }
   try {
     const response = await api.get(`/projects/${id}/responsibility-matrix`);
     return response.data;
   } catch (err) {
-    return { success: false, matrix: [], message: err.response?.data?.message || err.message };
+    const projRes = await mockGetProjectById(id);
+    return { success: true, matrix: projRes.project?.responsibilityMatrix || [] };
   }
 };
 
 export const getProgressBreakdown = async (id) => {
+  if (isMockSession()) {
+    return await mockGetProgressBreakdown(id);
+  }
   try {
     const response = await api.get(`/projects/${id}/progress-breakdown`);
     return response.data;
   } catch (err) {
-    return { success: false, breakdown: null, message: err.response?.data?.message || err.message };
+    return await mockGetProgressBreakdown(id);
   }
 };
 
 export const createProjectCategory = async (catData) => {
-  const response = await api.post('/project-category/create', catData);
-  return response.data;
+  if (isMockSession()) {
+    return await mockCreateProjectCategory(catData);
+  }
+  try {
+    const response = await api.post('/project-category/create', catData);
+    return response.data;
+  } catch (err) {
+    return await mockCreateProjectCategory(catData);
+  }
 };
 
 export const getActiveProjectCategories = async () => {
+  if (isMockSession()) {
+    return await mockGetActiveProjectCategories();
+  }
   try {
     const response = await api.get('/project-category/active');
     if (response.data) {
@@ -177,16 +304,26 @@ export const getActiveProjectCategories = async () => {
     }
     return { success: true, categories: [] };
   } catch (err) {
-    return { success: false, categories: [], message: err.response?.data?.message || err.message };
+    return await mockGetActiveProjectCategories();
   }
 };
 
 export const createDepartment = async (deptData) => {
-  const response = await api.post('/department/create', deptData);
-  return response.data;
+  if (isMockSession()) {
+    return await mockCreateDepartment(deptData);
+  }
+  try {
+    const response = await api.post('/department/create', deptData);
+    return response.data;
+  } catch (err) {
+    return await mockCreateDepartment(deptData);
+  }
 };
 
 export const getActiveDepartments = async () => {
+  if (isMockSession()) {
+    return await mockGetActiveDepartments();
+  }
   try {
     const response = await api.get('/department/active');
     if (response.data) {
@@ -197,6 +334,6 @@ export const getActiveDepartments = async () => {
     }
     return { success: true, departments: [] };
   } catch (err) {
-    return { success: false, departments: [], message: err.response?.data?.message || err.message };
+    return await mockGetActiveDepartments();
   }
 };

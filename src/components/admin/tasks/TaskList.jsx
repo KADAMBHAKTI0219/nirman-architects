@@ -183,10 +183,7 @@ export default function TaskList({
                 onDrop={(e) => {
                   e.preventDefault();
                   setDragOverCol(null);
-                  const taskId = e.dataTransfer.getData('text/plain');
-                  if (taskId && onStatusChange) {
-                    onStatusChange(taskId, col.id);
-                  }
+                  alert("Task status updates are view-only in Admin Panel. Workflow status is updated by assigned team members & PMs.");
                 }}
                 className={`w-full p-3.5 rounded-3xl flex flex-col min-h-[480px] border transition-all duration-200 ${isHoveredOver
                   ? 'bg-indigo-50/80 border-indigo-400 ring-2 ring-indigo-400/30 scale-[1.01] shadow-md'

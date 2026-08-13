@@ -374,7 +374,11 @@ export default function ClientCommunication({ defaultProjectId = null }) {
                     <div className="flex items-center justify-end gap-1 text-[9px] text-[#667781] font-medium pt-1 -mt-1">
                       <span>{m.time}</span>
                       {m.isMe && !m.isInternal && (
-                        <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
+                        m.status === 'read' ? (
+                          <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
+                        ) : (
+                          <CheckCheck className="w-3.5 h-3.5 text-[#8696a0]" />
+                        )
                       )}
                       {m.isInternal && (
                         <Lock className="w-3 h-3 text-amber-700" />

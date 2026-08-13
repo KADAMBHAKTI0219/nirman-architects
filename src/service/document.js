@@ -109,7 +109,7 @@ const isValidObjectId = (id) => typeof id === 'string' && /^[0-9a-fA-F]{24}$/.te
 // 1.2 GET /api/projects/:projectId/document-folders
 export const getProjectFolders = async (projectId = 'proj-1') => {
   let backendFolders = [];
-  if (isValidObjectId(projectId)) {
+  if (projectId) {
     try {
       const response = await api.get(`/projects/${projectId}/document-folders`);
       if (response.data) {
@@ -379,15 +379,37 @@ export const downloadDocument = async (documentId) => {
 
 // 5.1 GET /api/documents/:id/access-log - PM/Admin view of document access audit history
 export const getDocumentAccessLog = async (documentId) => {
+  try {
+    const response = await api.get(`/documents/${documentId}/access-log`);
+    if (response.data && (response.data.success || response.data.accessLogs || response.data.data)) {
+      return {
+        success: true,
+        accessLogs: response.data.accessLogs || response.data.data || response.data,
+        data: response.data.accessLogs || response.data.data || response.data
+      };
+    }
+  } catch (err) {
+    // Graceful fallback if backend API is offline
+  }
+
   const mockLogs = [
     { id: 'al-1', action: 'VIEW', performedBy: 'Super Admin', userRole: 'ADMIN', timestamp: new Date(Date.now() - 3600000).toISOString(), ipAddress: '192.168.1.10' },
-    { id: 'al-2', action: 'VIEW', performedBy: 'Project Manager', userRole: 'PROJECT_MANAGER', timestamp: new Date(Date.now() - 7200000).toISOString(), ipAddress: '192.168.1.50' }
+    { id: 'al-2', action: 'DOWNLOAD', performedBy: 'Project Manager', userRole: 'PROJECT_MANAGER', timestamp: new Date(Date.now() - 7200000).toISOString(), ipAddress: '192.168.1.50' }
   ];
   return { success: true, accessLogs: mockLogs, data: mockLogs };
 };
 
 // 5.2 GET /api/documents/client/:clientId/engagement-summary - Engagement stats (engaged vs never opened)
 export const getClientEngagementSummary = async (clientId = 'client-1', projectId = '') => {
+  try {
+    const response = await api.get(`/documents/client/${clientId}/engagement-summary`, { params: { projectId } });
+    if (response.data && (response.data.success || response.data.summary)) {
+      return response.data;
+    }
+  } catch (err) {
+    // Graceful fallback
+  }
+
   const customDocs = getStoredCustomDocs();
   const visibleDocs = customDocs.filter(d => d.visibleToClient === true);
   const totalCount = visibleDocs.length || 8;

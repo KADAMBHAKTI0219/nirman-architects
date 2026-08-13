@@ -16,8 +16,13 @@ export const isMockSession = () => {
 
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token') || localStorage.getItem('clientToken');
     const requestUrl = config.url || '';
+    const isClientEndpoint = requestUrl.includes('/client') || requestUrl.includes('/client-auth') || requestUrl.includes('/client-portal');
+    
+    const token = isClientEndpoint
+      ? (localStorage.getItem('clientToken') || localStorage.getItem('token'))
+      : (localStorage.getItem('token') || localStorage.getItem('clientToken'));
+
     const isLoginEndpoint = requestUrl.includes('/auth/login') || requestUrl.includes('/client-auth/login');
     if (token && !isLoginEndpoint) {
       config.headers.Authorization = `Bearer ${token}`;

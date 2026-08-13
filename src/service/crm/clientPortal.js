@@ -10,7 +10,16 @@ export const getClientDashboard = async () => {
   try {
     const response = await api.get('/client/dashboard');
     if (response.data && (response.data.success || response.data.activeProjects)) {
-      return response.data;
+      const data = response.data;
+      if (Array.isArray(data.activeProjects)) {
+        data.activeProjects = data.activeProjects.map(p => ({
+          ...p,
+          projectId: p.projectId || p._id || p.id,
+          name: p.name || p.projectName || 'Architectural Project',
+          projectName: p.projectName || p.name || 'Architectural Project'
+        }));
+      }
+      return data;
     }
   } catch (error) {
     console.warn("Client dashboard API notice:", error.message);
@@ -27,6 +36,7 @@ export const getClientDashboard = async () => {
           activeProjects: projs.map(p => ({
             projectId: p._id || p.id || p.projectId,
             projectName: p.projectName || p.name || 'Architectural Project',
+            name: p.name || p.projectName || 'Architectural Project',
             address: p.address || 'Site Location',
             status: p.status || 'Active',
             progress: p.progress || 50,
@@ -43,29 +53,33 @@ export const getClientDashboard = async () => {
     }
   } catch (e) { }
 
-  // Fallback 2: Try general getProjects()
-  try {
-    const allProjs = await getProjects();
-    if (allProjs?.success && Array.isArray(allProjs.projects) && allProjs.projects.length > 0) {
-      return {
-        success: true,
-        activeProjects: allProjs.projects.map(p => ({
-          projectId: p._id || p.id,
-          projectName: p.projectName || p.name || 'Architectural Project',
-          address: p.address || 'Site Location',
-          status: p.status || 'Active',
-          progress: p.progress || 60,
-          projectCategory: typeof p.projectCategoryId === 'object' ? (p.projectCategoryId?.name || 'Architecture') : 'Commercial',
-          budget: p.budget || 0,
-          startDate: p.startDate,
-          estimatedCompletion: p.estimatedCompletion
-        })),
-        pastProjects: [],
-        totalProjectsCount: allProjs.projects.length,
-        contactPermissionLevel: 'OWNER'
-      };
-    }
-  } catch (e) { }
+  // Fallback 2: Try staff getProjects() ONLY if staff token exists
+  const hasStaffToken = !!localStorage.getItem('token');
+  if (hasStaffToken) {
+    try {
+      const allProjs = await getProjects();
+      if (allProjs?.success && Array.isArray(allProjs.projects) && allProjs.projects.length > 0) {
+        return {
+          success: true,
+          activeProjects: allProjs.projects.map(p => ({
+            projectId: p._id || p.id,
+            projectName: p.projectName || p.name || 'Architectural Project',
+            name: p.name || p.projectName || 'Architectural Project',
+            address: p.address || 'Site Location',
+            status: p.status || 'Active',
+            progress: p.progress || 60,
+            projectCategory: typeof p.projectCategoryId === 'object' ? (p.projectCategoryId?.name || 'Architecture') : 'Commercial',
+            budget: p.budget || 0,
+            startDate: p.startDate,
+            estimatedCompletion: p.estimatedCompletion
+          })),
+          pastProjects: [],
+          totalProjectsCount: allProjs.projects.length,
+          contactPermissionLevel: 'OWNER'
+        };
+      }
+    } catch (e) { }
+  }
 
   return { 
     success: false, 
@@ -81,35 +95,45 @@ export const getClientProjectDetail = async (projectId) => {
   try {
     const response = await api.get(`/client/projects/${projectId}`);
     if (response.data && (response.data.success || response.data.project)) {
-      return response.data;
+      const data = response.data;
+      if (data.project) {
+        data.project.name = data.project.name || data.project.projectName || 'Architectural Project';
+        data.project.projectName = data.project.projectName || data.project.name || 'Architectural Project';
+      }
+      return data;
     }
   } catch (error) {
     console.warn("Client project detail API notice:", error.message);
   }
 
-  try {
-    const fallbackRes = await getProjectById(projectId);
-    if (fallbackRes && (fallbackRes.project || fallbackRes._id)) {
-      const p = fallbackRes.project || fallbackRes;
-      return {
-        success: true,
-        project: {
-          _id: p._id || p.id,
-          projectName: p.projectName || p.name || 'Architectural Project',
-          address: p.address || 'Site Location',
-          status: p.status || 'Active',
-          progress: p.progress || 60,
-          projectCategory: typeof p.projectCategoryId === 'object' ? (p.projectCategoryId?.name || 'Architecture') : 'Architecture',
-          budget: p.budget || 0,
-          startDate: p.startDate,
-          estimatedCompletion: p.estimatedCompletion,
-          milestones: p.milestones || [],
-          team: p.teamAssignments || [],
-          raciMatrix: p.raciMatrix || []
-        }
-      };
-    }
-  } catch (e) { }
+  // Fallback ONLY if staff token is present
+  const hasStaffToken = !!localStorage.getItem('token');
+  if (hasStaffToken) {
+    try {
+      const fallbackRes = await getProjectById(projectId);
+      if (fallbackRes && (fallbackRes.project || fallbackRes._id)) {
+        const p = fallbackRes.project || fallbackRes;
+        return {
+          success: true,
+          project: {
+            _id: p._id || p.id,
+            projectName: p.projectName || p.name || 'Architectural Project',
+            name: p.name || p.projectName || 'Architectural Project',
+            address: p.address || 'Site Location',
+            status: p.status || 'Active',
+            progress: p.progress || 60,
+            projectCategory: typeof p.projectCategoryId === 'object' ? (p.projectCategoryId?.name || 'Architecture') : 'Architecture',
+            budget: p.budget || 0,
+            startDate: p.startDate,
+            estimatedCompletion: p.estimatedCompletion,
+            milestones: p.milestones || [],
+            team: p.teamAssignments || [],
+            raciMatrix: p.raciMatrix || []
+          }
+        };
+      }
+    } catch (e) { }
+  }
 
   return { success: false, project: null };
 };

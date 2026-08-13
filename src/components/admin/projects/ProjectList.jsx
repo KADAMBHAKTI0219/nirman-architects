@@ -58,14 +58,25 @@ export default function ProjectList({
       <PageHeader
         title="Projects Control Center"
         subtitle="Full lifecycle project management, budgets, design sign-off, and client project linkages"
-        actions={
-          <button
-            onClick={onCreateClick}
-            className="flex items-center justify-center gap-2 px-4.5 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 rounded-xl text-xs sm:text-sm font-semibold shadow-2xs transition-all cursor-pointer border border-brand-secondary/40"
-          >
-            <span>+ Create Project</span>
-          </button>
-        }
+        actions={(() => {
+          try {
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+              const u = JSON.parse(userStr);
+              if (u.role === 'Architect' || u.role === 'SiteEngineer' || u.role === 'Employee') {
+                return null;
+              }
+            }
+          } catch (e) {}
+          return (
+            <button
+              onClick={onCreateClick}
+              className="flex items-center justify-center gap-2 px-4.5 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 rounded-xl text-xs sm:text-sm font-semibold shadow-2xs transition-all cursor-pointer border border-brand-secondary/40"
+            >
+              <span>+ Create Project</span>
+            </button>
+          );
+        })()}
       />
 
       {/* 1. TOP 4 KPI CARDS */}

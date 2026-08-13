@@ -4988,5 +4988,294 @@ export const mockDeleteMarking = async (versionId, markingId) => {
   };
 };
 
+/* ==========================================================================
+   ERP MODULE 1 - PROJECT MANAGEMENT MOCK APIS
+   ========================================================================== */
+
+const INITIAL_MOCK_PROJECTS = [
+  {
+    _id: "proj-1",
+    id: "proj-1",
+    projectName: "Oceanic Luxury Villas",
+    code: "PRJ-OCE-001",
+    clientInformation: "Bruce Wayne",
+    address: "1007 Mountain Drive, Gotham",
+    projectCategoryId: "cat-res",
+    category: "Residential Villa",
+    progressPercentage: 68,
+    status: "In Progress",
+    priority: "High",
+    team: [
+      { userId: "u1", name: "Sarah Connor", role: "Lead Architect", dept: "Architecture" },
+      { userId: "u3", name: "Bob Johnson", role: "Site Engineer", dept: "Construction" }
+    ],
+    responsibilityMatrix: [
+      { area: "Concept Design", responsible: ["Sarah Connor"], accountable: ["Sarah Connor"], consulted: ["Bruce Wayne"], informed: ["Bob Johnson"] }
+    ]
+  },
+  {
+    _id: "proj-2",
+    id: "proj-2",
+    projectName: "Central Office Tower",
+    code: "PRJ-CEN-002",
+    clientInformation: "Clark Kent",
+    address: "344 Clinton St, Metropolis",
+    projectCategoryId: "cat-comm",
+    category: "Commercial Complex",
+    progressPercentage: 45,
+    status: "In Progress",
+    priority: "Medium",
+    team: [
+      { userId: "u1", name: "Sarah Connor", role: "Senior Designer", dept: "Architecture" },
+      { userId: "u2", name: "Alice Smith", role: "MEP Engineer", dept: "Engineering" }
+    ],
+    responsibilityMatrix: []
+  },
+  {
+    _id: "proj-3",
+    id: "proj-3",
+    projectName: "Shah Corporate Heights",
+    code: "PRJ-SHA-003",
+    clientInformation: "Tony Stark",
+    address: "10880 Malibu Point, California",
+    projectCategoryId: "cat-comm",
+    category: "Commercial Complex",
+    progressPercentage: 12,
+    status: "In Progress",
+    priority: "High",
+    team: [],
+    responsibilityMatrix: []
+  }
+];
+
+const getStoredProjects = () => {
+  const data = localStorage.getItem('nirman_projects');
+  if (!data) {
+    localStorage.setItem('nirman_projects', JSON.stringify(INITIAL_MOCK_PROJECTS));
+    return INITIAL_MOCK_PROJECTS;
+  }
+  return JSON.parse(data);
+};
+
+const saveStoredProjects = (projects) => {
+  localStorage.setItem('nirman_projects', JSON.stringify(projects));
+};
+
+export const mockGetProjects = async ({ search, status, priority } = {}) => {
+  await delay();
+  let projects = getStoredProjects();
+
+  const userStr = localStorage.getItem('user');
+  if (userStr) {
+    try {
+      const userObj = JSON.parse(userStr);
+      const isElevatedRole = ['Admin', 'ProjectManager', 'HR'].includes(userObj.role) ||
+                             ['SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'PROJECT_MANAGER', 'PM'].includes(userObj.roleCode);
+      if (!isElevatedRole && (userObj.id || userObj._id)) {
+        const loggedInUid = userObj.id || userObj._id;
+        projects = projects.filter(p => {
+          const team = Array.isArray(p.teamAssignments) ? p.teamAssignments : (Array.isArray(p.team) ? p.team : []);
+          return team.some(member => 
+            String(member.userId) === String(loggedInUid) ||
+            (member.name && userObj.name && member.name.toLowerCase() === userObj.name.toLowerCase())
+          );
+        });
+      }
+    } catch (e) {
+      console.error("Failed to parse user in mockGetProjects:", e);
+    }
+  }
+
+  if (search) {
+    const q = search.toLowerCase();
+    projects = projects.filter(p => 
+      (p.projectName || p.name || '').toLowerCase().includes(q) ||
+      (p.code || '').toLowerCase().includes(q) ||
+      (p.clientInformation || '').toLowerCase().includes(q)
+    );
+  }
+  if (status && status !== 'All') {
+    projects = projects.filter(p => p.status === status);
+  }
+  if (priority && priority !== 'All') {
+    projects = projects.filter(p => p.priority === priority);
+  }
+  return { success: true, projects };
+};
+
+export const mockGetProjectById = async (id) => {
+  await delay();
+  const projects = getStoredProjects();
+  const project = projects.find(p => String(p._id) === String(id) || String(p.id) === String(id));
+  if (!project) throw new Error("Project not found.");
+  return { success: true, project };
+};
+
+export const mockCreateProject = async (projectData) => {
+  await delay();
+  const projects = getStoredProjects();
+  const newProj = {
+    ...projectData,
+    _id: `proj-${Math.random().toString(36).substring(2, 9)}`,
+    team: projectData.team || [],
+    responsibilityMatrix: projectData.responsibilityMatrix || [],
+    progressPercentage: projectData.progressPercentage || 0,
+    status: projectData.status || "New"
+  };
+  newProj.id = newProj._id;
+  projects.push(newProj);
+  saveStoredProjects(projects);
+  return { success: true, project: newProj };
+};
+
+export const mockUpdateProject = async (id, projectData) => {
+  await delay();
+  const projects = getStoredProjects();
+  const idx = projects.findIndex(p => String(p._id) === String(id) || String(p.id) === String(id));
+  if (idx === -1) throw new Error("Project not found.");
+  projects[idx] = { ...projects[idx], ...projectData };
+  saveStoredProjects(projects);
+  return { success: true, project: projects[idx] };
+};
+
+export const mockAssignTeamMember = async (id, teamData) => {
+  await delay();
+  const projects = getStoredProjects();
+  const idx = projects.findIndex(p => String(p._id) === String(id) || String(p.id) === String(id));
+  if (idx === -1) throw new Error("Project not found.");
+  
+  const proj = projects[idx];
+  if (!proj.team) proj.team = [];
+  
+  const users = JSON.parse(localStorage.getItem('nirman_users') || '[]');
+  const user = users.find(u => String(u.id) === String(teamData.userId));
+  const memberName = user ? user.name : (teamData.name || 'Team Member');
+  
+  const existing = proj.team.findIndex(m => String(m.userId) === String(teamData.userId));
+  if (existing > -1) {
+    proj.team[existing].role = teamData.projectRole;
+    if (teamData.departmentId) proj.team[existing].dept = teamData.departmentId;
+  } else {
+    proj.team.push({
+      userId: teamData.userId,
+      name: memberName,
+      role: teamData.projectRole,
+      dept: teamData.departmentId || 'Engineering'
+    });
+  }
+  
+  projects[idx] = proj;
+  saveStoredProjects(projects);
+  return { success: true, message: 'Member assigned successfully.', project: proj };
+};
+
+export const mockRemoveTeamMember = async (id, userId) => {
+  await delay();
+  const projects = getStoredProjects();
+  const idx = projects.findIndex(p => String(p._id) === String(id) || String(p.id) === String(id));
+  if (idx === -1) throw new Error("Project not found.");
+  
+  const proj = projects[idx];
+  if (proj.team) {
+    proj.team = proj.team.filter(m => String(m.userId) !== String(userId));
+  }
+  
+  projects[idx] = proj;
+  saveStoredProjects(projects);
+  return { success: true, message: 'Member removed successfully.', project: proj };
+};
+
+export const mockAddResponsibilityMatrix = async (id, matrixData) => {
+  await delay();
+  const projects = getStoredProjects();
+  const idx = projects.findIndex(p => String(p._id) === String(id) || String(p.id) === String(id));
+  if (idx === -1) throw new Error("Project not found.");
+  
+  const proj = projects[idx];
+  if (!proj.responsibilityMatrix) proj.responsibilityMatrix = [];
+  proj.responsibilityMatrix.push({
+    area: matrixData.area,
+    responsible: Array.isArray(matrixData.responsible) ? matrixData.responsible : [matrixData.responsible],
+    accountable: Array.isArray(matrixData.accountable) ? matrixData.accountable : [matrixData.accountable],
+    consulted: Array.isArray(matrixData.consulted) ? matrixData.consulted : [matrixData.consulted],
+    informed: Array.isArray(matrixData.informed) ? matrixData.informed : [matrixData.informed]
+  });
+  
+  projects[idx] = proj;
+  saveStoredProjects(projects);
+  return { success: true, message: 'RACI matrix entry added successfully.', project: proj };
+};
+
+export const mockGetProgressBreakdown = async (id) => {
+  await delay();
+  const projects = getStoredProjects();
+  const proj = projects.find(p => String(p._id) === String(id) || String(p.id) === String(id));
+  if (!proj) throw new Error("Project not found.");
+  
+  return {
+    success: true,
+    progressPercentage: proj.progressPercentage || 0,
+    breakdown: {
+      drawings: { total: 10, approved: 7, progress: 70 },
+      tasks: { total: 15, completed: 9, progress: 60 }
+    }
+  };
+};
+
+export const mockCreateProjectCategory = async (catData) => {
+  await delay();
+  const categories = JSON.parse(localStorage.getItem('nirman_project_categories') || '[]');
+  const newCat = {
+    _id: `cat-${Math.random().toString(36).substring(2, 9)}`,
+    name: catData.name,
+    isActive: true
+  };
+  categories.push(newCat);
+  localStorage.setItem('nirman_project_categories', JSON.stringify(categories));
+  return { success: true, category: newCat };
+};
+
+export const mockGetActiveProjectCategories = async () => {
+  await delay();
+  const categories = JSON.parse(localStorage.getItem('nirman_project_categories') || '[]');
+  if (categories.length === 0) {
+    const initial = [
+      { _id: 'cat-res', name: 'Residential Villa', isActive: true },
+      { _id: 'cat-comm', name: 'Commercial Complex', isActive: true }
+    ];
+    localStorage.setItem('nirman_project_categories', JSON.stringify(initial));
+    return { success: true, categories: initial };
+  }
+  return { success: true, categories };
+};
+
+export const mockCreateDepartment = async (deptData) => {
+  await delay();
+  const departments = JSON.parse(localStorage.getItem('nirman_departments') || '[]');
+  const newDept = {
+    _id: `dept-${Math.random().toString(36).substring(2, 9)}`,
+    name: deptData.name,
+    isActive: true
+  };
+  departments.push(newDept);
+  localStorage.setItem('nirman_departments', JSON.stringify(departments));
+  return { success: true, department: newDept };
+};
+
+export const mockGetActiveDepartments = async () => {
+  await delay();
+  const departments = JSON.parse(localStorage.getItem('nirman_departments') || '[]');
+  if (departments.length === 0) {
+    const initial = [
+      { _id: 'dept-arch', name: 'Architecture', isActive: true },
+      { _id: 'dept-const', name: 'Construction', isActive: true },
+      { _id: 'dept-eng', name: 'Engineering', isActive: true }
+    ];
+    localStorage.setItem('nirman_departments', JSON.stringify(initial));
+    return { success: true, departments: initial };
+  }
+  return { success: true, departments };
+};
+
 
 

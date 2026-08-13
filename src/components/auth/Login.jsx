@@ -85,7 +85,9 @@ export default function Login({ onLogin }) {
       if (authType === 'client') {
         // Explicit Client Portal Login Endpoint: POST /api/client-auth/login
         const res = await clientLogin({ email: cleanEmail, password: cleanPassword });
-        if (res?.success) {
+        const clientToken = res?.token || res?.data?.token;
+        const clientSuccess = res?.success === true || !!clientToken || res?.data?.success === true;
+        if (clientSuccess) {
           handleClientLoginSuccess(res, cleanEmail);
           return;
         } else {
@@ -128,12 +130,19 @@ export default function Login({ onLogin }) {
           }
         } catch (staffErr) {
           // Automatic Smart Fallback: Try Client Portal Login if staff login fails
-          const clientRes = await clientLogin({ email: cleanEmail, password: cleanPassword });
-          if (clientRes?.success) {
-            handleClientLoginSuccess(clientRes, cleanEmail);
-            return;
+          try {
+            const clientRes = await clientLogin({ email: cleanEmail, password: cleanPassword });
+            const clientToken = clientRes?.token || clientRes?.data?.token;
+            const clientSuccess = clientRes?.success === true || !!clientToken || clientRes?.data?.success === true;
+            if (clientSuccess) {
+              handleClientLoginSuccess(clientRes, cleanEmail);
+              return;
+            } else {
+              setError(clientRes?.message || staffErr.response?.data?.message || staffErr.message || 'Invalid login credentials.');
+            }
+          } catch (clientErr) {
+            setError(clientErr.response?.data?.message || clientErr.message || staffErr.response?.data?.message || staffErr.message || 'Invalid login credentials.');
           }
-          setError(staffErr.response?.data?.message || staffErr.message || 'Invalid login credentials.');
         }
       }
     } catch (err) {
@@ -332,6 +341,32 @@ export default function Login({ onLogin }) {
           <div className="space-y-1">
             <h2 className="text-3xl font-black text-slate-900 tracking-tight">Welcome Back!</h2>
             <p className="text-xs text-slate-500">Log in with your email & password to access your portal workspace.</p>
+          </div>
+
+          {/* Workspace Switcher Tabs */}
+          <div className="flex bg-slate-100 p-1 rounded-full border border-slate-200/50">
+            <button
+              type="button"
+              onClick={() => handleTabSwitch('staff')}
+              className={`flex-1 py-2.5 text-center text-xs font-black rounded-full transition-all cursor-pointer ${
+                authType === 'staff'
+                  ? 'bg-white text-slate-900 shadow-3xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Staff Workspace
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTabSwitch('client')}
+              className={`flex-1 py-2.5 text-center text-xs font-black rounded-full transition-all cursor-pointer ${
+                authType === 'client'
+                  ? 'bg-white text-slate-900 shadow-3xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Client Portal
+            </button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
