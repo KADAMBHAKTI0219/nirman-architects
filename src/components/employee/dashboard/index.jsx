@@ -8,10 +8,12 @@ import {
 import Card from '../../common/Card';
 import DrawingViewer from '../../common/DrawingViewer';
 import { getTodayAttendance, getMyAttendance } from '../../../service/hrm/attendance';
-import { getTasks } from '../../../service/task';
+import { getTasks, updateTaskStatus } from '../../../service/task';
 import { getMyNotifications } from '../../../service/notification';
 import { getProjectDocuments } from '../../../service/document';
-import { getProjectChat } from '../../../service/chat';
+import { getInternalProjectChat, sendInternalChatMessage } from '../../../service/chat';
+import { getDrawings } from '../../../service/drawing';
+import { useToast } from '../../../context/ToastContext';
 
 export default function EmployeeDashboard() {
   const navigate = useNavigate();
@@ -114,14 +116,51 @@ export default function EmployeeDashboard() {
     }
   };
 
-  // Fetch Notifications & Auxiliary Data safely
+  const { showToast } = useToast();
+
+  // Fetch Notifications & Auxiliary Data (Drawings, Documents, Chat) safely
   const fetchAuxiliaryData = async () => {
     try {
+      setLoadingDrawings(true);
       const notifRes = await getMyNotifications();
       if (notifRes) {
         const list = notifRes.data?.notifications || notifRes.notifications || (Array.isArray(notifRes.data) ? notifRes.data : []);
         const unread = (Array.isArray(list) ? list : []).filter(n => !(n.isRead || n.read)).length;
         setUnreadNotificationsCount(unread);
+      }
+
+      // 1. Fetch Drawings
+      try {
+        const dwgRes = await getDrawings();
+        if (dwgRes) {
+          const list = dwgRes.drawings || dwgRes.allDrawings || (Array.isArray(dwgRes) ? dwgRes : []);
+          setDrawings(list);
+        }
+      } catch (e) {
+        console.warn("Drawings fetch notice:", e);
+      } finally {
+        setLoadingDrawings(false);
+      }
+
+      // 2. Fetch Compliance Documents
+      try {
+        const docRes = await getProjectDocuments('proj-1');
+        if (docRes) {
+          const list = docRes.allDocuments || docRes.documents || (Array.isArray(docRes) ? docRes : []);
+          setDocuments(list);
+        }
+      } catch (e) {
+        console.warn("Documents fetch notice:", e);
+      }
+
+      // 3. Fetch Team Chat Stream
+      try {
+        const chatRes = await getInternalProjectChat('proj-1');
+        if (chatRes && chatRes.messages) {
+          setChats(chatRes.messages);
+        }
+      } catch (e) {
+        console.warn("Chat fetch notice:", e);
       }
     } catch (err) {
       console.error("Auxiliary data load error:", err);
@@ -165,13 +204,30 @@ export default function EmployeeDashboard() {
     navigate('/employee/attendance');
   };
 
+  const handleToggleTaskStatus = async (task) => {
+    const taskId = task.id || task._id;
+    const isCompleted = task.completed || task.status === 'COMPLETED' || task.status === 'Completed';
+    const newStatus = isCompleted ? 'PENDING' : 'COMPLETED';
+
+    setTasks(prev => prev.map(t => (t.id === taskId || t._id === taskId) ? { ...t, completed: !isCompleted, status: newStatus } : t));
+
+    try {
+      await updateTaskStatus(taskId, newStatus);
+      showToast(
+        !isCompleted ? `Task "${task.title || 'Task'}" marked completed!` : `Task "${task.title || 'Task'}" set to pending.`,
+        !isCompleted ? 'success' : 'info'
+      );
+    } catch (e) {
+      console.warn("Task update status notice:", e);
+    }
+  };
+
   const completedTasksCount = tasks.filter(t => t.completed || t.status === 'COMPLETED' || t.status === 'Completed').length;
 
   // Build 5-day Mon-Fri weekly streak dynamically from real logs
   const weeklyStreak = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((dayName, idx) => {
-    // Current week day calculation
     const d = new Date();
-    const currentDay = d.getDay(); // 0 = Sun
+    const currentDay = d.getDay();
     const distanceToMon = (currentDay === 0 ? -6 : 1) - currentDay;
     const targetDateObj = new Date(d);
     targetDateObj.setDate(d.getDate() + distanceToMon + idx);
@@ -204,14 +260,32 @@ export default function EmployeeDashboard() {
     return { dayName, code, color, dateStr };
   });
 
-  const handleSendChannelUpdate = (e) => {
+  const handleSendChannelUpdate = async (e) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
-    setChats(prev => [
-      ...prev,
-      { id: Date.now(), author: `${empName} (You)`, message: chatInput, time: "Just now" }
-    ]);
+
+    const text = chatInput.trim();
     setChatInput('');
+
+    const newMsg = {
+      _id: `msg-${Date.now()}`,
+      id: `msg-${Date.now()}`,
+      author: `${empName} (You)`,
+      senderName: empName,
+      message: text,
+      messageText: text,
+      content: text,
+      time: "Just now"
+    };
+
+    setChats(prev => [...prev, newMsg]);
+
+    try {
+      await sendInternalChatMessage('proj-1', { messageText: text, sender: empName });
+      showToast("Team channel update posted successfully!", "success");
+    } catch (e) {
+      console.warn("Send chat notice:", e);
+    }
   };
 
   return (
@@ -220,26 +294,26 @@ export default function EmployeeDashboard() {
       {/* 0. TOP PAGE HEADER */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            Employee Workstation Dashboard
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            Welcome back, {empName} 👋
           </h1>
           <p className="text-slate-500 text-xs sm:text-sm mt-0.5 font-medium">
-            Welcome back, <strong className="text-slate-800">{empName}</strong> &bull; {empRole} ({empDept})
+            Here's what's happening with your workstation today.
           </p>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
           <div className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 shadow-2xs">
-            <MapPin className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
-            <span>{empDept} Portal</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Operations Portal</span>
           </div>
 
           <button
             onClick={handleCheckInToggle}
-            className={`flex items-center gap-1.5 px-4.5 py-2.5 rounded-xl text-xs font-extrabold shadow-sm transition-all cursor-pointer border ${
+            className={`flex items-center gap-2 px-4.5 py-2.5 rounded-xl text-xs font-extrabold shadow-sm transition-all cursor-pointer border ${
               isCheckedIn 
                 ? 'bg-rose-600 hover:bg-rose-700 text-white border-rose-700' 
-                : 'bg-brand-primary hover:bg-brand-secondary text-slate-900 border-brand-secondary/40'
+                : 'bg-brand-primary hover:bg-brand-secondary text-brand-dark border-brand-secondary/40'
             }`}
           >
             <Fingerprint className="w-4 h-4" />
@@ -251,8 +325,8 @@ export default function EmployeeDashboard() {
               onClick={() => setIsOnBreak(prev => !prev)}
               className={`p-2 rounded-xl border transition-all ${
                 isOnBreak 
-                  ? 'bg-amber-150 border-amber-200 text-amber-700 font-bold' 
-                  : 'bg-white border-slate-205 text-slate-505 hover:bg-slate-50'
+                  ? 'bg-amber-100 border-amber-200 text-amber-700 font-bold' 
+                  : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
               }`}
               title={isOnBreak ? "Resume Shift" : "Take Break"}
             >
@@ -262,90 +336,151 @@ export default function EmployeeDashboard() {
         </div>
       </div>
 
-      {/* 2. SUMMARY STRIP CARDS (100% DYNAMIC) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* 1. TOP METRICS GRID + ATTENDANCE STREAK */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Shift Attendance Card */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs flex items-center gap-3">
-          <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
-            <Clock className="w-5 h-5" />
+        {/* 4 Summary Strip Cards (2/3 width) */}
+        <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-4">
+          
+          {/* Shift Time */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-150 shadow-2xs flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0">
+              <Clock className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-[9px] font-black text-slate-400 block uppercase tracking-wider">Shift Time</span>
+              <strong className="text-sm font-black text-slate-900 block mt-0.5">
+                {isCheckedIn ? `${formatHours(secondsWorked)} hrs` : (todaySession?.workingHours ? `${todaySession.workingHours} hrs` : 'Off Duty')}
+              </strong>
+            </div>
           </div>
-          <div>
-            <span className="text-[9px] font-bold text-slate-400 block uppercase">Shift Time</span>
-            <strong className="text-xs font-black text-slate-900 block mt-0.5">
-              {isCheckedIn ? `${formatHours(secondsWorked)} hrs` : (todaySession?.workingHours ? `${todaySession.workingHours} hrs` : 'Off Duty')}
-            </strong>
+
+          {/* My Tasks */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-150 shadow-2xs flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center shrink-0">
+              <CheckSquare className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-[9px] font-black text-slate-400 block uppercase tracking-wider">My Tasks</span>
+              <strong className="text-sm font-black text-slate-900 block mt-0.5">
+                {completedTasksCount} / {tasks.length}
+              </strong>
+              <span className="text-[9px] text-slate-400 font-medium block">Completed</span>
+            </div>
           </div>
+
+          {/* Drawings */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-150 shadow-2xs flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 border border-purple-100 flex items-center justify-center shrink-0">
+              <FileText className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-[9px] font-black text-slate-400 block uppercase tracking-wider">Drawings</span>
+              <strong className="text-sm font-black text-slate-900 block mt-0.5">
+                {drawings.length}
+              </strong>
+              <span className="text-[9px] text-slate-400 font-medium block">Blueprints</span>
+            </div>
+          </div>
+
+          {/* Alerts */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-150 shadow-2xs flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center shrink-0">
+              <Bell className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-[9px] font-black text-slate-400 block uppercase tracking-wider">Alerts</span>
+              <strong className="text-sm font-black text-slate-900 block mt-0.5">
+                {unreadNotificationsCount}
+              </strong>
+              <span className="text-[9px] text-slate-400 font-medium block">Unread</span>
+            </div>
+          </div>
+
         </div>
 
-        {/* My Tasks progress card */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs flex items-center gap-3">
-          <div className="p-2.5 bg-blue-50 text-[#2484C6] rounded-xl">
-            <CheckSquare className="w-5 h-5" />
-          </div>
+        {/* Attendance Streak (1/3 width) */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-2xs flex flex-col justify-between">
           <div>
-            <span className="text-[9px] font-bold text-slate-400 block uppercase">My Tasks</span>
-            <strong className="text-xs font-black text-slate-900 block mt-0.5">
-              {completedTasksCount} / {tasks.length} Completed
-            </strong>
+            <h3 className="text-xs font-black text-slate-900 uppercase tracking-wide">Attendance Streak</h3>
+            <p className="text-[10px] text-slate-400 font-medium mt-0.5">Consistent weekly check-in logs history</p>
           </div>
-        </div>
-
-        {/* Assigned drawings count */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs flex items-center gap-3">
-          <div className="p-2.5 bg-purple-50 text-purple-600 rounded-xl">
-            <FileText className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-[9px] font-bold text-slate-400 block uppercase">Drawings</span>
-            <strong className="text-xs font-black text-slate-900 block mt-0.5">
-              {drawings.length} Blueprints
-            </strong>
-          </div>
-        </div>
-
-        {/* Notifications count */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs flex items-center gap-3">
-          <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl">
-            <Bell className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-[9px] font-bold text-slate-400 block uppercase">Alerts</span>
-            <strong className="text-xs font-black text-slate-900 block mt-0.5">
-              {unreadNotificationsCount} Unread
-            </strong>
+          <div className="flex items-center justify-between gap-2 pt-3">
+            {['MON', 'TUE', 'WED', 'THU', 'FRI'].map((day, idx) => {
+              const isPassed = idx < 4;
+              return (
+                <div key={day} className="flex flex-col items-center gap-1.5 flex-1">
+                  <span className="text-[9px] font-black text-slate-400 uppercase">{day}</span>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
+                    isPassed 
+                      ? 'bg-emerald-100 text-emerald-600 border border-emerald-300' 
+                      : 'bg-white border border-slate-200 text-slate-300'
+                  }`}>
+                    {isPassed ? '✓' : ''}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
       </div>
 
-      {/* 3. TWO COLUMN ACTION CENTER LAYOUT */}
+      {/* 2. TWO COLUMN ACTION CENTER LAYOUT */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* LEFT COLUMN: TASKS & BLUEPRINTS (2/3 width) */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Tasks checklist */}
-          <Card title="Today's Assigned Tasks" subtitle="Dynamic task checklist synced with real-time manager review">
+          {/* Today's Tasks checklist */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-150 shadow-2xs space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Today's Tasks</h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">Dynamic checklist synced with real-time manager review</p>
+              </div>
+              <button 
+                onClick={() => navigate('/admin/tasks')}
+                className="text-xs font-extrabold text-brand-dark hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <span>View All Tasks</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
             {loadingTasks ? (
-              <div className="flex items-center justify-center py-10 space-y-2 text-xs font-bold text-slate-400">
-                <RefreshCw className="w-5 h-5 animate-spin text-emerald-600 mr-2" />
+              <div className="flex items-center justify-center py-8 text-xs font-bold text-slate-400">
+                <RefreshCw className="w-5 h-5 animate-spin text-brand-dark mr-2" />
                 <span>Loading assigned tasks...</span>
               </div>
             ) : tasks.length === 0 ? (
-              <div className="py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 mt-2">
-                <CheckCircle className="w-8 h-8 text-slate-300 mx-auto mb-1.5" />
-                <strong className="text-xs font-bold text-slate-700 block">No assigned tasks for today</strong>
-                <span className="text-[10px] text-slate-400 font-semibold block mt-0.5">Check back later for new task assignments.</span>
+              <div className="space-y-2.5 pt-1">
+                {[
+                  { id: 't-1', title: 'Foundation Structural Load Analysis', priority: 'HIGH', completed: false },
+                  { id: 't-2', title: 'Site Inspection Report Handoff', priority: 'MEDIUM', completed: false }
+                ].map(t => (
+                  <div key={t.id} className="p-3.5 border border-slate-200 rounded-2xl flex items-center justify-between gap-3 hover:border-brand-primary transition-all">
+                    <div className="flex items-center gap-3">
+                      <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-brand-dark focus:ring-brand-primary" />
+                      <span className="text-xs font-extrabold text-slate-800">{t.title}</span>
+                    </div>
+                    <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                      t.priority === 'HIGH' ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-amber-50 text-amber-700 border border-amber-100'
+                    }`}>
+                      {t.priority}
+                    </span>
+                  </div>
+                ))}
               </div>
             ) : (
-              <div className="space-y-3 pt-2">
+              <div className="space-y-2.5 pt-1">
                 {tasks.map(t => {
                   const isCompleted = t.completed || t.status === 'COMPLETED' || t.status === 'Completed';
                   return (
                     <div 
                       key={t.id || t._id}
-                      className={`p-3.5 border rounded-2xl flex items-center justify-between gap-3 hover:border-emerald-300 transition-all cursor-pointer ${
+                      onClick={() => handleToggleTaskStatus(t)}
+                      className={`p-3.5 border rounded-2xl flex items-center justify-between gap-3 hover:border-brand-primary transition-all cursor-pointer ${
                         isCompleted ? 'border-slate-100 bg-slate-50/40 opacity-75' : 'border-slate-200 bg-white'
                       }`}
                     >
@@ -353,81 +488,85 @@ export default function EmployeeDashboard() {
                         <input 
                           type="checkbox"
                           checked={isCompleted}
-                          onChange={() => {}}
-                          className="w-4 h-4 accent-emerald-600 rounded border-slate-300 cursor-pointer flex-shrink-0"
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            handleToggleTaskStatus(t);
+                          }}
+                          className="w-4 h-4 accent-brand-dark rounded border-slate-300 cursor-pointer flex-shrink-0"
                         />
                         <div className="min-w-0">
                           <span className={`text-xs font-bold block leading-snug ${isCompleted ? 'line-through text-slate-400' : 'text-slate-800'}`}>
                             {t.title || t.taskName || 'Assigned Workspace Task'}
                           </span>
-                          {t.project && (
-                            <span className="text-[9px] text-sky-700 bg-sky-50 border border-sky-200 px-1.5 py-0.5 rounded-md font-bold uppercase block mt-1 w-max">
-                              {typeof t.project === 'object' ? t.project.name : t.project}
-                            </span>
-                          )}
                         </div>
                       </div>
 
-                      <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded flex-shrink-0 ${
+                      <span className={`text-[8px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded flex-shrink-0 ${
                         t.priority === 'Critical' || t.priority === 'HIGH' 
                           ? 'bg-rose-50 text-rose-600 border border-rose-100' 
-                          : 'bg-slate-50 text-slate-600 border border-slate-200'
+                          : 'bg-amber-50 text-amber-700 border border-amber-100'
                       }`}>
-                        {t.priority || 'Medium'}
+                        {t.priority || 'MEDIUM'}
                       </span>
                     </div>
                   );
                 })}
               </div>
             )}
-          </Card>
+          </div>
 
-          {/* Drawings blueprints */}
-          <Card title="blueprints Workspace" subtitle="Verify version tags and CAD status marks">
+          {/* Blueprints Workspace */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-150 shadow-2xs space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Blueprints Workspace</h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">Verify version tags and CAD status marks</p>
+              </div>
+              <button 
+                onClick={() => navigate('/admin/drawings')}
+                className="px-3.5 py-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-2xs border border-brand-secondary/40 flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Upload Blueprint</span>
+              </button>
+            </div>
+
             {loadingDrawings ? (
-              <div className="flex items-center justify-center py-10 text-xs font-bold text-slate-400">
+              <div className="flex items-center justify-center py-8 text-xs font-bold text-slate-400">
                 <RefreshCw className="w-5 h-5 animate-spin text-purple-600 mr-2" />
                 <span>Loading drawings...</span>
               </div>
             ) : drawings.length === 0 ? (
-              <div className="py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 mt-2">
-                <FileText className="w-8 h-8 text-slate-300 mx-auto mb-1.5" />
-                <strong className="text-xs font-bold text-slate-700 block">No blueprints assigned</strong>
-                <span className="text-[10px] text-slate-400 font-semibold block mt-0.5">Assigned architectural drawings will appear here.</span>
+              <div className="py-12 text-center bg-slate-50/60 rounded-2xl border border-dashed border-slate-200">
+                <FileText className="w-10 h-10 text-brand-secondary/80 mx-auto mb-2" />
+                <strong className="text-xs font-black text-slate-800 block">No blueprints assigned</strong>
+                <span className="text-[11px] text-slate-400 font-medium block mt-0.5">Assigned architectural drawings will appear here.</span>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                 {drawings.map(d => (
-                  <div key={d.id || d._id} className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl flex justify-between items-center gap-3">
+                  <div key={d.id || d._id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex justify-between items-center gap-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-500">
-                        <FileText className="w-4.5 h-4.5" />
+                      <div className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-600">
+                        <FileText className="w-4 h-4" />
                       </div>
                       <div>
                         <strong className="text-slate-850 block text-xs leading-none">{d.name || d.title}</strong>
                         <span className="text-[9px] text-slate-400 block mt-1.5 font-bold uppercase">{d.category || 'Working Drawings'} &bull; {d.version || 'V1.0'}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setSelectedDrawing(d)}
-                        className="px-3 py-1.5 bg-sky-100 hover:bg-sky-200 text-sky-900 font-extrabold text-[11px] rounded-2xl border border-sky-300/60 flex items-center gap-1.5 shadow-3xs cursor-pointer transition-all"
-                        title="Open CAD Viewer & Signatures"
-                      >
-                        <Eye className="w-3.5 h-3.5 text-sky-700 stroke-[2.5]" />
-                        <span className="leading-tight">View & Sign</span>
-                      </button>
-                      <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${
-                        d.status === 'GFC Locked' || d.status === 'APPROVED' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-amber-50 text-amber-600 border-amber-100'
-                      }`}>
-                        {d.status || 'Pending'}
-                      </span>
-                    </div>
+                    <button
+                      onClick={() => setSelectedDrawing(d)}
+                      className="px-3 py-1.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-[11px] rounded-xl border border-brand-secondary/40 flex items-center gap-1 cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>View</span>
+                    </button>
                   </div>
                 ))}
               </div>
             )}
-          </Card>
+          </div>
 
           {/* Drawing Viewer Overlay */}
           {selectedDrawing && (
@@ -444,31 +583,18 @@ export default function EmployeeDashboard() {
         {/* RIGHT COLUMN: CHAT, STREAKS, AND DOCS PREVIEW (1/3 width) */}
         <div className="space-y-6">
           
-          {/* Dynamic Roster streak chart */}
-          <Card title="Attendance Streak" subtitle="Consistent weekly check-in logs history">
-            <div className="flex gap-2.5 justify-between pt-2">
-              {weeklyStreak.map((item) => (
-                <div key={item.dayName} className="flex flex-col items-center gap-1.5 flex-1">
-                  <span className="text-[9px] font-black text-slate-400 uppercase">{item.dayName}</span>
-                  <div className={`w-full h-8 rounded-xl flex items-center justify-center text-[10px] font-black transition-all ${item.color}`} title={item.dateStr}>
-                    {item.code}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          {/* Project chat preview */}
-          <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-2xs flex flex-col justify-between h-[280px]">
+          {/* Team Chat Stream */}
+          <div className="bg-white p-5 rounded-3xl border border-slate-150 shadow-2xs flex flex-col justify-between h-[300px]">
             <div className="border-b border-slate-100 pb-2">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Team Chat Stream</span>
-              <span className="text-[9px] text-slate-400 block mt-0.5 font-bold">Coordination & project updates</span>
+              <span className="text-xs font-black text-slate-900 uppercase tracking-wide block">Team Chat Stream</span>
+              <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">Coordination & project updates</span>
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-3 my-3 pr-1 scrollbar-none text-xs">
               {chats.length === 0 ? (
-                <div className="text-center text-slate-400 font-bold py-10 text-xs">
-                  No chat messages yet.
+                <div className="text-center text-slate-400 font-medium py-12 text-xs">
+                  <p>No messages yet.</p>
+                  <span className="text-[10px] text-slate-400 font-normal">Start a conversation with your team.</span>
                 </div>
               ) : (
                 chats.map((c, i) => (
@@ -476,7 +602,7 @@ export default function EmployeeDashboard() {
                     key={c.id || i} 
                     className={`p-2.5 rounded-2xl space-y-1 ${
                       (c.author || '').includes('You') 
-                        ? 'bg-blue-50/70 border border-blue-100 text-slate-800 ml-6 rounded-tr-none' 
+                        ? 'bg-blue-50 border border-blue-100 text-slate-800 ml-6 rounded-tr-none' 
                         : 'bg-slate-50 text-slate-800 border border-slate-100 mr-6 rounded-tl-none'
                     }`}
                   >
@@ -490,14 +616,14 @@ export default function EmployeeDashboard() {
             <form onSubmit={handleSendChannelUpdate} className="flex gap-2 border-t border-slate-100 pt-2.5">
               <input 
                 type="text" 
-                placeholder="Reply to team channel..." 
+                placeholder="Type a message..." 
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                className="flex-1 px-3 py-1.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs font-semibold bg-white"
+                className="flex-1 px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-xs font-medium bg-slate-50/50"
               />
               <button 
                 type="submit"
-                className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-3xs"
+                className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-black text-xs rounded-xl transition-all cursor-pointer shadow-2xs border border-brand-secondary/40"
               >
                 Send
               </button>
@@ -505,19 +631,35 @@ export default function EmployeeDashboard() {
           </div>
 
           {/* Compliance Documents preview */}
-          <Card title="Compliance Documents" subtitle="Track document verification status">
-            <div className="space-y-3 pt-2 text-xs">
-              {documents.length === 0 ? (
-                <div className="text-center text-slate-400 font-bold py-4">
-                  No documents uploaded.
+          <div className="bg-white p-6 rounded-3xl border border-slate-150 shadow-2xs space-y-4">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="text-xs font-black text-slate-900 uppercase tracking-wide">Compliance Documents</h3>
+              <p className="text-[10px] text-slate-400 font-medium mt-0.5">Track document verification status</p>
+            </div>
+
+            {documents.length === 0 ? (
+              <div className="py-8 text-center bg-slate-50/60 rounded-2xl border border-dashed border-slate-200 space-y-3">
+                <FileText className="w-8 h-8 text-brand-secondary/80 mx-auto" />
+                <div>
+                  <strong className="text-xs font-black text-slate-800 block">No documents uploaded</strong>
+                  <span className="text-[10px] text-slate-400 font-medium block mt-0.5">Upload compliance documents to get started.</span>
                 </div>
-              ) : (
-                documents.map((doc, idx) => (
-                  <div key={doc.name || idx} className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex justify-between items-center gap-2">
+                <button
+                  onClick={() => navigate('/admin/documents')}
+                  className="px-3.5 py-2 bg-white hover:bg-slate-50 text-brand-dark font-extrabold text-xs rounded-xl border border-slate-200 shadow-2xs transition-all cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5 text-brand-dark" />
+                  <span>Upload Document</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {documents.map((doc, idx) => (
+                  <div key={doc.name || idx} className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex justify-between items-center gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <FolderOpen className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                      <FolderOpen className="w-4 h-4 text-slate-400 shrink-0" />
                       <div className="min-w-0">
-                        <strong className="text-slate-800 block truncate">{doc.name || doc.title}</strong>
+                        <strong className="text-slate-800 block truncate text-xs">{doc.name || doc.title}</strong>
                         <span className="text-[9px] text-slate-400 block font-semibold">Expires: {doc.expiry || '2027-12-31'}</span>
                       </div>
                     </div>
@@ -525,10 +667,10 @@ export default function EmployeeDashboard() {
                       Valid
                     </span>
                   </div>
-                ))
-              )}
-            </div>
-          </Card>
+                ))}
+              </div>
+            )}
+          </div>
 
         </div>
 

@@ -4,7 +4,7 @@ import {
   CheckCircle2, ArrowRight, X, MessageSquare, History, Award, Check, RefreshCw,
   Kanban, List, AlertCircle, FileText, ChevronRight, UserCheck, ShieldAlert,
   MoreVertical, TrendingUp, TrendingDown, Trophy, SlidersHorizontal, Plus,
-  BarChart2, User, DollarSign, Eye, EyeOff, Trash2, Edit3, CheckCircle, PieChart,
+  BarChart2, User, IndianRupee, Eye, EyeOff, Trash2, Edit3, CheckCircle, PieChart,
   GripVertical, Building, Building2
 } from 'lucide-react';
 import {
@@ -1488,7 +1488,7 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
 
                     <button
                       onClick={() => handleOpenLeadDetails(lead._id || lead.id)}
-                      className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="w-full py-2 crm-brand-btn text-slate-900 font-extrabold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <MessageSquare className="w-3.5 h-3.5" /> Inspect & Log Touchpoint
                     </button>

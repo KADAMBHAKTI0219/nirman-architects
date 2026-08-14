@@ -84,6 +84,7 @@ export const updateTask = async (id, taskData) => {
   }
   return await mockApi.updateTask(id, taskData);
 };
+export const updateTaskStatus = updateTask;
 
 export const acceptTask = async (id) => {
   if (isMockSession()) return await mockApi.acceptTask(id);

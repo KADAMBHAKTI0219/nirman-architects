@@ -1,199 +1,48 @@
-import React, { useState, useEffect } from 'react';
-import { Bell, Search, RefreshCw, User, HardHat, Hammer, FileCheck, Menu, LayoutDashboard, CheckCheck } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { 
-  getMyNotifications, 
-  markNotificationAsRead, 
-  markAllNotificationsAsRead,
-  getClientNotificationsMy,
-  markClientNotificationRead,
-  markAllClientNotificationsRead 
-} from '../../service/notification';
+import React from 'react';
+import { Menu } from 'lucide-react';
+import NotificationBell from '../notifications/NotificationBell';
+import logoImg from '../../assets/images/logo.png';
 
+/**
+ * Reusable Header Component
+ * Displays Nirman Architects Logo on Left Side, title, and real-time NotificationBell
+ */
 export default function Header({ currentRole, onChangeRole, title = "Dashboard", onToggleSidebar }) {
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [realNotifications, setRealNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const navigate = useNavigate();
-
-  const getDashboardPath = (role) => {
-    switch (role) {
-      case 'Admin': return '/admin';
-      case 'HR': return '/hr';
-      case 'ProjectManager': return '/project-manager';
-      case 'Architect': return '/architect';
-      case 'SiteEngineer': return '/site-engineer';
-      case 'Employee': return '/employee';
-      case 'Customer': return '/customer';
-      default: return '/';
-    }
-  };
-
-  const fetchNotifications = async () => {
-    const token = localStorage.getItem('token');
-    const clientToken = localStorage.getItem('clientToken');
-    if (!token && !clientToken) return;
-
-    const isCustomer = currentRole === 'Customer' || (clientToken && !token);
-
-    try {
-      let res;
-      if (isCustomer) {
-        res = await getClientNotificationsMy();
-      } else {
-        res = await getMyNotifications();
-      }
-
-      if (res && res.success && res.data) {
-        setRealNotifications(res.data.notifications || (Array.isArray(res.data) ? res.data : []));
-        setUnreadCount(res.data.unreadCount || 0);
-      } else if (res && res.notifications) {
-        setRealNotifications(res.notifications || []);
-        setUnreadCount(res.unreadCount || 0);
-      } else if (res && Array.isArray(res.data)) {
-        setRealNotifications(res.data);
-      }
-    } catch (err) {
-      if (err?.response?.status !== 401) {
-        console.warn("Failed to load notifications in Header:", err?.message || err);
-      }
-    }
-  };
-
-  useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 25000);
-    return () => clearInterval(interval);
-  }, [currentRole]);
-
-  const handleMarkAsRead = async (id) => {
-    const token = localStorage.getItem('token');
-    const clientToken = localStorage.getItem('clientToken');
-    const isCustomer = currentRole === 'Customer' || (clientToken && !token);
-
-    try {
-      if (isCustomer) {
-        await markClientNotificationRead(id);
-      } else {
-        await markNotificationAsRead(id);
-      }
-      fetchNotifications();
-    } catch (err) {
-      console.error("Failed to mark notification as read:", err);
-    }
-  };
-
-  const handleMarkAllRead = async () => {
-    const token = localStorage.getItem('token');
-    const clientToken = localStorage.getItem('clientToken');
-    const isCustomer = currentRole === 'Customer' || (clientToken && !token);
-
-    try {
-      if (isCustomer) {
-        await markAllClientNotificationsRead();
-      } else {
-        await markAllNotificationsAsRead();
-      }
-      fetchNotifications();
-    } catch (err) {
-      console.error("Failed to mark all as read in header:", err);
-    }
-  };
-
   return (
-    <header className="bg-white px-4 md:px-6 py-3 md:py-4 flex items-center justify-between sticky top-0 z-35 shadow-2xs">
-      {/* Title block */}
-      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+    <header className="bg-white px-4 md:px-6 py-3 md:py-4 flex items-center justify-between sticky top-0 z-35 shadow-2xs font-sans">
+      {/* Title Block with Nirman Architects Logo */}
+      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
         <button
+          type="button"
           onClick={onToggleSidebar}
-          className="lg:hidden p-2 hover:bg-slate-105 text-slate-650 rounded-xl transition-all mr-0.5 flex-shrink-0"
+          className="lg:hidden p-2 hover:bg-slate-100 text-slate-700 rounded-xl transition-all mr-0.5 flex-shrink-0 cursor-pointer"
           title="Toggle Navigation Menu"
         >
           <Menu className="w-5 h-5" />
         </button>
-        <div className="hidden sm:flex p-2 bg-gradient-to-tr from-brand-primary to-brand-secondary rounded-xl text-slate-900 font-black shadow-sm flex-shrink-0">
-          <HardHat className="w-5 h-5 text-slate-805" />
-        </div>
-        <div className="min-w-0">
-          <h1 className="text-sm sm:text-lg font-black text-slate-900 tracking-tight m-0 p-0 leading-tight truncate">Nirman Architects</h1>
-          <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider sm:tracking-widest mt-0.5 block truncate">
-            {title} Panel
-          </span>
+        
+        {/* Official Nirman Architects Logo on Left Side */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <img 
+            src={logoImg} 
+            alt="Nirman Architects Logo" 
+            className="h-9 sm:h-10 w-auto object-contain flex-shrink-0 drop-shadow-2xs hover:scale-105 transition-transform"
+          />
+          <div className="h-7 w-[1px] bg-slate-200 hidden sm:block" />
+          <div className="min-w-0">
+            <h1 className="text-sm sm:text-lg font-black text-slate-900 tracking-tight m-0 p-0 leading-tight truncate">
+              Nirman Architects
+            </h1>
+            <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider sm:tracking-widest mt-0.5 block truncate">
+              {title} Panel
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Right Side: Profile & Notifications */}
+      {/* Right Side: Reusable Real-Time Notification Bell */}
       <div className="flex items-center gap-2.5 sm:gap-4 flex-shrink-0">
-
-        {/* Notifications Button */}
-        <div className="relative">
-          <button
-            onClick={() => setShowNotifications(!showNotifications)}
-            className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-650 rounded-xl transition-colors relative"
-            title="Notifications"
-          >
-            <Bell className="w-4 h-4" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 rounded-full border border-white text-[8px] font-black text-white flex items-center justify-center">
-                {unreadCount}
-              </span>
-            )}
-          </button>
-
-          {/* Notifications Dropdown */}
-          {showNotifications && (
-            <div className="absolute right-0 mt-3 w-80 bg-white border border-slate-105 rounded-2xl shadow-xl z-50 overflow-hidden">
-              <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex justify-between items-center text-xs font-bold text-slate-700">
-                <span>Notifications</span>
-                {unreadCount > 0 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-[9px] text-rose-600 bg-rose-50 border border-rose-100 font-black px-2 py-0.5 rounded-full">
-                      {unreadCount} New alerts
-                    </span>
-                    <button
-                      onClick={handleMarkAllRead}
-                      className="text-[10px] text-brand-dark hover:underline font-extrabold flex items-center gap-0.5 cursor-pointer"
-                    >
-                      <CheckCheck className="w-3 h-3 text-brand-primary" /> Read all
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div className="divide-y divide-slate-50 max-h-64 overflow-y-auto">
-                {realNotifications.map(n => (
-                  <div
-                    key={n._id || n.id}
-                    onClick={() => {
-                      handleMarkAsRead(n._id || n.id);
-                    }}
-                    className={`p-3.5 hover:bg-slate-50/50 transition-colors text-xs cursor-pointer flex justify-between items-start gap-2 ${!n.isRead ? 'bg-slate-50/30 font-bold' : ''}`}
-                  >
-                    <div className="space-y-1">
-                      <p className={`${!n.isRead ? 'text-slate-900' : 'text-slate-500'} leading-normal`}>{n.message}</p>
-                      <span className="text-[9px] text-slate-400 block font-bold">
-                        {new Date(n.createdAt).toLocaleDateString()} &bull; {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                    {!n.isRead && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0 mt-1.5"></span>
-                    )}
-                  </div>
-                ))}
-                {realNotifications.length === 0 && (
-                  <div className="p-4 text-center text-slate-400 font-semibold text-[10px]">No notifications to show.</div>
-                )}
-              </div>
-              <div className="p-2 border-t border-slate-105 text-center bg-slate-50/30">
-                <button
-                  onClick={() => setShowNotifications(false)}
-                  className="text-[10px] font-black text-slate-600 hover:underline uppercase"
-                >
-                  Close panel
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        <NotificationBell isClientPortal={currentRole === 'Customer'} />
       </div>
     </header>
   );

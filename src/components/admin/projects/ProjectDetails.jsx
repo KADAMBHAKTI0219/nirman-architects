@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import Card from '../../common/Card';
 import ClientCommunication from '../../project-manager/client-communication/index';
+import { useToast } from '../../../context/ToastContext';
 import { getCompanyLeaves } from '../../../service/hrm/leave';
 import { getUsersList } from '../../../service/auth';
 import {
@@ -37,6 +38,7 @@ import DocumentAccessLogModal from '../documents/DocumentAccessLogModal';
 import TaskCreateModal from '../tasks/TaskCreateModal';
 import DrawingDetails from '../drawings/DrawingDetails';
 import DrawingCompare from '../drawings/DrawingCompare';
+import DocumentDetails from '../documents/DocumentDetails';
 
 export default function ProjectDetails({
   project,
@@ -75,6 +77,7 @@ export default function ProjectDetails({
     }
   };
 
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [chatInput, setChatInput] = useState('');
   const [teamLeaves, setTeamLeaves] = useState([]);
@@ -123,6 +126,7 @@ export default function ProjectDetails({
   const [isUploadDrawingModalOpen, setIsUploadDrawingModalOpen] = useState(false);
   const [selectedDrawingForView, setSelectedDrawingForView] = useState(null);
   const [selectedDrawingForCompare, setSelectedDrawingForCompare] = useState(null);
+  const [selectedDocForView, setSelectedDocForView] = useState(null);
 
   // ERP Module 2: Project Tasks State
   const [projectTasksList, setProjectTasksList] = useState(project.tasks || []);
@@ -424,6 +428,7 @@ export default function ProjectDetails({
       }
       setMilestoneForm({ name: '', targetDate: '', progressPercentage: 50, description: '' });
       setShowAddMilestone(false);
+      showToast(`Milestone "${milestoneForm.name.trim()}" created successfully!`, 'success', 'Project Milestone Added', true);
     } catch (err) {
       console.warn("Notice adding milestone via backend:", err);
       const newMs = { _id: `m-${Date.now()}`, ...payload, isCompleted: false, status: 'IN_PROGRESS' };
@@ -432,6 +437,7 @@ export default function ProjectDetails({
       onUpdateProject({ ...project, milestones: updated });
       setMilestoneForm({ name: '', targetDate: '', progressPercentage: 50, description: '' });
       setShowAddMilestone(false);
+      showToast(`Milestone "${milestoneForm.name.trim()}" added to project timeline!`, 'success', 'Milestone Added', true);
     }
   };
 
@@ -468,6 +474,7 @@ export default function ProjectDetails({
 
       setMilestonesList(updatedMs);
       onUpdateProject({ ...project, milestones: updatedMs });
+      showToast(`Milestone "${m.name}" marked as ${nextCompleted ? 'COMPLETED' : 'IN PROGRESS'}!`, 'success', 'Milestone Updated', true);
     } catch (err) {
       console.warn("Notice toggling milestone status:", err);
       const updatedMs = milestonesList.map(item => {
@@ -484,6 +491,7 @@ export default function ProjectDetails({
       });
       setMilestonesList(updatedMs);
       onUpdateProject({ ...project, milestones: updatedMs });
+      showToast(`Milestone "${m.name}" status updated!`, 'info', 'Milestone Updated', false);
     }
   };
 
@@ -503,6 +511,7 @@ export default function ProjectDetails({
     });
     setMilestonesList(updatedMs);
     onUpdateProject({ ...project, milestones: updatedMs });
+    showToast(`Milestone "${m.name}" removed from project.`, 'warning', 'Milestone Deleted', false);
   };
 
   const handleAssignTeamSubmit = async (e) => {
@@ -703,6 +712,19 @@ export default function ProjectDetails({
     );
   }
 
+  if (selectedDocForView) {
+    return (
+      <DocumentDetails
+        doc={selectedDocForView}
+        onBack={() => setSelectedDocForView(null)}
+        onUpdateDocument={(updated) => {
+          setSelectedDocForView(updated);
+          fetchProjectDocsList();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200 font-sans text-slate-800">
 
@@ -820,38 +842,41 @@ export default function ProjectDetails({
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 w-full">
                 {projectDrawingsList.map((drg, idx) => {
                   const drgId = drg.id || drg._id || drg.drawingNumber || `DWG-${String(idx + 1).padStart(3, '0')}`;
                   const drgName = drg.name || drg.drawingName || drg.title || 'Architectural Plan';
                   const drgCategory = drg.category || drg.categoryName || 'Working Drawings';
-                  const drgStatus = drg.status || 'Designer Uploaded';
+                  const drgStatusRaw = String(drg.status || 'DESIGNER_UPLOADED').toUpperCase();
+                  const drgStatusFormatted = drgStatusRaw.replace(/_/g, ' ');
 
                   return (
                     <div
                       key={drg._id || drg.id || idx}
-                      className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-brand-secondary/50 transition-all flex flex-col justify-between space-y-4 group"
+                      onClick={() => setSelectedDrawingForView(drg)}
+                      className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-brand-secondary/50 transition-all flex flex-col justify-between space-y-4 group overflow-hidden cursor-pointer"
                     >
                       <div className="space-y-2.5">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 font-mono">
+                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-100 px-2 py-1 rounded-lg border border-slate-200 font-mono truncate max-w-[120px] sm:max-w-[140px]" title={drgId}>
                             {drgId}
                           </span>
-                          <span className={`text-[10px] px-2.5 py-1 rounded-lg font-black uppercase tracking-wider border ${
-                            drg.locked || drgStatus === 'GFC Locked' || drgStatus === 'GFC_LOCKED'
+                          <span className={`text-[9px] px-2 py-1 rounded-lg font-black uppercase tracking-wider border shrink-0 whitespace-nowrap ${
+                            drg.locked || drgStatusRaw.includes('LOCKED') || drgStatusRaw.includes('GFC')
                               ? 'bg-slate-900 text-amber-300 border-slate-800'
-                              : drgStatus === 'Approved' || drgStatus === 'APPROVED'
+                              : drgStatusRaw.includes('APPROV')
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               : 'bg-amber-50 text-amber-800 border-amber-200'
                           }`}>
-                            {drgStatus}
+                            {drgStatusFormatted}
                           </span>
                         </div>
 
                         <div>
                           <h4 
                             onClick={() => setSelectedDrawingForView(drg)}
-                            className="text-sm font-black text-slate-900 leading-snug group-hover:text-indigo-600 transition-colors cursor-pointer"
+                            className="text-sm font-black text-slate-900 leading-snug group-hover:text-indigo-600 transition-colors cursor-pointer line-clamp-1"
+                            title={drgName}
                           >
                             {drgName}
                           </h4>
@@ -861,15 +886,15 @@ export default function ProjectDetails({
                         </div>
                       </div>
 
-                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                        <span className="text-[11px] font-medium text-slate-400">
+                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
+                        <span className="text-[10px] sm:text-[11px] font-medium text-slate-400 truncate max-w-[120px] sm:max-w-[140px]" title={drgId}>
                           ID: <strong className="font-mono text-slate-700">{drgId}</strong>
                         </span>
                         <button
                           onClick={() => setSelectedDrawingForView(drg)}
-                          className="px-3.5 py-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer border border-brand-secondary/40"
+                          className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer border border-brand-secondary/40 shrink-0 whitespace-nowrap"
                         >
-                          <Eye className="w-3.5 h-3.5 text-brand-dark" />
+                          <Eye className="w-3.5 h-3.5 text-brand-dark shrink-0" />
                           <span>Inspect Drawing</span>
                         </button>
                       </div>
@@ -1306,9 +1331,9 @@ export default function ProjectDetails({
               </div>
               <button
                 onClick={() => setIsDocUploadModalOpen(true)}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer border border-brand-secondary/40"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-3.5 h-3.5 text-brand-dark" />
                 Upload Document
               </button>
             </div>
@@ -1406,9 +1431,10 @@ export default function ProjectDetails({
                     </p>
                     <button
                       onClick={() => setIsDocUploadModalOpen(true)}
-                      className="px-4 py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow-xs inline-flex items-center gap-1 cursor-pointer"
+                      className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs inline-flex items-center gap-1.5 cursor-pointer border border-brand-secondary/40"
                     >
-                      + Upload Document
+                      <Plus className="w-3.5 h-3.5 text-brand-dark" />
+                      Upload Document
                     </button>
                   </div>
                 );
@@ -1431,14 +1457,18 @@ export default function ProjectDetails({
                       const dateStr = doc.createdAt ? new Date(doc.createdAt).toISOString().split('T')[0] : '2026-08-10';
 
                       return (
-                        <div key={doc._id || doc.id || idx} className="p-3.5 bg-slate-50/80 border border-slate-200/90 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:bg-slate-100/50 transition-all">
+                        <div 
+                          key={doc._id || doc.id || idx} 
+                          onClick={() => setSelectedDocForView(doc)}
+                          className="p-3.5 bg-slate-50/80 border border-slate-200/90 hover:border-brand-secondary/60 hover:bg-slate-100/80 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-all cursor-pointer shadow-3xs group"
+                        >
                           <div className="flex items-center gap-3">
-                            <div className="p-2 bg-white border border-slate-200 rounded-xl text-indigo-600 shadow-2xs">
+                            <div className="p-2 bg-white border border-slate-200 rounded-xl text-indigo-600 shadow-2xs group-hover:border-brand-secondary/40 transition-colors">
                               <FileText className="w-5 h-5" />
                             </div>
                             <div className="space-y-0.5">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <strong className="text-xs font-black text-slate-900">{docTitle}</strong>
+                                <strong className="text-xs font-black text-slate-900 group-hover:text-indigo-600 transition-colors">{docTitle}</strong>
                                 <span className="text-[9px] px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-bold border border-indigo-100">
                                   {folderName}
                                 </span>

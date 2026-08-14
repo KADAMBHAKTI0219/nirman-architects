@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { 
   User, Mail, Phone, Lock, Shield, Laptop, 
   ArrowLeft, CheckCircle2, AlertCircle, Clock,
-  Briefcase, DollarSign, Eye, EyeOff
+  Briefcase, IndianRupee, Eye, EyeOff
 } from 'lucide-react';
 import { registerUser, getRoles } from '../../service/auth';
 
@@ -352,7 +352,7 @@ export default function Register() {
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Base Salary (INR)</label>
                 <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input 
                     type="number" 
                     name="baseSalary" 

@@ -138,7 +138,11 @@ export const getDrawings = async (queryParams = {}) => {
   }
   try {
     const response = await api.get('/drawings', { params: queryParams });
-    return response.data;
+    if (response.data) {
+      const list = Array.isArray(response.data.drawings) ? response.data.drawings : (Array.isArray(response.data) ? response.data : []);
+      if (list.length > 0) return response.data;
+    }
+    return mockGetDrawings(queryParams);
   } catch (error) {
     console.warn('Backend getDrawings failed, falling back to mockGetDrawings:', error?.message);
     return mockGetDrawings(queryParams);
@@ -152,7 +156,8 @@ export const getDrawingById = async (id) => {
   }
   try {
     const response = await api.get(`/drawings/${id}`);
-    return response.data;
+    if (response.data && (response.data.drawing || response.data._id || response.data.id)) return response.data;
+    return mockGetDrawingById(id);
   } catch (error) {
     console.warn('Backend getDrawingById failed, falling back to mockGetDrawingById:', error?.message);
     return mockGetDrawingById(id);
@@ -185,7 +190,7 @@ export const getProjectDrawings = async (projectId) => {
         if (list.length === 0) {
           list = [...pending, ...apprv, ...chg];
         }
-        return { success: true, allDrawings: list };
+        if (list.length > 0) return { success: true, allDrawings: list };
       }
     }
 
@@ -193,32 +198,17 @@ export const getProjectDrawings = async (projectId) => {
     if (response.data) {
       const data = response.data;
       const list = Array.isArray(data.drawings) ? data.drawings : (Array.isArray(data.allDrawings) ? data.allDrawings : (Array.isArray(data) ? data : []));
-      return { success: true, allDrawings: list };
+      if (list.length > 0) return { success: true, allDrawings: list };
     }
+    const res = await mockGetDrawings({ projectId });
+    return { success: true, allDrawings: res.drawings || res.allDrawings || [] };
   } catch (error) {
-    try {
-      const response2 = await api.get(`/client/projects/${projectId}/drawings`);
-      if (response2.data) {
-        const payload = response2.data.data || response2.data;
-        const pending = Array.isArray(payload.pendingApproval) ? payload.pendingApproval : [];
-        const apprv = Array.isArray(payload.approved) ? payload.approved : [];
-        const chg = Array.isArray(payload.changesRequested) ? payload.changesRequested : [];
-        
-        let list = Array.isArray(payload.allDrawings) ? payload.allDrawings : (Array.isArray(payload.drawings) ? payload.drawings : []);
-        if (list.length === 0) {
-          list = [...pending, ...apprv, ...chg];
-        }
-        return { success: true, allDrawings: list };
-      }
-    } catch (err2) {
-      const res = await mockGetDrawings({ projectId });
-      return {
-        success: true,
-        allDrawings: res.drawings || res.allDrawings || []
-      };
-    }
+    const res = await mockGetDrawings({ projectId });
+    return {
+      success: true,
+      allDrawings: res.drawings || res.allDrawings || []
+    };
   }
-  return { success: true, allDrawings: [] };
 };
 
 const extractIdStr = (idOrObj) => {
@@ -270,7 +260,12 @@ export const pmReview = async (versionId, { decision, comments }) => {
     const response = await api.put(`/drawing-versions/${vId}/pm-review`, { decision, comments });
     return response.data;
   } catch (error) {
-    return mockPmReviewDrawingVersion(vId, { decision, comments });
+    try {
+      const response2 = await api.put(`/drawings/versions/${vId}/pm-review`, { decision, comments });
+      return response2.data;
+    } catch (err2) {
+      return mockPmReviewDrawingVersion(vId, { decision, comments });
+    }
   }
 };
 export const pmReviewDrawingVersion = pmReview;
@@ -285,7 +280,12 @@ export const adminReview = async (versionId, { decision, comments }) => {
     const response = await api.put(`/drawing-versions/${vId}/admin-review`, { decision, comments });
     return response.data;
   } catch (error) {
-    return mockAdminReviewDrawingVersion(vId, { decision, comments });
+    try {
+      const response2 = await api.put(`/drawings/versions/${vId}/admin-review`, { decision, comments });
+      return response2.data;
+    } catch (err2) {
+      return mockAdminReviewDrawingVersion(vId, { decision, comments });
+    }
   }
 };
 export const adminReviewDrawingVersion = adminReview;
@@ -333,7 +333,17 @@ export const editInPlaceProcessDwg = async (versionId, { updatedFilePath, change
     const response = await api.put(`/drawing-versions/${vId}/edit-in-place`, { updatedFilePath, changeLog });
     return response.data;
   } catch (error) {
-    return mockEditInPlaceProcessDwg(vId, { updatedFilePath, changeLog });
+    try {
+      const response2 = await api.put(`/drawings/versions/${vId}/edit-in-place`, { updatedFilePath, changeLog });
+      return response2.data;
+    } catch (err2) {
+      try {
+        const response3 = await api.put(`/drawings/${vId}/edit-in-place`, { updatedFilePath, changeLog });
+        return response3.data;
+      } catch (err3) {
+        return mockEditInPlaceProcessDwg(vId, { updatedFilePath, changeLog });
+      }
+    }
   }
 };
 

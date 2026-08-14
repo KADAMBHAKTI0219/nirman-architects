@@ -12,3 +12,4 @@ export { default as GPSLocationPicker } from './GPSLocationPicker';
 export { default as LeavesPortal } from './LeavesPortal';
 export { default as AttendanceCalendar } from './AttendanceCalendar';
 export { default as TaskBoard } from './TaskBoard';
+export { default as EmptyState } from './EmptyState';

@@ -32,14 +32,7 @@ const initLocalStorage = () => {
   }
 
   if (!localStorage.getItem('nirman_users')) {
-    localStorage.setItem('nirman_users', JSON.stringify([
-      { id: 'u1', name: 'Sarah Connor', email: 'architect@nirman.com', role: 'Architect', department: 'Architecture', registeredDeviceId: 'dev-architect' },
-      { id: 'u2', name: 'Alice Smith', email: 'employee@gmail.com', role: 'Employee', department: 'Engineering', registeredDeviceId: 'dev-employee' },
-      { id: 'u3', name: 'Bob Johnson', email: 'engineer@nirman.com', role: 'SiteEngineer', department: 'Construction', registeredDeviceId: 'dev-site' },
-      { id: 'u4', name: 'Charlie Brown', email: 'pm@nirman.com', role: 'ProjectManager', department: 'Management', registeredDeviceId: 'dev-pm' },
-      { id: 'u5', name: 'HR Manager', email: 'hr@nirman.com', role: 'HR', department: 'HR', registeredDeviceId: 'dev-hr' },
-      { id: 'u6', name: 'Nirman Admin', email: 'admin@nirman.com', role: 'Admin', department: 'Executive', registeredDeviceId: 'dev-admin' }
-    ]));
+    localStorage.setItem('nirman_users', JSON.stringify([]));
   }
 
   if (!localStorage.getItem('nirman_leave_types')) {
@@ -2220,6 +2213,18 @@ export const mockConvertToClientStub = async (id) => {
 
 const INITIAL_MOCK_CLIENTS = [
   {
+    _id: "cli-100",
+    id: "cli-100",
+    name: "Bhakti Kadam",
+    companyName: "Private Client",
+    phone: "+919274322242",
+    email: "kadambhakti0219@gmail.com",
+    billingAddress: "Sector 14, Gandhinagar",
+    siteAddresses: ["Plot 42, Green Enclave"],
+    isActive: true,
+    createdAt: new Date().toISOString()
+  },
+  {
     _id: "cli-101",
     id: "cli-101",
     name: "Wayne Enterprises",
@@ -2253,6 +2258,18 @@ const INITIAL_MOCK_CLIENTS = [
     billingAddress: "202 Corporate Park, SG Highway",
     siteAddresses: ["Site A, Bopal", "Site B, Satellite"],
     isActive: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    _id: "cli-104",
+    id: "cli-104",
+    name: "Apex Infra & Developers",
+    companyName: "Apex Group",
+    phone: "+91-9898012345",
+    email: "contact@apexinfra.com",
+    billingAddress: "804 Pinnacle Tower, Ring Road",
+    siteAddresses: ["Apex Commercial Hub"],
+    isActive: false,
     createdAt: new Date().toISOString()
   }
 ];

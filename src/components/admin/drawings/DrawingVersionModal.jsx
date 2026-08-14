@@ -74,13 +74,13 @@ export default function DrawingVersionModal({
         {/* Header */}
         <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+            <div className="p-2 bg-brand-soft text-brand-dark rounded-xl border border-brand-secondary/30">
               <Upload className="w-5 h-5" />
             </div>
             <div>
               <h3 className="text-sm font-black text-slate-900">Upload New Revision</h3>
               <p className="text-[10px] text-slate-500 font-bold">
-                POST /api/drawings/{drawingId}/versions/upload
+                Upload a revised blueprint or drawing file
               </p>
             </div>
           </div>

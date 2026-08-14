@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, DollarSign, FileText, Download, Calculator, Check, RefreshCw } from 'lucide-react';
+import { Search, IndianRupee, FileText, Download, Calculator, Check, RefreshCw } from 'lucide-react';
 import Card from '../../common/Card';
 import {
   getAllPayroll,

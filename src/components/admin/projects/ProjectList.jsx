@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { 
   Search, Filter, Plus, Calendar, Clock, AlertCircle, 
-  Building2, AlertTriangle, FileText, DollarSign, ChevronRight, MoreHorizontal,
+  Building2, AlertTriangle, FileText, IndianRupee, ChevronRight, MoreHorizontal,
   LayoutGrid, LayoutList, X, CheckCircle2, UserCheck
 } from 'lucide-react';
 import { PageHeader, StatsKpiCard, SearchFilterBar, StatusBadge } from '../../common';
+import { formatCurrency } from '../../../utils/formatters';
 
 export default function ProjectList({
   projects = [],
@@ -39,10 +40,7 @@ export default function ProjectList({
   const totalValuation = projects.reduce((acc, p) => acc + (Number(p.budget) || 0), 0);
 
   const formatValuation = (val) => {
-    if (!val || isNaN(val) || val === 0) return '$0';
-    if (val >= 1000000) return `$${(val / 1000000).toFixed(2)}M`;
-    if (val >= 1000) return `$${(val / 1000).toFixed(0)}k`;
-    return `$${val.toLocaleString()}`;
+    return formatCurrency(val);
   };
 
   // Filter project cards
@@ -167,7 +165,7 @@ export default function ProjectList({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center font-medium group-hover:bg-emerald-100 transition-colors">
-                <DollarSign className="w-5 h-5 text-emerald-600" />
+                <IndianRupee className="w-5 h-5 text-emerald-600" />
               </div>
               <div>
                 <span className="text-xs font-normal text-slate-400 block group-hover:text-slate-600 transition-colors">Portfolio Valuation</span>
@@ -418,7 +416,7 @@ export default function ProjectList({
                     BUDGET VALUATION
                   </span>
                   <span className="font-normal text-slate-800 block mt-1">
-                    ${((p.budget || 0) / 1000).toFixed(0)}k
+                    {formatCurrency(p.budget)}
                   </span>
                 </div>
               </div>

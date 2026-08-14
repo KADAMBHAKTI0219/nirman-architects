@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Users, UserCheck, Calendar, AlertTriangle, FileText, CheckCircle2, Clock, 
-  Check, X, Cake, ShieldCheck, DollarSign, Award, RefreshCw, UserPlus, Plus 
+  Check, X, Cake, ShieldCheck, IndianRupee, Award, RefreshCw, UserPlus, Plus 
 } from 'lucide-react';
 import Card from '../../common/Card';
 import { 
@@ -166,7 +166,7 @@ export default function HRDashboard() {
             onClick={() => navigate('/hr/payroll-data')}
             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4.5 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 rounded-xl text-xs sm:text-sm font-extrabold shadow-md transition-all cursor-pointer border border-brand-secondary/40"
           >
-            <DollarSign className="w-4 h-4 text-slate-900 stroke-[2.5]" />
+            <IndianRupee className="w-4 h-4 text-slate-900 stroke-[2.5]" />
             <span>Process Payroll</span>
           </button>
         </div>

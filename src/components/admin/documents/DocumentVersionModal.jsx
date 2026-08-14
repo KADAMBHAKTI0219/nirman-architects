@@ -82,10 +82,10 @@ export default function DocumentVersionModal({
         };
 
         const res = await uploadDocumentVersion(docId, payload);
-        alert(`POST /api/documents/${docId}/versions/upload: Uploaded version ${versionTag} successfully! Client portal visibility automatically reset to false.`);
+        alert(`Uploaded version ${versionTag} successfully! Client portal visibility automatically reset to false.`);
         if (onSuccess) onSuccess(res);
       } else {
-        // PUT /api/documents/:id/versions/upload
+        // Update DocumentVersion revision details
         const payload = {
           versionTag: versionTag,
           changeLog: changeLog,
@@ -94,7 +94,7 @@ export default function DocumentVersionModal({
         };
 
         const res = await updateDocumentVersion(docId, payload);
-        alert(`PUT /api/documents/${docId}/versions/upload: Version ${versionTag} revision notes updated successfully!`);
+        alert(`Version ${versionTag} revision notes updated successfully!`);
         if (onSuccess) onSuccess(res);
       }
       onClose();
@@ -113,16 +113,16 @@ export default function DocumentVersionModal({
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-3">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold ${
-              mode === 'upload' ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' : 'bg-amber-50 text-amber-600 border border-amber-100'
+              mode === 'upload' ? 'bg-brand-soft text-brand-dark border border-brand-secondary/40' : 'bg-amber-50 text-amber-600 border border-amber-100'
             }`}>
               {mode === 'upload' ? <Upload className="w-5 h-5" /> : <Edit3 className="w-5 h-5" />}
             </div>
             <div>
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">
-                {mode === 'upload' ? 'POST /documents/:id/versions/upload' : 'PUT /documents/:id/versions/upload'}
+              <h3 className="text-sm font-black text-slate-900 tracking-tight">
+                {mode === 'upload' ? 'Upload New Version' : 'Update Revision Details'}
               </h3>
-              <span className="text-[10px] text-slate-400 font-bold block mt-0.5">
-                {mode === 'upload' ? 'Upload new DocumentVersion (Auto-increments version & resets client visibility)' : 'Update DocumentVersion revision details'}
+              <span className="text-[10px] text-slate-500 font-bold block mt-0.5">
+                {mode === 'upload' ? 'Upload new document version & update revision log' : 'Update document revision notes'}
               </span>
             </div>
           </div>
@@ -151,12 +151,12 @@ export default function DocumentVersionModal({
               <strong className="text-slate-800 font-extrabold">{currentVersion}</strong>
             </div>
             <div className="text-right">
-              <span className="text-[10px] text-indigo-600 font-bold uppercase block">Target Revision</span>
-              <strong className="text-indigo-700 font-extrabold">{versionTag}</strong>
+              <span className="text-[10px] text-brand-dark font-bold uppercase block">Target Revision</span>
+              <strong className="text-brand-dark font-extrabold">{versionTag}</strong>
             </div>
           </div>
 
-          {/* File Picker for POST upload */}
+          {/* File Picker for upload */}
           {mode === 'upload' && (
             <div className="space-y-1.5">
               <label className="text-xs font-black text-slate-700 uppercase tracking-wider block">
@@ -166,7 +166,7 @@ export default function DocumentVersionModal({
                 type="file"
                 accept=".pdf,.dwg,.jpg,.jpeg,.png,.docx,.xlsx,.zip"
                 onChange={handleFileChange}
-                className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-brand-soft file:text-brand-dark hover:file:bg-brand-secondary/30 cursor-pointer"
               />
               <span className="text-[10px] text-slate-400 font-semibold block pt-0.5">
                 Allowed Formats: PDF, DWG, JPEG, PNG, DOCX, XLSX, ZIP
@@ -184,7 +184,7 @@ export default function DocumentVersionModal({
               value={versionTag}
               onChange={(e) => setVersionTag(e.target.value)}
               placeholder="e.g. V2.0"
-              className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-bold text-slate-800 bg-white"
+              className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-bold text-slate-800 bg-white"
             />
           </div>
 
@@ -198,7 +198,7 @@ export default function DocumentVersionModal({
               value={changeLog}
               onChange={(e) => setChangeLog(e.target.value)}
               placeholder="Specify structural drawing alterations, redline notes, or specification adjustments..."
-              className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-medium text-slate-800 bg-white"
+              className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-medium text-slate-800 bg-white"
               required
             />
           </div>
@@ -222,11 +222,11 @@ export default function DocumentVersionModal({
             <button
               type="submit"
               disabled={loading}
-              className={`px-5 py-2 text-white font-bold text-xs rounded-xl shadow-2xs transition-all cursor-pointer ${
-                mode === 'upload' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-amber-600 hover:bg-amber-700'
+              className={`px-5 py-2 font-black text-xs rounded-xl shadow-2xs transition-all cursor-pointer ${
+                mode === 'upload' ? 'bg-brand-primary hover:bg-brand-secondary text-slate-900' : 'bg-amber-500 hover:bg-amber-600 text-white'
               }`}
             >
-              {loading ? 'Processing...' : (mode === 'upload' ? 'POST Upload Version' : 'PUT Update Version')}
+              {loading ? 'Processing...' : (mode === 'upload' ? 'Upload Version' : 'Update Version')}
             </button>
           </div>
 

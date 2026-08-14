@@ -7,8 +7,10 @@ import {
 import { getUsersList } from '../../../service/auth';
 import { getUsers, getHRDashboardWidgets, getSiteLocations } from '../../../service/mockApi';
 import { getProjects } from '../../../service/project';
+import BrandLoader from '../../common/BrandLoader';
 
 export default function Stats() {
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalUsers: 6,
     activeClients: 2,
@@ -22,6 +24,7 @@ export default function Stats() {
   const [projectsList, setProjectsList] = useState([]);
   const [sitesList, setSitesList] = useState([]);
   const [modalSubFilter, setModalSubFilter] = useState('All');
+  const [modalLoading, setModalLoading] = useState(false);
   
   // Enhanced Employee Modal States
   const [empSearchQuery, setEmpSearchQuery] = useState('');
@@ -35,6 +38,12 @@ export default function Stats() {
     setSelectedEmpDept('All');
     setInspectedEmp(null);
     setActiveModalType(type);
+    
+    // Trigger smooth loader transition so BrandLoader automatically removes when data renders
+    setModalLoading(true);
+    setTimeout(() => {
+      setModalLoading(false);
+    }, 450);
   };
 
   useEffect(() => {
@@ -78,24 +87,41 @@ export default function Stats() {
           console.warn("Error reading local users storage:", e);
         }
 
-        // 3. Merge all user datasets cleanly using Map to avoid duplicate entries
+        // 3. Merge user datasets, prioritizing real registered backend users
         const userMap = new Map();
+        const MOCK_MOCK_EMAILS = [
+          'architect@nirman.com', 
+          'engineer@nirman.com', 
+          'pm@nirman.com', 
+          'hr@nirman.com', 
+          'admin@nirman.com'
+        ];
 
-        const mergeList = (list) => {
+        const mergeList = (list, isBackend = false) => {
           if (!Array.isArray(list)) return;
           list.forEach(u => {
             if (!u) return;
-            const key = String(u.email || u.id || u._id || u.employeeId || u.name || '').toLowerCase();
+            const email = String(u.email || u.userEmail || '').toLowerCase().trim();
+            const key = email || String(u.id || u._id || u.employeeId || u.name || '').toLowerCase();
+            
+            // Skip hardcoded mock emails unless user has explicitly registered with one
+            if (!isBackend && MOCK_MOCK_EMAILS.includes(email)) return;
+
             if (key && !userMap.has(key)) {
               userMap.set(key, u);
             }
           });
         };
 
-        mergeList(backendUsers);
-        mergeList(mockUsers);
-        mergeList(localEmp);
-        mergeList(localUsers);
+        if (Array.isArray(backendUsers) && backendUsers.length > 0) {
+          mergeList(backendUsers, true);
+          mergeList(localEmp, true);
+        } else {
+          mergeList(backendUsers, true);
+          mergeList(localEmp, true);
+          mergeList(localUsers, false);
+          mergeList(mockUsers, false);
+        }
 
         const users = Array.from(userMap.values());
         const siteRes = await getSiteLocations();
@@ -147,6 +173,8 @@ export default function Stats() {
         });
       } catch (err) {
         console.error("Error loading admin stats:", err);
+      } finally {
+        setLoading(false);
       }
     };
     fetchStats();
@@ -392,11 +420,11 @@ export default function Stats() {
           const deptList = ['All', 'Architecture', 'Engineering', 'Construction', 'HR & Admin', 'Management'];
 
           return (
-            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-              <div className="bg-white rounded-3xl w-full max-w-4xl overflow-hidden shadow-2xl border border-slate-100 flex flex-col max-h-[85vh]">
+            <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-[9999] p-4 sm:p-6 animate-in fade-in duration-200 overflow-hidden">
+              <div className="bg-white rounded-3xl w-full max-w-5xl overflow-hidden shadow-2xl border border-slate-200 flex flex-col max-h-[80vh] my-auto relative">
                 
                 {/* Header */}
-                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+                <div className="shrink-0 px-6 py-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-indigo-600 text-white rounded-xl shadow-xs">
                       <Users className="w-5 h-5" />
@@ -424,7 +452,7 @@ export default function Stats() {
                 </div>
 
                 {/* Search & Filters Controls */}
-                <div className="px-6 py-3 border-b border-slate-100 bg-white flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="shrink-0 px-6 py-3 border-b border-slate-100 bg-white flex flex-col sm:flex-row items-center justify-between gap-3">
                   
                   {/* Status Tabs */}
                   <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-full sm:w-auto">
@@ -486,7 +514,11 @@ export default function Stats() {
 
                 {/* Table Content - ONLY Real Clean Columns */}
                 <div className="p-6 overflow-y-auto flex-1 bg-slate-50/30">
-                  {filteredEmployees.length === 0 ? (
+                  {modalLoading ? (
+                    <div className="py-16 flex flex-col items-center justify-center">
+                      <BrandLoader size="sm" text="Fetching Registered Employees Roster..." />
+                    </div>
+                  ) : filteredEmployees.length === 0 ? (
                     <div className="py-12 text-center space-y-2">
                       <Users className="w-8 h-8 text-slate-300 mx-auto" />
                       <p className="text-slate-500 text-xs font-semibold">No registered employees match the filter criteria.</p>
@@ -553,16 +585,10 @@ export default function Stats() {
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-3.5 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between">
+                <div className="shrink-0 px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
                   <span className="text-xs text-slate-500 font-medium">
                     Displaying <strong>{filteredEmployees.length}</strong> registered employee accounts
                   </span>
-                  <button
-                    onClick={() => setActiveModalType(null)}
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold cursor-pointer transition-all"
-                  >
-                    Close Roster
-                  </button>
                 </div>
 
               </div>
@@ -749,8 +775,8 @@ export default function Stats() {
         }
 
         return (
-          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl border border-slate-100 flex flex-col max-h-[85vh]">
+          <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-md flex items-center justify-center z-[9999] p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl w-full max-w-4xl overflow-hidden shadow-2xl border border-slate-100 flex flex-col max-h-[85vh]">
               {/* Header */}
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                 <div>

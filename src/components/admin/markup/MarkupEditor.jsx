@@ -16,11 +16,14 @@ import {
   deleteMarking 
 } from '../../../service/drawingReview';
 import { cacheDrawingFile, getCachedDrawingFile } from '../../../service/drawing';
+import { useToast } from '../../../context/ToastContext';
+
 export default function MarkupEditor({
   documentData = null,
   onBack,
   onSaveDocument
 }) {
+  const { showToast } = useToast();
   const docTitle = documentData?.name || documentData?.fileName || documentData?.title || 'ARCHITECTURE_INTERIOR_BLUEPRINT.PDF';
   const [currentTitle, setCurrentTitle] = useState(docTitle);
   const docVersion = documentData?.versionTag || `V${documentData?.version || 1}.0`;
@@ -484,13 +487,14 @@ export default function MarkupEditor({
         };
 
         onSaveDocument(updatedDoc);
-        alert(`Document "${docTitle}" saved successfully!\nCreated new revision version: ${nextVersionTag}`);
+        showToast(`Blueprint "${docTitle}" saved! Created revision ${nextVersionTag}`, 'success', 'Markup Revision Saved', true);
       } else {
-        alert(`Document "${docTitle}" markups & annotations saved successfully!`);
+        showToast(`Blueprint "${docTitle}" markups & annotations saved!`, 'success', 'Markup Saved', true);
       }
     } catch (err) {
       console.warn("Notice saving markups to API:", err);
       setSaveStatus('Saved locally');
+      showToast('Markups saved to local session state.', 'info', 'Saved Locally', false);
     }
   };
 

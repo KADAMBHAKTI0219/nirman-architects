@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { getProjects } from '../../../service/project';
 import DocumentAccessLogModal from './DocumentAccessLogModal';
+import Pagination from '../../common/Pagination';
 
 export default function DocumentList({
   documents,
@@ -28,6 +29,8 @@ export default function DocumentList({
   const [auditModalDoc, setAuditModalDoc] = useState(null);
   const [isAuditOpen, setIsAuditOpen] = useState(false);
   const [viewMode, setViewMode] = useState('table');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     getProjects()
@@ -397,14 +400,14 @@ export default function DocumentList({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filteredDocuments.map((doc, idx) => (
+                {filteredDocuments.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((doc, idx) => (
                   <tr key={doc._id ? `${doc._id}-${idx}` : `${doc.id}-${idx}`} className="hover:bg-slate-50/40">
                     <td className="px-4 py-4 align-middle pl-6">
                       <div className="flex items-center gap-3">
                         <File className="w-5 h-5 text-indigo-500 flex-shrink-0" />
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-1.5">
-                            <span className="font-extrabold text-slate-900 block text-xs leading-normal hover:text-indigo-650 transition-colors cursor-pointer">{doc.name}</span>
+                            <span className="font-extrabold text-slate-900 block text-xs leading-normal hover:text-indigo-650 transition-colors cursor-pointer" onClick={() => onSelectDocument(doc)}>{doc.name}</span>
                             {doc.confidential && (
                               <span className="text-[7px] font-black uppercase tracking-widest bg-rose-50 text-rose-600 border border-rose-100 px-1.5 py-0.5 rounded-sm">
                                 Confidential
@@ -486,6 +489,18 @@ export default function DocumentList({
               </tbody>
             </table>
           </div>
+
+          {/* Integrated Pagination Bar */}
+          <Pagination
+            currentPage={currentPage}
+            totalItems={filteredDocuments.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={(page) => setCurrentPage(page)}
+            onItemsPerPageChange={(size) => {
+              setItemsPerPage(size);
+              setCurrentPage(1);
+            }}
+          />
         </div>
       )}
 

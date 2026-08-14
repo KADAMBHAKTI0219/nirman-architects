@@ -31,10 +31,10 @@ export default function StatusBadge({
     colorStyle = 'bg-rose-50 text-rose-700 border-rose-200';
     IconComponent = XCircle;
   } else if (normStatus.includes('PROGRESS') || normStatus.includes('ACTIVE') || normStatus.includes('ONGOING')) {
-    colorStyle = 'bg-sky-50 text-sky-700 border-sky-200';
+    colorStyle = 'bg-brand-soft text-slate-800 border-brand-secondary/40';
     IconComponent = Play;
   } else if (normStatus.includes('LATE') || normStatus.includes('WARN') || normStatus.includes('LEAD') || normStatus.includes('CONTACT')) {
-    colorStyle = 'bg-indigo-50 text-indigo-700 border-indigo-200';
+    colorStyle = 'bg-amber-50 text-amber-700 border-amber-200';
     IconComponent = AlertTriangle;
   } else if (normStatus.includes('DRAFT') || normStatus.includes('OFFLINE')) {
     colorStyle = 'bg-slate-100 text-slate-600 border-slate-200';

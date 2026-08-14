@@ -91,8 +91,18 @@ export const getInternalProjectChat = async (projectId, since = '') => {
   const params = since ? { since } : undefined;
 
   try {
-    const response = await api.get(`/projects/${projectId}/chat`, { params });
-    if (response.data) {
+    let response;
+    try {
+      response = await api.get(`/chat/${projectId}`, { params });
+    } catch (e1) {
+      try {
+        response = await api.get(`/projects/${projectId}/chat`, { params });
+      } catch (e2) {
+        response = null;
+      }
+    }
+
+    if (response?.data) {
       const msgs = response.data.messages || response.data.data?.messages || (Array.isArray(response.data) ? response.data : []);
       const localMsgs = getLocalChatMessages(projectId);
       const combined = [...msgs, ...localMsgs];
@@ -208,23 +218,19 @@ export const sendInternalChatMessage = async (projectId, payload = {}) => {
   }
 
   try {
-    const response = await api.post(`/projects/${projectId}/chat/message`, body);
-    if (response.data) return response.data;
+    let response;
+    try {
+      response = await api.post(`/chat/${projectId}/message`, body);
+    } catch (e1) {
+      try {
+        response = await api.post(`/projects/${projectId}/chat/message`, body);
+      } catch (e2) {
+        response = null;
+      }
+    }
+    if (response?.data) return response.data;
   } catch (err) {
-    const localMsg = {
-      _id: 'msg-' + Date.now(),
-      id: 'msg-' + Date.now(),
-      projectId,
-      messageText,
-      text: messageText,
-      authorType: body.isInternal ? 'EMPLOYEE' : 'CLIENT_CONTACT',
-      senderName: body.sender || (body.isInternal ? 'Project Manager (Internal Note)' : 'Project Manager'),
-      formattedAuthorName: body.sender || (body.isInternal ? 'Project Manager (Internal Note)' : 'Project Manager'),
-      isInternal: Boolean(body.isInternal),
-      createdAt: new Date().toISOString()
-    };
-    saveLocalChatMessage(projectId, localMsg);
-    return { success: true, message: 'Message sent successfully.', messageData: localMsg };
+    // fallback
   }
 
   const localMsg = {

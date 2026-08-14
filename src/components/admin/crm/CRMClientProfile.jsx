@@ -507,9 +507,9 @@ export default function CRMClientProfile({
               </span>
               <button
                 onClick={() => { setContactError(''); setShowAddContactModal(true); }}
-                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                className="px-3.5 py-1.5 crm-brand-btn rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
               >
-                <Plus className="w-4 h-4 text-white" /> Add Contact
+                <Plus className="w-4 h-4 text-slate-900" /> Add Contact
               </button>
             </div>
 
@@ -616,9 +616,9 @@ export default function CRMClientProfile({
                     });
                     setShowCreateProjModal(true);
                   }}
-                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-extrabold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                  className="px-3.5 py-2 crm-brand-btn text-slate-900 rounded-xl font-extrabold text-xs flex items-center gap-1.5 cursor-pointer"
                 >
-                  <FolderPlus className="w-4 h-4 text-white" /> Create New Project
+                  <FolderPlus className="w-4 h-4 text-slate-900" /> Create New Project
                 </button>
                 <button
                   onClick={() => setShowLinkModal(true)}
@@ -991,7 +991,7 @@ export default function CRMClientProfile({
                 <button
                   type="submit"
                   disabled={contactSubmitting}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-xl shadow-2xs flex items-center gap-1"
+                  className="px-4 py-2 crm-brand-btn text-slate-900 font-extrabold rounded-xl flex items-center gap-1 cursor-pointer"
                 >
                   {contactSubmitting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
                   Create Contact & Generate Pass

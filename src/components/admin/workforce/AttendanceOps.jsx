@@ -11,6 +11,7 @@ import PageHeader from '../../common/PageHeader';
 import AttendanceCalendar from '../../common/AttendanceCalendar';
 import StatusBadge from '../../common/StatusBadge';
 import StatsKpiCard from '../../common/StatsKpiCard';
+import Pagination from '../../common/Pagination';
 import useSEO from '../../../hooks/useSEO';
 import { getAllAttendanceList } from '../../../service/hrm/attendance';
 import { parseIndexedObjectToArray } from '../../../service/hrm/leave';
@@ -629,40 +630,13 @@ export default function AttendanceOps({
           </table>
         </div>
 
-        {/* Pagination Controls */}
-        <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs text-slate-500 font-medium">
-          <div>
-            Showing {filteredEmployees.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} to {Math.min(currentPage * itemsPerPage, filteredEmployees.length)} of {filteredEmployees.length} employees
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-              disabled={currentPage === 1}
-              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 transition-colors text-slate-400 hover:text-slate-700 cursor-pointer"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`w-7 h-7 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentPage === page ? 'bg-brand-primary text-brand-dark font-extrabold shadow-2xs' : 'hover:bg-slate-100 text-slate-700'}`}
-              >
-                {page}
-              </button>
-            ))}
-
-            <button
-              onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-              disabled={currentPage === totalPages}
-              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 transition-colors text-slate-400 hover:text-slate-700 cursor-pointer"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+        {/* Integrated Pagination Controls */}
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredEmployees.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={(p) => setCurrentPage(p)}
+        />
       </div>
 
       {/* 5. SUMMARY ROW */}

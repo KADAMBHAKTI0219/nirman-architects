@@ -75,7 +75,7 @@ export default function CreateProjectModal({
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div>
             <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wide">Register New Project</h3>
-            <span className="text-[10px] text-slate-400 block mt-0.5 font-normal">ERP Module 1: Assign project details, category & estimated completion timeline</span>
+            <span className="text-[10px] text-slate-400 block mt-0.5 font-normal">Assign project details, category & estimated completion timeline</span>
           </div>
           <button 
             onClick={onClose}
@@ -189,7 +189,7 @@ export default function CreateProjectModal({
                     type="button"
                     onClick={handleCreateNewCategory}
                     disabled={catLoading}
-                    className="px-3 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold"
+                    className="px-3 py-2 crm-brand-btn text-slate-900 rounded-xl text-xs font-semibold"
                   >
                     Save
                   </button>

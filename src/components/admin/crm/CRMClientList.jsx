@@ -222,6 +222,22 @@ export default function CRMClientList({
     }
   };
 
+  const handleReactivateClient = async (e, clientId, clientName) => {
+    e.stopPropagation();
+    if (!window.confirm(`Are you sure you want to reactivate Client "${clientName}"?`)) return;
+    try {
+      const res = await updateClient(clientId, { isActive: true });
+      if (res?.success !== false) {
+        alert(`Client account "${clientName}" reactivated successfully!`);
+        if (onRefreshClients) onRefreshClients();
+      } else {
+        alert(res?.message || 'Failed to reactivate client account.');
+      }
+    } catch (err) {
+      alert(err.message || 'Error reactivating client.');
+    }
+  };
+
   const handleViewDetails = (e, clientDoc) => {
     e.stopPropagation();
     setInspectingClient(clientDoc);
@@ -237,7 +253,13 @@ export default function CRMClientList({
 
     const matchesSearch = nameStr.includes(q) || compStr.includes(q) || phoneStr.includes(q) || emailStr.includes(q);
     const isAct = c.isActive !== false;
-    const matchesStatus = filterStatus === 'All' || (filterStatus === 'Active' ? isAct : !isAct);
+    
+    let matchesStatus = true;
+    if (filterStatus === 'Active' || filterStatus === 'Active Accounts') {
+      matchesStatus = isAct;
+    } else if (filterStatus === 'Inactive' || filterStatus === 'Deactivated' || filterStatus === 'Deactivated Accounts') {
+      matchesStatus = !isAct;
+    }
 
     return matchesSearch && matchesStatus;
   });
@@ -447,13 +469,21 @@ export default function CRMClientList({
                             >
                               <Eye className="w-4 h-4" />
                             </button>
-                            {isAct && (
+                            {isAct ? (
                               <button
                                 onClick={(e) => handleDeactivateClient(e, c._id || c.id, c.name)}
                                 className="p-2 bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition-all border border-slate-200 cursor-pointer"
-                                title="Soft-Deactivate Client Account"
+                                title="Deactivate Client Account"
                               >
                                 <Ban className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <button
+                                onClick={(e) => handleReactivateClient(e, c._id || c.id, c.name)}
+                                className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-xl transition-all border border-emerald-200 cursor-pointer"
+                                title="Reactivate Client Account"
+                              >
+                                <CheckCircle className="w-4 h-4 text-emerald-600" />
                               </button>
                             )}
                           </div>
@@ -512,7 +542,7 @@ export default function CRMClientList({
                       <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase border shrink-0 ${
                         isAct ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
                       }`}>
-                        {isAct ? 'Active' : 'Inactive'}
+                        {isAct ? 'Active' : 'Deactivated'}
                       </span>
                     </div>
 
@@ -590,13 +620,21 @@ export default function CRMClientList({
                         >
                           <Eye className="w-4 h-4" />
                         </button>
-                        {isAct && (
+                        {isAct ? (
                           <button
                             onClick={(e) => handleDeactivateClient(e, c._id || c.id, c.name)}
                             className="p-2 bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition-all border border-slate-200 cursor-pointer"
                             title="Deactivate Account"
                           >
                             <Ban className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => handleReactivateClient(e, c._id || c.id, c.name)}
+                            className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-xl transition-all border border-emerald-200 cursor-pointer"
+                            title="Reactivate Account"
+                          >
+                            <CheckCircle className="w-4 h-4 text-emerald-600" />
                           </button>
                         )}
                       </div>

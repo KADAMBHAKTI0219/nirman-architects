@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Search, Filter, CheckSquare, Clock, AlertTriangle, CheckCircle,
   Plus, Eye, ListFilter, Kanban, TableProperties, BarChart3, Calendar,
   User, Building, RefreshCw, ChevronRight, AlertCircle, ArrowUpRight, Sparkles
 } from 'lucide-react';
+import Pagination from '../../common/Pagination';
 
 const STATUS_COLUMNS = [
   { id: 'Pending', label: 'Pending', dotColor: 'bg-slate-400', badgeStyle: 'bg-slate-100 text-slate-700 border-slate-200' },
@@ -30,7 +31,9 @@ export default function TaskList({
   onStatusChange,
   onCreateTaskClick
 }) {
-  const [dragOverCol, setDragOverCol] = React.useState(null);
+  const [dragOverCol, setDragOverCol] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const roleCode = user.roleCode || (user.role && typeof user.role === 'object' ? user.role.roleCode : user.role) || '';
@@ -309,7 +312,7 @@ export default function TaskList({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                {filteredTasks.map((t, idx) => (
+                {filteredTasks.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((t, idx) => (
                   <tr key={t._id ? `tbl-${t._id}` : `tbl-${t.id}-${idx}`} className="hover:bg-slate-50/70 transition-colors">
                     <td className="px-5 py-4 font-mono font-extrabold text-slate-500">{t.id}</td>
                     <td className="px-5 py-4">
@@ -355,6 +358,18 @@ export default function TaskList({
               </tbody>
             </table>
           </div>
+
+          {/* Integrated Pagination Controls */}
+          <Pagination
+            currentPage={currentPage}
+            totalItems={filteredTasks.length}
+            itemsPerPage={pageSize}
+            onPageChange={(page) => setCurrentPage(page)}
+            onItemsPerPageChange={(size) => {
+              setPageSize(size);
+              setCurrentPage(1);
+            }}
+          />
         </div>
       )}
 

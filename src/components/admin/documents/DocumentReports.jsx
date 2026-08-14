@@ -63,7 +63,7 @@ export default function DocumentReports({ documents = [] }) {
       <div className="bg-white p-6 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
         <div className="flex justify-between items-center border-b border-slate-100 pb-3">
           <div>
-            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block">CRM Module 6 - Client Portal Engagement</span>
+            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block">Client Portal Engagement</span>
             <h3 className="text-sm font-extrabold text-slate-900">Client Document Engagement Analytics</h3>
           </div>
           {engagement && (

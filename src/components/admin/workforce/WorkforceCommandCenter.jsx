@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Laptop, ShieldAlert, Check, X, AlertCircle,
-  User, Mail, Phone, Lock, Shield, Briefcase, DollarSign, Plus, Eye, EyeOff
+  User, Mail, Phone, Lock, Shield, Briefcase, IndianRupee, Plus, Eye, EyeOff
 } from 'lucide-react';
 import AttendanceOps from './AttendanceOps';
 import EmployeesHR from './EmployeesHR';
@@ -659,7 +659,7 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Base Salary (INR)</label>
                   <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
                       type="number" 
                       required
@@ -871,7 +871,7 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Base Salary (INR)</label>
                     <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
                         type="number" 
                         required

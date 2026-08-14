@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  DollarSign, FileText, CheckCircle, AlertCircle, Search, 
+  IndianRupee, FileText, CheckCircle, AlertCircle, Search, 
   Download, Eye, RefreshCw, X, Play 
 } from 'lucide-react';
 import Card from '../../common/Card';
@@ -121,7 +121,7 @@ export default function PayrollData() {
       <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-2xs flex flex-wrap gap-4 items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-brand-tint border border-brand-primary text-slate-805 rounded-2xl">
-            <DollarSign className="w-6 h-6" />
+            <IndianRupee className="w-6 h-6" />
           </div>
           <div>
             <strong className="text-slate-850 text-sm block">Payroll Operations</strong>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search, Eye, EyeOff, ShieldCheck, Mail, MapPin, Briefcase, FileText, CheckCircle2,
-  Clock, Plus, Filter, Award, ChevronRight, Laptop, Calendar, DollarSign, UserCheck, X,
+  Clock, Plus, Filter, Award, ChevronRight, Laptop, Calendar, IndianRupee, UserCheck, X,
   Pencil, Trash2, Camera, Download, RefreshCw, AlertTriangle, Key,
   LayoutGrid, LayoutList
 } from 'lucide-react';

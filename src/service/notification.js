@@ -25,21 +25,15 @@ export const markNotificationAsRead = async (id) => {
  */
 export const markAllNotificationsAsRead = async () => {
   try {
-    const response = await api.put('/notifications/read-all');
-    return response.data;
-  } catch (err) {
-    try {
-      const myNotifs = await api.get('/notifications/my');
-      const list = myNotifs.data?.data?.notifications || myNotifs.data?.notifications || myNotifs.data || [];
-      const unreadList = (Array.isArray(list) ? list : []).filter(n => !(n.isRead || n.read));
-      if (unreadList.length > 0) {
-        await Promise.all(unreadList.map(n => api.put(`/notifications/${n._id || n.id}/read`).catch(() => null)));
-      }
-      return { success: true, message: 'All notifications marked as read' };
-    } catch (fallbackErr) {
-      console.error('Failed fallback for mark all as read:', fallbackErr);
-      throw err;
+    const myNotifs = await getMyNotifications();
+    const list = myNotifs?.notifications || myNotifs?.data?.notifications || myNotifs?.data || (Array.isArray(myNotifs) ? myNotifs : []);
+    const unreadList = (Array.isArray(list) ? list : []).filter(n => !(n.isRead || n.read));
+    if (unreadList.length > 0) {
+      await Promise.all(unreadList.map(n => markNotificationAsRead(n._id || n.id).catch(() => null)));
     }
+    return { success: true, message: 'All notifications marked as read' };
+  } catch (err) {
+    return { success: false, message: err.message };
   }
 };
 
@@ -83,7 +77,17 @@ export const markAllClientNotificationsRead = async () => {
     const response = await api.put('/client/notifications/mark-all-read');
     return response.data;
   } catch (err) {
-    return { success: false, message: err.response?.data?.message || err.message };
+    try {
+      const myNotifs = await getClientNotificationsMy();
+      const list = myNotifs?.notifications || myNotifs?.data || (Array.isArray(myNotifs) ? myNotifs : []);
+      const unreadList = (Array.isArray(list) ? list : []).filter(n => !(n.isRead || n.read));
+      if (unreadList.length > 0) {
+        await Promise.all(unreadList.map(n => markClientNotificationRead(n._id || n.id).catch(() => null)));
+      }
+      return { success: true, message: 'All client notifications marked as read' };
+    } catch (fallbackErr) {
+      return { success: false, message: err.response?.data?.message || err.message };
+    }
   }
 };
 

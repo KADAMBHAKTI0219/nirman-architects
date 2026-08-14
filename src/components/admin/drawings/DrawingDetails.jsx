@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  getCachedDrawingFile, 
+import {
+  getCachedDrawingFile,
   getDrawingById,
-  pmReview, 
-  adminReview, 
-  promoteToGFC, 
-  unlockGFC, 
-  editInPlaceProcessDwg, 
-  getClientApprovalLog 
+  pmReview,
+  adminReview,
+  promoteToGFC,
+  unlockGFC,
+  editInPlaceProcessDwg,
+  getClientApprovalLog
 } from '../../../service/drawing';
-import { 
-  ArrowLeft, Lock, Unlock, ZoomIn, ZoomOut, Plus, 
+import {
+  ArrowLeft, Lock, Unlock, ZoomIn, ZoomOut, Plus,
   CheckCircle, PenTool, AlertCircle, FileText, History, ShieldAlert, Upload
 } from 'lucide-react';
 import Card from '../../common/Card';
@@ -68,6 +68,12 @@ export default function DrawingDetails({
   };
 
   useEffect(() => {
+    if (drawing) {
+      setLiveDrawing(drawing);
+      if (drawing.versions && Array.isArray(drawing.versions)) {
+        setVersionHistoryList(drawing.versions);
+      }
+    }
     fetchFreshDrawingDetails();
     if (drawingId) {
       getClientApprovalLog(drawingId)
@@ -78,7 +84,7 @@ export default function DrawingDetails({
         })
         .catch(err => console.warn(err));
     }
-  }, [drawingId]);
+  }, [drawingId, drawing]);
 
   const handleBlueprintClick = (e) => {
     if (!isAddingPin) return;
@@ -168,7 +174,7 @@ export default function DrawingDetails({
       if (res?.success) {
         const newStatus = decision === 'APPROVE' ? 'Pending Client Approval' : 'Admin Rejected';
         onUpdateDrawing({ ...drawing, status: newStatus, visibleToClient: decision === 'APPROVE' });
-        alert(decision === 'APPROVE' 
+        alert(decision === 'APPROVE'
           ? "Admin Review Approved! Blueprint handed off to Client Portal (CRM Module 5)."
           : "Admin Review Rejected."
         );
@@ -254,44 +260,66 @@ export default function DrawingDetails({
     );
   }
 
-  const isProcessDwg = drawing.category === 'Process DWG' || drawing.categoryName === 'Process DWG';
+  const isProcessDwg = drawing.category === 'Process DWG' || drawing.categoryName === 'Process DWG' || liveDrawing?.category === 'Process DWG';
+  const displayId = liveDrawing?._id || liveDrawing?.id || drawing?._id || drawing?.id || 'DWG-101';
+  const displayName = liveDrawing?.name || liveDrawing?.title || liveDrawing?.drawingName || liveDrawing?.fileName || drawing?.name || drawing?.title || drawing?.drawingName || drawing?.fileName || 'Architectural Blueprint';
+  const displayCategory = liveDrawing?.category || liveDrawing?.categoryName || drawing?.category || drawing?.categoryName || 'Working Drawings';
+  const rawStatus = String(liveDrawing?.status || drawing?.status || 'DESIGNER_UPLOADED').toUpperCase();
+  const formattedStatus = rawStatus.replace(/_/g, ' ');
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200 font-sans text-slate-800">
-      
+
       {/* Header bar */}
-      <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-2xs flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-3.5">
-          <button 
+      <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+        <div className="flex items-center gap-3.5 min-w-0">
+          <button
             onClick={onBack}
-            className="p-2.5 hover:bg-slate-100 bg-slate-50 border border-slate-200 text-slate-700 rounded-2xl transition-all shadow-3xs cursor-pointer"
+            className="p-2.5 hover:bg-slate-100 bg-slate-50 border border-slate-200 text-slate-700 rounded-2xl transition-all shadow-3xs cursor-pointer shrink-0"
             title="Back to Drawings"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
           </button>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-md">{drawing.id}</span>
-              <span className="text-[10px] bg-brand-soft font-extrabold text-slate-700 border border-brand-primary/40 px-2.5 py-0.5 rounded-md">{drawing.category}</span>
+          <div className="min-w-0 space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200 font-mono truncate max-w-[150px]" title={displayId}>
+                {displayId}
+              </span>
+              <span className="text-[10px] bg-brand-soft font-extrabold text-slate-800 border border-brand-secondary/40 px-2.5 py-0.5 rounded-lg shrink-0">
+                {displayCategory}
+              </span>
+              <span className={`text-[9px] px-2.5 py-0.5 rounded-lg font-black uppercase tracking-wider border shrink-0 ${
+                liveDrawing?.locked || drawing?.locked || rawStatus.includes('LOCKED') || rawStatus.includes('GFC')
+                  ? 'bg-slate-900 text-amber-300 border-slate-800'
+                  : rawStatus.includes('APPROV')
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : rawStatus.includes('PENDING')
+                  ? 'bg-sky-50 text-sky-700 border-sky-200'
+                  : 'bg-amber-50 text-amber-800 border-amber-200'
+              }`}>
+                {formattedStatus}
+              </span>
             </div>
-            <h2 className="text-lg font-black text-slate-900 tracking-tight leading-none">{drawing.name}</h2>
+            <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight leading-tight truncate">
+              {displayName}
+            </h2>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2.5 flex-wrap shrink-0">
           <button
             onClick={() => setIsFullMarkupMode(true)}
-            className="px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer border border-brand-secondary/50"
+            className="px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer border border-brand-secondary/40 whitespace-nowrap"
           >
-            <PenTool className="w-4 h-4 text-brand-dark" />
+            <PenTool className="w-4 h-4 text-brand-dark shrink-0" />
             <span>Open Canvas Markup Editor</span>
           </button>
-          
+
           <button
             onClick={() => onCompareTrigger(drawing)}
-            className="px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-xl text-xs font-black transition-all border border-amber-300 shadow-2xs cursor-pointer flex items-center gap-2"
+            className="px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-xl text-xs font-black transition-all border border-amber-200 shadow-3xs cursor-pointer flex items-center gap-2 whitespace-nowrap"
           >
-            <History className="w-4 h-4 text-amber-700" />
+            <History className="w-4 h-4 text-amber-700 shrink-0" />
             <span>Compare Revisions</span>
           </button>
 
@@ -301,38 +329,26 @@ export default function DrawingDetails({
                 setEditFilePath(drawing.fileUrl || '');
                 setReviewModalType('PROCESS_DWG_EDIT');
               }}
-              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all shadow-xs cursor-pointer flex items-center gap-2"
+              className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition-all shadow-xs cursor-pointer flex items-center gap-2 border border-slate-700 whitespace-nowrap"
             >
-              In-Place Process DWG Edit
+              <span>In-Place Process DWG Edit</span>
             </button>
           )}
-
-          <span className={`text-[10px] px-3 py-1.5 rounded-xl font-extrabold uppercase tracking-wider border shadow-3xs ${
-            drawing.locked || drawing.status === 'GFC Locked' || drawing.status === 'GFC_LOCKED'
-              ? 'bg-slate-900 text-amber-300 border-slate-800'
-              : drawing.status === 'Approved' || drawing.status === 'APPROVED'
-              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-              : drawing.status === 'Pending Client Approval' || drawing.status === 'PENDING_CLIENT_APPROVAL'
-              ? 'bg-brand-soft text-slate-900 border-brand-secondary/60'
-              : 'bg-amber-50 text-amber-800 border-amber-200'
-          }`}>
-            {drawing.status}
-          </span>
         </div>
       </div>
 
       {/* Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* Left Columns (2/3 width): Blueprint Viewer, Revision Timeline & Audit Logs */}
         <div className="lg:col-span-2 space-y-6">
-          
+
           {/* Blueprint Cad Viewer Container */}
           <div className="bg-slate-100/90 border border-slate-200/90 rounded-3xl overflow-hidden relative shadow-2xs">
-            
+
             {/* Control Floating Bar */}
             <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-2xl flex items-center gap-3 z-10 border border-slate-200 shadow-md">
-              <button 
+              <button
                 onClick={() => setZoomLevel(prev => Math.max(0.5, prev - 0.25))}
                 className="text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer p-1 rounded-lg"
                 title="Zoom Out"
@@ -340,7 +356,7 @@ export default function DrawingDetails({
                 <ZoomOut className="w-4 h-4" />
               </button>
               <span className="text-[11px] text-slate-800 font-mono font-bold min-w-[36px] text-center">{Math.round(zoomLevel * 100)}%</span>
-              <button 
+              <button
                 onClick={() => setZoomLevel(prev => Math.min(2.5, prev + 0.25))}
                 className="text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer p-1 rounded-lg"
                 title="Zoom In"
@@ -350,13 +366,12 @@ export default function DrawingDetails({
             </div>
 
             {/* Vector Blueprint SVG Canvas */}
-            <div 
+            <div
               onClick={handleBlueprintClick}
-              className={`h-[420px] w-full flex items-center justify-center relative overflow-hidden transition-all duration-300 ${
-                isAddingPin ? 'cursor-crosshair' : 'cursor-default'
-              }`}
+              className={`h-[420px] w-full flex items-center justify-center relative overflow-hidden transition-all duration-300 ${isAddingPin ? 'cursor-crosshair' : 'cursor-default'
+                }`}
             >
-              <div 
+              <div
                 className="transition-transform duration-200 ease-out absolute inset-0 flex items-center justify-center p-6"
                 style={{ transform: `scale(${zoomLevel})` }}
               >
@@ -364,7 +379,7 @@ export default function DrawingDetails({
                   const cached = getCachedDrawingFile(drawing._id || drawing.id || drawing.drawingNumber);
                   const currentVerPath = versionHistoryList && versionHistoryList.length > 0 ? (versionHistoryList[0].filePath || versionHistoryList[0].fileUrl) : null;
                   const targetUrl = cached || drawing.fileUrl || drawing.filePath || drawing.pdfUrl || currentVerPath;
-                  
+
                   const rawUrl = getCleanFileUrl(targetUrl);
                   const fileType = detectFileType(targetUrl || rawUrl, drawing);
                   const isDwg = fileType === 'dwg';
@@ -387,9 +402,9 @@ export default function DrawingDetails({
 
                   return (
                     <div className="w-full h-full flex flex-col items-center justify-center relative">
-                      <img 
-                        src={imageSrc} 
-                        alt={drawing.name || drawing.drawingName || drawing.title} 
+                      <img
+                        src={imageSrc}
+                        alt={drawing.name || drawing.drawingName || drawing.title}
                         onError={(e) => {
                           e.target.onerror = null;
                           e.target.src = defaultBlueprint;
@@ -424,26 +439,26 @@ export default function DrawingDetails({
 
                 {/* Render temp pin placement overlay input */}
                 {tempCoords && (
-                  <div 
+                  <div
                     className="absolute z-20 bg-white border border-slate-200 p-3.5 rounded-2xl shadow-2xl w-64 flex flex-col gap-2.5"
                     style={{ left: `${tempCoords.x}%`, top: `${tempCoords.y}%` }}
                   >
                     <span className="text-[9px] font-black text-rose-600 uppercase tracking-widest leading-none">Place Pin Annotation</span>
-                    <input 
-                      type="text" 
-                      placeholder="Comment for this area..." 
+                    <input
+                      type="text"
+                      placeholder="Comment for this area..."
                       value={newPinMessage}
                       onChange={(e) => setNewPinMessage(e.target.value)}
                       className="px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/30 text-slate-900 bg-slate-50 text-xs font-medium"
                     />
                     <div className="flex gap-2 justify-end">
-                      <button 
+                      <button
                         onClick={() => setTempCoords(null)}
                         className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold cursor-pointer"
                       >
                         Cancel
                       </button>
-                      <button 
+                      <button
                         onClick={handleSavePin}
                         className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-black uppercase cursor-pointer shadow-xs"
                       >
@@ -470,8 +485,8 @@ export default function DrawingDetails({
                 onClick={() => setIsVersionModalOpen(true)}
                 className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer border border-brand-secondary/40"
               >
-                <Upload className="w-4 h-4 text-brand-dark" />
-                <span>+ Upload New Version</span>
+                <Plus className="w-4 h-4 text-brand-dark" />
+                <span>Upload New Version</span>
               </button>
             </div>
 
@@ -497,7 +512,7 @@ export default function DrawingDetails({
                       </div>
                     </div>
                     {fileTarget && (
-                      <a 
+                      <a
                         href={fileTarget}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -519,7 +534,7 @@ export default function DrawingDetails({
               <h3 className="text-base font-black text-slate-900">Client Approval Audit Log</h3>
               <p className="text-xs text-slate-500 font-medium">Verified records of client sign-off actions from Client Portal</p>
             </div>
-            
+
             <div className="space-y-3 pt-1">
               {(approvalLogs.length > 0 ? approvalLogs : [
                 {
@@ -540,9 +555,8 @@ export default function DrawingDetails({
                     </p>
                   </div>
                   <div className="text-right flex flex-col items-end gap-1">
-                    <span className={`px-3 py-1 rounded-lg font-black text-[10px] uppercase tracking-wider border ${
-                      log.action === 'APPROVED' ? 'bg-emerald-500 text-white border-emerald-600' : 'bg-rose-500 text-white border-rose-600'
-                    }`}>
+                    <span className={`px-3 py-1 rounded-lg font-black text-[10px] uppercase tracking-wider border ${log.action === 'APPROVED' ? 'bg-emerald-500 text-white border-emerald-600' : 'bg-rose-500 text-white border-rose-600'
+                      }`}>
                       {log.action || 'APPROVED'}
                     </span>
                     <span className="text-[10px] text-slate-400 font-bold block">{new Date(log.createdAt || Date.now()).toLocaleDateString()}</span>
@@ -556,7 +570,7 @@ export default function DrawingDetails({
 
         {/* Right Column: Document Metadata, Review Gates, Comments */}
         <div className="space-y-6">
-          
+
           {/* Metadata Card */}
           <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-2xs space-y-4">
             <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest block border-b border-slate-100 pb-2.5">Document Metadata</h4>
@@ -585,7 +599,7 @@ export default function DrawingDetails({
           {/* Workflow Review Gates */}
           <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-2xs space-y-4">
             <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest block border-b border-slate-100 pb-2.5">Review & Approval Sign-offs</h4>
-            
+
             <div className="space-y-3.5">
 
               {/* PM Review Gate */}
@@ -696,14 +710,14 @@ export default function DrawingDetails({
               ))}
             </div>
             <form onSubmit={handlePostComment} className="flex gap-2 pt-1">
-              <input 
-                type="text" 
-                placeholder="Type a design comment..." 
+              <input
+                type="text"
+                placeholder="Type a design comment..."
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 className="flex-1 px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-xs font-semibold bg-white"
               />
-              <button 
+              <button
                 type="submit"
                 className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold rounded-xl text-xs shadow-xs cursor-pointer border border-brand-secondary/40"
               >

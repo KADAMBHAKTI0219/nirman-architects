@@ -2,12 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Upload, FileText, CheckCircle2, AlertCircle, FileCode, Image, FileSpreadsheet, FolderPlus } from 'lucide-react';
 import { getProjects } from '../../../service/project';
 import { getProjectFolders, createProjectFolder } from '../../../service/document';
+import { useToast } from '../../../context/ToastContext';
 
 export default function DocumentUploadModal({
   isOpen,
   onClose,
   onSubmit
 }) {
+  const { showToast } = useToast();
   const [projectsList, setProjectsList] = useState([]);
   const [activeFolders, setActiveFolders] = useState([]);
   const [selectedFileObj, setSelectedFileObj] = useState(null);
@@ -87,9 +89,9 @@ export default function DocumentUploadModal({
         ...prev,
         folderId: newFolder._id || newFolder.id
       }));
-      alert(`Folder '${fName.trim()}' created and selected successfully!`);
+      showToast(`Folder '${fName.trim()}' created and selected successfully!`, 'success', 'Folder Created', true);
     } catch (e) {
-      alert("Folder created!");
+      showToast(`Folder '${fName.trim()}' created!`, 'success', 'Folder Created', false);
     }
   };
 
@@ -135,6 +137,7 @@ export default function DocumentUploadModal({
   const handleFormSubmit = (e) => {
     e.preventDefault();
     onSubmit(formData);
+    showToast(`Document "${formData.documentName || formData.name || 'File'}" uploaded successfully!`, 'success', 'Document Uploaded', true);
     setSelectedFileObj(null);
     setFormData({
       name: '',

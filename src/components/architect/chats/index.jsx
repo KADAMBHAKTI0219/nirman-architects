@@ -91,6 +91,20 @@ export default function ArchitectChats() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const [recipientRole, setRecipientRole] = useState('All Workspace Members');
+  const [isInternalNote, setIsInternalNote] = useState(false);
+
+  const currentUser = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') || '{}');
+    } catch {
+      return {};
+    }
+  })();
+
+  const currentSenderName = currentUser.name || 'Staff Architect';
+  const currentSenderRole = currentUser.designation || currentUser.role || 'Architect';
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!newMsgText.trim() || !projectId) return;
@@ -98,15 +112,24 @@ export default function ArchitectChats() {
     try {
       const payload = {
         messageText: newMsgText,
+        recipientRole,
+        isInternal: isInternalNote,
+        sender: `${currentSenderName} (${currentSenderRole})`,
         replyToMessageId: replyToMsg?._id || replyToMsg?.id || null
       };
       const res = await sendInternalChatMessage(projectId, payload);
-      if (res && (res.messageObj || res.message)) {
-        const added = res.messageObj || res.message;
-        setMessages(prev => [...prev, added]);
-      } else {
-        fetchInternalChat();
-      }
+      const addedMsg = res?.messageData || res?.messageObj || res?.data || {
+        _id: 'msg-' + Date.now(),
+        projectId,
+        messageText: newMsgText,
+        senderName: `${currentSenderName} (${currentSenderRole})`,
+        formattedAuthorName: `${currentSenderName} (${currentSenderRole})`,
+        recipientRole,
+        isInternal: isInternalNote,
+        createdAt: new Date().toISOString()
+      };
+
+      setMessages(prev => [...prev, addedMsg]);
       setNewMsgText('');
       setReplyToMsg(null);
     } catch (err) {
@@ -393,7 +416,43 @@ export default function ArchitectChats() {
             )}
 
             {/* Input Bar */}
-            <div className="bg-[#f0f2f5] px-4 py-2.5 border-t border-[#e9edef] shrink-0 z-10">
+            <div className="bg-[#f0f2f5] px-4 py-2.5 border-t border-[#e9edef] shrink-0 z-10 space-y-2">
+              {/* Recipient & Sender Selector Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] bg-white p-2 rounded-xl border border-slate-200 shadow-3xs">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-slate-500 uppercase tracking-wider text-[9px]">Send To:</span>
+                  <select
+                    value={recipientRole}
+                    onChange={(e) => setRecipientRole(e.target.value)}
+                    className="text-xs bg-slate-50 border border-slate-200 text-slate-800 font-medium rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                  >
+                    <option value="All Workspace Members">All Workspace Members</option>
+                    <option value="Project Manager">Project Manager</option>
+                    <option value="Lead Architect / Designer">Lead Architect / Designer</option>
+                    <option value="Site Engineer">Site Engineer</option>
+                    <option value="Client Contact">Client Contact</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsInternalNote(prev => !prev)}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold border transition-all cursor-pointer ${
+                      isInternalNote 
+                        ? 'bg-amber-50 text-amber-700 border-amber-300 shadow-2xs' 
+                        : 'bg-slate-100 text-slate-600 border-slate-200'
+                    }`}
+                  >
+                    {isInternalNote ? '🔒 Internal Staff Note' : '🌐 Public Channel'}
+                  </button>
+
+                  <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                    Sender: <strong className="text-slate-800">{currentSenderName}</strong> ({currentSenderRole})
+                  </span>
+                </div>
+              </div>
+
               <form onSubmit={handleSendMessage} className="flex items-center gap-3">
                 <button
                   type="button"
@@ -416,8 +475,8 @@ export default function ArchitectChats() {
                   type="text"
                   value={newMsgText}
                   onChange={(e) => setNewMsgText(e.target.value)}
-                  placeholder="Post internal message into project chat workspace..."
-                  className="flex-1 text-xs border border-white rounded-lg px-4 py-2.5 bg-white focus:outline-none shadow-3xs"
+                  placeholder={`Post message to ${recipientRole}...`}
+                  className="flex-1 text-xs border border-white rounded-lg px-4 py-2.5 bg-white focus:outline-none shadow-3xs text-slate-800 font-medium"
                 />
 
                 <button 
@@ -436,54 +495,6 @@ export default function ArchitectChats() {
           </div>
         )}
       </div>
-
-      {/* 3. RIGHT SIDEBAR: CHANNEL INFO */}
-      {showInfoDrawer && activeChannel && (
-        <div className="w-72 border-l border-[#e9edef] flex flex-col shrink-0 bg-white overflow-y-auto scrollbar-thin animate-in slide-in-from-right duration-250">
-          <div className="h-16 bg-[#f0f2f5] border-b border-[#e9edef] px-4 flex items-center gap-3 shrink-0">
-            <button 
-              onClick={() => setShowInfoDrawer(false)}
-              className="text-[#54656f] hover:text-slate-800 p-1 rounded-full hover:bg-slate-200/50"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <span className="text-slate-900 font-bold text-xs">Channel Information</span>
-          </div>
-
-          <div className="p-4 space-y-5">
-            {/* Project Info Block */}
-            <div className="space-y-2">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Workspace Notes</span>
-              <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-2xl">
-                <h5 className="font-bold text-xs text-slate-900 mb-1 leading-tight">{activeChannel.name}</h5>
-                <p className="text-[11px] text-slate-600 font-normal leading-relaxed">
-                  {activeChannel.description}
-                </p>
-              </div>
-            </div>
-
-            {/* Participants */}
-            <div className="space-y-2">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">
-                Active Participants ({activeChannel.members?.length || 0})
-              </span>
-              <div className="space-y-2 pt-1">
-                {(activeChannel.members || []).map(member => (
-                  <div key={member} className="flex items-center gap-3 text-[11px] text-slate-700">
-                    <div className="w-8 h-8 rounded-full bg-blue-50 border border-blue-150 flex items-center justify-center font-bold text-[10px] text-[#2484C6]">
-                      {member.split(' ').map(n=>n[0]).join('').substring(0, 2)}
-                    </div>
-                    <div>
-                      <strong className="text-slate-900 font-semibold block leading-tight">{member}</strong>
-                      <span className="text-[9px] text-slate-400 block font-semibold leading-none mt-0.5">Contributor</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );

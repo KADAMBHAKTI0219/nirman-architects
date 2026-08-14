@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { X, FileText, Upload, Check, Plus } from 'lucide-react';
 import { getActiveDrawingCategories, createDrawingCategory } from '../../../service/drawing';
 import { getProjects } from '../../../service/project';
+import { useToast } from '../../../context/ToastContext';
 
 export default function DrawingCreateModal({
   isOpen,
   onClose,
   onSubmit
 }) {
+  const { showToast } = useToast();
   const [categories, setCategories] = useState([
     { _id: 'cat-working', name: 'Working Drawings' },
     { _id: 'cat-concept', name: 'Concept Drawings' },
@@ -110,10 +112,10 @@ export default function DrawingCreateModal({
         setFormData(prev => ({ ...prev, category: addedCat.name, categoryId: addedCat._id }));
         setIsCreatingNewCategory(false);
         setNewCatName('');
-        alert(`Drawing category "${addedCat.name}" created successfully.`);
+        showToast(`Drawing category "${addedCat.name}" created successfully.`, 'success', 'Category Created', true);
       }
     } catch (err) {
-      alert(err.message || 'Failed to create category.');
+      showToast(err.message || 'Failed to create category.', 'error', 'Error', false);
     }
   };
 
@@ -142,10 +144,11 @@ export default function DrawingCreateModal({
   const handleFormSubmit = (e) => {
     e.preventDefault();
     if (!formData.fileUrl) {
-      alert("Please select a PDF or Image blueprint file to upload.");
+      showToast("Please select a PDF or Image blueprint file to upload.", 'warning', 'File Required', false);
       return;
     }
     onSubmit(formData);
+    showToast(`Blueprint "${formData.name}" uploaded successfully!`, 'success', 'Blueprint Uploaded', true);
     setFormData({
       name: '',
       project: 'Central Office Tower',
@@ -171,7 +174,7 @@ export default function DrawingCreateModal({
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div>
-            <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wide">Upload Blueprint (ERP Module 3)</h3>
+            <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wide">Upload Blueprint</h3>
             <span className="text-[10px] text-slate-500 block mt-0.5 font-medium">Creates parent record and v1 drawing version with auto-increment</span>
           </div>
           <button 

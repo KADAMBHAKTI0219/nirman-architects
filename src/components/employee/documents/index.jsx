@@ -310,14 +310,14 @@ export default function EmployeeDocs() {
             Employee Documents & Repository Vault
           </h1>
           <p className="text-slate-500 text-xs sm:text-sm mt-0.5 font-medium">
-            Manage project folders, version uploads, client portal handoffs, and audit logs (ERP Module 6)
+            Manage project folders, version uploads, client portal handoffs, and audit logs
           </p>
         </div>
         <div className="flex items-center gap-2.5 w-full sm:w-auto flex-wrap">
           <button
             onClick={handleCreateFolder}
             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all border border-slate-200 cursor-pointer shadow-3xs"
-            title="POST /api/projects/:projectId/document-folders/create"
+            title="Create New Folder"
           >
             <FolderPlus className="w-4 h-4 text-indigo-600" />
             <span>New Folder</span>
@@ -325,7 +325,7 @@ export default function EmployeeDocs() {
           <button
             onClick={() => setIsUploadModalOpen(true)}
             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-900 rounded-xl text-xs font-black uppercase transition-all shadow-xs cursor-pointer"
-            title="POST /api/documents/upload (Initial v1, visibleToClient: false default)"
+            title="Upload Document"
           >
             <Upload className="w-4 h-4 text-slate-900" />
             <span>Upload Document</span>
@@ -503,18 +503,19 @@ export default function EmployeeDocs() {
                         setVersionModalDoc(doc);
                         setIsVersionModalOpen(true);
                       }}
-                      className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-lg text-[10px] font-extrabold border border-slate-200 transition-all cursor-pointer"
-                      title="POST /api/documents/:id/versions/upload (Auto-increments version and resets client visibility to false)"
+                      className="px-2.5 py-1 bg-brand-primary/20 hover:bg-brand-primary text-slate-900 rounded-lg text-[10px] font-extrabold border border-brand-primary/40 transition-all cursor-pointer flex items-center gap-1"
+                      title="Upload new document version & update revision log"
                     >
-                      + New Version
+                      <Upload className="w-3 h-3 text-slate-900" />
+                      <span>Upload Version</span>
                     </button>
                     <button
                       onClick={() => {
                         setAuditLogDoc(doc);
                         setIsAuditLogOpen(true);
                       }}
-                      className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg transition-all cursor-pointer"
-                      title="GET /api/documents/:id/access-log (Audit history)"
+                      className="p-1.5 bg-brand-soft hover:bg-brand-secondary/30 text-brand-dark rounded-lg transition-all cursor-pointer"
+                      title="View Access Audit History"
                     >
                       <ShieldCheck className="w-3.5 h-3.5" />
                     </button>

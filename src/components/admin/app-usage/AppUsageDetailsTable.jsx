@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { LayoutGrid, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutGrid } from 'lucide-react';
+import Pagination from '../../common/Pagination';
 
 const CATEGORY_COLORS = {
   Browser: 'bg-brand-soft text-brand-dark border-brand-secondary',
@@ -34,7 +35,7 @@ const DEFAULT_APP_DETAILS = [
 
 export default function AppUsageDetailsTable({ appList = [] }) {
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 7;
+  const [pageSize, setPageSize] = useState(10);
 
   const fullList = appList || [];
   const totalCount = fullList.length;
@@ -143,45 +144,17 @@ export default function AppUsageDetailsTable({ appList = [] }) {
         </table>
       </div>
 
-      {/* Pagination Footer */}
-      <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs text-slate-500 font-medium">
-        <div>
-          Showing {startIndex + 1} to {Math.min(startIndex + pageSize, totalCount)} of {totalCount} applications
-        </div>
-
-        <div className="flex items-center gap-1">
-          {/* Previous Page */}
-          <button
-            onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-            disabled={currentPage === 1}
-            className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 transition-colors text-slate-400 hover:text-slate-700 cursor-pointer"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-
-          {/* Page Number Buttons */}
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-            <button
-              key={page}
-              onClick={() => setCurrentPage(page)}
-              className={`w-7 h-7 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                currentPage === page ? 'bg-brand-primary text-brand-dark font-extrabold shadow-2xs' : 'hover:bg-slate-100 text-slate-700'
-              }`}
-            >
-              {page}
-            </button>
-          ))}
-
-          {/* Next Page */}
-          <button
-            onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-            disabled={currentPage === totalPages}
-            className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 transition-colors text-slate-400 hover:text-slate-700 cursor-pointer"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+      {/* Integrated Pagination Footer */}
+      <Pagination
+        currentPage={currentPage}
+        totalItems={totalCount}
+        itemsPerPage={pageSize}
+        onPageChange={(page) => setCurrentPage(page)}
+        onItemsPerPageChange={(size) => {
+          setPageSize(size);
+          setCurrentPage(1);
+        }}
+      />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState ,useEffect} from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import * as Icons from 'lucide-react';
 import logoImg from '../../assets/images/logo.png';
@@ -6,24 +6,24 @@ import logoImg from '../../assets/images/logo.png';
 const SIDEBAR_ITEMS = {
   Admin: [
     { label: "Dashboard", path: "/admin", icon: "LayoutDashboard" },
-    { category: "ERP Modules" },
-    { 
-      label: "Projects", 
+    { category: "Project Operations" },
+    {
+      label: "Projects",
       path: "/admin/projects",
       icon: "Building2"
     },
-    { 
-      label: "Tasks", 
+    {
+      label: "Tasks",
       path: "/admin/tasks",
       icon: "CheckSquare"
     },
-    { 
-      label: "Drawings & GFC", 
+    {
+      label: "Drawings & GFC",
       path: "/admin/drawings",
       icon: "PenTool"
     },
-    { 
-      label: "Documents", 
+    {
+      label: "Documents",
       icon: "FolderOpen",
       subItems: [
         { label: "Project Documents", path: "/admin/docs/projects" },
@@ -31,8 +31,8 @@ const SIDEBAR_ITEMS = {
       ]
     },
     { category: "Workforce Group" },
-    { 
-      label: "Attendance", 
+    {
+      label: "Attendance",
       icon: "CalendarRange",
       subItems: [
         { label: "Attendance Operations", path: "/admin/attendance/office" },
@@ -41,8 +41,8 @@ const SIDEBAR_ITEMS = {
         { label: "Device Approvals", path: "/admin/attendance/devices" }
       ]
     },
-    { 
-      label: "HR & Payroll", 
+    {
+      label: "HR & Payroll",
       icon: "Briefcase",
       subItems: [
         { label: "Payroll Center", path: "/admin/hr/payroll" },
@@ -51,18 +51,21 @@ const SIDEBAR_ITEMS = {
         { label: "Performance Score", path: "/admin/hr/performance" }
       ]
     },
-    { category: "CRM Modules" },
-    { 
-      label: "Clients & CRM", 
+    { category: "Client Relations" },
+    {
+      label: "Clients & CRM",
       icon: "BadgeAlert",
       subItems: [
         { label: "Lead Management", path: "/admin/crm/leads" },
         { label: "Client Directory", path: "/admin/crm/clients" }
       ]
     },
+    { category: "Communication" },
+    { label: "Internal Chat", path: "/internal-chat", icon: "MessageSquare" },
+    { label: "Client Chat", path: "/client-chat", icon: "Building2" },
     { category: "Analytics & System" },
-    { 
-      label: "Analytics & Reports", 
+    {
+      label: "Analytics & Reports",
       icon: "BarChart3",
       subItems: [
         { label: "Project Progress", path: "/admin/reports/projects" },
@@ -79,8 +82,8 @@ const SIDEBAR_ITEMS = {
     { label: "Dashboard", path: "/hr", icon: "LayoutDashboard" },
     { category: "Staff Management" },
     { label: "Employees", path: "/hr/employees", icon: "Users" },
-    { 
-      label: "Attendance", 
+    {
+      label: "Attendance",
       icon: "CalendarRange",
       subItems: [
         { label: "Attendance Overview", path: "/hr/attendance/overview" },
@@ -90,15 +93,17 @@ const SIDEBAR_ITEMS = {
         { label: "Late & Exceptions", path: "/hr/attendance/exceptions" }
       ]
     },
-    { 
-      label: "Leaves & Holidays", 
+    {
+      label: "Leaves & Holidays",
       icon: "Calendar",
       subItems: [
         { label: "Company Approvals", path: "/hr/leaves/company" },
         { label: "My Personal Leaves", path: "/hr/leaves/personal" }
       ]
     },
-    { category: "Operations & Reviews" },
+    { category: "Operations & Communication" },
+    { label: "Internal Chat", path: "/internal-chat", icon: "MessageSquare" },
+    { label: "Client Chat", path: "/client-chat", icon: "Building2" },
     { label: "Payroll", path: "/hr/payroll", icon: "Briefcase" },
     { label: "Performance", path: "/hr/performance", icon: "Award" },
     { label: "Notifications", path: "/hr/notifications", icon: "Bell" }
@@ -112,7 +117,8 @@ const SIDEBAR_ITEMS = {
     { label: "Shift Attendance", path: "/project-manager/attendance", icon: "Fingerprint" },
     { label: "Leaves Approvals", path: "/project-manager/leaves", icon: "Calendar" },
     { category: "Team & Communication" },
-    { label: "Client Communication", path: "/project-manager/client-communication", icon: "MessageSquare" },
+    { label: "Internal Chat", path: "/internal-chat", icon: "MessageSquare" },
+    { label: "Client Chat", path: "/client-chat", icon: "Building2" },
     { label: "Teams Management", path: "/project-manager/team", icon: "Users" },
     { label: "Reports & Audits", path: "/project-manager/reports", icon: "BarChart3" }
   ],
@@ -125,7 +131,8 @@ const SIDEBAR_ITEMS = {
     { label: "Shift Attendance", path: "/architect/attendance", icon: "Fingerprint" },
     { label: "Leaves Portal", path: "/architect/leaves", icon: "Calendar" },
     { category: "Communication" },
-    { label: "Project Chats", path: "/architect/chats", icon: "MessageSquare" },
+    { label: "Internal Chat", path: "/internal-chat", icon: "MessageSquare" },
+    { label: "Client Chat", path: "/client-chat", icon: "Building2" },
     { label: "Documents", path: "/architect/docs", icon: "FolderOpen" },
     { label: "Notifications", path: "/architect/notifications", icon: "Bell" }
   ],
@@ -136,7 +143,8 @@ const SIDEBAR_ITEMS = {
     { label: "Site Attendance", path: "/site-engineer/attendance", icon: "CalendarRange" },
     { label: "Leaves Portal", path: "/site-engineer/leaves", icon: "Calendar" },
     { label: "Photos & Issues", path: "/site-engineer/photos", icon: "Camera" },
-    { label: "Client Updates", path: "/site-engineer/updates", icon: "Share2" },
+    { label: "Internal Chat", path: "/internal-chat", icon: "MessageSquare" },
+    { label: "Client Chat", path: "/client-chat", icon: "Building2" },
     { label: "Notifications", path: "/site-engineer/notifications", icon: "Bell" }
   ],
   Employee: [
@@ -147,7 +155,8 @@ const SIDEBAR_ITEMS = {
     { label: "My Tasks", path: "/employee/tasks", icon: "CheckSquare" },
     { label: "Drawings & GFC", path: "/employee/drawings", icon: "PenTool" },
     { label: "Documents", path: "/employee/docs", icon: "FolderOpen" },
-    { label: "Project Chat", path: "/employee/chat", icon: "MessageSquare" },
+    { label: "Internal Chat", path: "/internal-chat", icon: "MessageSquare" },
+    { label: "Client Chat", path: "/client-chat", icon: "Building2" },
     { label: "Notifications", path: "/employee/notifications", icon: "Bell" }
   ],
   Customer: [
@@ -155,14 +164,14 @@ const SIDEBAR_ITEMS = {
     { category: "Client Portal" },
     { label: "Project Timeline", path: "/customer/timeline", icon: "Milestone" },
     { label: "Photos & 3D Views", path: "/customer/views", icon: "Sparkles" },
-    { label: "Chat & Queries", path: "/customer/chat", icon: "MessageSquare" },
+    { label: "Client Chat", path: "/client-chat", icon: "Building2" },
     { label: "Notifications", path: "/customer/notifications", icon: "Bell" },
     { label: "Project History", path: "/customer/history", icon: "History" }
   ]
 };
 
 const getProfileDetails = (role) => {
-  switch(role) {
+  switch (role) {
     case 'Admin':
       return { initials: 'AD', name: 'Nirman Staff', roleLabel: 'ADMIN' };
     case 'HR':
@@ -230,7 +239,7 @@ export default function Sidebar({ role, onClose }) {
       [idx]: !prev[idx]
     }));
   };
-  
+
   let { initials, name, roleLabel } = getProfileDetails(role);
   const savedUserStr = localStorage.getItem('user');
   if (savedUserStr) {
@@ -252,20 +261,18 @@ export default function Sidebar({ role, onClose }) {
   };
 
   return (
-    <aside 
-      className={`bg-white text-slate-650 h-[100dvh] h-full flex flex-col flex-shrink-0 sticky top-0 transition-all duration-300 ease-in-out border-r border-slate-200/80 ${
-        isCollapsed ? 'w-20' : 'w-64 sm:w-72'
-      }`}
+    <aside
+      className={`bg-white text-slate-650 h-[100dvh] h-full flex flex-col flex-shrink-0 sticky top-0 transition-all duration-300 ease-in-out border-r border-slate-200/80 ${isCollapsed ? 'w-20' : 'w-64 sm:w-72'
+        }`}
     >
       {/* 1. Brand Logo Header & Toggle Button */}
-      <div className={`py-4 border-b border-slate-100 flex items-center justify-between relative bg-white ${
-        isCollapsed ? 'px-3 justify-center' : 'px-5'
-      }`}>
+      <div className={`py-4 border-b border-slate-100 flex items-center justify-between relative bg-white ${isCollapsed ? 'px-3 justify-center' : 'px-5'
+        }`}>
         {!isCollapsed ? (
           <Link to="/" className="flex items-center transition-opacity hover:opacity-90 min-w-0">
-            <img 
-              src={logoImg} 
-              alt="Nirman Architects Logo" 
+            <img
+              src={logoImg}
+              alt="Nirman Architects Logo"
               className="h-11 sm:h-12 w-auto object-contain mx-auto"
             />
           </Link>
@@ -304,9 +311,8 @@ export default function Sidebar({ role, onClose }) {
       </div>
 
       {/* 2. Navigation List using original global brand colors */}
-      <nav className={`flex-1 overflow-y-auto space-y-2 scrollbar-thin ${
-        isCollapsed ? 'px-2 pt-4 pb-16' : 'px-4 pt-5 pb-20'
-      }`}>
+      <nav className={`flex-1 overflow-y-auto space-y-2 scrollbar-thin ${isCollapsed ? 'px-2 pt-4 pb-16' : 'px-4 pt-5 pb-20'
+        }`}>
         {items.map((item, idx) => {
           if (item.category) {
             return !isCollapsed ? (
@@ -321,24 +327,22 @@ export default function Sidebar({ role, onClose }) {
           if (item.subItems) {
             const isExpanded = !!expandedMenus[idx];
             const hasExactSubMatch = item.subItems.some(sub => location.pathname === sub.path);
-            const hasActiveSub = item.subItems.some(sub => 
-              hasExactSubMatch 
-                ? location.pathname === sub.path 
+            const hasActiveSub = item.subItems.some(sub =>
+              hasExactSubMatch
+                ? location.pathname === sub.path
                 : (sub.path !== '/' && location.pathname.startsWith(sub.path))
             );
-            
+
             return (
               <div key={idx} className="space-y-1">
                 <button
                   onClick={() => toggleMenu(idx)}
                   title={isCollapsed ? item.label : undefined}
-                  className={`w-full flex items-center rounded-xl text-xs font-bold transition-all ${
-                    isCollapsed ? 'justify-center p-3' : 'justify-between px-4 py-2.5'
-                  } ${
-                    hasActiveSub
+                  className={`w-full flex items-center rounded-xl text-xs font-bold transition-all ${isCollapsed ? 'justify-center p-3' : 'justify-between px-4 py-2.5'
+                    } ${hasActiveSub
                       ? 'bg-brand-tint text-slate-900 font-extrabold border-l-4 border-brand-primary'
                       : 'hover:bg-slate-50 hover:text-slate-900 text-slate-550'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     {renderIcon(item.icon)}
@@ -352,12 +356,12 @@ export default function Sidebar({ role, onClose }) {
                     )
                   )}
                 </button>
-                
+
                 {isExpanded && !isCollapsed && (
                   <div className="pl-3.5 pr-1 py-1 space-y-1 border-l border-slate-100 ml-5">
                     {item.subItems.map((sub, sIdx) => {
-                      const isSubActive = hasExactSubMatch 
-                        ? location.pathname === sub.path 
+                      const isSubActive = hasExactSubMatch
+                        ? location.pathname === sub.path
                         : (sub.path !== '/' && location.pathname.startsWith(sub.path));
                       return (
                         <Link
@@ -366,11 +370,10 @@ export default function Sidebar({ role, onClose }) {
                           onClick={() => {
                             if (onClose) onClose();
                           }}
-                          className={`block px-3 py-2 rounded-lg text-[11px] font-semibold transition-all ${
-                            isSubActive
+                          className={`block px-3 py-2 rounded-lg text-[11px] font-semibold transition-all ${isSubActive
                               ? 'bg-slate-50 text-slate-900 font-bold border-l-2 border-brand-primary/50'
                               : 'hover:bg-slate-50/50 hover:text-slate-900 text-slate-450'
-                          }`}
+                            }`}
                         >
                           {sub.label}
                         </Link>
@@ -394,13 +397,11 @@ export default function Sidebar({ role, onClose }) {
               onClick={() => {
                 if (onClose) onClose();
               }}
-              className={`flex items-center rounded-xl text-xs font-bold transition-all ${
-                isCollapsed ? 'justify-center p-3' : 'gap-3 px-4 py-2.5'
-              } ${
-                isActive
+              className={`flex items-center rounded-xl text-xs font-bold transition-all ${isCollapsed ? 'justify-center p-3' : 'gap-3 px-4 py-2.5'
+                } ${isActive
                   ? 'bg-brand-tint text-slate-900 font-extrabold border-l-4 border-brand-primary shadow-xs'
                   : 'hover:bg-slate-50 hover:text-slate-900 text-slate-550'
-              }`}
+                }`}
             >
               {renderIcon(item.icon)}
               {!isCollapsed && <span>{item.label}</span>}
@@ -410,11 +411,10 @@ export default function Sidebar({ role, onClose }) {
       </nav>
 
       {/* 3. Sidebar Footer using original brand colors */}
-      <div className={`border-t border-slate-200/80 bg-white flex shrink-0 transition-all ${
-        isCollapsed ? 'p-2 flex-col items-center gap-2' : 'p-4 items-center justify-between gap-3'
-      }`}>
+      <div className={`border-t border-slate-200/80 bg-white flex shrink-0 transition-all ${isCollapsed ? 'p-2 flex-col items-center gap-2' : 'p-4 items-center justify-between gap-3'
+        }`}>
         <div className={`flex items-center gap-3 overflow-hidden ${isCollapsed ? 'justify-center' : ''}`}>
-          <div 
+          <div
             className="w-9 h-9 bg-brand-tint text-brand-dark rounded-xl flex items-center justify-center font-black text-[11px] shadow-xs border border-white flex-shrink-0"
             title={isCollapsed ? `${name} (${roleLabel})` : undefined}
           >
@@ -432,14 +432,13 @@ export default function Sidebar({ role, onClose }) {
           )}
         </div>
 
-        <button 
+        <button
           onClick={() => {
             localStorage.clear();
             window.location.href = '/';
           }}
-          className={`hover:bg-slate-100 text-slate-450 hover:text-rose-600 rounded-lg transition-colors flex-shrink-0 cursor-pointer ${
-            isCollapsed ? 'p-2' : 'p-1.5'
-          }`}
+          className={`hover:bg-slate-100 text-slate-450 hover:text-rose-600 rounded-lg transition-colors flex-shrink-0 cursor-pointer ${isCollapsed ? 'p-2' : 'p-1.5'
+            }`}
           title="Sign Out"
         >
           <Icons.LogOut className="w-4 h-4" />
