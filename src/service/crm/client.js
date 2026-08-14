@@ -1,10 +1,12 @@
-import api from '../auth';
+import api, { isMockSession } from '../auth';
+import * as mockApi from '../mockApi';
 
 // ==========================================
 // CRM MODULE 2 - CLIENT MASTER APIS
 // ==========================================
 
 export const createClient = async (payload) => {
+  if (isMockSession()) return await mockApi.mockCreateClient(payload);
   try {
     const response = await api.post('/clients', payload);
     return response.data;
@@ -15,21 +17,25 @@ export const createClient = async (payload) => {
 };
 
 export const getClients = async (params = {}) => {
+  if (isMockSession()) return await mockApi.mockGetClients(params);
   const response = await api.get('/clients', { params });
   return response.data;
 };
 
 export const getClientById = async (id) => {
+  if (isMockSession()) return await mockApi.mockGetClientById(id);
   const response = await api.get(`/clients/${id}`);
   return response.data;
 };
 
 export const updateClient = async (id, payload) => {
+  if (isMockSession()) return await mockApi.mockUpdateClient(id, payload);
   const response = await api.put(`/clients/${id}`, payload);
   return response.data;
 };
 
 export const deactivateClient = async (id, force = false) => {
+  if (isMockSession()) return await mockApi.mockDeactivateClient(id, force);
   const response = await api.put(`/clients/${id}/deactivate`, {}, { params: { force } });
   return response.data;
 };

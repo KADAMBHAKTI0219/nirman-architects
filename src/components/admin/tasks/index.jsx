@@ -77,51 +77,7 @@ export default function Tasks({ filter = 'all' }) {
         });
         setTasks(unique);
       } else {
-        // Fallback to project milestones
-        const projRes = await getProjects();
-        if (projRes?.success && Array.isArray(projRes.projects)) {
-          const loadedTasks = [];
-          projRes.projects.forEach((proj, pIdx) => {
-            const projName = proj.projectName || proj.name || 'Project';
-            const milestones = proj.milestones || [];
-            milestones.forEach((m, mIdx) => {
-              loadedTasks.push({
-                id: m._id ? `TSK-${m._id.slice(-5).toUpperCase()}` : `TSK-${pIdx + 1}0${mIdx + 1}`,
-                _id: m._id,
-                title: m.name || m.title || 'Task Target',
-                project: projName,
-                assignee: m.assignedTo?.name || m.assignedTo || 'Project Team',
-                dept: 'Architecture',
-                priority: proj.priority || 'Medium',
-                status: m.isCompleted ? 'Completed' : 'In Progress',
-                deadline: m.targetDate ? new Date(m.targetDate).toISOString().split('T')[0] : '2026-12-31',
-                estTime: 16,
-                actualTime: m.isCompleted ? 16 : 8,
-                progress: m.isCompleted ? 100 : (m.progressPercentage || 50),
-                delayFlag: proj.isDelayed || false,
-                description: `Milestone deliverable for project: ${projName}`,
-                checklist: [
-                  { id: 1, text: "Structural & architectural verification", checked: m.isCompleted }
-                ],
-                dependencies: [],
-                comments: [],
-                attachments: [],
-                timeLogs: []
-              });
-            });
-          });
-
-          const unique = [];
-          const seen = new Set();
-          loadedTasks.forEach(item => {
-            const key = item._id || item.id;
-            if (!seen.has(key)) {
-              seen.add(key);
-              unique.push(item);
-            }
-          });
-          setTasks(unique);
-        }
+        setTasks([]);
       }
     } catch (err) {
       console.warn("Failed to fetch tasks list:", err);
@@ -150,7 +106,12 @@ export default function Tasks({ filter = 'all' }) {
       dependencies: [],
       comments: [],
       attachments: [],
-      timeLogs: []
+      timeLogs: [],
+      actualStartTime: formData.actualStartTime || null,
+      completionTime: formData.completionTime || null,
+      totalWorkingTimeMinutes: formData.totalWorkingTimeMinutes ? parseInt(formData.totalWorkingTimeMinutes, 10) : null,
+      idleTimeMinutes: formData.idleTimeMinutes ? parseInt(formData.idleTimeMinutes, 10) : null,
+      productivityScore: formData.productivityScore ? parseInt(formData.productivityScore, 10) : null
     };
 
     setTasks(prev => {
@@ -168,7 +129,12 @@ export default function Tasks({ filter = 'all' }) {
         departmentId: formData.departmentId || null,
         assignedEmployee: formData.assignedEmployee || formData.assignee,
         estimatedTime: parseFloat(formData.estTime) || 8,
-        deadline: formData.deadline
+        deadline: formData.deadline,
+        actualStartTime: formData.actualStartTime || null,
+        completionTime: formData.completionTime || null,
+        totalWorkingTimeMinutes: formData.totalWorkingTimeMinutes ? parseInt(formData.totalWorkingTimeMinutes, 10) : null,
+        idleTimeMinutes: formData.idleTimeMinutes ? parseInt(formData.idleTimeMinutes, 10) : null,
+        productivityScore: formData.productivityScore ? parseInt(formData.productivityScore, 10) : null
       });
 
       if (res?.success) {

@@ -1553,7 +1553,25 @@ export const getPendingDeviceRequests = async () => {
 
 export const assignDevice = async (targetUserId, deviceId) => {
   await delay();
-  return { success: true, message: 'Device assigned successfully' };
+  const devices = JSON.parse(localStorage.getItem('nirman_devices') || '[]');
+  
+  const employees = JSON.parse(localStorage.getItem('nirman_employees') || '[]');
+  const emp = employees.find(e => e.id === targetUserId || e._id === targetUserId);
+  const employeeName = emp ? emp.name : 'Unknown User';
+
+  const newDev = {
+    id: 'dev_' + Math.random().toString(36).substr(2, 9),
+    userId: targetUserId,
+    employeeName,
+    deviceId,
+    status: 'PENDING'
+  };
+  
+  const filtered = devices.filter(d => !(d.userId === targetUserId && d.status === 'PENDING'));
+  filtered.push(newDev);
+  
+  localStorage.setItem('nirman_devices', JSON.stringify(filtered));
+  return { success: true, message: 'Device binding request submitted successfully! Status is now PENDING until approved.' };
 };
 
 
@@ -2470,11 +2488,24 @@ export const mockGetClients = async (params = {}) => {
 
   const enriched = filtered.map(c => {
     const primaryContact = contacts.find(ct => (ct.clientId === c._id || ct.clientId === c.id) && ct.isPrimaryContact) || null;
-    const activeProjectCount = links.filter(l => (l.clientId === c._id || l.clientId === c.id) && l.isActive).length;
+    const clientLinks = links.filter(l => (l.clientId === c._id || l.clientId === c.id) && l.isActive);
+    
+    // Resolve project names from stored projects
+    const storedProjects = JSON.parse(localStorage.getItem('nirman_projects') || '[]');
+    const clientProjects = clientLinks.map(link => {
+      const pId = link.projectId?._id || link.projectId?.id || link.projectId;
+      const proj = storedProjects.find(p => p._id === pId || p.id === pId);
+      return {
+        id: pId,
+        name: proj?.projectName || proj?.name || link.projectName || 'Project'
+      };
+    });
+
     return {
       ...c,
       primaryContact,
-      activeProjectCount
+      activeProjectCount: clientLinks.length,
+      projects: clientProjects
     };
   });
 
@@ -5041,8 +5072,10 @@ const INITIAL_MOCK_PROJECTS = [
     projectCategoryId: "cat-comm",
     category: "Commercial Complex",
     progressPercentage: 12,
-    status: "In Progress",
+    status: "Delayed",
     priority: "High",
+    isDelayed: true,
+    delayFlag: true,
     team: [],
     responsibilityMatrix: []
   }
@@ -5054,7 +5087,22 @@ const getStoredProjects = () => {
     localStorage.setItem('nirman_projects', JSON.stringify(INITIAL_MOCK_PROJECTS));
     return INITIAL_MOCK_PROJECTS;
   }
-  return JSON.parse(data);
+  try {
+    const list = JSON.parse(data);
+    const hasDelayed = list.some(p => p.status === 'Delayed' || p.isDelayed || p.delayFlag);
+    if (!hasDelayed && list.length > 0) {
+      // Self-heal/update the last project to be Delayed so the Delayed Sites card works
+      const lastProj = list[list.length - 1];
+      lastProj.status = 'Delayed';
+      lastProj.isDelayed = true;
+      lastProj.delayFlag = true;
+      localStorage.setItem('nirman_projects', JSON.stringify(list));
+      return list;
+    }
+    return list;
+  } catch (e) {
+    return INITIAL_MOCK_PROJECTS;
+  }
 };
 
 const saveStoredProjects = (projects) => {
@@ -5114,10 +5162,34 @@ export const mockGetProjectById = async (id) => {
 export const mockCreateProject = async (projectData) => {
   await delay();
   const projects = getStoredProjects();
+
+  const teamAssignments = [];
+  const team = [];
+  if (projectData.manager) {
+    const users = JSON.parse(localStorage.getItem('nirman_users') || '[]');
+    const matchedUser = users.find(u => u.name === projectData.manager);
+    if (matchedUser) {
+      const assignment = {
+        userId: matchedUser._id || matchedUser.id,
+        projectRole: 'Lead Manager',
+        dept: matchedUser.designation || matchedUser.role || 'Project Manager',
+        assignedAt: new Date().toISOString()
+      };
+      teamAssignments.push(assignment);
+      team.push({
+        userId: matchedUser._id || matchedUser.id,
+        name: matchedUser.name,
+        role: 'Lead Manager',
+        dept: matchedUser.designation || matchedUser.role || 'Project Manager'
+      });
+    }
+  }
+
   const newProj = {
     ...projectData,
     _id: `proj-${Math.random().toString(36).substring(2, 9)}`,
-    team: projectData.team || [],
+    teamAssignments: teamAssignments,
+    team: team,
     responsibilityMatrix: projectData.responsibilityMatrix || [],
     progressPercentage: projectData.progressPercentage || 0,
     status: projectData.status || "New"

@@ -70,11 +70,18 @@ export default function AttendanceOffice() {
       
       // 2. Fetch Device Status
       const statusRes = await getDeviceStatus(userId);
-      if (statusRes?.success) {
+      if (statusRes?.success && statusRes.deviceStatus) {
         setDeviceInfo({
           deviceId: statusRes.deviceId || deviceId,
-          status: statusRes.deviceStatus || 'APPROVED',
+          status: statusRes.deviceStatus,
           online: statusRes.online !== undefined ? statusRes.online : true,
+          lastSeen: new Date().toLocaleTimeString()
+        });
+      } else {
+        setDeviceInfo({
+          deviceId,
+          status: 'PENDING',
+          online: true,
           lastSeen: new Date().toLocaleTimeString()
         });
       }

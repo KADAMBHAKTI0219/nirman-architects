@@ -248,10 +248,11 @@ export default function EmployeeDocs() {
     const fileType = (doc.fileType || doc.type || 'PDF').toUpperCase();
     switch (fileType) {
       case 'PDF':
+        const displayPdfTitle = String(doc.name || doc.documentName || doc.fileName || 'Document').toUpperCase().replace('NEXALLIENCE', 'NEXALLIANCE');
         return (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-slate-300 font-mono text-[10px] h-64 overflow-y-auto">
             <div className="border-b border-slate-700 pb-2 text-center text-xs font-bold text-sky-400 mb-2">
-              PDF VIEWER: {(doc.name || doc.documentName || 'Document').toUpperCase()}
+              PDF VIEWER: {displayPdfTitle}
             </div>
             <p className="text-slate-450"># SECTION 1. REBAR & STRUCTURAL PLACEMENT SPECIFICATIONS</p>
             <p>1.1 Main reinforcement rebars require minimum spacing tolerances of 150mm center-to-center.</p>
@@ -551,9 +552,11 @@ export default function EmployeeDocs() {
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div>
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                  {inspectingDoc.folder || inspectingDoc.category} &bull; GET /api/documents/{inspectingDoc._id || inspectingDoc.id}/preview
+                  {String(inspectingDoc.folder || inspectingDoc.category).toUpperCase().replace('NEXALLIENCE', 'NEXALLIANCE')} &bull; GET /api/documents/{inspectingDoc._id || inspectingDoc.id}/preview
                 </span>
-                <h3 className="text-sm font-black text-slate-900">{inspectingDoc.name || inspectingDoc.documentName}</h3>
+                <h3 className="text-sm font-black text-slate-900">
+                  {String(inspectingDoc.name || inspectingDoc.documentName || inspectingDoc.fileName).replace(/NexAllience/gi, 'NexAlliance')}
+                </h3>
               </div>
               <button 
                 onClick={() => setInspectingDoc(null)}

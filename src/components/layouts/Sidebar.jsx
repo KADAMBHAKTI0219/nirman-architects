@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState ,useEffect} from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import * as Icons from 'lucide-react';
 import logoImg from '../../assets/images/logo.png';
@@ -57,9 +57,7 @@ const SIDEBAR_ITEMS = {
       icon: "BadgeAlert",
       subItems: [
         { label: "Lead Management", path: "/admin/crm/leads" },
-        { label: "Client Directory", path: "/admin/crm/clients" },
-        { label: "Support Queries", path: "/admin/crm/queries" },
-        { label: "Client Approvals", path: "/admin/crm/approvals" }
+        { label: "Client Directory", path: "/admin/crm/clients" }
       ]
     },
     { category: "Analytics & System" },
@@ -188,6 +186,14 @@ export default function Sidebar({ role, onClose }) {
   const items = SIDEBAR_ITEMS[role] || [];
   const location = useLocation();
 
+  const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 1024);
+
+  useEffect(() => {
+    const handleResize = () => setIsLargeScreen(window.innerWidth >= 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Persistent Mini-Sidebar / Icon-Only Collapsed State
   const [isCollapsed, setIsCollapsed] = useState(() => {
     return localStorage.getItem('nirman_sidebar_collapsed') === 'true';
@@ -285,7 +291,7 @@ export default function Sidebar({ role, onClose }) {
             )}
           </button>
 
-          {onClose && (
+          {onClose && !isLargeScreen && (
             <button
               onClick={onClose}
               className="lg:hidden p-1.5 hover:bg-slate-100 text-slate-500 hover:text-slate-700 rounded-lg transition-colors"

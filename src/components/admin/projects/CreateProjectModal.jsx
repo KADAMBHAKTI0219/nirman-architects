@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Plus, Tag } from 'lucide-react';
 import { getActiveProjectCategories, createProjectCategory } from '../../../service/project';
 import { getUsersList } from '../../../service/auth';
+import { getClients } from '../../../service/crm/client';
 
 export default function CreateProjectModal({
   isOpen,
@@ -12,6 +13,7 @@ export default function CreateProjectModal({
 }) {
   const [categories, setCategories] = useState([]);
   const [usersList, setUsersList] = useState([]);
+  const [clients, setClients] = useState([]);
   const [showAddCatInput, setShowAddCatInput] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [catLoading, setCatLoading] = useState(false);
@@ -24,9 +26,10 @@ export default function CreateProjectModal({
 
   const loadCategoriesAndUsers = async () => {
     try {
-      const [catRes, userRes] = await Promise.all([
+      const [catRes, userRes, clientRes] = await Promise.all([
         getActiveProjectCategories().catch(() => null),
-        getUsersList().catch(() => null)
+        getUsersList().catch(() => null),
+        getClients({ limit: 100 }).catch(() => null)
       ]);
       if (catRes?.success) {
         setCategories(catRes.categories || []);
@@ -35,8 +38,11 @@ export default function CreateProjectModal({
         const uList = Array.isArray(userRes) ? userRes : (userRes.users || userRes.data || []);
         setUsersList(uList);
       }
+      if (clientRes?.success) {
+        setClients(clientRes.clients || []);
+      }
     } catch (err) {
-      console.warn("Failed to load project categories or users", err);
+      console.warn("Failed to load project categories or users or clients", err);
     }
   };
 
@@ -109,13 +115,40 @@ export default function CreateProjectModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Client Info / Corporation</label>
-              <input 
-                type="text" 
+              <select 
                 value={newProject.client || newProject.clientInformation || ''}
-                onChange={(e) => setNewProject({...newProject, client: e.target.value, clientInformation: e.target.value})}
-                placeholder="NexGen Ltd. (+91 98765 00000)"
-                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium"
-              />
+                onChange={(e) => {
+                  const clientName = e.target.value;
+                  const cObj = clients.find(c => c.name === clientName);
+                  let addressVal = '';
+                  if (cObj) {
+                    if (Array.isArray(cObj.siteAddresses) && cObj.siteAddresses.length > 0) {
+                      addressVal = cObj.siteAddresses[0];
+                    } else if (cObj.siteAddress) {
+                      addressVal = cObj.siteAddress;
+                    } else if (cObj.billingAddress) {
+                      addressVal = cObj.billingAddress;
+                    } else if (cObj.address) {
+                      addressVal = cObj.address;
+                    }
+                  }
+                  setNewProject({
+                    ...newProject,
+                    client: clientName,
+                    clientInformation: clientName,
+                    location: addressVal,
+                    address: addressVal
+                  });
+                }}
+                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium cursor-pointer"
+              >
+                <option value="" disabled hidden>Select Client...</option>
+                {clients.map((c, idx) => (
+                  <option key={c._id || c.id || idx} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Physical Location Address</label>
@@ -174,7 +207,7 @@ export default function CreateProjectModal({
                   }}
                   className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium"
                 >
-                  <option value="">Select Category...</option>
+                  <option value="" disabled hidden>Select Category...</option>
                   {categories.map(cat => (
                     <option key={cat._id} value={cat.name}>{cat.name}</option>
                   ))}
@@ -204,11 +237,11 @@ export default function CreateProjectModal({
             <div>
               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Valuation Budget ($/₹)</label>
               <input 
-                type="number" 
+                type="text" 
                 required 
                 value={newProject.budget || ''}
                 onChange={(e) => setNewProject({...newProject, budget: e.target.value})}
-                placeholder="1200000"
+                placeholder="1500000"
                 className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium"
               />
             </div>
@@ -219,16 +252,47 @@ export default function CreateProjectModal({
                 onChange={(e) => setNewProject({...newProject, manager: e.target.value})}
                 className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium cursor-pointer"
               >
-                <option value="">Select Lead Manager...</option>
-                {usersList.map((u, idx) => {
-                  const name = u.name || u.email || 'Manager';
-                  const role = u.designation || u.department || u.role || 'Project Manager';
-                  return (
-                    <option key={u._id || u.id || idx} value={name}>
-                      {name} ({role})
-                    </option>
-                  );
-                })}
+                <option value="" disabled hidden>Select Lead Manager...</option>
+                {(() => {
+                  const currentUserStr = localStorage.getItem('user');
+                  let currentUserRole = '';
+                  if (currentUserStr) {
+                    try {
+                      const parsed = JSON.parse(currentUserStr);
+                      currentUserRole = (typeof parsed.role === 'object' ? (parsed.role?.roleCode || parsed.role?.roleName || parsed.role?.name) : parsed.role || '').toUpperCase();
+                    } catch (e) {}
+                  }
+
+                  const filtered = usersList.filter(u => {
+                    const roleStr = (typeof u.role === 'object' ? (u.role?.roleCode || u.role?.roleName || u.role?.name) : (u.role || u.designation)) || '';
+                    const upperRole = roleStr.toUpperCase();
+
+                    // Exclude ADMIN and SUPER_ADMIN
+                    if (upperRole.includes('ADMIN')) return false;
+
+                    // If PM, exclude PMs from dropdown
+                    if ((currentUserRole.includes('PROJECT_MANAGER') || currentUserRole === 'PM') && (upperRole.includes('PROJECT_MANAGER') || upperRole === 'PM')) {
+                      return false;
+                    }
+
+                    return upperRole.includes('ARCHITECT') || upperRole.includes('EMPLOYEE') || upperRole.includes('PROJECT_MANAGER') || upperRole.includes('SITE');
+                  });
+
+                  const displayUsers = filtered.length > 0 ? filtered : usersList.filter(u => {
+                    const roleStr = (typeof u.role === 'object' ? (u.role?.roleCode || u.role?.roleName || u.role?.name) : (u.role || u.designation)) || '';
+                    return !roleStr.toUpperCase().includes('ADMIN');
+                  });
+
+                  return displayUsers.map((u, idx) => {
+                    const name = u.name || u.email || 'Staff';
+                    const rawRole = typeof u.role === 'object' ? (u.role?.roleName || u.role?.name) : (u.role || u.designation || 'Staff');
+                    return (
+                      <option key={u._id || u.id || idx} value={name}>
+                        {name} ({rawRole})
+                      </option>
+                    );
+                  });
+                })()}
               </select>
             </div>
           </div>

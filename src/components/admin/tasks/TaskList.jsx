@@ -32,6 +32,10 @@ export default function TaskList({
 }) {
   const [dragOverCol, setDragOverCol] = React.useState(null);
 
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const roleCode = user.roleCode || (user.role && typeof user.role === 'object' ? user.role.roleCode : user.role) || '';
+  const canManageTasks = ['ADMIN', 'SUPER_ADMIN', 'PROJECT_MANAGER'].includes(String(roleCode).toUpperCase());
+
   // Calculate KPIs
   const totalTasks = tasks.length;
   const pendingTasks = tasks.filter(t => t.status === 'Pending').length;
@@ -96,13 +100,15 @@ export default function TaskList({
             </button>
           </div>
 
-          <button
-            onClick={onCreateTaskClick}
-            className="flex items-center gap-1.5 px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-extrabold rounded-2xl text-xs transition-all shadow-2xs cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Create Task</span>
-          </button>
+          {canManageTasks && (
+            <button
+              onClick={onCreateTaskClick}
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-extrabold rounded-2xl text-xs transition-all shadow-2xs cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create Task</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -205,7 +211,7 @@ export default function TaskList({
                 </div>
 
                 {/* Column Task Cards */}
-                <div className="flex-1 overflow-y-auto space-y-3 pr-0.5 scrollbar-none">
+                <div className="flex-1 overflow-y-auto pt-2.5 pb-2 px-1 space-y-3 scrollbar-none">
                   {columnTasks.map((t) => {
                     const isCritical = t.priority === 'Critical';
                     const isHigh = t.priority === 'High';

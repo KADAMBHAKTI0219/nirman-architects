@@ -1,123 +1,75 @@
 import React from 'react';
-import Card from '../../common/Card';
+import { ArrowLeft, Clock, AlertTriangle, CheckSquare, Settings, Activity, Sparkles } from 'lucide-react';
 
-export default function TaskReports({ tasks = [] }) {
-  
-  // 1. Process Task Status Counts
-  const statusCounts = {
-    'Pending': 0,
-    'Accepted': 0,
-    'In Progress': 0,
-    'Review': 0,
-    'Approved': 0,
-    'Completed': 0
+export default function TaskReports({ tasks = [], onBack }) {
+  const total = tasks.length;
+  const pending = tasks.filter(t => t.status === 'Pending').length;
+  const inProgress = tasks.filter(t => t.status === 'In Progress').length;
+  const completed = tasks.filter(t => t.status === 'Completed').length;
+  const delayed = tasks.filter(t => t.delayFlag || t.isDelayed).length;
+
+  const totalWorkingMinutes = tasks.reduce((sum, t) => sum + (t.totalWorkingTimeMinutes || 0), 0);
+  const totalIdleMinutes = tasks.reduce((sum, t) => sum + (t.idleTimeMinutes || 0), 0);
+
+  const formatMins = (minutes) => {
+    if (!minutes || minutes <= 0) return '0h';
+    const hrs = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
   };
-  tasks.forEach(t => {
-    if (statusCounts[t.status] !== undefined) {
-      statusCounts[t.status]++;
-    }
-  });
-  const statusData = Object.keys(statusCounts).map(key => ({
-    name: key,
-    value: statusCounts[key]
-  }));
 
-  // 2. Process Priority Distribution
-  const priorityCounts = {
-    'Critical': 0,
-    'High': 0,
-    'Medium': 0,
-    'Low': 0
-  };
-  tasks.forEach(t => {
-    if (priorityCounts[t.priority] !== undefined) {
-      priorityCounts[t.priority]++;
-    }
-  });
-  const priorityData = Object.keys(priorityCounts).map(key => ({
-    name: key,
-    value: priorityCounts[key]
-  }));
+  const scoredTasks = tasks.filter(t => t.productivityScore !== undefined && t.productivityScore !== null);
+  const avgProductivity = scoredTasks.length > 0
+    ? Math.round(scoredTasks.reduce((sum, t) => sum + t.productivityScore, 0) / scoredTasks.length)
+    : 85;
 
-  // 3. Department Wise Workload
-  const deptWorkload = {};
-  tasks.forEach(t => {
-    if (!deptWorkload[t.dept]) {
-      deptWorkload[t.dept] = { name: t.dept, estimated: 0, actual: 0 };
-    }
-    deptWorkload[t.dept].estimated += t.estTime || 0;
-    deptWorkload[t.dept].actual += t.actualTime || 0;
-  });
-  const workloadData = Object.values(deptWorkload);
+  const renderMetricCard = (title, value, subtitle, stripeColor, Icon) => (
+    <div className="relative bg-white border border-slate-200/90 rounded-2xl p-5 overflow-hidden shadow-3xs flex flex-col justify-between min-h-[120px] transition-all hover:shadow-2xs text-left">
+      <div className="absolute left-0 top-0 bottom-0 w-1.5" style={{ backgroundColor: stripeColor }}></div>
+      <div className="pl-2.5 flex items-start justify-between">
+        <div className="space-y-1">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">{title}</span>
+          <strong className="text-2xl font-black text-slate-900 block">{value}</strong>
+        </div>
+        {Icon && (
+          <div className="p-2 rounded-xl bg-slate-50 border border-slate-100 text-slate-400">
+            <Icon className="w-4 h-4" />
+          </div>
+        )}
+      </div>
+      <div className="pl-2.5 pt-2">
+        <span className="text-[10px] text-slate-500 font-semibold">{subtitle}</span>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      
-      <Card title="Task Count by Stage" subtitle="Roster metrics of current task states">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-700">
-            <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
-              <tr>
-                <th className="px-4 py-2">Stage</th>
-                <th className="px-4 py-2">Count</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {statusData.map((row) => (
-                <tr key={row.name} className="hover:bg-slate-50/50">
-                  <td className="px-4 py-2.5 font-bold text-slate-800">{row.name}</td>
-                  <td className="px-4 py-2.5 font-semibold text-blue-600">{row.value}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200 w-full">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={onBack}
+            className="p-2 border border-slate-250 hover:bg-slate-50 rounded-xl text-slate-600 transition-all shadow-3xs cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div>
+            <h1 className="text-lg font-black text-slate-900 uppercase tracking-wide">Task Analytics Dashboard</h1>
+            <p className="text-[10px] text-slate-500 font-semibold">Live productivity, working times & SLA delay tracking</p>
+          </div>
         </div>
-      </Card>
+      </div>
 
-      <Card title="Task Distribution by Priority" subtitle="SLA weighting of active issues">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-700">
-            <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
-              <tr>
-                <th className="px-4 py-2">Priority</th>
-                <th className="px-4 py-2">Count</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {priorityData.map((row) => (
-                <tr key={row.name} className="hover:bg-slate-50/50">
-                  <td className="px-4 py-2.5 font-bold text-slate-800">{row.name}</td>
-                  <td className="px-4 py-2.5 font-semibold text-rose-600">{row.value}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      <Card title="Hours Analysis by Department" subtitle="Estimated vs actual logged timesheets comparison">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-700">
-            <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
-              <tr>
-                <th className="px-4 py-2">Department</th>
-                <th className="px-4 py-2">Estimated (hrs)</th>
-                <th className="px-4 py-2">Actual (hrs)</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {workloadData.map((row) => (
-                <tr key={row.name} className="hover:bg-slate-50/50">
-                  <td className="px-4 py-2.5 font-bold text-slate-800">{row.name}</td>
-                  <td className="px-4 py-2.5 font-semibold text-blue-600">{row.estimated}</td>
-                  <td className="px-4 py-2.5 font-semibold text-emerald-600">{row.actual}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {renderMetricCard("Total Tasks", total, "Registered deliverables", "#6366F1", Settings)}
+        {renderMetricCard("Pending / Created", pending, "Requires review", "#94A3B8", Clock)}
+        {renderMetricCard("In Progress", inProgress, "Actively working", "#3B82F6", Activity)}
+        {renderMetricCard("Completed", completed, "Finished actions", "#10B981", CheckSquare)}
+        {renderMetricCard("Delayed Tasks", delayed, "Exceeding deadline SLA", "#EF4444", AlertTriangle)}
+        {renderMetricCard("Avg Productivity", `${avgProductivity}%`, "Overall employee score", "#EC4899", Sparkles)}
+        {renderMetricCard("Total Working Time", formatMins(totalWorkingMinutes), "Timesheet logged", "#8B5CF6", Clock)}
+        {renderMetricCard("Total Idle Time", formatMins(totalIdleMinutes), "Inactive/pause logs", "#F59E0B", Clock)}
+      </div>
     </div>
   );
 }

@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Search, Eye, EyeOff, Plus, Building, Smartphone, Mail, MapPin, User, 
-  ShieldCheck, AlertCircle, X, Key, CheckCircle, Ban, RefreshCw 
+  ShieldCheck, AlertCircle, X, Key, CheckCircle, Ban, RefreshCw, FolderPlus,
+  LayoutGrid, List
 } from 'lucide-react';
-import { createClient, deactivateClient } from '../../../service/crm/client';
+import { createClient, deactivateClient, createClientProjectLink } from '../../../service/crm/client';
+import { createProject } from '../../../service/project';
 import CRMClientProfile from './CRMClientProfile';
+import CreateProjectModal from '../projects/CreateProjectModal';
 import BrandLoader from '../../common/BrandLoader';
 import { PageHeader, SearchFilterBar, StatusBadge } from '../../common';
 
@@ -16,8 +20,10 @@ export default function CRMClientList({
   onRefreshClients,
   onUpdateClientNotes
 }) {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
+  const [viewFormat, setViewFormat] = useState('table'); // 'table' | 'cards'
 
   // Modal States
   const [showAddModal, setShowAddModal] = useState(false);
@@ -27,6 +33,88 @@ export default function CRMClientList({
 
   // Inspect Profile Modal State
   const [inspectingClient, setInspectingClient] = useState(null);
+
+  // Create Project Modal States
+  const [showCreateProjModal, setShowCreateProjModal] = useState(false);
+  const [createProjClientTarget, setCreateProjClientTarget] = useState(null);
+  const [newProjectData, setNewProjectData] = useState({
+    code: '', name: '', projectName: '', client: '', clientInformation: '', clientEmail: '', clientPhone: '',
+    location: '', address: '', category: '', priority: 'Medium', status: 'Planning',
+    startDate: '', estCompletion: '', estimatedCompletion: '', budget: '', manager: ''
+  });
+
+  const handleOpenCreateProjectForClient = (clientObj) => {
+    setCreateProjClientTarget(clientObj);
+    const clientName = clientObj.name || '';
+    const codeGen = `PRJ-${clientName.substring(0, 3).toUpperCase() || 'CLI'}-${Math.floor(100 + Math.random() * 900)}`;
+    const addressVal = (Array.isArray(clientObj.siteAddresses) && clientObj.siteAddresses[0]) || clientObj.billingAddress || '';
+    const emailVal = clientObj.email || clientObj.primaryContact?.email || '';
+    const phoneVal = clientObj.phone || clientObj.primaryContact?.phone || '';
+
+    setNewProjectData({
+      code: codeGen,
+      name: '',
+      projectName: '',
+      client: clientName,
+      clientInformation: clientName,
+      clientEmail: emailVal,
+      clientPhone: phoneVal,
+      location: addressVal,
+      address: addressVal,
+      category: 'Commercial',
+      priority: 'Medium',
+      status: 'Planning',
+      startDate: new Date().toISOString().split('T')[0],
+      estCompletion: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0],
+      estimatedCompletion: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0],
+      budget: '1500000',
+      manager: ''
+    });
+    setShowCreateProjModal(true);
+  };
+
+  const handleCreateProjectSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const projPayload = {
+        code: newProjectData.code,
+        projectName: newProjectData.name || newProjectData.projectName || "Client Project",
+        name: newProjectData.name || newProjectData.projectName || "Client Project",
+        clientInformation: newProjectData.client || newProjectData.clientInformation || "",
+        clientEmail: newProjectData.clientEmail,
+        clientPhone: newProjectData.clientPhone,
+        clientId: createProjClientTarget ? (createProjClientTarget._id || createProjClientTarget.id) : null,
+        address: newProjectData.location || newProjectData.address || "",
+        budget: parseFloat(newProjectData.budget) || 0,
+        priority: newProjectData.priority || "Medium",
+        projectCategoryId: newProjectData.projectCategoryId || null,
+        startDate: newProjectData.startDate || new Date().toISOString().split('T')[0],
+        estimatedCompletion: newProjectData.estCompletion || newProjectData.estimatedCompletion || new Date().toISOString().split('T')[0],
+        manager: newProjectData.manager || ""
+      };
+
+      const res = await createProject(projPayload);
+      if (res?.success) {
+        const createdProjId = res.project?._id || res.project?.id || res.project;
+        if (createProjClientTarget && createdProjId) {
+          await createClientProjectLink({
+            clientId: createProjClientTarget._id || createProjClientTarget.id,
+            projectId: createdProjId,
+            projectName: projPayload.projectName,
+            visibleToClient: true
+          }).catch(() => null);
+        }
+
+        alert(`Project '${projPayload.projectName}' created & linked to client '${createProjClientTarget?.name}' successfully!`);
+        setShowCreateProjModal(false);
+        if (onRefreshClients) onRefreshClients();
+      } else {
+        alert(res?.message || "Failed to create project");
+      }
+    } catch (err) {
+      alert("Error creating project: " + (err.response?.data?.message || err.message));
+    }
+  };
 
   // Form State for New Client & Primary OWNER Contact
   const [formData, setFormData] = useState({
@@ -162,13 +250,39 @@ export default function CRMClientList({
         title="Client Directory"
         subtitle="Manage Client Accounts, Multi-User Contacts, Linked Projects & Portal Authentication"
         actions={
-          <button
-            onClick={() => { setModalError(''); setShowAddModal(true); }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
-          >
-            <Plus className="w-4 h-4 text-brand-dark" />
-            Create New Client Account
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* View Format Switcher */}
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+              <button
+                onClick={() => setViewFormat('table')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase flex items-center gap-1.5 transition-all cursor-pointer ${
+                  viewFormat === 'table' ? 'bg-white text-indigo-700 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
+                }`}
+                title="Striped Table View"
+              >
+                <List className="w-3.5 h-3.5" />
+                <span>Table</span>
+              </button>
+              <button
+                onClick={() => setViewFormat('cards')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase flex items-center gap-1.5 transition-all cursor-pointer ${
+                  viewFormat === 'cards' ? 'bg-white text-indigo-700 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
+                }`}
+                title="Cards Grid View"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>Cards</span>
+              </button>
+            </div>
+
+            <button
+              onClick={() => { setModalError(''); setShowAddModal(true); }}
+              className="flex items-center gap-2 px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+            >
+              <Plus className="w-4 h-4 text-brand-dark" />
+              Create New Client Account
+            </button>
+          </div>
         }
       />
 
@@ -188,143 +302,317 @@ export default function CRMClientList({
         loading={loading}
       />
 
-      {/* 3. Client Directory Table (FULL WIDTH) */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-2xs w-full">
-        <div className="overflow-x-auto w-full">
-          <table className="w-full text-xs text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/80 text-slate-500 font-extrabold uppercase text-[10px] tracking-wider whitespace-nowrap">
-                <th className="px-5 py-4">Client & Company</th>
-                <th className="px-5 py-4">Account Contact</th>
-                <th className="px-5 py-4">Primary OWNER Contact</th>
-                <th className="px-5 py-4 text-center">Active Projects</th>
-                <th className="px-5 py-4">Account Status</th>
-                <th className="px-5 py-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-medium">
-              {loading ? (
-                <tr>
-                  <td colSpan="6" className="py-8 text-center">
-                    <BrandLoader size="sm" text="Loading Client Directory..." />
-                  </td>
+      {/* 3. Client Directory Content (TABLE STRIPE OR CARDS FORMAT) */}
+      {viewFormat === 'table' ? (
+        <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-2xs w-full">
+          <div className="overflow-x-auto w-full">
+            <table className="w-full text-xs text-left border-collapse min-w-[850px]">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50/90 text-slate-600 font-black uppercase text-[10px] tracking-wider whitespace-nowrap">
+                  <th className="px-5 py-4 min-w-[200px]">Client & Company</th>
+                  <th className="px-5 py-4 min-w-[170px]">Account Contact</th>
+                  <th className="px-5 py-4 min-w-[170px]">Primary OWNER Contact</th>
+                  <th className="px-5 py-4 text-center min-w-[180px]">Active Projects</th>
+                  <th className="px-5 py-4 min-w-[130px]">Account Status</th>
+                  <th className="px-5 py-4 text-right min-w-[130px]">Actions</th>
                 </tr>
-              ) : filteredClients.length > 0 ? (
-                filteredClients.map(c => {
-                  const isSelected = inspectingClient && (inspectingClient._id || inspectingClient.id) === (c._id || c.id);
-                  const isAct = c.isActive !== false;
-                  const primary = c.primaryContact;
-                  const projCount = c.activeProjectCount !== undefined ? c.activeProjectCount : (c.projects?.length || 0);
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium">
+                {loading ? (
+                  <tr>
+                    <td colSpan="6" className="py-8 text-center">
+                      <BrandLoader size="sm" text="Loading Client Directory..." />
+                    </td>
+                  </tr>
+                ) : filteredClients.length > 0 ? (
+                  filteredClients.map((c, idx) => {
+                    const isSelected = inspectingClient && (inspectingClient._id || inspectingClient.id) === (c._id || c.id);
+                    const isAct = c.isActive !== false;
+                    const primary = c.primaryContact;
+                    const projCount = c.activeProjectCount !== undefined ? c.activeProjectCount : (c.projects?.length || 0);
 
-                  return (
-                    <tr 
-                      key={c._id || c.id} 
-                      onClick={(e) => handleViewDetails(e, c)}
-                      className={`hover:bg-slate-50/90 cursor-pointer transition-all ${isSelected ? 'bg-indigo-50/40' : ''}`}
-                    >
-                      {/* Client & Company */}
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3.5">
-                          <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 font-black text-sm flex items-center justify-center flex-shrink-0 border border-indigo-200 shadow-2xs">
-                            {(c.name || 'C').charAt(0).toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <strong className="text-slate-900 font-extrabold text-xs block truncate">{c.name}</strong>
-                            <span className="text-[11px] text-slate-500 flex items-center gap-1 font-medium truncate mt-0.5">
-                              <Building className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                              {c.companyName || c.company || 'Private Client'}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Account Contact */}
-                      <td className="px-5 py-4 text-slate-600">
-                        <div className="space-y-0.5 font-mono text-xs">
-                          <div className="flex items-center gap-1.5 truncate">
-                            <Smartphone className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                            <span>{c.phone}</span>
-                          </div>
-                          {c.email && (
-                            <div className="flex items-center gap-1.5 text-slate-500 truncate">
-                              <Mail className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                              <span className="truncate">{c.email}</span>
+                    return (
+                      <tr 
+                        key={c._id || c.id} 
+                        onClick={(e) => handleViewDetails(e, c)}
+                        className={`hover:bg-brand-light cursor-pointer transition-colors ${
+                          idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'
+                        } ${isSelected ? 'bg-brand-soft' : ''}`}
+                      >
+                        {/* Client & Company */}
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3.5">
+                            <div className="w-10 h-10 rounded-xl bg-brand-primary text-slate-900 font-black text-sm flex items-center justify-center flex-shrink-0 border border-brand-secondary/50 shadow-2xs">
+                              {(c.name || 'C').charAt(0).toUpperCase()}
                             </div>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Primary Contact */}
-                      <td className="px-5 py-4">
-                        {primary ? (
-                          <div className="min-w-0 space-y-0.5">
-                            <span className="font-extrabold text-slate-900 block text-xs truncate flex items-center gap-1">
-                              <User className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
-                              {primary.name}
-                            </span>
-                            <span className="text-[11px] text-slate-500 font-mono block truncate">
-                              {primary.email}
-                            </span>
-                            <span className="inline-block px-2 py-0.2 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
-                              OWNER
-                            </span>
+                            <div className="min-w-0">
+                              <strong className="text-slate-900 font-extrabold text-xs block truncate">{c.name}</strong>
+                              <span className="text-[11px] text-slate-500 flex items-center gap-1 font-medium truncate mt-0.5">
+                                <Building className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                                {c.companyName || c.company || 'Private Client'}
+                              </span>
+                            </div>
                           </div>
-                        ) : (
-                          <span className="text-slate-400 italic text-[11px]">No contact linked</span>
-                        )}
-                      </td>
+                        </td>
 
-                      {/* Active Projects Count (Clean Single Line Badge) */}
-                      <td className="px-5 py-4 text-center whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-slate-100 text-slate-800 rounded-xl text-xs font-black border border-slate-200 shadow-3xs">
+                        {/* Account Contact */}
+                        <td className="px-5 py-4 text-slate-600">
+                          <div className="space-y-0.5 font-mono text-xs">
+                            <div className="flex items-center gap-1.5 truncate">
+                              <Smartphone className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                              <span>{c.phone || 'No phone'}</span>
+                            </div>
+                            {c.email && (
+                              <div className="flex items-center gap-1.5 text-slate-500 truncate">
+                                <Mail className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                                <span className="truncate">{c.email}</span>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Primary Contact */}
+                        <td className="px-5 py-4">
+                          {primary ? (
+                            <div className="min-w-0 space-y-0.5">
+                              <span className="font-extrabold text-slate-900 block text-xs truncate flex items-center gap-1">
+                                <User className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
+                                {primary.name}
+                              </span>
+                              <span className="text-[11px] text-slate-500 font-mono block truncate">
+                                {primary.email}
+                              </span>
+                              <span className="inline-block px-2 py-0.2 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                OWNER
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 italic text-[11px]">No contact linked</span>
+                          )}
+                        </td>
+
+                        {/* Active Projects Count & List */}
+                        <td className="px-5 py-4 text-center">
+                          <div className="flex flex-col items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-slate-100 text-slate-800 rounded-xl text-xs font-black border border-slate-200 shadow-3xs">
+                              {projCount} Projects
+                            </span>
+                             {c.projects && c.projects.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 justify-center max-w-[220px] mt-1">
+                                {c.projects.map((p, idx) => (
+                                  <button
+                                    key={idx}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(`/admin/projects?select=${p.id}&searchName=${encodeURIComponent(p.name)}`);
+                                    }}
+                                    className="group inline-flex items-center gap-1 px-2.5 py-0.5 bg-brand-light hover:bg-brand-primary text-slate-800 hover:text-slate-900 border border-brand-secondary/40 rounded-md text-[10px] font-black cursor-pointer transition-all duration-200 shadow-3xs hover:shadow-xs hover:-translate-y-0.5"
+                                    title="Click to view Project Details"
+                                  >
+                                    <Building className="w-2.5 h-2.5 text-slate-500 group-hover:text-slate-800 transition-colors flex-shrink-0" />
+                                    <span>{p.name}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Status */}
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          <span className={`px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase border ${
+                            isAct ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
+                          }`}>
+                            {isAct ? 'Active' : 'Deactivated'}
+                          </span>
+                        </td>
+
+                        {/* Actions */}
+                        <td className="px-5 py-4 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenCreateProjectForClient(c);
+                              }}
+                              className="p-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark rounded-xl transition-all border border-brand-secondary/40 shadow-3xs cursor-pointer"
+                              title="Create New Project for Client"
+                            >
+                              <FolderPlus className="w-4 h-4 text-brand-dark" />
+                            </button>
+                            <button
+                              onClick={(e) => handleViewDetails(e, c)}
+                              className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-xl transition-all border border-slate-200 cursor-pointer"
+                              title="View Full Client Details"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            {isAct && (
+                              <button
+                                onClick={(e) => handleDeactivateClient(e, c._id || c.id, c.name)}
+                                className="p-2 bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition-all border border-slate-200 cursor-pointer"
+                                title="Soft-Deactivate Client Account"
+                              >
+                                <Ban className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan="6" className="py-12 text-center text-slate-400">
+                      No client accounts match your search filters.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        /* CARDS GRID FORMAT VIEW */
+        <div className="w-full">
+          {loading ? (
+            <div className="py-12 bg-white rounded-2xl border border-slate-200 text-center">
+              <BrandLoader size="sm" text="Loading Client Cards..." />
+            </div>
+          ) : filteredClients.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {filteredClients.map(c => {
+                const isAct = c.isActive !== false;
+                const primary = c.primaryContact;
+                const projCount = c.activeProjectCount !== undefined ? c.activeProjectCount : (c.projects?.length || 0);
+
+                return (
+                  <div
+                    key={c._id || c.id}
+                    onClick={(e) => handleViewDetails(e, c)}
+                    className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all space-y-4 font-sans relative cursor-pointer group"
+                  >
+                    {/* Card Top: Avatar, Name & Status */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-11 h-11 rounded-2xl bg-brand-primary text-brand-dark font-black text-base flex items-center justify-center flex-shrink-0 border border-brand-secondary/50 shadow-2xs group-hover:bg-brand-secondary transition-colors">
+                          {(c.name || 'C').charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-slate-900 font-extrabold text-sm truncate group-hover:text-slate-700 transition-colors leading-tight">
+                            {c.name}
+                          </h4>
+                          <span className="text-xs text-slate-500 flex items-center gap-1 font-medium truncate mt-0.5">
+                            <Building className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                            {c.companyName || c.company || 'Private Client'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase border shrink-0 ${
+                        isAct ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
+                      }`}>
+                        {isAct ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+
+                    {/* Contact Details Box */}
+                    <div className="p-3.5 bg-slate-50/90 border border-slate-150 rounded-2xl space-y-2 font-mono text-xs text-slate-700">
+                      <div className="flex items-center gap-2 truncate">
+                        <Smartphone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span>{c.phone || 'No phone'}</span>
+                      </div>
+                      {c.email && (
+                        <div className="flex items-center gap-2 truncate text-slate-600">
+                          <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className="truncate">{c.email}</span>
+                        </div>
+                      )}
+                      {primary && (
+                        <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between font-sans">
+                          <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Owner:</span>
+                          <span className="text-xs font-bold text-slate-900 flex items-center gap-1">
+                            <User className="w-3.5 h-3.5 text-slate-600" /> {primary.name}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Active Projects Pills */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Linked Projects</span>
+                        <span className="px-2.5 py-0.5 bg-brand-soft text-slate-800 rounded-lg text-[10px] font-black border border-brand-secondary/30">
                           {projCount} Projects
                         </span>
-                      </td>
+                      </div>
 
-                      {/* Status */}
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        <span className={`px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase border ${
-                          isAct ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
-                        }`}>
-                          {isAct ? 'Active' : 'Deactivated'}
-                        </span>
-                      </td>
-
-                      {/* Actions */}
-                      <td className="px-5 py-4 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={(e) => handleViewDetails(e, c)}
-                            className="p-2 bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 rounded-xl transition-all border border-slate-200"
-                            title="View Full Client Details"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          {isAct && (
+                      {c.projects && c.projects.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5 max-h-[65px] overflow-y-auto">
+                          {c.projects.map((p, idx) => (
                             <button
-                              onClick={(e) => handleDeactivateClient(e, c._id || c.id, c.name)}
-                              className="p-2 bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition-all border border-slate-200"
-                              title="Soft-Deactivate Client Account"
+                              key={idx}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/admin/projects?select=${p.id}&searchName=${encodeURIComponent(p.name)}`);
+                              }}
+                              className="group/pill inline-flex items-center gap-1.5 px-3 py-1 bg-brand-light hover:bg-brand-primary text-slate-800 hover:text-brand-dark border border-brand-secondary/40 rounded-xl text-[10px] font-extrabold cursor-pointer transition-all shadow-3xs"
+                              title="Click to view Project Details"
                             >
-                              <Ban className="w-4 h-4" />
+                              <Building className="w-3 h-3 text-slate-500 group-hover/pill:text-slate-800 transition-colors" />
+                              <span>{p.name}</span>
                             </button>
-                          )}
+                          ))}
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan="6" className="py-12 text-center text-slate-400">
-                    No client accounts match your search filters.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                      ) : (
+                        <span className="text-[11px] text-slate-400 italic block">No active linked projects</span>
+                      )}
+                    </div>
+
+                    {/* Card Footer Actions */}
+                    <div className="pt-3.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenCreateProjectForClient(c);
+                        }}
+                        className="px-3.5 py-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all border border-brand-secondary/40 shadow-2xs cursor-pointer"
+                      >
+                        <FolderPlus className="w-4 h-4 text-brand-dark" />
+                        <span>Create Project</span>
+                      </button>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={(e) => handleViewDetails(e, c)}
+                          className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-xl transition-all border border-slate-200 cursor-pointer"
+                          title="View Full Profile"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        {isAct && (
+                          <button
+                            onClick={(e) => handleDeactivateClient(e, c._id || c.id, c.name)}
+                            className="p-2 bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition-all border border-slate-200 cursor-pointer"
+                            title="Deactivate Account"
+                          >
+                            <Ban className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="py-12 bg-white rounded-2xl border border-slate-200 text-center text-slate-400 text-xs">
+              No client accounts match your search filters.
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       {/* 4. INSPECT DETAILS MODAL (VIEW DETAILS POPUP) */}
       {inspectingClient && (
@@ -575,6 +863,15 @@ export default function CRMClientList({
           </div>
         </div>
       )}
+
+      {/* 7. MODAL: CREATE PROJECT FOR CLIENT */}
+      <CreateProjectModal
+        isOpen={showCreateProjModal}
+        onClose={() => setShowCreateProjModal(false)}
+        onSubmit={handleCreateProjectSubmit}
+        newProject={newProjectData}
+        setNewProject={setNewProjectData}
+      />
 
     </div>
   );

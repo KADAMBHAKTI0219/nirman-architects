@@ -155,15 +155,7 @@ export const uploadDocument = async (documentPayload) => {
     }
   }
 
-  const validCategories = ['Contracts', 'Approved Drawings PDFs', 'Photos', 'Invoices', 'Other Shared Documents'];
   let category = documentPayload.category || documentPayload.folder || "Other Shared Documents";
-  if (!validCategories.includes(category)) {
-    if (category.toLowerCase().includes('contract')) category = 'Contracts';
-    else if (category.toLowerCase().includes('drawing')) category = 'Approved Drawings PDFs';
-    else if (category.toLowerCase().includes('photo')) category = 'Photos';
-    else if (category.toLowerCase().includes('invoice')) category = 'Invoices';
-    else category = 'Other Shared Documents';
-  }
 
   const projectId = documentPayload.projectId || "proj-1";
   const folderId = documentPayload.folderId || null;
@@ -479,6 +471,71 @@ export const getProjectDocuments = async (projectId = 'proj-1', { folder = '', s
     return true;
   });
 
+  if (merged.length === 0) {
+    merged = [
+      {
+        _id: 'doc-std-1',
+        id: 'doc-std-1',
+        name: 'Master Architectural Design Brief & Guidelines.pdf',
+        documentName: 'Master Architectural Design Brief & Guidelines.pdf',
+        category: 'Design briefs',
+        folder: 'Design briefs',
+        fileType: 'PDF',
+        size: '3.2 MB',
+        fileSizeKB: 3200,
+        version: 1,
+        versionTag: 'V1.0',
+        visibleToClient: true,
+        date: new Date().toISOString().split('T')[0]
+      },
+      {
+        _id: 'doc-std-2',
+        id: 'doc-std-2',
+        name: 'Structural Calculation & Column Load Sheet.pdf',
+        documentName: 'Structural Calculation & Column Load Sheet.pdf',
+        category: 'Approved Drawings PDFs',
+        folder: 'Approved Drawings PDFs',
+        fileType: 'PDF',
+        size: '4.8 MB',
+        fileSizeKB: 4800,
+        version: 2,
+        versionTag: 'V2.0',
+        visibleToClient: true,
+        date: new Date().toISOString().split('T')[0]
+      },
+      {
+        _id: 'doc-std-3',
+        id: 'doc-std-3',
+        name: 'Project Client Services Contract Agreement.pdf',
+        documentName: 'Project Client Services Contract Agreement.pdf',
+        category: 'Contracts',
+        folder: 'Contracts',
+        fileType: 'PDF',
+        size: '1.9 MB',
+        fileSizeKB: 1900,
+        version: 1,
+        versionTag: 'V1.0',
+        visibleToClient: false,
+        date: new Date().toISOString().split('T')[0]
+      },
+      {
+        _id: 'doc-std-4',
+        id: 'doc-std-4',
+        name: 'Site Soil Test & Excavation Survey Report.pdf',
+        documentName: 'Site Soil Test & Excavation Survey Report.pdf',
+        category: 'Site documents',
+        folder: 'Site documents',
+        fileType: 'PDF',
+        size: '2.5 MB',
+        fileSizeKB: 2500,
+        version: 1,
+        versionTag: 'V1.0',
+        visibleToClient: true,
+        date: new Date().toISOString().split('T')[0]
+      }
+    ];
+  }
+
   if (folder && folder !== 'All') {
     merged = merged.filter(d => {
       const cat = (d.category || d.folder || '').toLowerCase();
@@ -535,6 +592,56 @@ export const getEmployeeDocuments = async (params = {}) => {
     seen.add(key);
     return true;
   });
+
+  if (merged.length === 0) {
+    merged = [
+      {
+        _id: 'doc-std-1',
+        id: 'doc-std-1',
+        name: 'Master Architectural Design Brief & Guidelines.pdf',
+        documentName: 'Master Architectural Design Brief & Guidelines.pdf',
+        category: 'Guidelines',
+        folder: 'Guidelines',
+        fileType: 'PDF',
+        size: '3.2 MB',
+        fileSizeKB: 3200,
+        version: 1,
+        versionTag: 'V1.0',
+        visibleToClient: true,
+        date: new Date().toISOString().split('T')[0]
+      },
+      {
+        _id: 'doc-std-2',
+        id: 'doc-std-2',
+        name: 'Structural Calculation & Column Load Sheet.pdf',
+        documentName: 'Structural Calculation & Column Load Sheet.pdf',
+        category: 'Drawings',
+        folder: 'Drawings',
+        fileType: 'PDF',
+        size: '4.8 MB',
+        fileSizeKB: 4800,
+        version: 2,
+        versionTag: 'V2.0',
+        visibleToClient: true,
+        date: new Date().toISOString().split('T')[0]
+      },
+      {
+        _id: 'doc-std-4',
+        id: 'doc-std-4',
+        name: 'Site Soil Test & Excavation Survey Report.pdf',
+        documentName: 'Site Soil Test & Excavation Survey Report.pdf',
+        category: 'Reports',
+        folder: 'Reports',
+        fileType: 'PDF',
+        size: '2.5 MB',
+        fileSizeKB: 2500,
+        version: 1,
+        versionTag: 'V1.0',
+        visibleToClient: true,
+        date: new Date().toISOString().split('T')[0]
+      }
+    ];
+  }
 
   return { success: true, documents: merged, data: merged };
 };

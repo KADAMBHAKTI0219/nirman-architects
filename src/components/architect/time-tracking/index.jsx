@@ -1,28 +1,88 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Clock, Play, Pause, Square, Plus, Trash2, CheckCircle, 
-  BarChart, AlertTriangle, Layers, Calendar 
+  BarChart, AlertTriangle, Layers, Calendar, RefreshCw, Inbox 
 } from 'lucide-react';
 import Card from '../../common/Card';
+import { 
+  getTasks, 
+  startTask, 
+  pauseTask, 
+  stopTask, 
+  logTaskTime, 
+  getTaskTimeAnalysis,
+  updateTask 
+} from '../../../service/task';
+import { getProjects } from '../../../service/project';
 
 export default function TimeTracking() {
+  const [tasksList, setTasksList] = useState([]);
+  const [selectedTaskObj, setSelectedTaskObj] = useState(null);
+  const [selectedTaskId, setSelectedTaskId] = useState('');
+  
   const [timerActive, setTimerActive] = useState(false);
   const [timeSecs, setTimeSecs] = useState(0);
-  const [selectedTask, setSelectedTask] = useState('Draft First Floor Plan Column Layouts');
-  
-  // Hours Summary
-  const [timeLoggedToday, setTimeLoggedToday] = useState(6.5);
-  const [timeLoggedWeek, setTimeLoggedWeek] = useState(38.2);
+  const [loading, setLoading] = useState(true);
 
   // Manual entry fields
   const [manualHours, setManualHours] = useState('');
-  const [manualTask, setManualTask] = useState('Draft First Floor Plan Column Layouts');
+  const [manualTaskId, setManualTaskId] = useState('');
+  const [manualCategory, setManualCategory] = useState('Billable');
 
-  const [logs, setLogs] = useState([
-    { id: 1, task: "Draft First Floor Plan Column Layouts", project: "Central Office Tower", hours: 4.5, type: "Billable", date: "2026-07-23" },
-    { id: 2, task: "MEP Shaft Coordination Review", project: "Central Office Tower", hours: 2.0, type: "Billable", date: "2026-07-23" },
-    { id: 3, task: "Lobby Materials Mockup Discussion", project: "Oceanic Luxury Villas", hours: 3.5, type: "Non-Billable", date: "2026-07-22" }
-  ]);
+  const [logs, setLogs] = useState([]);
+
+  useEffect(() => {
+    loadTasksData();
+  }, []);
+
+  const loadTasksData = async () => {
+    setLoading(true);
+    try {
+      const [taskRes, projRes] = await Promise.all([
+        getTasks().catch(() => null),
+        getProjects().catch(() => null)
+      ]);
+
+      let rawTasks = [];
+      if (taskRes?.success && Array.isArray(taskRes.tasks)) {
+        rawTasks = taskRes.tasks;
+      } else if (Array.isArray(taskRes)) {
+        rawTasks = taskRes;
+      }
+
+      setTasksList(rawTasks);
+
+      if (rawTasks.length > 0) {
+        const first = rawTasks[0];
+        const fId = first._id || first.id;
+        setSelectedTaskId(fId);
+        setSelectedTaskObj(first);
+        setManualTaskId(fId);
+
+        // Build initial logs from task totalWorkingTimeMinutes or actualStartTime
+        const initialLogs = rawTasks
+          .filter(t => (t.totalWorkingTimeMinutes && t.totalWorkingTimeMinutes > 0) || t.actualStartTime)
+          .map(t => {
+            const mins = t.totalWorkingTimeMinutes || 60;
+            const hrs = parseFloat((mins / 60).toFixed(1));
+            return {
+              id: t._id || t.id,
+              task: t.taskName || t.title || 'Architectural Task',
+              project: (typeof t.projectId === 'object' ? t.projectId?.projectName : t.project) || 'Studio Project',
+              hours: hrs,
+              type: t.priority === 'High' ? 'Billable' : 'Billable',
+              date: t.updatedAt ? t.updatedAt.split('T')[0] : new Date().toISOString().split('T')[0]
+            };
+          });
+
+        setLogs(initialLogs);
+      }
+    } catch (err) {
+      console.warn("Failed to load time tracking tasks:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Timer Tick
   useEffect(() => {
@@ -44,63 +104,133 @@ export default function TimeTracking() {
     return `${hours}:${minutes}:${seconds}`;
   };
 
-  const handleStopTimer = () => {
+  const handleTaskSelect = (taskId) => {
+    setSelectedTaskId(taskId);
+    const found = tasksList.find(t => String(t._id || t.id) === String(taskId));
+    if (found) setSelectedTaskObj(found);
+  };
+
+  const handleStartTimer = async () => {
+    if (!selectedTaskId) {
+      alert("Please select a task to start tracking time.");
+      return;
+    }
+    setTimerActive(true);
+    try {
+      await startTask(selectedTaskId);
+    } catch (e) {
+      console.warn("Timer start API call warning:", e);
+    }
+  };
+
+  const handlePauseTimer = async () => {
+    setTimerActive(false);
+    if (selectedTaskId) {
+      try {
+        const mins = Math.round(timeSecs / 60);
+        await pauseTask(selectedTaskId, mins);
+      } catch (e) {}
+    }
+  };
+
+  const handleStopTimer = async () => {
     if (timeSecs === 0) return;
+    const addedMinutes = Math.max(1, Math.round(timeSecs / 60));
     const addedHours = parseFloat((timeSecs / 3600).toFixed(2));
     
+    const taskTitle = selectedTaskObj?.taskName || selectedTaskObj?.title || 'Studio Task';
+    const projTitle = (typeof selectedTaskObj?.projectId === 'object' ? selectedTaskObj?.projectId?.projectName : selectedTaskObj?.project) || 'Studio Project';
+
+    try {
+      await stopTask(selectedTaskId, {
+        totalWorkingTimeMinutes: addedMinutes,
+        actualStartTime: selectedTaskObj?.actualStartTime || new Date().toISOString(),
+        completionTime: new Date().toISOString(),
+        status: 'Completed'
+      });
+    } catch (e) {}
+
     const newLog = {
       id: Date.now(),
-      task: selectedTask,
-      project: "Central Office Tower",
+      task: taskTitle,
+      project: projTitle,
       hours: addedHours,
       type: "Billable",
       date: new Date().toISOString().split('T')[0]
     };
 
     setLogs([newLog, ...logs]);
-    setTimeLoggedToday(prev => prev + addedHours);
-    setTimeLoggedWeek(prev => prev + addedHours);
     setTimeSecs(0);
     setTimerActive(false);
-    alert(`Logged ${addedHours} hours to '${selectedTask}'!`);
+    alert(`Logged ${addedHours} hrs (${addedMinutes} mins) to '${taskTitle}' successfully!`);
   };
 
-  const handleManualSubmit = (e) => {
+  const handleManualSubmit = async (e) => {
     e.preventDefault();
     const hoursNum = parseFloat(manualHours);
     if (isNaN(hoursNum) || hoursNum <= 0) return;
 
+    const targetTask = tasksList.find(t => String(t._id || t.id) === String(manualTaskId)) || selectedTaskObj;
+    const taskTitle = targetTask?.taskName || targetTask?.title || 'Studio Task';
+    const projTitle = (typeof targetTask?.projectId === 'object' ? targetTask?.projectId?.projectName : targetTask?.project) || 'Studio Project';
+
+    const mins = Math.round(hoursNum * 60);
+
+    try {
+      if (manualTaskId) {
+        await logTaskTime(manualTaskId, {
+          totalWorkingTimeMinutes: mins,
+          hours: hoursNum,
+          category: manualCategory
+        });
+      }
+    } catch (e) {}
+
     const newLog = {
       id: Date.now(),
-      task: manualTask,
-      project: "Smart City Mall",
+      task: taskTitle,
+      project: projTitle,
       hours: hoursNum,
-      type: "Billable",
+      type: manualCategory,
       date: new Date().toISOString().split('T')[0]
     };
 
     setLogs([newLog, ...logs]);
-    setTimeLoggedToday(prev => prev + hoursNum);
-    setTimeLoggedWeek(prev => prev + hoursNum);
     setManualHours('');
-    alert(`Manually logged ${hoursNum} hours successfully!`);
+    alert(`Manually logged ${hoursNum} hours to '${taskTitle}'!`);
   };
 
-  // Chart data formatting
-  const taskSummaryData = Array.from(
-    logs.reduce((acc, log) => {
-      acc.set(log.task, (acc.get(log.task) || 0) + log.hours);
-      return acc;
-    }, new Map())
-  ).map(([name, hours]) => ({ name: name.substring(0, 15) + '...', hours }));
+  // Dynamic Metrics Calculation
+  const totalLoggedToday = logs
+    .filter(l => l.date === new Date().toISOString().split('T')[0])
+    .reduce((acc, l) => acc + l.hours, 0);
+
+  const totalLoggedWeek = logs.reduce((acc, l) => acc + l.hours, 0);
+
+  // Billable vs Non-Billable split
+  const billableHours = logs.filter(l => l.type === 'Billable').reduce((acc, l) => acc + l.hours, 0);
+  const nonBillableHours = logs.filter(l => l.type !== 'Billable').reduce((acc, l) => acc + l.hours, 0);
+  const grandTotal = (billableHours + nonBillableHours) || 1;
+  const billablePercent = Math.round((billableHours / grandTotal) * 100);
+  const nonBillablePercent = 100 - billablePercent;
+
+  // Task-wise Summary
+  const taskMap = new Map();
+  logs.forEach(l => {
+    taskMap.set(l.task, (taskMap.get(l.task) || 0) + l.hours);
+  });
+  const taskSummaryData = Array.from(taskMap.entries()).map(([name, hours]) => ({
+    name: name.length > 22 ? name.substring(0, 22) + '...' : name,
+    hours: parseFloat(hours.toFixed(1))
+  }));
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 animate-in fade-in duration-200">
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 animate-in fade-in duration-200 font-sans text-slate-800">
       
-      {/* LEFT COLUMN: ACTIVE TIMER (1/3 width) */}
+      {/* LEFT COLUMN: ACTIVE TIMER & MANUAL ENTRY (1/3 width) */}
       <div className="space-y-6">
         
-        <Card title="Workspace Timer" subtitle="Live tracking on active designs layouts">
+        <Card title="Workspace Timer" subtitle="Live tracking on active design tasks & time analysis">
           <div className="flex flex-col items-center justify-center space-y-5 pt-3">
             <div className="flex items-center gap-3">
               <Clock className="w-6 h-6 text-[#2484C6] animate-pulse shrink-0" />
@@ -108,31 +238,44 @@ export default function TimeTracking() {
             </div>
 
             <div className="w-full space-y-1.5">
-              <span className="text-[10px] text-slate-400 font-bold uppercase block">Current Assigned Task</span>
-              <select
-                value={selectedTask}
-                onChange={(e) => setSelectedTask(e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-slate-205 rounded-xl bg-white font-semibold text-slate-700"
-              >
-                <option value="Draft First Floor Plan Column Layouts">Draft First Floor Plan Column Layouts</option>
-                <option value="HVAC Duct Sizing & Layout Drafts">HVAC Duct Sizing & Layout Drafts</option>
-                <option value="Lobby Interior Rendering Schema">Lobby Interior Rendering Schema</option>
-              </select>
+              <label className="text-[10px] text-slate-400 font-bold uppercase block">Current Assigned Task</label>
+              {loading ? (
+                <div className="py-2 text-slate-400 text-xs flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin text-indigo-500" />
+                  <span>Loading assigned tasks...</span>
+                </div>
+              ) : tasksList.length > 0 ? (
+                <select
+                  value={selectedTaskId}
+                  onChange={(e) => handleTaskSelect(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-205 rounded-xl bg-white font-semibold text-slate-700 focus:ring-2 focus:ring-indigo-500"
+                >
+                  {tasksList.map(t => (
+                    <option key={t._id || t.id} value={t._id || t.id}>
+                      {t.taskName || t.title} {t.priority ? `(${t.priority} Priority)` : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500 italic">
+                  No active tasks assigned yet.
+                </div>
+              )}
             </div>
             
             <div className="flex items-center gap-2">
               {!timerActive ? (
                 <button 
-                  onClick={() => setTimerActive(true)}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase transition-all shadow-3xs"
+                  onClick={handleStartTimer}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase transition-all shadow-3xs cursor-pointer"
                 >
                   <Play className="w-3.5 h-3.5 fill-white" />
                   Start
                 </button>
               ) : (
                 <button 
-                  onClick={() => setTimerActive(false)}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black uppercase transition-all shadow-3xs"
+                  onClick={handlePauseTimer}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black uppercase transition-all shadow-3xs cursor-pointer"
                 >
                   <Pause className="w-3.5 h-3.5 fill-white" />
                   Pause
@@ -142,7 +285,7 @@ export default function TimeTracking() {
               <button 
                 onClick={handleStopTimer}
                 disabled={timeSecs === 0}
-                className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black uppercase transition-all disabled:opacity-40 disabled:hover:bg-rose-650 shadow-3xs"
+                className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black uppercase transition-all disabled:opacity-40 shadow-3xs cursor-pointer"
               >
                 <Square className="w-3.5 h-3.5 fill-white" />
                 Stop & Log
@@ -150,46 +293,70 @@ export default function TimeTracking() {
             </div>
 
             <div className="w-full flex items-center justify-between pt-3.5 border-t border-slate-100 text-[10px] font-bold text-slate-500">
-              <span>Today: {timeLoggedToday.toFixed(1)} hrs</span>
-              <span>This Week: {timeLoggedWeek.toFixed(1)} hrs</span>
+              <span>Today: {totalLoggedToday.toFixed(1)} hrs</span>
+              <span>This Week: {totalLoggedWeek.toFixed(1)} hrs</span>
             </div>
           </div>
         </Card>
 
         {/* Manual entry card */}
-        <Card title="Manual Time Entry" subtitle="Submit retrofitted project logs">
-          <form onSubmit={handleManualSubmit} className="space-y-4 text-xs font-semibold text-slate-550">
+        <Card title="Manual Time Entry" subtitle="Submit retrofitted project timesheet logs">
+          <form onSubmit={handleManualSubmit} className="space-y-4 text-xs font-semibold text-slate-600">
             <div className="space-y-1">
-              <label className="text-[10px] text-slate-400 block uppercase">Task Description</label>
-              <select
-                value={manualTask}
-                onChange={(e) => setManualTask(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-205 rounded-xl bg-white"
-              >
-                <option value="Draft First Floor Plan Column Layouts">Draft First Floor Plan Column Layouts</option>
-                <option value="HVAC Duct Sizing & Layout Drafts">HVAC Duct Sizing & Layout Drafts</option>
-                <option value="Lobby Interior Rendering Schema">Lobby Interior Rendering Schema</option>
-              </select>
+              <label className="text-[10px] text-slate-400 block uppercase">Task Target</label>
+              {tasksList.length > 0 ? (
+                <select
+                  value={manualTaskId}
+                  onChange={(e) => setManualTaskId(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-205 rounded-xl bg-white text-slate-700 font-semibold"
+                >
+                  {tasksList.map(t => (
+                    <option key={t._id || t.id} value={t._id || t.id}>
+                      {t.taskName || t.title}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  placeholder="Task Description..."
+                  className="w-full px-3 py-2 border border-slate-205 rounded-xl bg-white text-slate-700"
+                />
+              )}
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] text-slate-400 block uppercase">Hours to Log *</label>
-              <input 
-                type="number" 
-                step="0.25"
-                required
-                value={manualHours}
-                onChange={(e) => setManualHours(e.target.value)}
-                placeholder="e.g. 2.5"
-                className="w-full px-3 py-2 border border-slate-205 rounded-xl bg-white text-slate-700 font-semibold"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-[10px] text-slate-400 block uppercase">Hours to Log *</label>
+                <input 
+                  type="number" 
+                  step="0.25"
+                  required
+                  value={manualHours}
+                  onChange={(e) => setManualHours(e.target.value)}
+                  placeholder="e.g. 2.5"
+                  className="w-full px-3 py-2 border border-slate-205 rounded-xl bg-white text-slate-700 font-semibold"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] text-slate-400 block uppercase">Log Category</label>
+                <select
+                  value={manualCategory}
+                  onChange={(e) => setManualCategory(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-205 rounded-xl bg-white text-slate-700 font-semibold"
+                >
+                  <option value="Billable">Billable</option>
+                  <option value="Non-Billable">Non-Billable</option>
+                </select>
+              </div>
             </div>
 
             <button 
               type="submit"
-              className="w-full py-2 bg-brand-primary text-slate-905 rounded-xl font-black uppercase text-center shadow-3xs"
+              className="w-full py-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark rounded-xl font-black uppercase text-center shadow-3xs cursor-pointer transition-all"
             >
-              Post Time Sheet
+              Post Timesheet Entry
             </button>
           </form>
         </Card>
@@ -199,48 +366,55 @@ export default function TimeTracking() {
       {/* CENTER & RIGHT COLUMNS: TIMELINE & SPLIT CHARTS (2/3 width) */}
       <div className="xl:col-span-2 space-y-6">
         
-        {/* Productivity Split Recharts */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
-          <Card title="Task-wise Logged Hours" subtitle="Hours split by design tasks">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-700">
-                <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold">
-                  <tr>
-                    <th className="px-4 py-2">Task</th>
-                    <th className="px-4 py-2">Logged Hours</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {taskSummaryData.map((row) => (
-                    <tr key={row.name} className="hover:bg-slate-50/50">
-                      <td className="px-4 py-2.5 font-bold text-slate-800">{row.name}</td>
-                      <td className="px-4 py-2.5 font-semibold text-blue-600">{row.hours} hrs</td>
+          <Card title="Task-wise Logged Hours" subtitle="Dynamic breakdown by design tasks">
+            <div className="overflow-x-auto max-h-[220px] overflow-y-auto">
+              {taskSummaryData.length > 0 ? (
+                <table className="w-full text-left text-xs text-slate-700">
+                  <thead className="bg-slate-50 uppercase text-[10px] text-slate-400 font-bold sticky top-0">
+                    <tr>
+                      <th className="px-4 py-2">Task Name</th>
+                      <th className="px-4 py-2">Logged Hours</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {taskSummaryData.map((row, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/50">
+                        <td className="px-4 py-2.5 font-bold text-slate-800">{row.name}</td>
+                        <td className="px-4 py-2.5 font-bold text-indigo-600">{row.hours} hrs</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="py-12 text-center text-slate-400 text-xs">
+                  <Inbox className="w-6 h-6 mx-auto mb-1 text-slate-300" />
+                  <span>No task time logged yet.</span>
+                </div>
+              )}
             </div>
           </Card>
 
-          <Card title="Log Category Split" subtitle="Billable vs administrative workloads">
-            <div className="h-[200px] flex flex-col justify-center space-y-4">
+          <Card title="Log Category Split" subtitle="Billable vs administrative workload breakdown">
+            <div className="h-[200px] flex flex-col justify-center space-y-4 px-2">
               <div className="space-y-2">
                 <div className="flex justify-between text-xs font-bold">
-                  <span className="text-slate-700">Billable Hours (85%)</span>
-                  <span className="text-slate-400">32.5 hrs</span>
+                  <span className="text-slate-700">Billable Hours ({billablePercent}%)</span>
+                  <span className="text-slate-500 font-mono">{billableHours.toFixed(1)} hrs</span>
                 </div>
-                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-[#2484C6] h-full" style={{ width: '85%' }}></div>
+                <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                  <div className="bg-[#2484C6] h-full transition-all duration-300" style={{ width: `${billablePercent}%` }}></div>
                 </div>
               </div>
+
               <div className="space-y-2">
                 <div className="flex justify-between text-xs font-bold">
-                  <span className="text-slate-700">Non-Billable (15%)</span>
-                  <span className="text-slate-400">5.7 hrs</span>
+                  <span className="text-slate-700">Non-Billable ({nonBillablePercent}%)</span>
+                  <span className="text-slate-500 font-mono">{nonBillableHours.toFixed(1)} hrs</span>
                 </div>
-                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-slate-400 h-full" style={{ width: '15%' }}></div>
+                <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                  <div className="bg-slate-400 h-full transition-all duration-300" style={{ width: `${nonBillablePercent}%` }}></div>
                 </div>
               </div>
             </div>
@@ -249,35 +423,42 @@ export default function TimeTracking() {
         </div>
 
         {/* Logs List Table */}
-        <Card title="Logged Time Ledger" subtitle="Historical records of timesheet logs">
-          <div className="overflow-x-auto pt-2">
-            <table className="w-full text-xs text-left table-auto">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/50">
-                  <th className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">Logged Target Task</th>
-                  <th className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">Hours</th>
-                  <th className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">Category</th>
-                  <th className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {logs.map(log => (
-                  <tr key={log.id} className="hover:bg-slate-50/40">
-                    <td className="px-4 py-3 align-middle">
-                      <strong className="text-slate-805 block">{log.task}</strong>
-                      <span className="text-[9px] text-slate-400 font-bold block mt-0.5">{log.project}</span>
-                    </td>
-                    <td className="px-4 py-3 text-slate-700 font-black align-middle">{log.hours} hrs</td>
-                    <td className="px-4 py-3 align-middle">
-                      <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${
-                        log.type === 'Billable' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-500 border-slate-100'
-                      }`}>{log.type}</span>
-                    </td>
-                    <td className="px-4 py-3 text-right text-slate-450 align-middle">{log.date}</td>
+        <Card title="Logged Time Ledger" subtitle="Historical records of logged timesheet entries">
+          <div className="overflow-x-auto pt-2 max-h-[360px] overflow-y-auto">
+            {logs.length > 0 ? (
+              <table className="w-full text-xs text-left table-auto">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/50 text-slate-400 font-black uppercase text-[9px] tracking-widest sticky top-0">
+                    <th className="px-4 py-2.5">Logged Target Task</th>
+                    <th className="px-4 py-2.5">Hours</th>
+                    <th className="px-4 py-2.5">Category</th>
+                    <th className="px-4 py-2.5 text-right">Date</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-50 font-medium">
+                  {logs.map((log, idx) => (
+                    <tr key={log.id || idx} className="hover:bg-slate-50/40">
+                      <td className="px-4 py-3 align-middle">
+                        <strong className="text-slate-900 block text-xs">{log.task}</strong>
+                        <span className="text-[9px] text-slate-400 font-bold block mt-0.5">{log.project}</span>
+                      </td>
+                      <td className="px-4 py-3 text-indigo-700 font-black align-middle font-mono">{log.hours} hrs</td>
+                      <td className="px-4 py-3 align-middle">
+                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${
+                          log.type === 'Billable' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-50 text-slate-600 border-slate-200'
+                        }`}>{log.type}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right text-slate-500 font-mono align-middle">{log.date}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="py-12 text-center text-slate-400 text-xs">
+                <Inbox className="w-6 h-6 mx-auto mb-1 text-slate-300" />
+                <span>No logged timesheet records found.</span>
+              </div>
+            )}
           </div>
         </Card>
 

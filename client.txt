@@ -2517,6 +2517,150 @@ exports.updateProjectStatus = async (req, res) => {
   }
 };
 
+
+// --- Device Binding Model & Controllers ---
+
+const deviceRequestSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  employeeName: { type: String },
+  deviceId: { type: String, required: true },
+  status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED'], default: 'PENDING' }
+}, { timestamps: true });
+const DeviceRequest = mongoose.models.DeviceRequest || mongoose.model('DeviceRequest', deviceRequestSchema);
+
+exports.registerDevice = async (req, res) => {
+  try {
+    const { userId, deviceId } = req.body;
+    const targetUserId = userId || (req.user ? (req.user._id || req.user.id) : null);
+    if (!targetUserId) return sendError(res, 400, 'userId is required.');
+
+    const user = await User.findById(targetUserId);
+    if (!user) return sendError(res, 404, 'User not found.');
+
+    // Always create in PENDING state when registered by employee
+    let request = await DeviceRequest.findOne({ userId: targetUserId, deviceId });
+    if (!request) {
+      request = await DeviceRequest.create({
+        userId: targetUserId,
+        employeeName: user.name,
+        deviceId,
+        status: 'PENDING'
+      });
+    }
+
+    return sendSuccess(res, 201, 'Device registration requested. Pending administrator approval.', { request });
+  } catch (error) {
+    console.error('Error registering device:', error);
+    return sendError(res, 500, error.message || 'Failed to register device.');
+  }
+};
+
+exports.getDeviceStatus = async (req, res) => {
+  try {
+    const userId = req.query.userId || req.user?._id || req.user?.id;
+    if (!userId) return sendError(res, 400, 'userId is required.');
+
+    const request = await DeviceRequest.findOne({ userId }).sort({ updatedAt: -1 });
+    if (!request) {
+      return sendSuccess(res, 200, 'No device registered.', { success: true, device: null, deviceStatus: 'PENDING' });
+    }
+
+    return sendSuccess(res, 200, 'Device status retrieved successfully.', {
+      success: true,
+      deviceId: request.deviceId,
+      deviceStatus: request.status,
+      status: request.status,
+      online: true
+    });
+  } catch (error) {
+    console.error('Error fetching device status:', error);
+    return sendError(res, 500, error.message || 'Failed to retrieve device status.');
+  }
+};
+
+exports.getPendingDeviceRequests = async (req, res) => {
+  try {
+    const requests = await DeviceRequest.find({ status: 'PENDING' }).populate('userId', 'name email designation');
+    return sendSuccess(res, 200, 'Pending device requests retrieved successfully.', { requests });
+  } catch (error) {
+    console.error('Error fetching pending requests:', error);
+    return sendError(res, 500, error.message || 'Failed to retrieve pending requests.');
+  }
+};
+
+exports.approveDeviceRequest = async (req, res) => {
+  try {
+    const { requestId, action } = req.body;
+    if (!requestId || !action) return sendError(res, 400, 'requestId and action are required.');
+
+    const roleCode = await getUserRoleCode(req.user);
+    const userRoleStr = req.user?.role || '';
+    const hasAccess = ['SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'HR'].includes(roleCode) || 
+                      ['SuperAdmin', 'Admin', 'HR'].includes(userRoleStr);
+
+    if (!hasAccess) {
+      return sendError(res, 403, 'Access denied. Only SuperAdmin, Admin, or HR can approve device requests.');
+    }
+
+    const request = await DeviceRequest.findById(requestId);
+    if (!request) return sendError(res, 404, 'Device request not found.');
+
+    request.status = action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+    await request.save();
+
+    if (request.status === 'APPROVED') {
+      // Bind device to User model
+      await User.findByIdAndUpdate(request.userId, { deviceId: request.deviceId });
+    }
+
+    return sendSuccess(res, 200, `Device request ${action.toLowerCase()}d successfully.`, { request });
+  } catch (error) {
+    console.error('Error processing device approval:', error);
+    return sendError(res, 500, error.message || 'Failed to process device request.');
+  }
+};
+
+exports.assignDeviceToUser = async (req, res) => {
+  try {
+    const { targetUserId, deviceId, status = 'PENDING' } = req.body;
+    if (!targetUserId || !deviceId) return sendError(res, 400, 'targetUserId and deviceId are required.');
+
+    const roleCode = await getUserRoleCode(req.user);
+    const userRoleStr = req.user?.role || '';
+    const hasAccess = ['SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'HR'].includes(roleCode) || 
+                      ['SuperAdmin', 'Admin', 'HR'].includes(userRoleStr);
+
+    if (!hasAccess) {
+      return sendError(res, 403, 'Access denied. Only SuperAdmin, Admin, or HR can assign devices.');
+    }
+
+    const user = await User.findById(targetUserId);
+    if (!user) return sendError(res, 404, 'User not found.');
+
+    let request = await DeviceRequest.findOne({ userId: targetUserId, deviceId });
+    if (!request) {
+      request = await DeviceRequest.create({
+        userId: targetUserId,
+        employeeName: user.name,
+        deviceId,
+        status
+      });
+    } else {
+      request.status = status;
+      await request.save();
+    }
+
+    if (status === 'APPROVED') {
+      await User.findByIdAndUpdate(targetUserId, { deviceId });
+    }
+
+    return sendSuccess(res, 200, 'Device assignment registered. Status is PENDING until explicitly approved.', { request });
+  } catch (error) {
+    console.error('Error assigning device:', error);
+    return sendError(res, 500, error.message || 'Failed to assign device.');
+  }
+};
+
 // --- Route Registration & Dynamic Middlewares ---
 
 let clientAuthMiddleware;
@@ -2575,3 +2719,12 @@ const erpDepartmentRouter = express.Router();
 erpDepartmentRouter.use(authMiddleware);
 erpDepartmentRouter.post('/department/create', exports.createDepartment);
 erpDepartmentRouter.get('/department/active', exports.getActiveDepartments);
+
+// --- Device Binding Router ---
+const erpDeviceRouter = express.Router();
+erpDeviceRouter.use(authMiddleware);
+erpDeviceRouter.post('/device/register', exports.registerDevice);
+erpDeviceRouter.get('/device/status', exports.getDeviceStatus);
+erpDeviceRouter.get('/device/pending', exports.getPendingDeviceRequests);
+erpDeviceRouter.post('/device/approve', exports.approveDeviceRequest);
+erpDeviceRouter.post('/device/assign', exports.assignDeviceToUser);

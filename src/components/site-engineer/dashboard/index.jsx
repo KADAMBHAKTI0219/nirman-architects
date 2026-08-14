@@ -20,18 +20,37 @@ const ISSUE_SEVERITY = [
 ];
 
 import SiteLocationModal from './SiteLocationModal';
+import { getProjects } from '../../../service/project';
 
 export default function Dashboard() {
-  const [activeSite, setActiveSite] = useState('Smart City Mall Foundations');
+  const [projectsList, setProjectsList] = useState([]);
+  const [activeSite, setActiveSite] = useState('Central Office Tower');
   const [crewCount, setCrewCount] = useState("12 / 15 Present");
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
 
-  // Active site geofence config mapping
-  const SITE_CONFIGS = {
-    'Smart City Mall Foundations': { projectName: 'Smart City Mall Foundations', lat: 21.1702, lng: 72.8311, radiusMeters: 150 },
-    'Metro Station Tunnel Excavation': { projectName: 'Metro Station Tunnel Excavation', lat: 23.0300, lng: 72.5800, radiusMeters: 300 },
-    'Oceanic Villas Block C Slab': { projectName: 'Oceanic Villas Block C Slab', lat: 23.0225, lng: 72.5714, radiusMeters: 200 }
+  useEffect(() => {
+    fetchSites();
+  }, []);
+
+  const fetchSites = async () => {
+    try {
+      const res = await getProjects();
+      if (res?.success && Array.isArray(res.projects) && res.projects.length > 0) {
+        setProjectsList(res.projects);
+        const first = res.projects[0];
+        setActiveSite(first.projectName || first.name || 'Central Office Tower');
+      }
+    } catch (e) {}
+  };
+
+  const currentProjObj = projectsList.find(p => (p.projectName || p.name) === activeSite) || (projectsList[0] || {});
+
+  const activeSiteConfig = {
+    projectName: activeSite,
+    lat: currentProjObj.latitude || 21.1702,
+    lng: currentProjObj.longitude || 72.8311,
+    radiusMeters: 200
   };
 
   const handleOpenCheckinModal = () => {
@@ -103,9 +122,15 @@ export default function Dashboard() {
             onChange={(e) => setActiveSite(e.target.value)}
             className="px-3 py-2 text-xs border border-slate-205 rounded-xl bg-white font-semibold text-slate-705"
           >
-            <option value="Smart City Mall Foundations">Smart City Mall Foundations</option>
-            <option value="Metro Station Tunnel Excavation">Metro Station Tunnel Excavation</option>
-            <option value="Oceanic Villas Block C Slab">Oceanic Villas Block C Slab</option>
+            {projectsList.length > 0 ? (
+              projectsList.map(p => (
+                <option key={p._id || p.id} value={p.projectName || p.name}>
+                  {p.projectName || p.name}
+                </option>
+              ))
+            ) : (
+              <option value="Central Office Tower">Central Office Tower</option>
+            )}
           </select>
         </div>
       </div>
@@ -238,7 +263,7 @@ export default function Dashboard() {
       <SiteLocationModal
         isOpen={isLocationModalOpen}
         onClose={() => setIsLocationModalOpen(false)}
-        activeSite={SITE_CONFIGS[activeSite] || SITE_CONFIGS['Smart City Mall Foundations']}
+        activeSite={activeSiteConfig}
         onConfirmPunchIn={handleConfirmPunchIn}
       />
 

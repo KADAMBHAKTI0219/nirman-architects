@@ -878,6 +878,12 @@ export default function ProjectDetails({
                 })}
               </div>
             )}
+
+            <DrawingCreateModal
+              isOpen={isUploadDrawingModalOpen}
+              onClose={() => setIsUploadDrawingModalOpen(false)}
+              onSubmit={handleUploadProjectDrawingSubmit}
+            />
           </div>
         )}
 
@@ -1251,132 +1257,7 @@ export default function ProjectDetails({
           </div>
         )}
 
-        {/* TASKS PANEL */}
-        {activeTab === 'tasks' && (
-          <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
-            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-              <div>
-                <h3 className="text-sm font-semibold text-slate-900">Project Action Items & Work Tasks</h3>
-                <p className="text-xs text-slate-500">Active tasks assigned across Architecture, Site Engineering, and MEP</p>
-              </div>
-            </div>
 
-            {Array.isArray(project.tasks) && project.tasks.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-normal">
-                {project.tasks.map((t, i) => (
-                  <div key={t._id || i} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 font-medium text-[9px] uppercase rounded">
-                        {t.department || t.dept || 'Engineering'}
-                      </span>
-                      <span className={`px-2 py-0.5 rounded text-[9px] font-medium uppercase ${
-                        t.priority === 'HIGH' || t.priority === 'Critical' ? 'bg-rose-50 text-rose-700' : 'bg-slate-100 text-slate-600'
-                      }`}>
-                        {t.priority || 'MEDIUM'}
-                      </span>
-                    </div>
-                    <span className="text-slate-900 block text-xs font-semibold">{t.title || t.name}</span>
-                    <div className="flex justify-between items-center text-[11px] text-slate-500 pt-2 border-t border-slate-200/60 font-normal">
-                      <span>Assigned: {t.assignedTo?.name || t.assignee || 'Unassigned'}</span>
-                      <span className="font-medium text-slate-700">{t.status || 'PENDING'}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-10 text-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-                <p className="text-xs font-normal">No active work tasks assigned to this project yet.</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* DRAWINGS & GFC PANEL */}
-        {activeTab === 'drawings' && (
-          <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
-            <div className="flex justify-between items-center pb-3 border-b border-slate-100 flex-wrap gap-2">
-              <div>
-                <h3 className="text-sm font-semibold text-slate-900">Project Drawings & GFC Blueprints</h3>
-                <p className="text-xs text-slate-500">Uploaded blueprints, version history, and client approval status</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setIsUploadDrawingModalOpen(true)}
-                  className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-semibold text-xs rounded-xl shadow-2xs transition-all border border-brand-secondary/40 flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Plus className="w-4 h-4 text-slate-900" /> Upload Blueprint
-                </button>
-              </div>
-            </div>
-
-            {loadingProjectDrawings ? (
-              <div className="py-10 text-center text-slate-400 text-xs font-medium">Loading project blueprints...</div>
-            ) : Array.isArray(projectDrawingsList) && projectDrawingsList.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-normal">
-                {projectDrawingsList.map((d, i) => {
-                  const titleStr = d.drawingName || d.title || d.name || d.code || `Drawing #${i + 1}`;
-                  const verStr = d.currentVersion ? `V${d.currentVersion}.0` : (d.version ? `V${d.version}` : 'V1.0');
-                  const catStr = d.categoryName || d.category || 'Working Drawings';
-                  const dateStr = formatDate(d.updatedAt || d.uploadedAt || d.createdAt);
-                  const isLocked = d.isGFCLocked || d.status === 'GFC Locked' || d.status === 'GFC_LOCKED';
-                  const isApproved = d.status === 'APPROVED' || d.status === 'Approved';
-
-                  return (
-                    <div key={d._id || d.id || i} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-3 hover:border-slate-300 transition-all">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-slate-900 font-bold text-xs block">{titleStr}</span>
-                          <span className="text-[9px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-extrabold">{catStr}</span>
-                        </div>
-                        <div className="flex gap-2 text-[10px] text-slate-500 font-mono">
-                          <span>Ver: {verStr}</span>
-                          <span>Date: {dateStr}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className={`px-2.5 py-1 rounded text-[9px] font-black uppercase ${
-                          isLocked ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' :
-                          isApproved ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                          'bg-amber-50 text-amber-700 border border-amber-200'
-                        }`}>
-                          {d.status || 'PENDING'}
-                        </span>
-                        {(d.fileUrl || d.filePath) && (
-                          <a
-                            href={d.fileUrl || d.filePath}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-[10px] font-bold rounded-xl"
-                          >
-                            View
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="py-10 text-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 space-y-2">
-                <FileText className="w-8 h-8 text-slate-300 mx-auto" />
-                <p className="text-xs font-normal">No drawing blueprints uploaded for this project yet.</p>
-                <button
-                  onClick={() => setIsUploadDrawingModalOpen(true)}
-                  className="px-4 py-2 bg-brand-primary text-slate-900 font-bold text-xs rounded-xl shadow-xs inline-flex items-center gap-1 cursor-pointer"
-                >
-                  + Upload First Blueprint
-                </button>
-              </div>
-            )}
-
-            <DrawingCreateModal
-              isOpen={isUploadDrawingModalOpen}
-              onClose={() => setIsUploadDrawingModalOpen(false)}
-              onSubmit={handleUploadProjectDrawingSubmit}
-            />
-          </div>
-        )}
 
         {/* TEAM MATRIX PANEL */}
         {activeTab === 'team' && (
@@ -1578,41 +1459,7 @@ export default function ProjectDetails({
                           </div>
 
                           <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                            <button
-                              onClick={() => {
-                                setSelectedAuditDoc(doc);
-                                setIsAuditLogModalOpen(true);
-                              }}
-                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-extrabold rounded-xl border border-slate-200 transition-all cursor-pointer"
-                              title="View DocumentAccessLog audit history for this file"
-                            >
-                              Audit Log
-                            </button>
-
-                            {(doc.filePath || doc.fileUrl) ? (
-                              <a
-                                href={doc.filePath || doc.fileUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={() => {
-                                  setSelectedAuditDoc(doc);
-                                  setIsAuditLogModalOpen(true);
-                                }}
-                                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold rounded-xl shadow-2xs transition-all"
-                              >
-                                View Document
-                              </a>
-                            ) : (
-                              <button
-                                onClick={() => {
-                                  setSelectedAuditDoc(doc);
-                                  setIsAuditLogModalOpen(true);
-                                }}
-                                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold rounded-xl shadow-2xs transition-all cursor-pointer"
-                              >
-                                View Document
-                              </button>
-                            )}
+                            {/* View Document and Audit Log buttons removed */}
                           </div>
                         </div>
                       );

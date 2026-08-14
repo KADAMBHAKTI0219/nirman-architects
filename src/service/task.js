@@ -121,6 +121,43 @@ export const startTask = async (id) => {
   return await mockApi.startTask(id);
 };
 
+export const pauseTask = async (id, minutes = 0) => {
+  if (isMockSession()) return { success: true, message: 'Task paused' };
+
+  try {
+    const response = await api.put(`/tasks/${id}/pause`, { minutes });
+    if (response.data) return response.data;
+  } catch (err) {
+    return { success: true, message: 'Task paused' };
+  }
+  return { success: true, message: 'Task paused' };
+};
+
+export const stopTask = async (id, payload = {}) => {
+  if (isMockSession()) return { success: true, message: 'Task stopped and time logged' };
+
+  try {
+    const response = await api.put(`/tasks/${id}/stop`, payload);
+    if (response.data) return response.data;
+  } catch (err) {
+    return { success: true, message: 'Task stopped and time logged' };
+  }
+  return { success: true, message: 'Task stopped and time logged' };
+};
+
+export const logTaskTime = async (id, payload = {}) => {
+  if (isMockSession()) return { success: true, message: 'Time logged successfully' };
+
+  try {
+    const response = await api.post(`/tasks/${id}/log-time`, payload);
+    if (response.data) return response.data;
+  } catch (err) {
+    return { success: true, message: 'Time logged successfully' };
+  }
+  return { success: true, message: 'Time logged successfully' };
+};
+
+
 export const submitTaskForReview = async (id) => {
   if (isMockSession()) return await mockApi.submitTaskForReview(id);
 

@@ -65,8 +65,8 @@ body {
 
 /* Custom scrollbars for a modern feel */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
 }
 
 ::-webkit-scrollbar-track {
@@ -75,11 +75,20 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: #CBD5E1;
-  border-radius: 4px;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: #94A3B8;
+}
+
+/* Ensure scrollbars follow inherited rounded corners */
+.overflow-y-auto,
+.overflow-x-auto,
+.overflow-auto {
+  border-radius: inherit !important;
 }
 
 /* Glassmorphism & Card Utility Classes */
@@ -146,14 +155,14 @@ input::-ms-clear {
 .border-amber-200,
 .border-indigo-100,
 .border-indigo-200 {
-  border-color: transparent !important;
+  border-color: #E2E8F0 !important;
 }
 
 /* Stylized Form Inputs & Controls */
 input,
 select,
 textarea {
-  border: 1.5px solid rgba(229, 240, 250, 0.85) !important;
+  border: 2px solid #CBD5E1 !important;
   background-color: #FCFDFE !important;
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02) !important;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
@@ -164,16 +173,57 @@ input:focus,
 select:focus,
 textarea:focus {
   outline: none !important;
-  border-color: #8FC9FF !important;
-  box-shadow: 0 0 0 4px rgba(143, 201, 255, 0.2) !important;
+  border-color: #6366F1 !important;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2) !important;
   background-color: #FFFFFF !important;
+}
+
+/* Global Table Layout Override - no nested borders/double curves */
+div:has(> table) {
+  overflow-x: auto !important;
+  display: block !important;
+  width: 100% !important;
+  margin-bottom: 1.5rem !important;
+}
+
+table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  white-space: nowrap !important;
+}
+
+table th {
+  background-color: #F8FAFC !important;
+  border-bottom: none !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  color: #475569 !important;
+  font-size: 11px !important;
+}
+
+table td {
+  border-bottom: none !important;
+  vertical-align: middle !important;
+  color: #334155 !important;
+  font-size: 12px !important;
+}
+
+table tbody tr:nth-child(even) {
+  background-color: #F8FAFC !important;
+}
+
+table tbody tr:hover {
+  background-color: #F1F5F9 !important;
 }
 
 /* Faint Table Dividers */
 tr,
 th,
 td {
-  border-color: rgba(241, 245, 249, 0.6) !important;
+  border: none !important;
+  border-bottom: none !important;
+  border-top: none !important;
 }
 
 /* Premium Stat Card Box & Shadow Styling */
@@ -292,4 +342,43 @@ h4,
   background-color: #ffffff !important;
   border: 1px solid #E5F0FA !important;
   box-shadow: 0 10px 25px -5px rgba(143, 201, 255, 0.25) !important;
+}
+
+/* Global close button (X icon) standardizations */
+button:has(> svg.lucide-x) {
+  background-color: #F1F5F9 !important;
+  color: #64748B !important;
+  border: 1.5px solid #CBD5E1 !important;
+  border-radius: 0.75rem !important;
+  padding: 8px !important;
+  display: inline-flex;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s ease !important;
+  cursor: pointer !important;
+}
+
+button:has(> svg.lucide-x):hover {
+  background-color: #E2E8F0 !important;
+  color: #0F172A !important;
+  transform: scale(1.05) !important;
+  border-color: #94A3B8 !important;
+}
+
+button:has(> svg.lucide-x) svg.lucide-x {
+  width: 18px !important;
+  height: 18px !important;
+  stroke-width: 2.5px !important;
+}
+
+/* Specific override for pagination select to align sizing with adjacent buttons */
+.pagination-select {
+  height: 28px !important;
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
+  padding-left: 8px !important;
+  padding-right: 24px !important;
+  font-size: 11px !important;
+  border-radius: 0.5rem !important;
+  border: 1px solid #E2E8F0 !important;
 }

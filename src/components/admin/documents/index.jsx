@@ -13,6 +13,7 @@ import {
   deleteDocument 
 } from '../../../service/document';
 import { getProjects } from '../../../service/project';
+import { ArrowLeft } from 'lucide-react';
 
 export default function AdminDocuments({ defaultTab = 'vault' }) {
   const [documents, setDocuments] = useState([]);
@@ -221,17 +222,18 @@ export default function AdminDocuments({ defaultTab = 'vault' }) {
       
       {viewReports ? (
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setViewReports(false)}
+              className="p-2 hover:bg-slate-100 text-slate-600 rounded-xl transition-all border border-slate-200 cursor-pointer flex items-center justify-center flex-shrink-0"
+              title="Back to Document Vault"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
             <div>
               <h2 className="text-xl font-black text-slate-905 tracking-tight">Storage Analytics Reports</h2>
               <p className="text-xs text-slate-400">Total data capacity ratios, file type distributions, and uploads over time</p>
             </div>
-            <button
-              onClick={() => setViewReports(false)}
-              className="px-4 py-2 border border-slate-205 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-3xs cursor-pointer"
-            >
-              Back to Document Vault
-            </button>
           </div>
           <DocumentReports documents={documents} />
         </div>

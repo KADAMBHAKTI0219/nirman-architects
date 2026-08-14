@@ -19,6 +19,7 @@ import {
   getLeadStatusHistory,
   convertToClientStub
 } from '../../../service/crm/lead';
+import { createClient } from '../../../service/crm/client';
 import { getUsersList } from '../../../service/auth';
 import useSEO from '../../../hooks/useSEO';
 import StatusBadge from '../../common/StatusBadge';
@@ -160,7 +161,7 @@ const getPriorityBadgeStyle = (priorityTag = '', status = '') => {
   return 'bg-slate-100 text-slate-700 border-slate-200';
 };
 
-export default function CRMLeadManagement({ userRole = 'Admin' }) {
+export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated }) {
   // Navigation & View state
   const [viewMode, setViewMode] = useState('pipeline'); // pipeline | list | due
   const [users, setUsers] = useState([]);
@@ -169,6 +170,86 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
   const [dueLeads, setDueLeads] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Converted/Won Client Modal States
+  const [showClientCreateModal, setShowClientCreateModal] = useState(false);
+  const [clientFormLead, setClientFormLead] = useState(null);
+  const [clientFormData, setClientFormData] = useState({
+    name: '',
+    companyName: '',
+    phone: '',
+    email: '',
+    primaryContactName: '',
+    primaryContactEmail: '',
+    primaryContactPhone: '',
+    billingAddress: '',
+    siteAddress: ''
+  });
+  const [clientFormSubmitting, setClientFormSubmitting] = useState(false);
+  const [clientFormError, setClientFormError] = useState('');
+  const [tempPasswordResult, setTempPasswordResult] = useState(null);
+
+  const triggerClientConversion = (lead) => {
+    setClientFormLead(lead);
+    setClientFormData({
+      name: lead.companyName || lead.company || lead.name || '',
+      companyName: lead.companyName || lead.company || lead.name || '',
+      phone: lead.phone || '',
+      email: lead.email || '',
+      primaryContactName: lead.name || '',
+      primaryContactEmail: lead.email || '',
+      primaryContactPhone: lead.phone || '',
+      billingAddress: lead.address || lead.location || '',
+      siteAddress: lead.address || lead.location || ''
+    });
+    setClientFormError('');
+    setTempPasswordResult(null);
+    setShowClientCreateModal(true);
+  };
+
+  const handleClientFormSubmit = async (e) => {
+    e.preventDefault();
+    if (!clientFormData.name.trim() || !clientFormData.primaryContactName.trim() || !clientFormData.primaryContactEmail.trim() || !clientFormData.phone.trim()) {
+      setClientFormError("Please fill out all required fields marked with an asterisk (*).");
+      return;
+    }
+    setClientFormSubmitting(true);
+    setClientFormError('');
+    try {
+      const res = await createClient({
+        name: clientFormData.name.trim(),
+        companyName: clientFormData.companyName.trim() || clientFormData.name.trim(),
+        phone: clientFormData.phone.trim(),
+        email: clientFormData.email.trim() || clientFormData.primaryContactEmail.trim(),
+        billingAddress: clientFormData.billingAddress.trim(),
+        siteAddress: clientFormData.siteAddress.trim(),
+        primaryContactName: clientFormData.primaryContactName.trim(),
+        primaryContactEmail: clientFormData.primaryContactEmail.trim(),
+        primaryContactPhone: clientFormData.primaryContactPhone.trim() || clientFormData.phone.trim()
+      });
+
+      if (res?.success) {
+        const leadId = clientFormLead._id || clientFormLead.id;
+        await updateLeadStatus(leadId, { newStatus: 'WON' });
+        
+        setTempPasswordResult({
+          clientName: res.client?.name || clientFormData.name,
+          primaryContactEmail: res.primaryContact?.email || clientFormData.primaryContactEmail,
+          tempPassword: res.primaryContact?.temporaryPassword || 'N/A',
+          clientObj: res.client
+        });
+
+        fetchData();
+        setSelectedLead(null);
+      } else {
+        setClientFormError(res?.message || 'Failed to register client account.');
+      }
+    } catch (err) {
+      setClientFormError(err.message || 'Error converting lead to client.');
+    } finally {
+      setClientFormSubmitting(false);
+    }
+  };
 
   // Screen width responsive detection (Mobile < 768px: max 2 open, 5 closed; Desktop: max 5 open, 2 closed)
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
@@ -251,6 +332,23 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
   const [createDuplicateWarning, setCreateDuplicateWarning] = useState(null);
   const [createLoading, setCreateLoading] = useState(false);
 
+  // Edit Lead States
+  const [isEditingLead, setIsEditingLead] = useState(false);
+  const [editLeadForm, setEditLeadForm] = useState({
+    id: '',
+    name: '',
+    phone: '',
+    email: '',
+    source: 'Website',
+    requirementNotes: '',
+    assignedTo: '',
+    nextFollowUpDate: '',
+    projectType: 'Residential Project',
+    amount: '1800000',
+    priorityTag: 'Hot Lead'
+  });
+  const [editLoading, setEditLoading] = useState(false);
+
   // Interaction log form
   const [interactionForm, setInteractionForm] = useState({ type: 'Call', notes: '' });
   const [interactionSubmitting, setInteractionSubmitting] = useState(false);
@@ -282,6 +380,18 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
     }
   };
 
+  const normalizeStatusKey = (status = 'NEW') => {
+    const raw = String(status).toUpperCase();
+    if (raw.includes('WON')) return 'WON';
+    if (raw.includes('LOST')) return 'LOST';
+    if (raw.includes('NEW')) return 'NEW';
+    if (raw.includes('CONTACT')) return 'CONTACTED';
+    if (raw.includes('QUALIF')) return 'QUALIFIED';
+    if (raw.includes('PROPOS')) return 'PROPOSAL_SENT';
+    if (raw.includes('NEGOTI')) return 'NEGOTIATION';
+    return 'NEW';
+  };
+
   const fetchData = async () => {
     setLoading(true);
     setError('');
@@ -293,18 +403,25 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
           assignedTo: ownerFilter
         });
         if (res?.success) {
+          const grouped = {};
+          ALL_STATUSES.forEach(st => { grouped[st] = []; });
+          
           if (res.pipeline && typeof res.pipeline === 'object' && Object.keys(res.pipeline).length > 0) {
-            setPipelineData(res.pipeline);
-          } else if (Array.isArray(res.leads)) {
-            const grouped = {};
-            ALL_STATUSES.forEach(st => { grouped[st] = []; });
-            res.leads.forEach(l => {
-              const statusKey = (l.status || 'NEW').toUpperCase();
-              if (!grouped[statusKey]) grouped[statusKey] = [];
-              grouped[statusKey].push(l);
+            Object.keys(res.pipeline).forEach(rawKey => {
+              const normalized = normalizeStatusKey(rawKey);
+              if (Array.isArray(res.pipeline[rawKey])) {
+                grouped[normalized] = [...(grouped[normalized] || []), ...res.pipeline[rawKey]];
+              }
             });
-            setPipelineData(grouped);
+          } else if (Array.isArray(res.leads)) {
+            res.leads.forEach(l => {
+              const normalized = normalizeStatusKey(l.status);
+              if (grouped[normalized]) {
+                grouped[normalized].push(l);
+              }
+            });
           }
+          setPipelineData(grouped);
         }
       } else if (viewMode === 'list') {
         const res = await getLeads({
@@ -449,6 +566,12 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
       return;
     }
 
+    if (targetStatus === 'WON') {
+      triggerClientConversion(draggedLead);
+      setDraggedLead(null);
+      return;
+    }
+
     // Optimistically update pipelineData state immediately
     setPipelineData(prev => {
       const updated = { ...prev };
@@ -579,9 +702,68 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
     }
   };
 
+  const handleEnterEditMode = (lead) => {
+    if (!lead) return;
+    const assignedId = lead.assignedTo?._id || lead.assignedTo?.id || lead.assignedTo || '';
+    setEditLeadForm({
+      id: lead._id || lead.id,
+      name: lead.name || '',
+      phone: lead.phone || '',
+      email: lead.email || '',
+      source: lead.source || 'Website',
+      requirementNotes: lead.requirementNotes || '',
+      assignedTo: assignedId,
+      nextFollowUpDate: lead.nextFollowUpDate ? new Date(lead.nextFollowUpDate).toISOString().split('T')[0] : '',
+      projectType: lead.projectType || 'Residential Project',
+      amount: lead.amount || '1800000',
+      priorityTag: lead.priorityTag || 'Hot Lead'
+    });
+    setIsEditingLead(true);
+  };
+
+  const handleEditFromOuter = async (lead) => {
+    if (!lead) return;
+    await handleOpenLeadDetails(lead._id || lead.id);
+    handleEnterEditMode(lead);
+  };
+
+  const handleEditSubmit = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setEditLoading(true);
+    try {
+      const payload = {
+        name: editLeadForm.name,
+        phone: editLeadForm.phone,
+        email: editLeadForm.email,
+        source: editLeadForm.source,
+        requirementNotes: editLeadForm.requirementNotes,
+        assignedTo: editLeadForm.assignedTo,
+        nextFollowUpDate: editLeadForm.nextFollowUpDate,
+        projectType: editLeadForm.projectType,
+        amount: editLeadForm.amount,
+        priorityTag: editLeadForm.priorityTag
+      };
+      const res = await updateLead(editLeadForm.id, payload);
+      if (res?.success) {
+        setIsEditingLead(false);
+        fetchData();
+        if (selectedLead && (selectedLead._id === editLeadForm.id || selectedLead.id === editLeadForm.id)) {
+          handleOpenLeadDetails(editLeadForm.id);
+        }
+      } else {
+        alert(res?.message || 'Failed to update lead.');
+      }
+    } catch (err) {
+      alert(err.message || 'Error updating lead.');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   const handleOpenLeadDetails = async (leadId) => {
     setDetailsLoading(true);
     setSelectedLead(null);
+    setIsEditingLead(false);
     setActiveCardMenuId(null);
     try {
       const [detailsRes, interRes, histRes] = await Promise.all([
@@ -654,6 +836,12 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
     e.preventDefault();
     if (!selectedLead || !targetStatus) return;
 
+    if (targetStatus === 'WON') {
+      setStatusChangeModal(false);
+      triggerClientConversion(selectedLead);
+      return;
+    }
+
     if (targetStatus === 'LOST' && !lostReasonText.trim()) {
       alert('A lost reason is mandatory when marking a lead as LOST.');
       return;
@@ -685,24 +873,25 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
 
   const handleConvertToClient = async () => {
     if (!selectedLead) return;
-    if (!window.confirm(`Convert lead "${selectedLead.name}" to WON status & queue for Client Master creation?`)) return;
-
-    try {
-      const res = await convertToClientStub(selectedLead._id || selectedLead.id);
-      if (res?.success) {
-        alert(res.message);
-        handleOpenLeadDetails(selectedLead._id || selectedLead.id);
-        fetchData();
-      } else {
-        alert(res?.message || 'Failed to convert lead.');
-      }
-    } catch (err) {
-      alert(err.message || 'Error converting lead.');
-    }
+    triggerClientConversion(selectedLead);
   };
 
   const handleQuickStatusChange = async (leadId, newStatus) => {
     setActiveCardMenuId(null);
+    if (newStatus === 'WON') {
+      // Find lead in pipelineData or dueLeads
+      let lead = leads.find(l => (l._id || l.id) === leadId);
+      if (!lead && pipelineData) {
+        Object.keys(pipelineData).forEach(st => {
+          const found = pipelineData[st].find(l => (l._id || l.id) === leadId);
+          if (found) lead = found;
+        });
+      }
+      if (lead) {
+        triggerClientConversion(lead);
+        return;
+      }
+    }
     try {
       const res = await updateLeadStatus(leadId, { newStatus });
       if (res?.success) {
@@ -923,53 +1112,15 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
         </div>
       )}
 
-      {/* 4. VIEW 1: KANBAN PIPELINE BOARD (100% RESPONSIVE - ZERO HORIZONTAL SCROLL ON MOBILE AND DESKTOP) */}
+      {/* 4. VIEW 1: KANBAN PIPELINE BOARD (HORIZONTAL SCROLLABLE - ALL COLUMNS VISIBLE) */}
       {viewMode === 'pipeline' && (
-        <div className="w-full flex gap-1 sm:gap-3.5 items-start overflow-x-auto overflow-y-visible p-1 sm:p-2 pb-4 min-h-[550px] sm:min-h-[620px]">
+        <div className="w-full flex gap-4 items-start overflow-x-auto p-1 pb-6 min-h-[580px] font-sans scrollbar-thin">
           {ALL_STATUSES.map(statusKey => {
-            const isOpen = openStatuses.includes(statusKey);
             const rawLeads = pipelineData[statusKey] || [];
             const filteredLeads = filterAndSortCards(rawLeads);
             const cfg = STATUS_CONFIG[statusKey] || STATUS_CONFIG.NEW;
             const isDropTarget = dragOverStatus === statusKey;
 
-            if (!isOpen) {
-              {/* Collapsed Column Ribbon */}
-              return (
-                <div
-                  key={statusKey}
-                  data-status-key={statusKey}
-                  onClick={() => toggleStatusColumn(statusKey)}
-                  className="bg-slate-100/90 border border-slate-200 hover:border-slate-300 p-1 sm:p-2 rounded-2xl flex flex-col items-center justify-between w-7 sm:w-11 min-h-[520px] sm:min-h-[580px] cursor-pointer transition-all hover:bg-slate-200/70 group flex-shrink-0 shadow-2xs"
-                  title={`Click to open ${cfg.label} column`}
-                >
-                  <div className="flex flex-col items-center gap-1 sm:gap-2">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); toggleStatusColumn(statusKey); }}
-                      className="p-0.5 sm:p-1 rounded-xl bg-white shadow-2xs text-slate-600 hover:text-indigo-600"
-                    >
-                      <Eye className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                    </button>
-                    <span className={`px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[10px] font-black ${cfg.badgeBg}`}>
-                      {filteredLeads.length}
-                    </span>
-                  </div>
-
-                  <div
-                    style={{ writingMode: 'vertical-rl' }}
-                    className="rotate-180 font-black text-[9px] sm:text-xs text-slate-600 tracking-wider uppercase my-auto py-2 sm:py-4 group-hover:text-indigo-600 transition-colors whitespace-nowrap"
-                  >
-                    {cfg.label}
-                  </div>
-
-                  <div className="p-0.5 sm:p-1 text-slate-400 group-hover:text-slate-700">
-                    <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                  </div>
-                </div>
-              );
-            }
-
-            {/* Open Kanban Column */}
             return (
               <div
                 key={statusKey}
@@ -977,41 +1128,34 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
                 onDragOver={(e) => handleDragOver(e, statusKey)}
                 onDragLeave={(e) => handleDragLeave(e, statusKey)}
                 onDrop={(e) => handleDrop(e, statusKey)}
-                className={`flex-1 min-w-0 max-w-full sm:max-w-[340px] ${cfg.columnBg} p-2 sm:p-3.5 rounded-2xl border flex flex-col min-h-[520px] sm:min-h-[580px] space-y-2 sm:space-y-3 transition-all ${
+                className={`w-[320px] min-w-[320px] shrink-0 ${cfg.columnBg} p-3.5 rounded-2xl border flex flex-col min-h-[580px] space-y-3 transition-all ${
                   isDropTarget ? 'ring-2 ring-indigo-500 bg-indigo-50/70 border-indigo-300 scale-[1.01]' : ''
                 }`}
               >
                 {/* Column Header */}
-                <div className="flex items-center justify-between px-0.5 sm:px-1 py-0.5">
-                  <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 flex-1">
-                    <span className={`font-black text-[11px] sm:text-sm truncate ${cfg.headerText}`}>
+                <div className="flex items-center justify-between px-1 py-0.5">
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                    <span className={`font-black text-xs uppercase tracking-wider truncate ${cfg.headerText}`}>
                       {cfg.label}
                     </span>
                     <button
                       onClick={() => handleOpenCreateModal(statusKey)}
-                      className={`p-0.5 sm:p-1 rounded-lg text-xs font-bold transition-all ${cfg.addBtnColor} cursor-pointer flex-shrink-0`}
+                      className={`p-1 rounded-lg text-xs font-bold transition-all ${cfg.addBtnColor} cursor-pointer flex-shrink-0`}
                       title={`Add new ${cfg.label}`}
                     >
-                      <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                      <Plus className="w-3.5 h-3.5" />
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
-                    <span className={`px-1.5 sm:px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-extrabold ${cfg.badgeBg}`}>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <span className={`px-2 py-0.5 rounded-md text-xs font-extrabold ${cfg.badgeBg}`}>
                       {filteredLeads.length}
                     </span>
-                    <button
-                      onClick={() => toggleStatusColumn(statusKey)}
-                      className="p-0.5 sm:p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-md transition-colors"
-                      title="Minimize column"
-                    >
-                      <EyeOff className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                    </button>
                   </div>
                 </div>
 
                 {/* Lead Cards List */}
-                <div className="space-y-2 sm:space-y-3 flex-1 overflow-y-auto pr-0.5">
+                <div className="space-y-2 sm:space-y-3 flex-1 overflow-y-auto pt-2.5 pb-2 px-1">
                   {filteredLeads.length > 0 ? (
                     filteredLeads.map(lead => {
                       const avatarBg = getAvatarColor(lead.name);
@@ -1073,6 +1217,15 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
                                     className="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2 text-slate-700 font-bold"
                                   >
                                     <Eye className="w-3.5 h-3.5 text-indigo-500" /> View Profile
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setActiveCardMenuId(null);
+                                      handleEditFromOuter(lead);
+                                    }}
+                                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2 text-slate-700 font-bold"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5 text-amber-500" /> Edit Profile
                                   </button>
                                   <a
                                     href={`tel:${lead.phone}`}
@@ -1156,19 +1309,19 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
       {viewMode === 'list' && (
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full text-center text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50 text-slate-500 uppercase tracking-wider font-extrabold border-b border-slate-200 text-[10px]">
-                  <th className="py-3.5 px-5">Lead & Initials</th>
-                  <th className="py-3.5 px-5">Project & Contact</th>
-                  <th className="py-3.5 px-5">Est. Budget</th>
-                  <th className="py-3.5 px-5">Source</th>
-                  <th className="py-3.5 px-5">Assigned Owner</th>
-                  <th className="py-3.5 px-5">Lifecycle Status</th>
-                  <th className="py-3.5 px-5 text-right">Action</th>
+                <tr className="bg-slate-50 text-slate-505 uppercase tracking-wider font-extrabold border-b border-slate-200 text-[10px]">
+                  <th className="py-3.5 px-5 text-left pl-8">Lead & Initials</th>
+                  <th className="py-3.5 px-5 text-center">Project & Contact</th>
+                  <th className="py-3.5 px-5 text-center">Est. Budget</th>
+                  <th className="py-3.5 px-5 text-center">Source</th>
+                  <th className="py-3.5 px-5 text-center">Assigned Owner</th>
+                  <th className="py-3.5 px-5 text-center">Lifecycle Status</th>
+                  <th className="py-3.5 px-5 text-center">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
+              <tbody className="divide-y divide-slate-100 text-slate-705">
                 {leads.length > 0 ? (
                   leads.map(lead => {
                     const cfg = STATUS_CONFIG[lead.status] || STATUS_CONFIG.NEW;
@@ -1177,7 +1330,7 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
 
                     return (
                       <tr key={lead._id || lead.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-3.5 px-5">
+                        <td className="py-3.5 px-5 text-left pl-8">
                           <div className="flex items-center gap-3">
                             <div className={`w-9 h-9 rounded-full font-extrabold text-xs flex items-center justify-center border ${avatarBg}`}>
                               {initials}
@@ -1188,33 +1341,43 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
                             </div>
                           </div>
                         </td>
-                        <td className="py-3.5 px-5 space-y-0.5">
+                        <td className="py-3.5 px-5 text-center space-y-0.5">
                           <div className="font-bold text-slate-800">{lead.projectType || 'Architectural Project'}</div>
                           <div className="font-mono text-slate-500 text-[11px]">{lead.phone}</div>
                         </td>
-                        <td className="py-3.5 px-5 font-extrabold text-slate-900">
+                        <td className="py-3.5 px-5 text-center font-extrabold text-slate-900">
                           {formatCurrency(lead.amount)}
                         </td>
-                        <td className="py-3.5 px-5 font-semibold text-slate-600">
+                        <td className="py-3.5 px-5 text-center font-semibold text-slate-600">
                           <span className="px-2 py-0.5 bg-slate-100 rounded-md text-[11px]">
                             {lead.source || 'Website'}
                           </span>
                         </td>
-                        <td className="py-3.5 px-5 font-bold text-slate-800">
+                        <td className="py-3.5 px-5 text-center font-bold text-slate-800">
                           {lead.assignedTo?.name || 'Bhakti'}
                         </td>
-                        <td className="py-3.5 px-5">
+                        <td className="py-3.5 px-5 text-center">
                           <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${cfg.color}`}>
                             {cfg.label}
                           </span>
                         </td>
-                        <td className="py-3.5 px-5 text-right">
-                          <button
-                            onClick={() => handleOpenLeadDetails(lead._id || lead.id)}
-                            className="px-3.5 py-1.5 bg-brand-soft hover:bg-brand-primary text-slate-900 border border-brand-secondary/40 font-extrabold rounded-xl transition-all text-xs cursor-pointer shadow-3xs"
-                          >
-                            View Details
-                          </button>
+                        <td className="py-3.5 px-5 text-center">
+                          <div className="flex justify-center gap-1.5">
+                            <button
+                              onClick={() => handleOpenLeadDetails(lead._id || lead.id)}
+                              className="p-1.5 bg-brand-soft hover:bg-brand-primary text-slate-900 border border-brand-secondary/40 font-extrabold rounded-xl transition-all text-xs cursor-pointer shadow-3xs inline-flex items-center justify-center"
+                              title="View Details"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleEditFromOuter(lead)}
+                              className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-250/50 font-extrabold rounded-xl transition-all text-xs cursor-pointer shadow-3xs inline-flex items-center justify-center"
+                              title="Edit Lead Profile"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1584,7 +1747,7 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
       {selectedLead && (
         <div 
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-end z-50 animate-in fade-in duration-200"
-          onClick={() => setSelectedLead(null)}
+          onClick={() => { setSelectedLead(null); setIsEditingLead(false); }}
         >
           <div 
             className="bg-white w-full max-w-2xl h-full shadow-2xl overflow-y-auto p-6 space-y-6 flex flex-col justify-between font-sans transform transition-all duration-300 ease-out animate-in slide-in-from-right"
@@ -1601,16 +1764,41 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">Lead Profile</span>
-                      <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[9px] font-bold rounded-md border border-slate-200">
-                        Source: {selectedLead.source || 'Direct'}
-                      </span>
+                      {isEditingLead ? (
+                        <select
+                          value={editLeadForm.source}
+                          onChange={(e) => setEditLeadForm(prev => ({ ...prev, source: e.target.value }))}
+                          className="px-2 py-0.5 border border-slate-300 rounded-md bg-white text-slate-805 text-[10px] font-bold focus:outline-none cursor-pointer"
+                        >
+                          <option value="Google">Google Search</option>
+                          <option value="Reference">Reference</option>
+                          <option value="Social Media">Social Media</option>
+                          <option value="Website">Website</option>
+                          <option value="Walk-in">Walk-in</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[9px] font-bold rounded-md border border-slate-200">
+                          Source: {selectedLead.source || 'Direct'}
+                        </span>
+                      )}
                     </div>
-                    <h2 className="text-xl font-black text-slate-900 tracking-tight leading-tight">{selectedLead.name}</h2>
+                    {isEditingLead ? (
+                      <input
+                        type="text"
+                        required
+                        value={editLeadForm.name}
+                        onChange={(e) => setEditLeadForm(prev => ({ ...prev, name: e.target.value }))}
+                        className="px-3.5 py-1.5 border-2 border-slate-300 rounded-xl bg-white text-slate-900 font-extrabold focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-sm w-full mt-1"
+                      />
+                    ) : (
+                      <h2 className="text-xl font-black text-slate-900 tracking-tight leading-tight mt-0.5">{selectedLead.name}</h2>
+                    )}
                   </div>
                 </div>
                 <button 
-                  onClick={() => setSelectedLead(null)} 
-                  className="w-9 h-9 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-all cursor-pointer shadow-3xs"
+                  onClick={() => { setSelectedLead(null); setIsEditingLead(false); }} 
+                  className="w-9 h-9 rounded-2xl bg-slate-55 hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-all cursor-pointer shadow-3xs"
                   title="Close Profile"
                 >
                   <X className="w-5 h-5 stroke-[2.5]" />
@@ -1628,19 +1816,47 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => { setTargetStatus(selectedLead.status || 'QUALIFIED'); setStatusChangeModal(true); }}
-                      className="px-3.5 py-2 bg-brand-soft hover:bg-brand-primary text-slate-900 font-extrabold text-xs rounded-xl border border-brand-secondary/40 transition-all shadow-3xs cursor-pointer"
-                    >
-                      Change Status
-                    </button>
-                    <button
-                      onClick={handleConvertToClient}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Award className="w-4 h-4 text-white" />
-                      <span>Convert to Client (WON)</span>
-                    </button>
+                    {isEditingLead ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={handleEditSubmit}
+                          disabled={editLoading}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          {editLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                          <span>Save</span>
+                        </button>
+                        <button
+                          onClick={() => setIsEditingLead(false)}
+                          className="px-3.5 py-2 bg-slate-105 hover:bg-slate-200 text-slate-700 font-extrabold text-xs rounded-xl border border-slate-200 transition-all shadow-3xs cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleEnterEditMode(selectedLead)}
+                          className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 font-extrabold text-xs rounded-xl border border-amber-200 transition-all shadow-3xs cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Edit Profile</span>
+                        </button>
+                        <button
+                          onClick={() => { setTargetStatus(selectedLead.status || 'QUALIFIED'); setStatusChangeModal(true); }}
+                          className="px-3.5 py-2 bg-brand-soft hover:bg-brand-primary text-slate-905 border border-brand-secondary/40 font-extrabold text-xs rounded-xl transition-all shadow-3xs cursor-pointer"
+                        >
+                          Change Status
+                        </button>
+                        <button
+                          onClick={handleConvertToClient}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Award className="w-4 h-4 text-white" />
+                          <span>Convert to Client (WON)</span>
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -1652,29 +1868,40 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
                       <span>Next Scheduled Follow-Up Date</span>
                     </span>
                     <div className="flex items-center gap-2">
-                      {selectedLead.nextFollowUpDate ? (
-                        <span className="text-xs font-extrabold text-slate-900">
-                          {new Date(selectedLead.nextFollowUpDate).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
-                        </span>
+                      {isEditingLead ? (
+                        <input
+                          type="date"
+                          value={editLeadForm.nextFollowUpDate}
+                          onChange={(e) => setEditLeadForm(prev => ({ ...prev, nextFollowUpDate: e.target.value }))}
+                          className="px-3 py-1 border-2 border-slate-300 rounded-xl bg-white text-xs font-bold text-slate-805 focus:outline-none"
+                        />
                       ) : (
-                        <span className="text-xs font-semibold text-slate-400 italic">No follow-up date scheduled</span>
-                      )}
+                        <>
+                          {selectedLead.nextFollowUpDate ? (
+                            <span className="text-xs font-extrabold text-slate-900">
+                              {new Date(selectedLead.nextFollowUpDate).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+                            </span>
+                          ) : (
+                            <span className="text-xs font-semibold text-slate-400 italic">No follow-up date scheduled</span>
+                          )}
 
-                      {(() => {
-                        if (!selectedLead.nextFollowUpDate) return null;
-                        const target = new Date(selectedLead.nextFollowUpDate);
-                        const today = new Date();
-                        today.setHours(0,0,0,0);
-                        target.setHours(0,0,0,0);
-                        const diffDays = Math.ceil((target - today) / (1000 * 60 * 60 * 24));
-                        if (diffDays < 0) {
-                          return <span className="px-2 py-0.5 bg-rose-100 text-rose-800 border border-rose-300 text-[9px] font-black rounded-md">Overdue ({Math.abs(diffDays)} days)</span>;
-                        } else if (diffDays === 0) {
-                          return <span className="px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-black rounded-md animate-pulse">Due Today</span>;
-                        } else {
-                          return <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 text-[9px] font-black rounded-md">Due in {diffDays} days</span>;
-                        }
-                      })()}
+                          {(() => {
+                            if (!selectedLead.nextFollowUpDate) return null;
+                            const target = new Date(selectedLead.nextFollowUpDate);
+                            const today = new Date();
+                            today.setHours(0,0,0,0);
+                            target.setHours(0,0,0,0);
+                            const diffDays = Math.ceil((target - today) / (1000 * 60 * 60 * 24));
+                            if (diffDays < 0) {
+                              return <span className="px-2 py-0.5 bg-rose-100 text-rose-800 border border-rose-300 text-[9px] font-black rounded-md">Overdue ({Math.abs(diffDays)} days)</span>;
+                            } else if (diffDays === 0) {
+                              return <span className="px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-black rounded-md animate-pulse">Due Today</span>;
+                            } else {
+                              return <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 text-[9px] font-black rounded-md">Due in {diffDays} days</span>;
+                            }
+                          })()}
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1682,34 +1909,144 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
 
               {/* Lead Details Grid Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-semibold">
+                {/* Card 1: Contact & Owner Info */}
                 <div className="p-4 bg-slate-50/90 rounded-2xl border border-slate-200/80 space-y-2 shadow-3xs">
-                  <span className="text-slate-400 font-black text-[10px] uppercase tracking-widest block">Contact Information</span>
-                  <div className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
-                    <Phone className="w-3.5 h-3.5 text-indigo-600" />
-                    <a href={`tel:${selectedLead.phone}`} className="hover:underline text-slate-900">{selectedLead.phone}</a>
-                  </div>
-                  <div className="text-slate-600 font-medium flex items-center gap-2 truncate">
-                    <Mail className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" />
-                    <a href={`mailto:${selectedLead.email}`} className="truncate hover:underline text-slate-700">{selectedLead.email || 'No email provided'}</a>
-                  </div>
+                  <span className="text-slate-400 font-black text-[10px] uppercase tracking-widest block">Contact & Owner Info</span>
+                  {isEditingLead ? (
+                    <div className="space-y-2.5 pt-1">
+                      <div>
+                        <label className="block text-[9px] font-bold text-slate-505 uppercase tracking-wider mb-0.5">Phone Number</label>
+                        <input
+                          type="text"
+                          required
+                          value={editLeadForm.phone}
+                          onChange={(e) => setEditLeadForm(prev => ({ ...prev, phone: e.target.value }))}
+                          className="w-full px-2.5 py-1.5 border-2 border-slate-305 rounded-xl bg-white text-slate-905 font-mono font-bold focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-bold text-slate-505 uppercase tracking-wider mb-0.5">Email Address</label>
+                        <input
+                          type="email"
+                          value={editLeadForm.email}
+                          onChange={(e) => setEditLeadForm(prev => ({ ...prev, email: e.target.value }))}
+                          className="w-full px-2.5 py-1.5 border-2 border-slate-305 rounded-xl bg-white text-slate-900 font-semibold focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-bold text-slate-505 uppercase tracking-wider mb-0.5">Rep Owner</label>
+                        <select
+                          value={editLeadForm.assignedTo}
+                          onChange={(e) => setEditLeadForm(prev => ({ ...prev, assignedTo: e.target.value }))}
+                          className="w-full px-2.5 py-1.5 border-2 border-slate-305 rounded-xl bg-white text-slate-900 font-bold focus:outline-none cursor-pointer"
+                        >
+                          <option value="">Unassigned (General Pool)</option>
+                          {users.map(u => {
+                            const roleDisplay = typeof u.role === 'object' ? (u.role?.roleName || u.role?.roleCode || u.role?.name || 'Staff') : (u.roleId?.roleName || u.role || u.designation || 'Staff');
+                            return (
+                              <option key={u._id || u.id} value={u._id || u.id}>
+                                {u.name} ({roleDisplay})
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+                        <Phone className="w-3.5 h-3.5 text-indigo-600" />
+                        <a href={`tel:${selectedLead.phone}`} className="hover:underline text-slate-900">{selectedLead.phone}</a>
+                      </div>
+                      <div className="text-slate-600 font-medium flex items-center gap-2 truncate">
+                        <Mail className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" />
+                        <a href={`mailto:${selectedLead.email}`} className="truncate hover:underline text-slate-700">{selectedLead.email || 'No email provided'}</a>
+                      </div>
+                      <div className="text-[11px] text-slate-500 font-bold pt-1 border-t border-slate-200/50 flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Owner: {selectedLead.assignedTo?.name || 'Bhakti'}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
 
+                {/* Card 2: Project & Estimated Value */}
                 <div className="p-4 bg-slate-50/90 rounded-2xl border border-slate-200/80 space-y-2 shadow-3xs">
                   <span className="text-slate-400 font-black text-[10px] uppercase tracking-widest block">Project & Estimated Value</span>
-                  <div className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
-                    <Building className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>{selectedLead.projectType || 'Residential Project'}</span>
-                  </div>
-                  <div className="text-emerald-700 font-black text-sm">
-                    {formatCurrency(selectedLead.amount)}
-                  </div>
+                  {isEditingLead ? (
+                    <div className="space-y-2.5 pt-1">
+                      <div>
+                        <label className="block text-[9px] font-bold text-slate-505 uppercase tracking-wider mb-0.5">Project Type</label>
+                        <select
+                          value={editLeadForm.projectType}
+                          onChange={(e) => setEditLeadForm(prev => ({ ...prev, projectType: e.target.value }))}
+                          className="w-full px-2.5 py-1.5 border-2 border-slate-305 rounded-xl bg-white text-slate-900 font-bold focus:outline-none cursor-pointer"
+                        >
+                          <option value="Residential Project">Residential Project</option>
+                          <option value="Commercial Design">Commercial Design</option>
+                          <option value="Interior Walkthrough">Interior Walkthrough</option>
+                          <option value="Landscape Design">Landscape Design</option>
+                          <option value="Urban Planning">Urban Planning</option>
+                          <option value="Valuation/Liaison">Valuation / Liaison</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-bold text-slate-505 uppercase tracking-wider mb-0.5">Estimated Value (INR)</label>
+                        <input
+                          type="number"
+                          value={editLeadForm.amount}
+                          onChange={(e) => setEditLeadForm(prev => ({ ...prev, amount: e.target.value }))}
+                          className="w-full px-2.5 py-1.5 border-2 border-slate-305 rounded-xl bg-white text-slate-900 font-semibold focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-bold text-slate-505 uppercase tracking-wider mb-0.5">Priority Tag</label>
+                        <select
+                          value={editLeadForm.priorityTag}
+                          onChange={(e) => setEditLeadForm(prev => ({ ...prev, priorityTag: e.target.value }))}
+                          className="w-full px-2.5 py-1.5 border-2 border-slate-305 rounded-xl bg-white text-slate-900 font-bold focus:outline-none cursor-pointer"
+                        >
+                          <option value="Hot Lead">🔥 Hot Lead</option>
+                          <option value="High Priority">⚡ High Priority</option>
+                          <option value="Warm Lead">✨ Warm Lead</option>
+                          <option value="Cold Lead">❄️ Cold Lead</option>
+                          <option value="Interested">👍 Interested</option>
+                        </select>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+                        <Building className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>{selectedLead.projectType || 'Residential Project'}</span>
+                      </div>
+                      <div className="text-emerald-700 font-black text-sm flex items-center justify-between">
+                        <span>{formatCurrency(selectedLead.amount)}</span>
+                        {selectedLead.priorityTag && (
+                          <span className="px-2 py-0.5 bg-brand-soft text-[9px] text-brand-dark rounded-md border border-brand-secondary/30">
+                            {selectedLead.priorityTag}
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
               {/* Requirement Notes Panel */}
               <div className="p-4 bg-brand-soft/70 rounded-2xl border border-brand-secondary/30 text-xs space-y-1 shadow-3xs">
                 <span className="font-black text-slate-900 text-[10px] uppercase tracking-widest block">Requirement Notes & Client Preferences</span>
-                <p className="text-slate-700 leading-relaxed font-semibold">{selectedLead.requirementNotes || 'No specific notes recorded.'}</p>
+                {isEditingLead ? (
+                  <textarea
+                    rows="3"
+                    value={editLeadForm.requirementNotes}
+                    onChange={(e) => setEditLeadForm(prev => ({ ...prev, requirementNotes: e.target.value }))}
+                    className="w-full px-3 py-2 border-2 border-slate-305 rounded-xl bg-white text-slate-900 font-semibold focus:outline-none"
+                    placeholder="Describe design preferences, styling choices, requirements..."
+                  />
+                ) : (
+                  <p className="text-slate-700 leading-relaxed font-semibold">{selectedLead.requirementNotes || 'No specific notes recorded.'}</p>
+                )}
               </div>
 
               {/* Log Touchpoint Interaction & Schedule Follow-Up Form */}
@@ -2179,6 +2516,223 @@ export default function CRMLeadManagement({ userRole = 'Admin' }) {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 12. CLIENT CONVERSION FORM MODAL (WON LEAD ACTION) */}
+      {showClientCreateModal && clientFormLead && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-[99999] animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto text-xs text-left">
+            
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-lg font-black text-slate-900">Create Client Account</h3>
+                <p className="text-[10px] text-slate-500">
+                  Pre-filled from converted lead inquiry details
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowClientCreateModal(false)}
+                className="text-slate-400 hover:text-slate-650 p-1.5 rounded-xl hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {clientFormError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-[11px] font-bold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{clientFormError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleClientFormSubmit} className="space-y-4 font-medium text-slate-700">
+              
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-3">
+                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-wider block">
+                  1. Client Account Master Details
+                </span>
+
+                <div>
+                  <label className="block text-slate-750 font-bold mb-1">Company / Account Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Wayne Enterprises"
+                    value={clientFormData.name}
+                    onChange={(e) => setClientFormData(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-slate-900 font-semibold"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-750 font-bold mb-1">Legal Company Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Wayne Enterprises Ltd."
+                      value={clientFormData.companyName}
+                      onChange={(e) => setClientFormData(prev => ({ ...prev, companyName: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-slate-900 font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-750 font-bold mb-1">Company Phone * (10 Digits)</label>
+                    <input
+                      type="tel"
+                      required
+                      maxLength={10}
+                      placeholder="9876543210"
+                      value={clientFormData.phone}
+                      onChange={(e) => setClientFormData(prev => ({ ...prev, phone: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-slate-900 font-mono font-semibold"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-750 font-bold mb-1">Company Email</label>
+                  <input
+                    type="email"
+                    placeholder="e.g. info@company.com"
+                    value={clientFormData.email}
+                    onChange={(e) => setClientFormData(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-slate-900 font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-indigo-50/50 p-3.5 rounded-2xl border border-indigo-100 space-y-3">
+                <span className="text-[10px] font-black text-indigo-700 uppercase tracking-wider block">
+                  2. Primary Contact Person (Assigned OWNER Permission)
+                </span>
+
+                <div>
+                  <label className="block text-slate-750 font-bold mb-1">Primary Contact Full Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Bruce Wayne"
+                    value={clientFormData.primaryContactName}
+                    onChange={(e) => setClientFormData(prev => ({ ...prev, primaryContactName: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-slate-900 font-semibold"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-750 font-bold mb-1">Portal Login Email *</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="bruce@waynecorp.com"
+                      value={clientFormData.primaryContactEmail}
+                      onChange={(e) => setClientFormData(prev => ({ ...prev, primaryContactEmail: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-slate-900 font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-750 font-bold mb-1">Contact Phone (10 Digits)</label>
+                    <input
+                      type="tel"
+                      maxLength={10}
+                      placeholder="9876543210"
+                      value={clientFormData.primaryContactPhone}
+                      onChange={(e) => setClientFormData(prev => ({ ...prev, primaryContactPhone: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-slate-900 font-mono font-semibold"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-750 font-bold mb-1">Billing Address</label>
+                  <textarea
+                    rows="2"
+                    placeholder="HQ registered address"
+                    value={clientFormData.billingAddress}
+                    onChange={(e) => setClientFormData(prev => ({ ...prev, billingAddress: e.target.value }))}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-xl bg-white text-xs text-slate-900 font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-750 font-bold mb-1">Site Address</label>
+                  <textarea
+                    rows="2"
+                    placeholder="Project site location"
+                    value={clientFormData.siteAddress}
+                    onChange={(e) => setClientFormData(prev => ({ ...prev, siteAddress: e.target.value }))}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-xl bg-white text-xs text-slate-900 font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowClientCreateModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-750 font-bold rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={clientFormSubmitting}
+                  className="px-5 py-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {clientFormSubmitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <UserCheck className="w-4 h-4" />}
+                  Register Client & Mark Won
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 13. CLIENT PASSWORD DISPLAY MODAL */}
+      {tempPasswordResult && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-[99999] animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 text-xs text-center">
+            
+            <div className="p-3.5 bg-emerald-50 border border-emerald-250 text-emerald-800 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-2">
+              <Trophy className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-base font-black text-slate-900">Lead Converted to WON!</h3>
+            <p className="text-slate-500 text-xs font-semibold">
+              Client profile <strong>{tempPasswordResult.clientName}</strong> registered successfully.
+            </p>
+
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-left space-y-2">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Login Username / Email</span>
+                <span className="font-semibold text-slate-950 font-mono text-xs">{tempPasswordResult.primaryContactEmail}</span>
+              </div>
+              <div className="pt-2 border-t border-slate-200/60">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Temporary Password</span>
+                <span className="font-mono bg-indigo-50 border border-indigo-100 text-indigo-800 px-2 py-0.5 rounded-md text-xs font-black inline-block mt-0.5 select-all">
+                  {tempPasswordResult.tempPassword}
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-150 flex items-center justify-end">
+              <button
+                onClick={() => {
+                  const client = tempPasswordResult.clientObj;
+                  setTempPasswordResult(null);
+                  setShowClientCreateModal(false);
+                  if (onClientCreated && client) {
+                    onClientCreated(client);
+                  }
+                }}
+                className="px-5 py-2.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold rounded-xl text-xs cursor-pointer shadow-xs w-full"
+              >
+                Go to Client Profile Details
+              </button>
             </div>
           </div>
         </div>

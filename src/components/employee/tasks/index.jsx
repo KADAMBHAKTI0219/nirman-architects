@@ -374,7 +374,7 @@ export default function EmployeeTasks() {
                   </span>
                 </div>
 
-                <div className="space-y-3 flex-1 overflow-y-auto">
+                <div className="space-y-3 flex-1 overflow-y-auto pt-2.5 pb-2 px-1">
                   {laneTasks.map((t, idx) => (
                     <div 
                       key={t._id ? `emp-card-${lane}-${t._id}` : `emp-card-${lane}-${t.id}-${idx}`}

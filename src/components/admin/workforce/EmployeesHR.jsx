@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search, Eye, EyeOff, ShieldCheck, Mail, MapPin, Briefcase, FileText, CheckCircle2,
   Clock, Plus, Filter, Award, ChevronRight, Laptop, Calendar, DollarSign, UserCheck, X,
-  Pencil, Trash2, Camera, Download, RefreshCw, AlertTriangle, Key
+  Pencil, Trash2, Camera, Download, RefreshCw, AlertTriangle, Key,
+  LayoutGrid, LayoutList
 } from 'lucide-react';
 import Card from '../../common/Card';
 import {
@@ -24,6 +25,7 @@ export default function EmployeesHR({
   const [localEmployees, setLocalEmployees] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState('All');
+  const [viewMode, setViewMode] = useState('table');
 
   // Modals state
   const [selectedEmployee, setSelectedEmployee] = useState(null);
@@ -421,119 +423,241 @@ export default function EmployeesHR({
 
               <button
                 onClick={onAddEmployeeClick}
-                className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-905 rounded-xl text-xs font-black uppercase transition-all shadow-sm flex items-center gap-1"
+                className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-905 rounded-xl text-xs font-black uppercase transition-all shadow-sm flex items-center gap-1 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 Add Employee
               </button>
+
+              {/* Toggle View Buttons */}
+              <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200/60 shadow-3xs">
+                <button
+                  onClick={() => setViewMode('table')}
+                  className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    viewMode === 'table' ? 'bg-white text-slate-800 shadow-3xs' : 'text-slate-400 hover:text-slate-700'
+                  }`}
+                  title="Table List View"
+                >
+                  <LayoutList className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Table</span>
+                </button>
+                <button
+                  onClick={() => setViewMode('cards')}
+                  className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    viewMode === 'cards' ? 'bg-white text-slate-800 shadow-3xs' : 'text-slate-400 hover:text-slate-700'
+                  }`}
+                  title="Card Grid View"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Cards</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Directory Table */}
-          <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-2xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left table-auto">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/50">
-                    <th className="px-5 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Employee Name</th>
-                    <th className="px-5 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Email Address</th>
-                    <th className="px-5 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Department</th>
-                    <th className="px-5 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {filteredEmployees.map(emp => (
-                    <tr
-                      key={emp.id}
-                      className="hover:bg-slate-50/40 transition-colors"
+          {/* Directory Table / Cards Grid */}
+          {viewMode === 'cards' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredEmployees.map((emp) => (
+                <div 
+                  key={emp.id}
+                  className="bg-white rounded-3xl border border-slate-100 p-5 shadow-2xs space-y-4 hover:shadow-md hover:border-slate-200 transition-all duration-200 cursor-pointer flex flex-col justify-between"
+                  onClick={() => handleOpenViewModal(emp)}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-brand-primary/10 border border-brand-primary/20 flex items-center justify-center font-black text-slate-805 text-xs shrink-0">
+                        {emp.name.split(' ').map(n => n[0]).join('')}
+                      </div>
+                      <div>
+                        <strong className="text-slate-850 block text-xs">{emp.name}</strong>
+                        <span className="text-[9px] text-slate-400 block font-semibold">{emp.designation || 'Staff'}</span>
+                      </div>
+                    </div>
+                    <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                      Active
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 pt-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-[9px] font-normal text-slate-400 uppercase tracking-wider">Email</span>
+                      <span className="font-semibold text-slate-700 truncate max-w-[150px]">{emp.email}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-[9px] font-normal text-slate-400 uppercase tracking-wider">Department</span>
+                      <span className="font-semibold text-slate-650">{emp.department}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-1.5 pt-3 border-t border-slate-100/60" onClick={(e) => e.stopPropagation()}>
+                    {/* VIEW PROFILE BUTTON */}
+                    <button
+                      onClick={() => handleOpenViewModal(emp)}
+                      className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-655 border border-blue-100 rounded-xl transition-all shadow-4xs cursor-pointer"
+                      title="View Profile"
                     >
-                      <td className="px-5 py-4 align-middle">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-9 h-9 rounded-full bg-brand-primary/10 border border-brand-primary/20 flex items-center justify-center font-black text-slate-805 text-xs shrink-0">
-                            {emp.name.split(' ').map(n => n[0]).join('')}
-                          </div>
-                          <div>
-                            <strong className="text-slate-850 block text-xs">{emp.name}</strong>
-                            <span className="text-[9px] text-slate-400 block font-semibold">{emp.designation}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4 text-slate-600 font-semibold align-middle">{emp.email}</td>
-                      <td className="px-5 py-4 text-slate-500 font-bold align-middle">{emp.department}</td>
-                      <td className="px-5 py-4 text-right align-middle">
-                        <div className="flex justify-end gap-2">
+                      <Eye className="w-3.5 h-3.5" />
+                    </button>
 
+                    {/* EDIT PROFILE BUTTON */}
+                    <button
+                      onClick={() => onEditEmployeeClick(emp)}
+                      className="p-2 bg-amber-50 hover:bg-amber-100 text-amber-655 border border-amber-100 rounded-xl transition-all shadow-4xs cursor-pointer"
+                      title="Edit Details"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
 
-                          {/* VIEW PROFILE BUTTON */}
-                          <button
-                            onClick={() => handleOpenViewModal(emp)}
-                            className="p-2.5 bg-blue-50 hover:bg-blue-100 text-blue-650 border border-blue-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold"
-                            title="View Profile"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
+                    {/* CHANGE PASSWORD BUTTON */}
+                    <button
+                      onClick={() => {
+                        setTargetPasswordUser(emp);
+                        setNewPassword('');
+                        setConfirmPassword('');
+                        setPasswordError('');
+                        setShowPasswordModal(true);
+                      }}
+                      className="p-2 bg-purple-55 hover:bg-purple-100 text-purple-650 border border-purple-100 rounded-xl transition-all shadow-4xs cursor-pointer"
+                      title="Change Password"
+                    >
+                      <Key className="w-3.5 h-3.5" />
+                    </button>
 
-                          {/* EDIT PROFILE BUTTON */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onEditEmployeeClick(emp);
-                            }}
-                            className="p-2.5 bg-amber-50 hover:bg-amber-100 text-amber-650 border border-amber-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold"
-                            title="Edit Details"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
+                    {/* DELETE EMPLOYEE BUTTON */}
+                    <button
+                      onClick={() => setEmployeeToDelete(emp)}
+                      className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-655 border border-rose-100 rounded-xl transition-all shadow-4xs cursor-pointer"
+                      title="Delete Employee"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
 
-                          {/* CHANGE PASSWORD BUTTON */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setTargetPasswordUser(emp);
-                              setNewPassword('');
-                              setConfirmPassword('');
-                              setPasswordError('');
-                              setShowPasswordModal(true);
-                            }}
-                            className="p-2.5 bg-purple-50 hover:bg-purple-100 text-purple-650 border border-purple-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold"
-                            title="Change Password"
-                          >
-                            <Key className="w-4 h-4" />
-                          </button>
-
-                          {/* DELETE EMPLOYEE BUTTON */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEmployeeToDelete(emp);
-                            }}
-                            className="p-2.5 bg-rose-50 hover:bg-rose-100 text-rose-650 border border-rose-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold"
-                            title="Delete Employee"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-
-                          {/* VIEW SCREENSHOTS BUTTON */}
-                          <button
-                            onClick={() => {
-                              setSelectedEmployee(emp);
-                              setSelectedScreenshotDate(new Date().toISOString().split('T')[0]);
-                              setShowScreenshotsModal(true);
-                            }}
-                            className="p-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-650 border border-emerald-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold"
-                            title="View Desktop Screenshots"
-                          >
-                            <Laptop className="w-4 h-4" />
-                          </button>
-
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                    {/* VIEW SCREENSHOTS BUTTON */}
+                    <button
+                      onClick={() => {
+                        setSelectedEmployee(emp);
+                        setSelectedScreenshotDate(new Date().toISOString().split('T')[0]);
+                        setShowScreenshotsModal(true);
+                      }}
+                      className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-655 border border-emerald-100 rounded-xl transition-all shadow-4xs cursor-pointer"
+                      title="View Desktop Screenshots"
+                    >
+                      <Laptop className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {filteredEmployees.length === 0 && (
+                <div className="col-span-full py-12 text-center bg-white border border-slate-100 rounded-3xl">
+                  <AlertTriangle className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                  <h4 className="text-xs font-medium text-slate-800">No employees found in directory.</h4>
+                </div>
+              )}
             </div>
-          </div>
+          ) : (
+            <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-2xs">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left table-auto">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50/50">
+                      <th className="px-5 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Employee Name</th>
+                      <th className="px-5 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Email Address</th>
+                      <th className="px-5 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Department</th>
+                      <th className="px-5 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {filteredEmployees.map(emp => (
+                      <tr
+                        key={emp.id}
+                        className="hover:bg-slate-50/40 transition-colors"
+                      >
+                        <td className="px-5 py-4 align-middle">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-9 h-9 rounded-full bg-brand-primary/10 border border-brand-primary/20 flex items-center justify-center font-black text-slate-805 text-xs shrink-0">
+                              {emp.name.split(' ').map(n => n[0]).join('')}
+                            </div>
+                            <div>
+                              <strong className="text-slate-850 block text-xs">{emp.name}</strong>
+                              <span className="text-[9px] text-slate-400 block font-semibold">{emp.designation}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4 text-slate-600 font-semibold align-middle">{emp.email}</td>
+                        <td className="px-5 py-4 text-slate-500 font-bold align-middle">{emp.department}</td>
+                        <td className="px-5 py-4 text-right align-middle">
+                          <div className="flex justify-end gap-2">
+                            {/* VIEW PROFILE BUTTON */}
+                            <button
+                              onClick={() => handleOpenViewModal(emp)}
+                              className="p-2.5 bg-blue-55 hover:bg-blue-100 text-blue-650 border border-blue-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold cursor-pointer"
+                              title="View Profile"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+
+                            {/* EDIT PROFILE BUTTON */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEditEmployeeClick(emp);
+                              }}
+                              className="p-2.5 bg-amber-55 hover:bg-amber-100 text-amber-650 border border-amber-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold cursor-pointer"
+                              title="Edit Details"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+
+                            {/* CHANGE PASSWORD BUTTON */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTargetPasswordUser(emp);
+                                setNewPassword('');
+                                setConfirmPassword('');
+                                setPasswordError('');
+                                setShowPasswordModal(true);
+                              }}
+                              className="p-2.5 bg-purple-55 hover:bg-purple-100 text-purple-650 border border-purple-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold cursor-pointer"
+                              title="Change Password"
+                            >
+                              <Key className="w-4 h-4" />
+                            </button>
+
+                            {/* DELETE EMPLOYEE BUTTON */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEmployeeToDelete(emp);
+                              }}
+                              className="p-2.5 bg-rose-55 hover:bg-rose-100 text-rose-655 border border-rose-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold cursor-pointer"
+                              title="Delete Employee"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+
+                            {/* VIEW SCREENSHOTS BUTTON */}
+                            <button
+                              onClick={() => {
+                                setSelectedEmployee(emp);
+                                setSelectedScreenshotDate(new Date().toISOString().split('T')[0]);
+                                setShowScreenshotsModal(true);
+                              }}
+                              className="p-2.5 bg-emerald-55 hover:bg-emerald-100 text-emerald-650 border border-emerald-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold cursor-pointer"
+                              title="View Desktop Screenshots"
+                            >
+                              <Laptop className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
         </div>
 

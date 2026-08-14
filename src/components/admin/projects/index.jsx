@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import ProjectList from './ProjectList';
 import ProjectDetails from './ProjectDetails';
 import CreateProjectModal from './CreateProjectModal';
 import { getProjects, createProject } from '../../../service/project';
 
 export default function Projects({ defaultTab = 'directory' }) {
+  const location = useLocation();
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -18,13 +20,33 @@ export default function Projects({ defaultTab = 'directory' }) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newProject, setNewProject] = useState({
     code: '', name: '', projectName: '', client: '', clientInformation: '', clientEmail: '', clientPhone: '',
-    location: '', address: '', category: 'Commercial', priority: 'Medium', status: 'Planning',
-    startDate: '', estCompletion: '', estimatedCompletion: '', budget: '', manager: 'Sarah Connor'
+    location: '', address: '', category: '', priority: 'Medium', status: 'Planning',
+    startDate: '', estCompletion: '', estimatedCompletion: '', budget: '', manager: ''
   });
 
   useEffect(() => {
     fetchProjectsList();
   }, [searchQuery, statusFilter, priorityFilter]);
+
+  useEffect(() => {
+    if (projects.length > 0) {
+      const params = new URLSearchParams(location.search);
+      const selectId = params.get('select');
+      const searchName = params.get('searchName');
+      
+      if (selectId) {
+        const found = projects.find(p => String(p._id) === String(selectId) || String(p.id) === String(selectId));
+        if (found) {
+          setSelectedProject(found);
+        }
+      } else if (searchName) {
+        const found = projects.find(p => (p.projectName || p.name || '').toLowerCase() === searchName.toLowerCase());
+        if (found) {
+          setSelectedProject(found);
+        }
+      }
+    }
+  }, [location.search, projects]);
 
   const fetchProjectsList = async () => {
     setLoading(true);
@@ -98,7 +120,8 @@ export default function Projects({ defaultTab = 'directory' }) {
       priority: newProject.priority || "Medium",
       projectCategoryId: newProject.projectCategoryId || null,
       startDate: newProject.startDate || new Date().toISOString().split('T')[0],
-      estimatedCompletion: newProject.estCompletion || newProject.estimatedCompletion || new Date().toISOString().split('T')[0]
+      estimatedCompletion: newProject.estCompletion || newProject.estimatedCompletion || new Date().toISOString().split('T')[0],
+      manager: newProject.manager || ""
     };
 
     try {
@@ -107,8 +130,8 @@ export default function Projects({ defaultTab = 'directory' }) {
         setIsCreateModalOpen(false);
         setNewProject({
           code: '', name: '', projectName: '', client: '', clientInformation: '', clientEmail: '', clientPhone: '',
-          location: '', address: '', category: 'Commercial', priority: 'Medium', status: 'Planning',
-          startDate: '', estCompletion: '', estimatedCompletion: '', budget: '', manager: 'Sarah Connor'
+          location: '', address: '', category: '', priority: 'Medium', status: 'Planning',
+          startDate: '', estCompletion: '', estimatedCompletion: '', budget: '', manager: ''
         });
         fetchProjectsList();
         alert("ERP Project created successfully!");

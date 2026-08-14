@@ -1,22 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Building, Smartphone, Mail, MapPin, Layers, FileText, CheckCircle2, 
-  AlertCircle, MessageSquare, Plus, Download, Key, ShieldCheck, Eye, EyeOff, 
-  Trash2, Edit, Save, RefreshCw, UserCheck, Lock, ChevronRight, User, Ban, X
+import {
+  Building, Smartphone, Mail, MapPin, Layers, FileText, CheckCircle2,
+  AlertCircle, MessageSquare, Plus, Download, Key, ShieldCheck, Eye, EyeOff,
+  Trash2, Edit, Save, RefreshCw, UserCheck, Lock, ChevronRight, User, Ban, X, FolderPlus
 } from 'lucide-react';
-import { 
-  updateClient, 
-  getClientContacts, 
-  addClientContact, 
-  updateContactPermission, 
-  deactivateContact, 
+import {
+  updateClient,
+  getClientContacts,
+  addClientContact,
+  updateContactPermission,
+  deactivateContact,
   resetTempPassword,
   getLinksByClient,
   createClientProjectLink,
   toggleProjectLinkVisibility,
   unlinkProject
 } from '../../../service/crm/client';
-import { getProjects } from '../../../service/project';
+import { getProjects, createProject } from '../../../service/project';
+import { getProjectDrawings } from '../../../service/drawing';
+import { getProjectDocuments } from '../../../service/document';
+import { useNavigate } from 'react-router-dom';
+import CreateProjectModal from '../projects/CreateProjectModal';
 
 export default function CRMClientProfile({
   client,
@@ -24,8 +28,9 @@ export default function CRMClientProfile({
   onRefresh,
   onClose
 }) {
+  const navigate = useNavigate();
   const [activeSubTab, setActiveSubTab] = useState('contacts'); // contacts, projects, details, drawings, notes
-  
+
   // Contacts State
   const [contacts, setContacts] = useState([]);
   const [contactsLoading, setContactsLoading] = useState(false);
@@ -38,11 +43,21 @@ export default function CRMClientProfile({
   // Projects Linkage State
   const [linkedProjects, setLinkedProjects] = useState([]);
   const [projectsLoading, setProjectsLoading] = useState(false);
+  const [projectFilesMap, setProjectFilesMap] = useState({});
+  const [filesLoading, setFilesLoading] = useState(false);
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [linkForm, setLinkForm] = useState({ projectId: '', projectName: '', visibleToClient: true });
   const [linkSubmitting, setLinkSubmitting] = useState(false);
   const [allProjects, setAllProjects] = useState([]);
   const [loadingAllProjects, setLoadingAllProjects] = useState(false);
+
+  // Create Project Modal States
+  const [showCreateProjModal, setShowCreateProjModal] = useState(false);
+  const [newProjectData, setNewProjectData] = useState({
+    code: '', name: '', projectName: '', client: '', clientInformation: '', clientEmail: '', clientPhone: '',
+    location: '', address: '', category: '', priority: 'Medium', status: 'Planning',
+    startDate: '', estCompletion: '', estimatedCompletion: '', budget: '', manager: ''
+  });
 
   // Account Edit State
   const [isEditingAccount, setIsEditingAccount] = useState(false);
@@ -111,15 +126,121 @@ export default function CRMClientProfile({
   const fetchLinkedProjects = async () => {
     if (!clientId) return;
     setProjectsLoading(true);
+    setFilesLoading(true);
     try {
-      const res = await getLinksByClient(clientId);
-      if (res?.success) {
-        setLinkedProjects(res.links || []);
-      }
+      const [res, projRes] = await Promise.all([
+        getLinksByClient(clientId).catch(() => null),
+        getProjects().catch(() => null)
+      ]);
+
+      const links = (res?.success && Array.isArray(res.links)) ? res.links : [];
+      const allProjs = (projRes?.success && Array.isArray(projRes.projects)) ? projRes.projects : [];
+
+      const cEmail = (client.email || client.primaryContact?.email || '').toLowerCase().trim();
+      const cPhone = String(client.phone || client.primaryContact?.phone || '').trim();
+      const cName = (client.name || '').toLowerCase().trim();
+
+      const directMatched = allProjs.filter(p => {
+        const pClient = (p.clientInformation || p.client || '').toLowerCase().trim();
+        const pEmail = (p.clientEmail || '').toLowerCase().trim();
+        const pPhone = String(p.clientPhone || '').trim();
+        const pClientId = String(p.clientId || '');
+
+        return (pClientId && pClientId === String(clientId)) ||
+          (cName && pClient.includes(cName)) ||
+          (cEmail && pEmail && pEmail === cEmail) ||
+          (cPhone && pPhone && pPhone === cPhone);
+      });
+
+      const merged = [...links];
+      directMatched.forEach(p => {
+        const pId = p._id || p.id;
+        const alreadyInLinks = links.some(l => {
+          const lId = l.projectId?._id || l.projectId?.id || l.projectId;
+          return String(lId) === String(pId);
+        });
+        if (!alreadyInLinks) {
+          merged.push({
+            _id: `link-direct-${pId}`,
+            id: `link-direct-${pId}`,
+            projectId: p,
+            projectName: p.projectName || p.name || 'Project',
+            visibleToClient: true,
+            linkedAt: p.createdAt || new Date().toISOString()
+          });
+        }
+      });
+
+      setLinkedProjects(merged);
+
+      // Fetch files for each project
+      const newMap = {};
+      await Promise.all(merged.map(async (link) => {
+        const projId = link.projectId?._id || link.projectId?.id || link.projectId;
+        if (!projId) return;
+        try {
+          const [drawingsRes, docsRes] = await Promise.all([
+            getProjectDrawings(projId).catch(() => null),
+            getProjectDocuments(projId).catch(() => null)
+          ]);
+          newMap[projId] = {
+            drawings: drawingsRes?.allDrawings || drawingsRes?.drawings || [],
+            documents: docsRes?.allDocuments || docsRes?.documents || docsRes?.data || []
+          };
+        } catch (err) {
+          console.warn(`Failed to fetch files for project ${projId}`, err);
+        }
+      }));
+      setProjectFilesMap(newMap);
     } catch (err) {
-      console.error("Error fetching linked projects:", err);
+      console.error("Error fetching linked projects and files:", err);
     } finally {
       setProjectsLoading(false);
+      setFilesLoading(false);
+    }
+  };
+
+  const handleCreateProjectSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const projPayload = {
+        code: newProjectData.code,
+        projectName: newProjectData.name || newProjectData.projectName || "Client Project",
+        name: newProjectData.name || newProjectData.projectName || "Client Project",
+        clientInformation: newProjectData.client || newProjectData.clientInformation || "",
+        clientEmail: newProjectData.clientEmail,
+        clientPhone: newProjectData.clientPhone,
+        clientId,
+        address: newProjectData.location || newProjectData.address || "",
+        budget: parseFloat(newProjectData.budget) || 0,
+        priority: newProjectData.priority || "Medium",
+        projectCategoryId: newProjectData.projectCategoryId || null,
+        startDate: newProjectData.startDate || new Date().toISOString().split('T')[0],
+        estimatedCompletion: newProjectData.estCompletion || newProjectData.estimatedCompletion || new Date().toISOString().split('T')[0],
+        manager: newProjectData.manager || ""
+      };
+
+      const res = await createProject(projPayload);
+      if (res?.success) {
+        const createdProjId = res.project?._id || res.project?.id || res.project;
+        if (createdProjId) {
+          await createClientProjectLink({
+            clientId,
+            projectId: createdProjId,
+            projectName: projPayload.projectName,
+            visibleToClient: true
+          }).catch(() => null);
+        }
+
+        alert(`Project '${projPayload.projectName}' created & linked successfully!`);
+        setShowCreateProjModal(false);
+        fetchLinkedProjects();
+        if (onRefresh) onRefresh();
+      } else {
+        alert(res?.message || "Failed to create project");
+      }
+    } catch (err) {
+      alert("Error creating project: " + (err.response?.data?.message || err.message));
     }
   };
 
@@ -298,7 +419,7 @@ export default function CRMClientProfile({
 
   if (!client) return null;
 
-  const initials = (client.name || 'C').split(' ').map(n=>n[0]).join('').slice(0, 2);
+  const initials = (client.name || 'C').split(' ').map(n => n[0]).join('').slice(0, 2);
 
   const subTabs = [
     { id: 'contacts', label: `Multi-User Contacts (${contacts.length})` },
@@ -310,7 +431,7 @@ export default function CRMClientProfile({
 
   return (
     <div className="bg-white p-6 rounded-3xl border border-slate-200/90 shadow-2xl space-y-6 font-sans max-w-4xl w-full mx-auto animate-in fade-in duration-200">
-      
+
       {/* 1. Header Bar */}
       <div className="flex items-center justify-between pb-4 border-b border-slate-100">
         <div className="flex items-center gap-3.5">
@@ -320,9 +441,8 @@ export default function CRMClientProfile({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="font-extrabold text-slate-900 text-lg leading-tight">{client.name}</h3>
-              <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase border ${
-                client.isActive !== false ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
-              }`}>
+              <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase border ${client.isActive !== false ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
+                }`}>
                 {client.isActive !== false ? 'Active Account' : 'Deactivated Account'}
               </span>
             </div>
@@ -365,11 +485,10 @@ export default function CRMClientProfile({
           <button
             key={t.id}
             onClick={() => setActiveSubTab(t.id)}
-            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex-shrink-0 border cursor-pointer ${
-              activeSubTab === t.id
+            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex-shrink-0 border cursor-pointer ${activeSubTab === t.id
                 ? 'bg-brand-primary border-brand-primary text-brand-dark shadow-xs'
                 : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-            }`}
+              }`}
           >
             {t.label}
           </button>
@@ -378,7 +497,7 @@ export default function CRMClientProfile({
 
       {/* 4. Tab Content Body */}
       <div className="min-h-[280px] max-h-[440px] overflow-y-auto pr-1 space-y-4 text-xs font-medium">
-        
+
         {/* PANEL 1: CLIENT CONTACTS (CRM MODULE 2) */}
         {activeSubTab === 'contacts' && (
           <div className="space-y-3">
@@ -467,16 +586,47 @@ export default function CRMClientProfile({
         {/* PANEL 2: LINKED PROJECTS (CRM MODULE 3) */}
         {activeSubTab === 'projects' && (
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <span className="text-xs font-black text-slate-500 uppercase tracking-wider">
                 Linked Client Projects ({linkedProjects.length})
               </span>
-              <button
-                onClick={() => setShowLinkModal(true)}
-                className="px-3.5 py-1.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
-              >
-                <Plus className="w-4 h-4 text-brand-dark" /> Link Project
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const codeGen = `PRJ-${(client.name || 'CLI').substring(0, 3).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
+                    const addressVal = (Array.isArray(client.siteAddresses) && client.siteAddresses[0]) || client.billingAddress || client.address || '';
+                    setNewProjectData({
+                      code: codeGen,
+                      name: '',
+                      projectName: '',
+                      client: client.name || '',
+                      clientInformation: client.name || '',
+                      clientEmail: client.email || client.primaryContact?.email || '',
+                      clientPhone: client.phone || client.primaryContact?.phone || '',
+                      location: addressVal,
+                      address: addressVal,
+                      category: 'Commercial',
+                      priority: 'Medium',
+                      status: 'Planning',
+                      startDate: new Date().toISOString().split('T')[0],
+                      estCompletion: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0],
+                      estimatedCompletion: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0],
+                      budget: '1500000',
+                      manager: ''
+                    });
+                    setShowCreateProjModal(true);
+                  }}
+                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-extrabold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                >
+                  <FolderPlus className="w-4 h-4 text-white" /> Create New Project
+                </button>
+                <button
+                  onClick={() => setShowLinkModal(true)}
+                  className="px-3.5 py-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark rounded-xl font-extrabold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer border border-brand-secondary/30"
+                >
+                  <Plus className="w-4 h-4 text-brand-dark" /> Link Existing Project
+                </button>
+              </div>
             </div>
 
             {projectsLoading ? (
@@ -493,16 +643,24 @@ export default function CRMClientProfile({
                   return (
                     <div key={link._id || link.id} className="p-3.5 bg-slate-50 border border-slate-200/90 rounded-2xl flex items-center justify-between gap-3">
                       <div>
-                        <strong className="text-slate-900 font-extrabold text-sm block">{projName}</strong>
+                        <strong
+                          onClick={() => {
+                            const projId = link.projectId?._id || link.projectId?.id || link.projectId;
+                            navigate(`/admin/projects?select=${projId}&searchName=${encodeURIComponent(projName)}`);
+                          }}
+                          className="text-indigo-650 font-extrabold text-sm block hover:text-indigo-850 hover:underline cursor-pointer transition-all"
+                          title="Click to view Project Details"
+                        >
+                          {projName}
+                        </strong>
                         <span className="text-[11px] text-slate-400 font-mono">Linked on {new Date(link.linkedAt || Date.now()).toLocaleDateString()}</span>
                       </div>
-                      
+
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleToggleVisibility(link._id || link.id, isVis)}
-                          className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-extrabold cursor-pointer border ${
-                            isVis ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-slate-200 text-slate-600 border-slate-300'
-                          }`}
+                          className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-extrabold cursor-pointer border ${isVis ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-slate-200 text-slate-600 border-slate-300'
+                            }`}
                           title="Toggle Client Portal Visibility"
                         >
                           {isVis ? <Eye className="w-3.5 h-3.5 text-emerald-600" /> : <EyeOff className="w-3.5 h-3.5 text-slate-500" />}
@@ -628,28 +786,98 @@ export default function CRMClientProfile({
 
         {/* PANEL 4: SHARED FILES */}
         {activeSubTab === 'drawings' && (
-          <div className="space-y-2.5">
-            {(client.sharedFiles || []).length > 0 ? (
-              (client.sharedFiles || []).map((file, idx) => (
-                <div key={idx} className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2 overflow-hidden flex-1">
-                    <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                    <div className="overflow-hidden">
-                      <span className="font-bold text-slate-800 block truncate">{file.name}</span>
-                      <span className="text-[10px] text-slate-450 block uppercase">{file.type} &bull; {file.date}</span>
+          <div className="space-y-4">
+            {filesLoading ? (
+              <div className="py-12 text-center text-slate-400 flex items-center justify-center gap-2">
+                <RefreshCw className="w-5 h-5 animate-spin text-indigo-500" />
+                <span>Loading shared project files...</span>
+              </div>
+            ) : linkedProjects.length > 0 ? (
+              linkedProjects.map((link) => {
+                const projId = link.projectId?._id || link.projectId?.id || link.projectId;
+                const projName = link.projectId?.name || link.projectName || 'Architectural Project';
+                const files = projectFilesMap[projId] || { drawings: [], documents: [] };
+                const hasFiles = files.drawings.length > 0 || files.documents.length > 0;
+
+                return (
+                  <div key={projId} className="bg-slate-50 border border-slate-205 rounded-2xl p-4 space-y-3 shadow-3xs">
+                    <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
+                      <div
+                        onClick={() => navigate(`/admin/projects?select=${projId}&searchName=${encodeURIComponent(projName)}`)}
+                        className="flex items-center gap-2 cursor-pointer group hover:opacity-80 transition-all"
+                        title="View Project Details"
+                      >
+                        <Building className="w-4 h-4 text-indigo-600 group-hover:text-indigo-800 transition-colors" />
+                        <h4 className="font-extrabold text-slate-900 text-xs uppercase tracking-wider group-hover:text-indigo-800 transition-colors border-b border-transparent group-hover:border-indigo-800">{projName}</h4>
+                      </div>
+                      <span className="px-2 py-0.5 bg-indigo-50 text-indigo-750 text-[10px] font-bold rounded border border-indigo-100">
+                        {files.drawings.length + files.documents.length} Files
+                      </span>
                     </div>
+
+                    {!hasFiles ? (
+                      <div className="py-4 text-center text-slate-400 text-xs italic">
+                        No shared files uploaded for this project yet.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        {/* Drawings Section */}
+                        {files.drawings.length > 0 && (
+                          <div className="space-y-1.5">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">Drawings ({files.drawings.length})</span>
+                            {files.drawings.map((dwg) => (
+                              <div key={dwg._id || dwg.id} className="p-2.5 bg-white border border-slate-200 rounded-xl flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  <FileText className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                                  <div className="truncate min-w-0">
+                                    <span className="font-bold text-slate-800 block truncate" title={dwg.name || dwg.title}>{dwg.name || dwg.title}</span>
+                                    <span className="text-[9px] text-slate-400 block">{dwg.category || dwg.stage || 'General'}</span>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => alert(`Downloading drawing: ${dwg.name || dwg.title}`)}
+                                  className="p-1.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-lg text-slate-650 flex-shrink-0 transition-colors cursor-pointer"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Documents Section */}
+                        {files.documents.length > 0 && (
+                          <div className="space-y-1.5">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">Documents ({files.documents.length})</span>
+                            {files.documents.map((doc) => (
+                              <div key={doc._id || doc.id} className="p-2.5 bg-white border border-slate-200 rounded-xl flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  <Layers className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                                  <div className="truncate min-w-0">
+                                    <span className="font-bold text-slate-800 block truncate" title={doc.name || doc.title}>{doc.name || doc.title}</span>
+                                    <span className="text-[9px] text-slate-400 block uppercase">{doc.fileType || 'PDF'}</span>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => alert(`Downloading document: ${doc.name || doc.title}`)}
+                                  className="p-1.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-lg text-slate-650 flex-shrink-0 transition-colors cursor-pointer"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <button
-                    onClick={() => alert(`Downloading shared file: ${file.name}`)}
-                    className="p-1.5 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg text-slate-600 transition-all flex-shrink-0"
-                  >
-                    <Download className="w-4 h-4" />
-                  </button>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="p-8 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                No shared files available.
+                No active projects linked to this client.
               </div>
             )}
           </div>
@@ -665,14 +893,14 @@ export default function CRMClientProfile({
               </p>
             )}
             <div className="flex gap-2">
-              <input 
-                type="text" 
-                placeholder="Add internal CRM comment..." 
+              <input
+                type="text"
+                placeholder="Add internal CRM comment..."
                 value={internalNote}
                 onChange={(e) => setInternalNote(e.target.value)}
                 className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium bg-white"
               />
-              <button 
+              <button
                 type="submit"
                 className="px-4 py-2 bg-brand-primary text-brand-dark rounded-xl text-xs font-black shadow-2xs"
               >
@@ -867,8 +1095,8 @@ export default function CRMClientProfile({
             <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-left space-y-1 font-mono text-xs">
               <div className="flex items-center justify-between text-[9px] text-slate-400 font-bold uppercase font-sans">
                 <span>Temporary Password:</span>
-                <button 
-                  onClick={() => setShowTempPassProfile(!showTempPassProfile)} 
+                <button
+                  onClick={() => setShowTempPassProfile(!showTempPassProfile)}
                   className="text-slate-500 hover:text-indigo-600 font-sans text-[10px] font-bold flex items-center gap-1 cursor-pointer"
                 >
                   {showTempPassProfile ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
@@ -889,6 +1117,15 @@ export default function CRMClientProfile({
           </div>
         </div>
       )}
+
+      {/* CREATE PROJECT FOR CLIENT MODAL */}
+      <CreateProjectModal
+        isOpen={showCreateProjModal}
+        onClose={() => setShowCreateProjModal(false)}
+        onSubmit={handleCreateProjectSubmit}
+        newProject={newProjectData}
+        setNewProject={setNewProjectData}
+      />
 
     </div>
   );

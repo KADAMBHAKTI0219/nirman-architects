@@ -40,7 +40,7 @@ export default function ArchitectDocuments() {
 
   const fetchFolders = async () => {
     try {
-      const res = await getProjectFolders('proj-1');
+      const res = await getProjectFolders();
       if (res && (res.folders || res.data)) {
         setProjectFolders(res.folders || res.data || []);
       }
@@ -50,7 +50,7 @@ export default function ArchitectDocuments() {
   const fetchDocs = async () => {
     setLoading(true);
     try {
-      const res = await getProjectDocuments('proj-1', { folder: selectedCategory === 'All' ? '' : selectedCategory, search: searchQuery });
+      const res = await getProjectDocuments('', { folder: selectedCategory === 'All' ? '' : selectedCategory, search: searchQuery });
       let list = [];
       if (res && Array.isArray(res.allDocuments) && res.allDocuments.length > 0) {
         list = res.allDocuments;
@@ -329,8 +329,8 @@ export default function ArchitectDocuments() {
             
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div>
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{inspectingDoc.category || inspectingDoc.folder} &bull; Version {inspectingDoc.versionTag || `V${inspectingDoc.version || 1}.0`}</span>
-                <h3 className="text-sm font-black text-slate-905">{inspectingDoc.name || inspectingDoc.documentName}</h3>
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{String(inspectingDoc.category || inspectingDoc.folder).toUpperCase().replace('NEXALLIENCE', 'NEXALLIANCE')} &bull; Version {inspectingDoc.versionTag || `V${inspectingDoc.version || 1}.0`}</span>
+                <h3 className="text-sm font-black text-slate-905">{String(inspectingDoc.name || inspectingDoc.documentName || inspectingDoc.fileName).replace(/NexAllience/gi, 'NexAlliance')}</h3>
               </div>
               <button 
                 onClick={() => setInspectingDoc(null)}
@@ -343,7 +343,7 @@ export default function ArchitectDocuments() {
             <div className="p-6 space-y-4">
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-slate-300 font-mono text-[10px] h-48 overflow-y-auto">
                 <div className="border-b border-slate-750 pb-2 text-center text-xs font-bold text-sky-400 mb-2 uppercase">
-                  PDF PREVIEW: {inspectingDoc.name || inspectingDoc.documentName}
+                  PDF PREVIEW: {String(inspectingDoc.name || inspectingDoc.documentName || inspectingDoc.fileName).toUpperCase().replace('NEXALLIENCE', 'NEXALLIANCE')}
                 </div>
                 <p className="text-slate-500"># Nirman Architects Document Registry</p>
                 <p className="mt-2">1. All structural calculations require concrete grade validations (M30/M40 mix profiles).</p>

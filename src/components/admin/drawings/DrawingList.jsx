@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { 
   Search, Lock, Unlock, Eye, CheckCircle, Clock, 
-  AlertCircle, BarChart2, FolderOpen, ChevronLeft, ChevronRight, ChevronDown, Plus
+  AlertCircle, BarChart2, FolderOpen, ChevronLeft, ChevronRight, ChevronDown, Plus,
+  LayoutGrid, LayoutList, File
 } from 'lucide-react';
 
 export default function DrawingList({
@@ -21,6 +22,7 @@ export default function DrawingList({
 }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [viewMode, setViewMode] = useState('table');
 
   // Filtering drawings list safely with null/undefined guards
   const filteredDrawings = (drawings || []).filter(d => {
@@ -215,141 +217,267 @@ export default function DrawingList({
             </select>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
+
+          {/* Toggle View Buttons */}
+          <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200/60 shadow-3xs">
+            <button
+              onClick={() => setViewMode('table')}
+              className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                viewMode === 'table' ? 'bg-white text-slate-800 shadow-3xs' : 'text-slate-400 hover:text-slate-700'
+              }`}
+              title="Table List View"
+            >
+              <LayoutList className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Table</span>
+            </button>
+            <button
+              onClick={() => setViewMode('cards')}
+              className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                viewMode === 'cards' ? 'bg-white text-slate-800 shadow-3xs' : 'text-slate-400 hover:text-slate-700'
+              }`}
+              title="Card Grid View"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Cards</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* 3. FULL-WIDTH DRAWINGS TABLE */}
-      <div className="bg-white border border-slate-100/90 rounded-3xl overflow-hidden shadow-2xs w-full">
-        <div className="overflow-x-auto w-full">
-          <table className="w-full text-xs text-left table-auto">
-            <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/50">
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest w-32">
-                  DWG CODE
-                </th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  DRAWING NAME
-                </th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest w-40">
-                  CATEGORY
-                </th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest w-48">
-                  UPLOADED BY
-                </th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest w-36">
-                  STATUS
-                </th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest w-28 text-right">
-                  ACTIONS
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100/80">
-              {filteredDrawings.map((d, idx) => (
-                <tr 
-                  key={d._id ? `${d._id}-${idx}` : `${d.id || d.drawingNumber || 'dwg'}-${idx}`} 
-                  className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
-                  onClick={() => onSelectDrawing(d)}
-                >
-                  {/* DWG CODE */}
-                  <td className="px-6 py-5 font-bold text-slate-700 align-middle">
-                    <div className="flex items-center gap-2">
-                      <span className="font-extrabold text-slate-800 group-hover:text-blue-600 transition-colors">{d.id}</span>
-                      {d.locked ? (
-                        <Lock className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
-                      ) : (
-                        <Unlock className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-400 flex-shrink-0" />
-                      )}
-                    </div>
-                  </td>
+      {/* 3. FULL-WIDTH DRAWINGS TABLE / CARDS GRID */}
+      {viewMode === 'cards' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+          {filteredDrawings.map((d, idx) => (
+            <div 
+              key={d._id ? `${d._id}-${idx}` : `${d.id || d.drawingNumber || 'dwg'}-${idx}`}
+              className="bg-white rounded-3xl border border-slate-100 p-5 shadow-2xs space-y-4 hover:shadow-md hover:border-slate-200 transition-all duration-200 cursor-pointer flex flex-col justify-between"
+              onClick={() => onSelectDrawing(d)}
+            >
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 text-slate-700 flex items-center justify-center flex-shrink-0">
+                    <File className="w-5 h-5 text-slate-550" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 leading-snug line-clamp-1">{d.name}</h4>
+                    <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider font-mono">
+                      {d.id} • {d.fileSize}
+                    </span>
+                  </div>
+                </div>
+                {d.locked && (
+                  <span className="text-[8px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-700 border border-indigo-100 px-1.5 py-0.5 rounded-sm">
+                    GFC LOCKED
+                  </span>
+                )}
+              </div>
 
-                  {/* DRAWING NAME & DETAILS */}
-                  <td className="px-6 py-5 align-middle">
-                    <div className="space-y-0.5">
-                      <span className="font-bold text-slate-900 block text-xs sm:text-sm group-hover:text-blue-600 transition-colors">
-                        {d.name}
-                      </span>
-                      <span className="text-[9.5px] text-slate-400 font-extrabold block uppercase tracking-wider">
-                        SIZE: {d.fileSize} | ACCESS: {d.accessLevel.toUpperCase()}
-                      </span>
-                    </div>
-                  </td>
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[9px] font-normal text-slate-400 uppercase tracking-wider">Project Link</span>
+                  <span className="font-semibold text-slate-800 truncate max-w-[150px]">{d.project}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[9px] font-normal text-slate-400 uppercase tracking-wider">Category</span>
+                  <span className="font-semibold text-indigo-650">{d.category}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[9px] font-normal text-slate-400 uppercase tracking-wider">Status</span>
+                  {(() => {
+                    const s = String(d.status || 'DESIGNER_UPLOADED').toUpperCase();
+                    if (s.includes('GFC') || s.includes('LOCKED')) {
+                      return <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-755 border border-indigo-200 font-bold text-[9px] uppercase tracking-wider rounded-full">GFC LOCKED</span>;
+                    }
+                    if (s.includes('APPROV') && !s.includes('PENDING')) {
+                      return <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-755 border border-emerald-200 font-bold text-[9px] uppercase tracking-wider rounded-full">APPROVED</span>;
+                    }
+                    if (s.includes('PENDING') || s.includes('REVIEW')) {
+                      return <span className="px-2.5 py-0.5 bg-amber-50 text-amber-755 border border-amber-200 font-bold text-[9px] uppercase tracking-wider rounded-full">PENDING REVIEW</span>;
+                    }
+                    if (s.includes('REVISION') || s.includes('REJECT') || s.includes('CHANGE')) {
+                      return <span className="px-2.5 py-0.5 bg-rose-50 text-rose-755 border border-rose-200 font-bold text-[9px] uppercase tracking-wider rounded-full">REVISIONS REQUIRED</span>;
+                    }
+                    return <span className="px-2.5 py-0.5 bg-sky-50 text-sky-755 border border-sky-200 font-bold text-[9px] uppercase tracking-wider rounded-full">DESIGNER UPLOADED</span>;
+                  })()}
+                </div>
+              </div>
 
-                  {/* CATEGORY */}
-                  <td className="px-6 py-5 font-extrabold text-indigo-600 align-middle text-xs">
-                    {d.category}
-                  </td>
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100/60">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 font-bold text-[9px] flex items-center justify-center border border-slate-200">
+                    {d.uploadedBy ? d.uploadedBy.split(' ').map(n=>n[0]).join('').toUpperCase() : 'U'}
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-slate-600 font-semibold block">{d.uploadedBy}</span>
+                    <span className="text-[8px] text-slate-400 block font-normal">{d.lastUpdated}</span>
+                  </div>
+                </div>
 
-                  {/* UPLOADED BY */}
-                  <td className="px-6 py-5 align-middle text-slate-700">
-                    <div className="space-y-0.5">
-                      <span className="font-bold text-slate-800 block text-xs">
-                        {d.uploadedBy}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-semibold block">
-                        Uploaded {d.lastUpdated}
-                      </span>
-                    </div>
-                  </td>
+                <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => onSelectDrawing(d)}
+                    className="w-8 h-8 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 flex items-center justify-center transition-all shadow-3xs"
+                    title="View Details"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                  </button>
 
-                  {/* STATUS */}
-                  <td className="px-6 py-5 align-middle">
-                    {(() => {
-                      const s = String(d.status || 'DESIGNER_UPLOADED').toUpperCase();
-                      if (s.includes('GFC') || s.includes('LOCKED')) {
-                        return <span className="px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 font-extrabold text-[10px] uppercase tracking-wider rounded-full inline-block">GFC LOCKED</span>;
-                      }
-                      if (s.includes('APPROV') && !s.includes('PENDING')) {
-                        return <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 font-extrabold text-[10px] uppercase tracking-wider rounded-full inline-block">APPROVED</span>;
-                      }
-                      if (s.includes('PENDING') || s.includes('REVIEW')) {
-                        return <span className="px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200 font-extrabold text-[10px] uppercase tracking-wider rounded-full inline-block">PENDING REVIEW</span>;
-                      }
-                      if (s.includes('REVISION') || s.includes('REJECT') || s.includes('CHANGE')) {
-                        return <span className="px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 font-extrabold text-[10px] uppercase tracking-wider rounded-full inline-block">REVISIONS REQUIRED</span>;
-                      }
-                      return <span className="px-3 py-1 bg-sky-50 text-sky-700 border border-sky-200 font-extrabold text-[10px] uppercase tracking-wider rounded-full inline-block">DESIGNER UPLOADED</span>;
-                    })()}
-                  </td>
-
-                  {/* ACTIONS */}
-                  <td className="px-6 py-5 text-right align-middle" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => onSelectDrawing(d)}
-                        className="w-8 h-8 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 flex items-center justify-center transition-all shadow-3xs"
-                        title="View Details"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
-
-                      <button
-                        onClick={() => onLockToggle(d.id)}
-                        className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all shadow-3xs ${
-                          d.locked
-                            ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
-                            : 'bg-white border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50'
-                        }`}
-                        title={d.locked ? "Unlock edits" : "Lock GFC Version"}
-                      >
-                        {d.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-
-              {filteredDrawings.length === 0 && (
-                <tr>
-                  <td colSpan="6" className="py-16 text-center text-slate-400 font-bold">
-                    <AlertCircle className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                    No drawings match your search criteria.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                  <button
+                    onClick={() => onLockToggle(d.id)}
+                    className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all shadow-3xs ${
+                      d.locked
+                        ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
+                        : 'bg-white border-slate-200 text-slate-400 hover:text-slate-650 hover:bg-slate-50'
+                    }`}
+                    title={d.locked ? "Unlock edits" : "Lock GFC Version"}
+                  >
+                    {d.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+          {filteredDrawings.length === 0 && (
+            <div className="col-span-full py-16 text-center bg-white border border-slate-100 rounded-3xl">
+              <AlertCircle className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+              <h4 className="text-xs font-medium text-slate-800">No drawings match your search criteria.</h4>
+            </div>
+          )}
         </div>
+      ) : (
+        <div className="bg-white border border-slate-100/90 rounded-3xl overflow-hidden shadow-2xs w-full">
+          <div className="overflow-x-auto w-full">
+            <table className="w-full text-xs text-left table-auto">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50/50">
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest w-32">
+                    DWG CODE
+                  </th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    DRAWING NAME
+                  </th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest w-40">
+                    CATEGORY
+                  </th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest w-48">
+                    UPLOADED BY
+                  </th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest w-36">
+                    STATUS
+                  </th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest w-28 text-right">
+                    ACTIONS
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100/80">
+                {filteredDrawings.map((d, idx) => (
+                  <tr 
+                    key={d._id ? `${d._id}-${idx}` : `${d.id || d.drawingNumber || 'dwg'}-${idx}`} 
+                    className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
+                    onClick={() => onSelectDrawing(d)}
+                  >
+                    {/* DWG CODE */}
+                    <td className="px-6 py-5 font-bold text-slate-700 align-middle">
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-slate-800 group-hover:text-blue-600 transition-colors">{d.id}</span>
+                        {d.locked ? (
+                          <Lock className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+                        ) : (
+                          <Unlock className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-400 flex-shrink-0" />
+                        )}
+                      </div>
+                    </td>
+
+                    {/* DRAWING NAME & DETAILS */}
+                    <td className="px-6 py-5 align-middle">
+                      <div className="space-y-0.5">
+                        <span className="font-bold text-slate-900 block text-xs sm:text-sm group-hover:text-blue-600 transition-colors">
+                          {d.name}
+                        </span>
+                        <span className="text-[9.5px] text-slate-400 font-extrabold block uppercase tracking-wider">
+                          SIZE: {d.fileSize} | ACCESS: {d.accessLevel.toUpperCase()}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* CATEGORY */}
+                    <td className="px-6 py-5 font-extrabold text-indigo-600 align-middle text-xs">
+                      {d.category}
+                    </td>
+
+                    {/* UPLOADED BY */}
+                    <td className="px-6 py-5 align-middle text-slate-700">
+                      <div className="space-y-0.5">
+                        <span className="font-bold text-slate-800 block text-xs">
+                          {d.uploadedBy}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-semibold block">
+                          Uploaded {d.lastUpdated}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* STATUS */}
+                    <td className="px-6 py-5 align-middle">
+                      {(() => {
+                        const s = String(d.status || 'DESIGNER_UPLOADED').toUpperCase();
+                        if (s.includes('GFC') || s.includes('LOCKED')) {
+                          return <span className="px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 font-extrabold text-[10px] uppercase tracking-wider rounded-full inline-block">GFC LOCKED</span>;
+                        }
+                        if (s.includes('APPROV') && !s.includes('PENDING')) {
+                          return <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 font-extrabold text-[10px] uppercase tracking-wider rounded-full inline-block">APPROVED</span>;
+                        }
+                        if (s.includes('PENDING') || s.includes('REVIEW')) {
+                          return <span className="px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200 font-extrabold text-[10px] uppercase tracking-wider rounded-full inline-block">PENDING REVIEW</span>;
+                        }
+                        if (s.includes('REVISION') || s.includes('REJECT') || s.includes('CHANGE')) {
+                          return <span className="px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 font-extrabold text-[10px] uppercase tracking-wider rounded-full inline-block">REVISIONS REQUIRED</span>;
+                        }
+                        return <span className="px-3 py-1 bg-sky-50 text-sky-700 border border-sky-200 font-extrabold text-[10px] uppercase tracking-wider rounded-full inline-block">DESIGNER UPLOADED</span>;
+                      })()}
+                    </td>
+
+                    {/* ACTIONS */}
+                    <td className="px-6 py-5 text-right align-middle" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => onSelectDrawing(d)}
+                          className="w-8 h-8 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 flex items-center justify-center transition-all shadow-3xs"
+                          title="View Details"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          onClick={() => onLockToggle(d.id)}
+                          className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all shadow-3xs ${
+                            d.locked
+                              ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
+                              : 'bg-white border-slate-200 text-slate-400 hover:text-slate-650 hover:bg-slate-50'
+                          }`}
+                          title={d.locked ? "Unlock edits" : "Lock GFC Version"}
+                        >
+                          {d.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+
+                {filteredDrawings.length === 0 && (
+                  <tr>
+                    <td colSpan="6" className="py-16 text-center text-slate-400 font-bold">
+                      <AlertCircle className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      No drawings match your search criteria.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
         {/* PAGINATION FOOTER */}
         <div className="px-6 py-4 bg-white border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-500">
@@ -362,7 +490,7 @@ export default function DrawingList({
               <select
                 value={itemsPerPage}
                 onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                className="appearance-none pl-3 pr-7 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold text-slate-700 cursor-pointer focus:outline-none"
+                className="appearance-none pl-3 pr-7 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold text-slate-700 cursor-pointer focus:outline-none pagination-select"
               >
                 <option value={10}>10 per page</option>
                 <option value={20}>20 per page</option>
@@ -394,8 +522,6 @@ export default function DrawingList({
             </div>
           </div>
         </div>
-
-      </div>
 
     </div>
   );

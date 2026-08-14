@@ -181,11 +181,15 @@ export default function HRDashboard() {
       {/* ================= ZONE 1: TOP SECTION (KPIs) ================= */}
       <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3 sm:gap-3.5">
         
-        <div className="premium-stat-box p-3.5 flex flex-col justify-between min-h-[88px]">
-          <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block truncate" title="Total Employees">Total Employees</span>
+        <div 
+          onClick={() => navigate('/hr/employees')}
+          className="premium-stat-box p-3.5 flex flex-col justify-between min-h-[88px] cursor-pointer hover:border-indigo-400 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 group"
+          title="Click to view complete employee roster"
+        >
+          <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block truncate group-hover:text-indigo-600 transition-colors" title="Total Employees">Total Employees</span>
           <div className="flex items-center justify-between mt-2">
-            <strong className="text-lg font-black text-slate-800">{totalEmployees}</strong>
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-2xs"></span>
+            <strong className="text-lg font-black text-slate-800 group-hover:text-indigo-600 transition-colors">{totalEmployees}</strong>
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-2xs group-hover:scale-125 transition-transform"></span>
           </div>
         </div>
 
