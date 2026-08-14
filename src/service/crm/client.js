@@ -74,8 +74,33 @@ export const resetTempPassword = async (clientId, contactId) => {
 // ==========================================
 
 export const clientLogin = async (credentials) => {
-  const response = await api.post('/client-auth/login', credentials);
-  return response.data;
+  try {
+    const response = await api.post('/client-auth/login', credentials);
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      if (error.response.status === 429) {
+        const retryAfterHeader = error.response.headers?.['retry-after'];
+        const retryAfterSeconds = retryAfterHeader ? parseInt(retryAfterHeader, 10) : 180;
+        return {
+          success: false,
+          isRateLimited: true,
+          status: 429,
+          retryAfter: retryAfterSeconds,
+          message: error.response?.data?.message || '5 consecutive failed login attempts detected. Access has been temporarily restricted for security.'
+        };
+      }
+      return {
+        success: false,
+        status: error.response.status,
+        message: error.response?.data?.message || error.response?.data?.error || 'Invalid credentials or login failed.'
+      };
+    }
+    return {
+      success: false,
+      message: error.message || 'Error authenticating client.'
+    };
+  }
 };
 
 export const clientChangePassword = async (payload) => {

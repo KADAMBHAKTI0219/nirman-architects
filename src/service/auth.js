@@ -98,31 +98,103 @@ export const mockLocalLogin = async (email, password) => {
   };
 };
 
-export const loginUser = async (email, password) => {
-  const userEmail = (typeof email === 'object' && email !== null) ? (email.email || email.userEmail) : email;
-  const userPassword = (typeof email === 'object' && email !== null) ? (email.password || email.userPassword) : password;
+export const loginUser = async (email, password, loginType = 'staff') => {
+  let userEmail = '';
+  let userPassword = '';
+  let tabType = loginType;
 
-  // 1. Primary endpoint: /auth/login
-  try {
-    const response = await api.post('/auth/login', { email: userEmail, password: userPassword });
-    if (response.data && (response.data.token || response.data.success)) {
-      return response.data;
+  if (typeof email === 'object' && email !== null) {
+    userEmail = String(email.email || email.userEmail || '').trim();
+    userPassword = String(email.password || email.userPassword || '').trim();
+    if (email.loginType || email.loginTab) {
+      tabType = email.loginType || email.loginTab;
     }
-  } catch (err) {
-    console.warn("Primary /auth/login returned error, trying secondary client endpoint:", err?.response?.data || err.message);
+  } else {
+    userEmail = String(email || '').trim();
+    userPassword = String(password || '').trim();
   }
 
-  // 2. Secondary endpoint: /client-auth/login
+  const primaryEndpoint = tabType === 'client' ? '/client-auth/login' : '/auth/login';
+  const secondaryEndpoint = tabType === 'client' ? '/auth/login' : '/client-auth/login';
+
+  // 1. Attempt primary API endpoint
   try {
-    const response = await api.post('/client-auth/login', { email: userEmail, password: userPassword });
-    if (response.data && (response.data.token || response.data.success)) {
-      return response.data;
+    const response = await api.post(primaryEndpoint, { email: userEmail, password: userPassword });
+    if (response.data && (response.data.token || response.data.clientToken || response.data.success || response.data.data?.token)) {
+      const data = response.data;
+      const token = data.token || data.clientToken || data.data?.token;
+      const user = data.user || data.client || data.contact || data.data?.user || {
+        email: userEmail,
+        name: userEmail.split('@')[0]?.toUpperCase() || 'USER',
+        role: tabType === 'client' ? 'Customer' : 'Admin'
+      };
+
+      if (token) {
+        localStorage.setItem(tabType === 'client' ? 'clientToken' : 'token', token);
+        localStorage.setItem('token', token);
+      }
+      localStorage.setItem('user', JSON.stringify(user));
+
+      return {
+        success: true,
+        token: token,
+        clientToken: token,
+        user: user,
+        data: data
+      };
     }
   } catch (err) {
-    console.warn("Secondary /client-auth/login returned error, triggering local fallback:", err?.response?.data || err.message);
+    // If backend returned HTTP status code (e.g. 400, 401, 403, 429, 422)
+    if (err.response) {
+      if (err.response.status === 429) {
+        const retryAfterHeader = err.response.headers?.['retry-after'];
+        const retryAfterSeconds = retryAfterHeader ? parseInt(retryAfterHeader, 10) : (err.response?.data?.retryAfter || 180);
+        const msg = err.response?.data?.message || err.response?.data?.error || '5 consecutive failed login attempts detected. Access has been temporarily restricted for security.';
+        return {
+          success: false,
+          isRateLimited: true,
+          status: 429,
+          retryAfter: retryAfterSeconds,
+          message: msg,
+          error: msg
+        };
+      }
+
+      // If 404 endpoint not found, try secondary endpoint
+      if (err.response.status === 404) {
+        try {
+          const secondRes = await api.post(secondaryEndpoint, { email: userEmail, password: userPassword });
+          if (secondRes.data && (secondRes.data.token || secondRes.data.clientToken || secondRes.data.success)) {
+            const data = secondRes.data;
+            const token = data.token || data.clientToken || data.data?.token;
+            const user = data.user || data.client || data.contact || data.data?.user;
+            return { success: true, token, user, data };
+          }
+        } catch (secondErr) {
+          if (secondErr.response) {
+            if (secondErr.response.status === 429) {
+              const retryAfterHeader = secondErr.response.headers?.['retry-after'];
+              const retryAfterSeconds = retryAfterHeader ? parseInt(retryAfterHeader, 10) : 180;
+              return {
+                success: false,
+                isRateLimited: true,
+                status: 429,
+                retryAfter: retryAfterSeconds,
+                message: secondErr.response?.data?.message || '5 consecutive failed login attempts detected. Access restricted.'
+              };
+            }
+            const msg = secondErr.response?.data?.message || secondErr.response?.data?.error || 'Invalid credentials.';
+            return { success: false, message: msg, error: msg };
+          }
+        }
+      }
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || err.response?.data?.details || 'Invalid email or password.';
+      return { success: false, message: errorMsg, error: errorMsg };
+    }
+    console.warn("Backend server unreachable or offline. Activating local session fallback:", err.message);
   }
 
-  // 3. Guaranteed local fallback for 400/401/offline modes
+  // 2. Offline / Local fallback mode when server is down or unreachable
   return await mockLocalLogin(userEmail, userPassword);
 };
 

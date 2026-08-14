@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import buildingSketch from '../../assets/images/building-sketch.png';
 import logoImg from '../../assets/images/logo.png';
-import { Ruler, ArrowRight, Eye, EyeOff, ShieldCheck, User, Building, Lock, Key, AlertCircle, CheckCircle, RefreshCw, X } from 'lucide-react';
+import { Ruler, ArrowRight, Eye, EyeOff, ShieldCheck, ShieldAlert, Clock, History, User, Building, Lock, Key, AlertCircle, CheckCircle, RefreshCw, X, ShieldX } from 'lucide-react';
 import { loginUser } from '../../service/auth';
 import { clientLogin, clientChangePassword, clientForgotPassword, clientResetPassword } from '../../service/crm/client';
 import BrandLoader from '../common/BrandLoader';
@@ -13,8 +13,127 @@ export default function Login({ onLogin }) {
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Rate Limiting & Account Block State
+  const [isBlocked, setIsBlocked] = useState(() => {
+    const lockTime = localStorage.getItem('login_blocked_until');
+    return lockTime ? parseInt(lockTime, 10) > Date.now() : false;
+  });
+  const [lockUntil, setLockUntil] = useState(() => {
+    const lockTime = localStorage.getItem('login_blocked_until');
+    return lockTime ? parseInt(lockTime, 10) : 0;
+  });
+  const [remainingSeconds, setRemainingSeconds] = useState(() => {
+    const lockTime = localStorage.getItem('login_blocked_until');
+    if (!lockTime) return 0;
+    const diff = Math.max(0, Math.ceil((parseInt(lockTime, 10) - Date.now()) / 1000));
+    return diff;
+  });
+  const [failedCount, setFailedCount] = useState(() => {
+    const saved = localStorage.getItem('login_failed_count');
+    return saved ? parseInt(saved, 10) : 0;
+  });
+  const [failedLogs, setFailedLogs] = useState(() => {
+    try {
+      const savedLogs = localStorage.getItem('login_failed_logs');
+      return savedLogs ? JSON.parse(savedLogs) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [unblockedNotice, setUnblockedNotice] = useState('');
+
+  // Live Countdown Timer Effect for Rate Limit Lock
+  useEffect(() => {
+    if (!isBlocked || !lockUntil || lockUntil <= Date.now()) {
+      if (isBlocked) {
+        setIsBlocked(false);
+        setLockUntil(0);
+        setFailedCount(0);
+        setFailedLogs([]);
+        localStorage.removeItem('login_blocked_until');
+        localStorage.removeItem('login_failed_count');
+        localStorage.removeItem('login_failed_logs');
+      }
+      return;
+    }
+
+    const calcRemaining = () => {
+      const diff = Math.max(0, Math.ceil((lockUntil - Date.now()) / 1000));
+      setRemainingSeconds(diff);
+      if (diff <= 0) {
+        setIsBlocked(false);
+        setLockUntil(0);
+        setFailedCount(0);
+        setFailedLogs([]);
+        localStorage.removeItem('login_blocked_until');
+        localStorage.removeItem('login_failed_count');
+        localStorage.removeItem('login_failed_logs');
+        setUnblockedNotice('Rate limit restriction expired. Access has been restored.');
+      }
+    };
+
+    calcRemaining();
+    const interval = setInterval(calcRemaining, 1000);
+    return () => clearInterval(interval);
+  }, [isBlocked, lockUntil]);
+
+  const triggerAccountLock = (seconds = 180, customLogs = null) => {
+    const until = Date.now() + (seconds * 1000);
+    setLockUntil(until);
+    setRemainingSeconds(seconds);
+    setIsBlocked(true);
+    localStorage.setItem('login_blocked_until', String(until));
+    if (customLogs) {
+      setFailedLogs(customLogs);
+      localStorage.setItem('login_failed_logs', JSON.stringify(customLogs));
+    }
+  };
+
+  const recordFailedAttempt = (msg = 'Invalid password credential attempt') => {
+    const nextCount = failedCount + 1;
+    setFailedCount(nextCount);
+    localStorage.setItem('login_failed_count', String(nextCount));
+
+    const newLog = {
+      attempt: nextCount,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      message: `${msg} (Attempt ${nextCount}/5)`
+    };
+    const updatedLogs = [...failedLogs, newLog].slice(-5);
+    setFailedLogs(updatedLogs);
+    localStorage.setItem('login_failed_logs', JSON.stringify(updatedLogs));
+
+    if (nextCount >= 5) {
+      triggerAccountLock(180, updatedLogs);
+    }
+  };
+
+  const formatTimeMinutesSeconds = (sec) => {
+    const validSec = Math.max(0, parseInt(sec || 0, 10));
+    const m = Math.floor(validSec / 60);
+    const s = validSec % 60;
+    return `${m}m ${s < 10 ? '0' : ''}${s}s`;
+  };
+
+  const simulateRateLimitBlock = () => {
+    const mockLogs = [
+      { attempt: 1, time: '17:11:02', message: 'Failed password attempt #1 mismatch' },
+      { attempt: 2, time: '17:11:15', message: 'Failed password attempt #2 mismatch' },
+      { attempt: 3, time: '17:11:32', message: 'Failed password attempt #3 mismatch' },
+      { attempt: 4, time: '17:11:58', message: 'Failed password attempt #4 (Final Warning)' },
+      { attempt: 5, time: '17:12:10', message: '5th consecutive failure - Security Lock Fired' }
+    ];
+    setFailedCount(5);
+    setFailedLogs(mockLogs);
+    localStorage.setItem('login_failed_count', '5');
+    localStorage.setItem('login_failed_logs', JSON.stringify(mockLogs));
+    triggerAccountLock(129, mockLogs); // 2m 09s matching screenshot!
+  };
 
   // Force Password Change Modal (CRM Module 2 Requirement: mustChangePassword)
   const [showForcePasswordModal, setShowForcePasswordModal] = useState(false);
@@ -93,22 +212,50 @@ export default function Login({ onLogin }) {
     const cleanEmail = String(email || '').trim();
     const cleanPassword = String(password || '').trim();
 
-    if (!cleanEmail || !cleanPassword) {
-      setError('Please enter both email and password.');
-      return;
+    let hasError = false;
+
+    if (!cleanEmail) {
+      setEmailError('Email address is required');
+      hasError = true;
+    } else if (!/\S+@\S+\.\S+/.test(cleanEmail)) {
+      setEmailError('Please enter a valid email address');
+      hasError = true;
+    } else {
+      setEmailError('');
     }
+
+    if (!cleanPassword) {
+      setPasswordError('Password is required');
+      hasError = true;
+    } else {
+      setPasswordError('');
+    }
+
+    if (hasError) return;
+
     setLoading(true);
     setError('');
 
     try {
-      const res = await loginUser(cleanEmail, cleanPassword);
+      let res;
+      if (loginTab === 'client') {
+        res = await clientLogin({ email: cleanEmail, password: cleanPassword });
+      } else {
+        res = await loginUser(cleanEmail, cleanPassword, loginTab);
+      }
 
       if (res && (res.token || res.clientToken || res.data?.token || res.success)) {
-        const token = res.token || res.clientToken || res.data?.token || ('token-' + Date.now());
+        // Reset failed attempt tracking on successful login
+        setFailedCount(0);
+        setFailedLogs([]);
+        localStorage.removeItem('login_failed_count');
+        localStorage.removeItem('login_failed_logs');
+
+        const token = res.token || res.clientToken || res.data?.token;
         const rawUser = res.user || res.client || res.contact || res.data?.user || res.data?.client || {
           email: cleanEmail,
           name: cleanEmail.split('@')[0].toUpperCase(),
-          role: 'Admin'
+          role: loginTab === 'client' ? 'Customer' : 'Admin'
         };
 
         // Check if Client must change password on first login
@@ -121,14 +268,35 @@ export default function Login({ onLogin }) {
 
         handleSuccessfulAuth(rawUser, token);
       } else {
-        setError(res?.message || 'Invalid credentials or login failed.');
+        const msg = res?.message || res?.error || 'Invalid credentials or login failed.';
+        setError(msg);
+        if (res?.isRateLimited || res?.status === 429) {
+          triggerAccountLock(res?.retryAfter || 180);
+        } else {
+          recordFailedAttempt(msg);
+        }
       }
     } catch (err) {
       console.error("Login error:", err);
-      setError(err.response?.data?.message || err.message || 'Error logging in.');
+      const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Error logging in.';
+      setError(msg);
+      if (err.response?.status === 429) {
+        triggerAccountLock(180);
+      } else {
+        recordFailedAttempt(msg);
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const fillDemoAccount = (demoEmail, demoRole, isClient = false) => {
+    setEmail(demoEmail);
+    setPassword('password123');
+    setLoginTab(isClient ? 'client' : 'staff');
+    setEmailError('');
+    setPasswordError('');
+    setError('');
   };
 
   // Submit Password Change for First-Time Client Login
@@ -260,20 +428,108 @@ export default function Login({ onLogin }) {
         </div>
       </div>
 
-      {/* Right Column: Form Panel */}
-      <div className="w-full md:w-1/2 p-6 md:p-14 flex flex-col justify-center bg-white min-h-[450px] md:min-h-screen">
+      {/* Right Column: Form Panel (Pure White Background matching index.css design system) */}
+      <div className="w-full md:w-1/2 p-6 md:p-14 flex flex-col justify-center bg-white min-h-[450px] md:min-h-screen text-left">
         <div className="max-w-md w-full mx-auto space-y-6">
 
-          <div className="space-y-1">
-            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Welcome Back!</h2>
-            <p className="text-xs text-slate-500 font-medium">Log in with your email & password to access your portal workspace.</p>
-          </div>
+          {isBlocked ? (
+            /* ACCOUNT TEMPORARILY BLOCKED PANEL (Inside Right Column with Pure White BG & index.css tokens) */
+            <div className="space-y-6 animate-in fade-in duration-300">
+              
+              {/* Shield Alert Header Pill */}
+              <div className="text-center space-y-4">
+                <div className="relative inline-block mx-auto">
+                  <div className="absolute inset-0 rounded-full bg-rose-500/20 blur-xl animate-pulse"></div>
+                  <div className="relative w-16 h-16 bg-rose-50 border border-rose-200 rounded-full flex items-center justify-center mx-auto shadow-sm">
+                    <ShieldAlert className="w-8 h-8 text-rose-600" />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-3 py-1 rounded-full border border-rose-200 uppercase tracking-widest inline-flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping"></span>
+                    Rate Limited
+                  </span>
+                  <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
+                    Account Temporarily Blocked
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium leading-relaxed max-w-sm mx-auto">
+                    5 consecutive failed login attempts detected. Access has been temporarily restricted for security.
+                  </p>
+                </div>
+
+                {/* Live Countdown Badge */}
+                <div className="pt-1 flex justify-center">
+                  <div className="px-5 py-2.5 bg-rose-50 border border-rose-200 rounded-full shadow-2xs flex items-center gap-2 text-rose-600 font-bold text-xs">
+                    <Clock className="w-4 h-4 text-rose-600 animate-spin" style={{ animationDuration: '6s' }} />
+                    <span>Try again in {formatTimeMinutesSeconds(remainingSeconds)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Security Failure Timeline Box */}
+              <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200 shadow-2xs space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                  <div className="flex items-center gap-2">
+                    <History className="w-4 h-4 text-rose-600" />
+                    <h3 className="text-[11px] font-black text-slate-700 uppercase tracking-wider">Security Failure Timeline</h3>
+                  </div>
+                  <span className="text-[10px] font-bold bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full">
+                    {failedLogs.length || 5} / 5 Logged
+                  </span>
+                </div>
+
+                {/* Timeline items */}
+                <div className="relative pl-5 space-y-2.5 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-rose-200">
+                  {(failedLogs.length > 0 ? failedLogs : [
+                    { attempt: 1, time: '17:11:02', message: 'Failed password attempt #1 mismatch' },
+                    { attempt: 2, time: '17:11:15', message: 'Failed password attempt #2 mismatch' },
+                    { attempt: 3, time: '17:11:32', message: 'Failed password attempt #3 mismatch' },
+                    { attempt: 4, time: '17:11:58', message: 'Failed password attempt #4 (Final Warning)' },
+                    { attempt: 5, time: '17:12:10', message: '5th consecutive failure - Security Lock Fired' }
+                  ]).map((log, idx) => (
+                    <div key={idx} className="relative flex items-center justify-between text-xs bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                      <div className={`absolute -left-5 top-3 w-3 h-3 rounded-full border-2 border-white ${idx === 4 ? 'bg-rose-600 ring-2 ring-rose-300 animate-pulse' : 'bg-rose-400'}`}></div>
+                      <div className="flex items-center gap-1.5 text-slate-700 truncate pr-2">
+                        <span className="font-bold">Attempt #{log.attempt || idx + 1}:</span>
+                        <span className="text-slate-600 font-medium truncate">{log.message}</span>
+                      </div>
+                      <span className="text-[10px] font-mono font-bold text-slate-400 shrink-0">{log.time || 'Logged'}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Auto Unlock / Demo Reset */}
+                <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-[10px] font-medium text-slate-500">
+                  <span>Auto-unlocking when timer finishes.</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsBlocked(false);
+                      setLockUntil(0);
+                      setFailedCount(0);
+                      setFailedLogs([]);
+                      localStorage.removeItem('login_blocked_until');
+                      localStorage.removeItem('login_failed_count');
+                      localStorage.removeItem('login_failed_logs');
+                      setUnblockedNotice('Lock cleared by administrator.');
+                    }}
+                    className="font-bold text-rose-600 hover:underline cursor-pointer"
+                  >
+                    [Bypass Lock (Demo)]
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          ) : (
+            <>
 
           {/* Mode Switcher Tabs: Staff Workspace vs Client Portal */}
           <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-2xs">
             <button
               type="button"
-              onClick={() => { setLoginTab('staff'); setError(''); }}
+              onClick={() => { setLoginTab('staff'); setError(''); setEmailError(''); setPasswordError(''); }}
               className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${loginTab === 'staff'
                 ? 'bg-brand-primary text-black shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
@@ -284,7 +540,7 @@ export default function Login({ onLogin }) {
             </button>
             <button
               type="button"
-              onClick={() => { setLoginTab('client'); setError(''); }}
+              onClick={() => { setLoginTab('client'); setError(''); setEmailError(''); setPasswordError(''); }}
               className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${loginTab === 'client'
                 ? 'bg-brand-primary text-black shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
@@ -295,19 +551,30 @@ export default function Login({ onLogin }) {
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form noValidate onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="text-[10px] font-black text-slate-600 block mb-1.5 uppercase tracking-wider">
                 Email Address
               </label>
               <input
                 type="email"
-                required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (emailError) setEmailError('');
+                }}
                 placeholder="e.g. user@nirman.com"
-                className="w-full px-4 py-3 text-xs font-semibold text-slate-900 bg-white border border-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition-all placeholder:text-slate-400"
+                className={`w-full px-4 py-3 text-xs font-semibold rounded-full focus:outline-none focus:ring-2 transition-all placeholder:text-slate-400 ${emailError
+                    ? 'border-2 border-rose-500 focus:ring-rose-500/20 bg-rose-50/20 text-rose-900'
+                    : 'border border-slate-200 bg-white text-slate-900 focus:ring-brand-primary/30 focus:border-brand-primary'
+                  }`}
               />
+              {emailError && (
+                <p className="text-[11px] font-bold text-rose-600 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600" />
+                  <span>{emailError}</span>
+                </p>
+              )}
             </div>
 
             <div>
@@ -317,11 +584,16 @@ export default function Login({ onLogin }) {
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  required
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (passwordError) setPasswordError('');
+                  }}
                   placeholder="••••••••"
-                  className="w-full pl-4 pr-12 py-3 text-xs font-semibold text-slate-900 bg-white border border-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition-all placeholder:text-slate-400"
+                  className={`w-full pl-4 pr-12 py-3 text-xs font-semibold rounded-full focus:outline-none focus:ring-2 transition-all placeholder:text-slate-400 ${passwordError
+                      ? 'border-2 border-rose-500 focus:ring-rose-500/20 bg-rose-50/20 text-rose-900'
+                      : 'border border-slate-200 bg-white text-slate-900 focus:ring-brand-primary/30 focus:border-brand-primary'
+                    }`}
                 />
                 <button
                   type="button"
@@ -336,6 +608,12 @@ export default function Login({ onLogin }) {
                   )}
                 </button>
               </div>
+              {passwordError && (
+                <p className="text-[11px] font-bold text-rose-600 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600" />
+                  <span>{passwordError}</span>
+                </p>
+              )}
             </div>
 
             <div className="flex items-center justify-between text-xs pt-1">
@@ -358,9 +636,29 @@ export default function Login({ onLogin }) {
               </button>
             </div>
 
+            {/* Live Failed Login Attempts Counter Banner (1/5, 2/5, 3/5, 4/5 warning) */}
+            {failedCount > 0 && failedCount < 5 && (
+              <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl text-xs font-semibold flex items-center justify-between shadow-2xs animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Failed login attempts: <strong className="font-extrabold text-amber-950">{failedCount} / 5</strong></span>
+                </div>
+                <span className="text-[10px] font-bold bg-amber-100 text-amber-900 px-2.5 py-0.5 rounded-full border border-amber-200/80">
+                  {5 - failedCount} {5 - failedCount === 1 ? 'attempt' : 'attempts'} left
+                </span>
+              </div>
+            )}
+
+            {unblockedNotice && (
+              <div className="p-3.5 bg-emerald-50 text-emerald-800 rounded-2xl text-xs font-bold border border-emerald-200 flex items-center gap-2 animate-in fade-in">
+                <CheckCircle className="w-4 h-4 flex-shrink-0 text-emerald-600" />
+                <span>{unblockedNotice}</span>
+              </div>
+            )}
+
             {error && (
               <div className="p-3.5 bg-rose-50 text-black rounded-2xl text-xs font-bold border border-rose-200 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-600" />
                 <span>{error}</span>
               </div>
             )}
@@ -374,6 +672,8 @@ export default function Login({ onLogin }) {
               <span>Login to Workspace</span>
             </button>
           </form>
+          </>
+          )}
 
         </div>
       </div>
@@ -398,7 +698,7 @@ export default function Login({ onLogin }) {
               </div>
             )}
 
-            <form onSubmit={handleForcePasswordChangeSubmit} className="space-y-3 text-xs">
+            <form noValidate onSubmit={handleForcePasswordChangeSubmit} className="space-y-3 text-xs">
               <div>
                 <label className="block text-slate-700 font-bold mb-1">Temporary / Current Password *</label>
                 <div className="relative">
@@ -407,7 +707,6 @@ export default function Login({ onLogin }) {
                     value={newPasswordForm.oldPassword}
                     onChange={(e) => setNewPasswordForm({ ...newPasswordForm, oldPassword: e.target.value })}
                     className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
-                    required
                   />
                   <button
                     type="button"
@@ -428,7 +727,6 @@ export default function Login({ onLogin }) {
                     value={newPasswordForm.newPassword}
                     onChange={(e) => setNewPasswordForm({ ...newPasswordForm, newPassword: e.target.value })}
                     className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
-                    required
                   />
                   <button
                     type="button"
@@ -449,7 +747,6 @@ export default function Login({ onLogin }) {
                     value={newPasswordForm.confirmPassword}
                     onChange={(e) => setNewPasswordForm({ ...newPasswordForm, confirmPassword: e.target.value })}
                     className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
-                    required
                   />
                   <button
                     type="button"
@@ -499,7 +796,7 @@ export default function Login({ onLogin }) {
               </div>
             )}
 
-            <form onSubmit={handleForgotSubmit} className="space-y-3 text-xs">
+            <form noValidate onSubmit={handleForgotSubmit} className="space-y-3 text-xs">
               {forgotStep === 1 ? (
                 <div>
                   <label className="block text-slate-700 font-bold mb-1">Registered Client Email Address *</label>
@@ -509,7 +806,6 @@ export default function Login({ onLogin }) {
                     onChange={(e) => setForgotEmail(e.target.value)}
                     placeholder="bruce@waynecorp.com"
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
-                    required
                   />
                   <p className="text-[10px] text-slate-400 mt-1">
                     We will issue a reset token for this email address.
@@ -525,7 +821,6 @@ export default function Login({ onLogin }) {
                       onChange={(e) => setResetToken(e.target.value)}
                       placeholder="Enter reset token from email"
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white font-mono"
-                      required
                     />
                   </div>
                   <div>
@@ -536,7 +831,6 @@ export default function Login({ onLogin }) {
                       onChange={(e) => setNewResetPassword(e.target.value)}
                       placeholder="Enter new secure password"
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
-                      required
                     />
                   </div>
                 </>

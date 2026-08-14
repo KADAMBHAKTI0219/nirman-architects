@@ -8,7 +8,7 @@ import './App.css';
 function App() {
   const [role, setRole] = useState(() => {
     try {
-      const savedUser = localStorage.getItem('user');
+      const savedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
       if (!savedUser) return null;
       
       const parsedUser = JSON.parse(savedUser);
@@ -37,7 +37,7 @@ function App() {
         case 'employee':
           return 'Employee';
         case 'client':
-        case 'customer':
+          case 'customer':
           return 'Customer';
         default:
           return null;
@@ -48,8 +48,8 @@ function App() {
   });
 
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    const hasToken = !!localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
+    const hasToken = !!(localStorage.getItem('token') || sessionStorage.getItem('token') || localStorage.getItem('clientToken') || sessionStorage.getItem('clientToken'));
+    const savedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
     if (!hasToken || !savedUser) return false;
 
     try {
