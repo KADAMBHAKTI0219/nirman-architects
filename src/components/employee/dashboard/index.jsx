@@ -13,6 +13,7 @@ import { getMyNotifications } from '../../../service/notification';
 import { getProjectDocuments, uploadDocument } from '../../../service/document';
 import { getInternalProjectChat, sendInternalChatMessage } from '../../../service/chat';
 import { getDrawings } from '../../../service/drawing';
+import { getProjects } from '../../../service/project';
 import { useToast } from '../../../context/ToastContext';
 
 export default function EmployeeDashboard() {
@@ -29,6 +30,8 @@ export default function EmployeeDashboard() {
   const empName = user.name || "Employee";
   const empRole = user.designation || user.role || "Staff Member";
   const empDept = user.department || "Operations";
+  const [userProjects, setUserProjects] = useState([]);
+  const [activeProjectId, setActiveProjectId] = useState('');
 
   // Selected Drawing modal state
   const [selectedDrawing, setSelectedDrawing] = useState(null);
@@ -63,9 +66,9 @@ export default function EmployeeDashboard() {
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const fileInputRef = useRef(null);
 
-  const fetchDocuments = async () => {
+  const fetchDocuments = async (pId = activeProjectId) => {
     try {
-      const docRes = await getProjectDocuments('proj-1');
+      const docRes = await getProjectDocuments(pId || '');
       if (docRes) {
         const list = docRes.allDocuments || docRes.documents || (Array.isArray(docRes) ? docRes : []);
         setDocuments(list);
@@ -83,7 +86,7 @@ export default function EmployeeDashboard() {
     try {
       const ext = file.name.split('.').pop().toUpperCase();
       await uploadDocument({
-        projectId: 'proj-1',
+        projectId: activeProjectId || '',
         documentName: file.name,
         fileName: file.name,
         fileType: ext,
@@ -91,7 +94,7 @@ export default function EmployeeDashboard() {
         filePath: URL.createObjectURL(file)
       });
       showToast(`Document "${file.name}" uploaded successfully!`, 'success');
-      await fetchDocuments();
+      await fetchDocuments(activeProjectId);
     } catch (err) {
       console.error("Document upload error:", err);
       showToast(err.message || "Failed to upload document", "error");
@@ -148,30 +151,37 @@ export default function EmployeeDashboard() {
     try {
       const res = await getMyAttendance();
       if (res) {
-        const list = res.logs || res.data || (Array.isArray(res) ? res : []);
+        const list = res.data || (Array.isArray(res) ? res : []);
         setMyAttendanceLogs(list);
       }
     } catch (err) {
-      console.error("Dashboard attendance history error:", err);
+      console.error("Attendance roster history load error:", err);
     }
   };
 
   const { showToast } = useToast();
 
-  // Fetch Notifications & Auxiliary Data (Drawings, Documents, Chat) safely
+  // Fetch Auxiliary Data
   const fetchAuxiliaryData = async () => {
     try {
       setLoadingDrawings(true);
-      const notifRes = await getMyNotifications();
-      if (notifRes) {
-        const list = notifRes.data?.notifications || notifRes.notifications || (Array.isArray(notifRes.data) ? notifRes.data : []);
-        const unread = (Array.isArray(list) ? list : []).filter(n => !(n.isRead || n.read)).length;
-        setUnreadNotificationsCount(unread);
+
+      // 0. Fetch User Assigned Projects
+      let pId = '';
+      try {
+        const projRes = await getProjects();
+        if (projRes?.projects && Array.isArray(projRes.projects) && projRes.projects.length > 0) {
+          setUserProjects(projRes.projects);
+          pId = projRes.projects[0]._id || projRes.projects[0].id || '';
+          setActiveProjectId(pId);
+        }
+      } catch (e) {
+        console.warn("Project fetch notice:", e);
       }
 
       // 1. Fetch Drawings
       try {
-        const dwgRes = await getDrawings();
+        const dwgRes = await getDrawings({ projectId: pId });
         if (dwgRes) {
           const list = dwgRes.drawings || dwgRes.allDrawings || (Array.isArray(dwgRes) ? dwgRes : []);
           setDrawings(list);
@@ -184,7 +194,7 @@ export default function EmployeeDashboard() {
 
       // 2. Fetch Compliance Documents
       try {
-        const docRes = await getProjectDocuments('proj-1');
+        const docRes = await getProjectDocuments(pId);
         if (docRes) {
           const list = docRes.allDocuments || docRes.documents || (Array.isArray(docRes) ? docRes : []);
           setDocuments(list);
@@ -195,7 +205,7 @@ export default function EmployeeDashboard() {
 
       // 3. Fetch Team Chat Stream
       try {
-        const chatRes = await getInternalProjectChat('proj-1');
+        const chatRes = await getInternalProjectChat(pId);
         if (chatRes && chatRes.messages) {
           setChats(chatRes.messages);
         }

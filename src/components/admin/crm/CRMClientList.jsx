@@ -704,16 +704,24 @@ export default function CRMClientList({
                 </span>
 
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">Company / Account Name *</label>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Company / Account Name <span className="text-rose-500 font-bold ml-0.5">*</span>
+                  </label>
                   <input
                     type="text"
                     name="name"
                     placeholder="e.g. Wayne Enterprises or Mr. Bruce Wayne"
                     value={formData.name}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
-                    required
+                    className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white font-semibold ${
+                      !formData.name.trim() && modalError ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/20' : 'border-slate-200'
+                    }`}
                   />
+                  {!formData.name.trim() && modalError && (
+                    <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" /> Account name is required
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -729,7 +737,9 @@ export default function CRMClientList({
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-700 font-bold mb-1">Company Phone * (10 Digits)</label>
+                    <label className="block text-slate-700 font-bold mb-1">
+                      Company Phone <span className="text-rose-500 font-bold ml-0.5">*</span> (10 Digits)
+                    </label>
                     <input
                       type="tel"
                       name="phone"
@@ -737,9 +747,22 @@ export default function CRMClientList({
                       placeholder="9876543210"
                       value={formData.phone}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white font-mono"
-                      required
+                      className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white font-mono font-semibold ${
+                        (formData.phone && formData.phone.length !== 10) || (!formData.phone && modalError) 
+                          ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/20' 
+                          : 'border-slate-200'
+                      }`}
                     />
+                    {formData.phone && formData.phone.length !== 10 && (
+                      <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" /> Phone must be exactly 10 digits ({formData.phone.length}/10)
+                      </p>
+                    )}
+                    {!formData.phone && modalError && (
+                      <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" /> 10-digit mobile number required
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -751,8 +774,17 @@ export default function CRMClientList({
                     placeholder="e.g. info@company.com"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
+                    className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white font-semibold ${
+                      formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)
+                        ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/20'
+                        : 'border-slate-200'
+                    }`}
                   />
+                  {formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email) && (
+                    <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" /> Enter a valid email address
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -763,30 +795,53 @@ export default function CRMClientList({
                 </span>
 
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">Primary Contact Full Name *</label>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Primary Contact Full Name <span className="text-rose-500 font-bold ml-0.5">*</span>
+                  </label>
                   <input
                     type="text"
                     name="primaryContactName"
                     placeholder="e.g. Bruce Wayne"
                     value={formData.primaryContactName}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
-                    required
+                    className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white font-semibold ${
+                      !formData.primaryContactName.trim() && modalError ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/20' : 'border-slate-200'
+                    }`}
                   />
+                  {!formData.primaryContactName.trim() && modalError && (
+                    <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" /> Contact person full name required
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-slate-700 font-bold mb-1">Portal Login Email *</label>
+                    <label className="block text-slate-700 font-bold mb-1">
+                      Portal Login Email <span className="text-rose-500 font-bold ml-0.5">*</span>
+                    </label>
                     <input
                       type="email"
                       name="primaryContactEmail"
                       placeholder="bruce@waynecorp.com"
                       value={formData.primaryContactEmail}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
-                      required
+                      className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white font-semibold ${
+                        (formData.primaryContactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.primaryContactEmail)) || (!formData.primaryContactEmail && modalError)
+                          ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/20'
+                          : 'border-slate-200'
+                      }`}
                     />
+                    {formData.primaryContactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.primaryContactEmail) && (
+                      <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" /> Enter a valid email format
+                      </p>
+                    )}
+                    {!formData.primaryContactEmail && modalError && (
+                      <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" /> Login email is required
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-slate-700 font-bold mb-1">Contact Phone (10 Digits)</label>
@@ -797,8 +852,17 @@ export default function CRMClientList({
                       placeholder="9876543210"
                       value={formData.primaryContactPhone}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white font-mono"
+                      className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white font-mono font-semibold ${
+                        formData.primaryContactPhone && formData.primaryContactPhone.length !== 10
+                          ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/20'
+                          : 'border-slate-200'
+                      }`}
                     />
+                    {formData.primaryContactPhone && formData.primaryContactPhone.length !== 10 && (
+                      <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" /> Phone must be 10 digits
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

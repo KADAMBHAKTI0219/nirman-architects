@@ -343,6 +343,13 @@ export const getBlueprintSvgDataUrl = (title = "GROUND FLOOR PLAN - GFC RELEASE"
     <text x="235" y="175" font-family="Arial" font-size="12" font-weight="bold" fill="#0F172A">AUG 03, 2026</text>
   </g>
 </svg>
-  `;
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`;
+`;
+  try {
+    const encoded = typeof btoa !== 'undefined'
+      ? btoa(unescape(encodeURIComponent(svgString)))
+      : (typeof Buffer !== 'undefined' ? Buffer.from(svgString).toString('base64') : encodeURIComponent(svgString));
+    return `data:image/svg+xml;base64,${encoded}`;
+  } catch (e) {
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`;
+  }
 };

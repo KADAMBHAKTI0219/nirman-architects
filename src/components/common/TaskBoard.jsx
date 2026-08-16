@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, User, Clock, AlertTriangle, ArrowRight, ArrowLeft, Plus } from 'lucide-react';
+import { getProjects } from '../../service/project';
 
 const COLUMNS = [
   { id: 'Pending', label: 'Pending', color: 'border-t-amber-400 bg-amber-50/10' },
@@ -16,12 +17,29 @@ export default function TaskBoard({ initialTasks = [], onAddTask }) {
   const [selectedTask, setSelectedTask] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTitle, setNewTitle] = useState('');
-  const [newProject, setNewProject] = useState('Central Office Tower');
+  const [newProject, setNewProject] = useState('');
   const [newAssignee, setNewAssignee] = useState('');
   const [newDueDate, setNewDueDate] = useState('');
   const [newPriority, setNewPriority] = useState('Medium');
+  const [projectsList, setProjectsList] = useState([]);
+  const [fieldErrors, setFieldErrors] = useState({});
 
-  const projects = Array.from(new Set(tasks.map(t => t.project)));
+  useEffect(() => {
+    getProjects()
+      .then(res => {
+        let list = [];
+        if (res?.projects && Array.isArray(res.projects)) list = res.projects;
+        else if (Array.isArray(res)) list = res;
+        if (list.length > 0) {
+          setProjectsList(list);
+          const firstP = list[0].projectName || list[0].name || list[0].title || '';
+          setNewProject(prev => prev || firstP);
+        }
+      })
+      .catch(err => console.warn(err));
+  }, []);
+
+  const projects = Array.from(new Set([...tasks.map(t => t.project), ...projectsList.map(p => p.projectName || p.name || p.title)].filter(Boolean)));
 
   const handleStatusChange = (taskId, newStatus) => {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
@@ -32,12 +50,16 @@ export default function TaskBoard({ initialTasks = [], onAddTask }) {
 
   const handleAddNewTask = (e) => {
     e.preventDefault();
-    if (!newTitle.trim()) return;
+    if (!newTitle.trim()) {
+      setFieldErrors({ title: "Task title is required" });
+      return;
+    }
+    setFieldErrors({});
 
     const newTask = {
       id: Date.now(),
-      title: newTitle,
-      project: newProject,
+      title: newTitle.trim(),
+      project: newProject || projects[0] || 'Main Project',
       assignee: newAssignee || 'Unassigned',
       dueDate: newDueDate || new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0],
       priority: newPriority,
@@ -76,7 +98,7 @@ export default function TaskBoard({ initialTasks = [], onAddTask }) {
 
         <button 
           onClick={() => setShowAddForm(!showAddForm)}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-dark hover:bg-slate-800 text-white rounded-xl text-sm font-bold shadow-sm transition-all"
+          className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-indigo-700 text-white font-semibold rounded-xl transition text-sm cursor-pointer shadow-xs"
         >
           <Plus className="w-4 h-4" />
           Create Task
@@ -87,29 +109,39 @@ export default function TaskBoard({ initialTasks = [], onAddTask }) {
       {showAddForm && (
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 max-w-xl transition-all duration-300">
           <h4 className="text-sm font-bold text-slate-800 mb-4">Create New Task</h4>
-          <form onSubmit={handleAddNewTask} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <form noValidate onSubmit={handleAddNewTask} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <label className="text-xs font-semibold text-slate-500 block mb-1">Task Title *</label>
+              <label className="text-xs font-semibold text-slate-500 block mb-1">
+                Task Title <span className="text-red-500 font-bold ml-0.5">*</span>
+              </label>
               <input 
                 type="text" 
-                required 
                 value={newTitle} 
-                onChange={(e) => setNewTitle(e.target.value)}
+                onChange={(e) => {
+                  setNewTitle(e.target.value);
+                  if (fieldErrors.title) setFieldErrors(prev => ({ ...prev, title: null }));
+                }}
                 placeholder="e.g. Draft First Floor Column Details"
-                className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-brand-primary bg-white"
+                className={`w-full text-sm border rounded-xl px-3 py-2 focus:outline-none bg-white ${
+                  fieldErrors.title ? 'border-red-500 focus:ring-red-500/20' : 'border-slate-200 focus:border-brand-primary'
+                }`}
               />
+              {fieldErrors.title && (
+                <span className="text-[11px] font-bold text-red-500 mt-1 block">{fieldErrors.title}</span>
+              )}
             </div>
             <div>
-              <label className="text-xs font-semibold text-slate-500 block mb-1">Project</label>
+              <label className="text-xs font-semibold text-slate-500 block mb-1">
+                Project Reference <span className="text-red-500 font-bold ml-0.5">*</span>
+              </label>
               <select 
                 value={newProject} 
                 onChange={(e) => setNewProject(e.target.value)}
-                className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 bg-white"
+                className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 bg-white cursor-pointer"
               >
-                <option value="Central Office Tower">Central Office Tower</option>
-                <option value="Oceanic Luxury Villas">Oceanic Luxury Villas</option>
-                <option value="Smart City Mall">Smart City Mall</option>
-                <option value="Metro Station Phase 3">Metro Station Phase 3</option>
+                {projects.map(p => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
               </select>
             </div>
             <div>

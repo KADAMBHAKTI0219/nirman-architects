@@ -11,6 +11,7 @@ const HRWorkLocations = lazy(() => import('../components/admin/work-locations/in
 const HRAttendance = lazy(() => import('../components/hr/attendance/index'));
 const HRLeaves = lazy(() => import('../components/hr/leaves-holidays/index'));
 const HRPayroll = lazy(() => import('../components/hr/payroll-data/index'));
+const HROfferLetters = lazy(() => import('../components/hr/offer-letters/index'));
 const HRReviews = lazy(() => import('../components/hr/reviews/index'));
 const HRDocs = lazy(() => import('../components/hr/docs/index'));
 const AppUsageTracking = lazy(() => import('../components/admin/app-usage/AppUsageTracking'));
@@ -109,6 +110,11 @@ export default function getHrRoutes(handleRoleChange) {
           <LazyWrap><HRPayroll /></LazyWrap>
         </DashboardLayout>
       } />
+      <Route path="/hr/offer-letters" element={
+        <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Offer Letters">
+          <LazyWrap><HROfferLetters /></LazyWrap>
+        </DashboardLayout>
+      } />
       <Route path="/hr/reviews" element={
         <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Reviews">
           <LazyWrap><HRReviews /></LazyWrap>
@@ -122,3 +128,4 @@ export default function getHrRoutes(handleRoleChange) {
     </>
   );
 }
+

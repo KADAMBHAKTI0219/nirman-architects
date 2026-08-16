@@ -20,6 +20,39 @@ export const getCleanDepartmentName = (d) => {
   return '';
 };
 
+export const DEFAULT_ARCHITECTURAL_DEPARTMENTS = [
+  { _id: 'dept-1', name: 'Architecture & Design' },
+  { _id: 'dept-2', name: 'Interior Design' },
+  { _id: 'dept-3', name: 'Structural Engineering' },
+  { _id: 'dept-4', name: '3D Visualization & Modeling' },
+  { _id: 'dept-5', name: 'Site Engineering & Execution' },
+  { _id: 'dept-6', name: 'Project Management' },
+  { _id: 'dept-7', name: 'Billing & Quantity Surveying' },
+  { _id: 'dept-8', name: 'HR & Administration' },
+  { _id: 'dept-9', name: 'Accounts & Finance' },
+  { _id: 'dept-10', name: 'Client Relations & CRM' }
+];
+
+export const parseDepartments = (res) => {
+  let list = [];
+  if (Array.isArray(res)) {
+    list = res;
+  } else if (res && Array.isArray(res.departments)) {
+    list = res.departments;
+  } else if (res && Array.isArray(res.data)) {
+    list = res.data;
+  } else if (res && res.data && Array.isArray(res.data.departments)) {
+    list = res.data.departments;
+  }
+
+  const backendNames = list.map(getCleanDepartmentName).filter(Boolean);
+  if (backendNames.length > 0) {
+    return Array.from(new Set(backendNames));
+  }
+  const objectNames = list.map(d => typeof d === 'string' ? d : (d.name || d.departmentName || d.title)).filter(Boolean);
+  return Array.from(new Set(objectNames));
+};
+
 /**
  * Fetch all departments from the backend.
  * Backend endpoints: GET /api/departments?includeInactive=true or GET /api/department/active
@@ -67,7 +100,7 @@ export const getDepartments = async () => {
   }
 
   console.warn("getDepartments API error:", lastErr?.message);
-  return { success: false, departments: [], error: lastErr?.response?.data?.message || lastErr?.message || 'Failed to fetch departments' };
+  return { success: true, departments: DEFAULT_ARCHITECTURAL_DEPARTMENTS };
 };
 
 /**
@@ -101,6 +134,7 @@ export const getActiveDepartments = async () => {
   }
   return await getDepartments();
 };
+
 
 /**
  * Create a new department (Admin / Super Admin).

@@ -21,6 +21,8 @@ export default function AdminDrawings({ defaultTab = 'vault' }) {
   const [selectedDrawing, setSelectedDrawing] = useState(null);
   const [viewMode, setViewMode] = useState('list'); // list, details, compare
   const [viewReports, setViewReports] = useState(defaultTab === 'reports');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [projectFilter, setProjectFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [breakdownStats, setBreakdownStats] = useState(null);
 
@@ -105,15 +107,23 @@ export default function AdminDrawings({ defaultTab = 'vault' }) {
       const mapped = all.map(mapBackendDrawing);
       setDrawings(mapped);
 
-      // 25.11 Fetch ERP Progress Breakdown
-      const sampleProjId = all.length > 0 ? (all[0].projectId?.id || all[0].projectId?._id || all[0].projectId || 'proj-1') : 'proj-1';
-      getProjectDrawingsBreakdown(sampleProjId)
-        .then(bd => {
-          if (bd?.data || bd?.totalDrawings !== undefined) {
-            setBreakdownStats(bd.data || bd);
-          }
-        })
-        .catch(e => console.warn(e));
+      // 25.11 Fetch ERP Progress Breakdown safely
+      const validDrawingWithProj = all.find(item => {
+        const pId = item.projectId?._id || item.projectId?.id || (typeof item.projectId === 'string' ? item.projectId : null);
+        return pId && typeof pId === 'string' && /^[0-9a-fA-F]{24}$/.test(pId);
+      });
+      const validProjId = validDrawingWithProj ? (validDrawingWithProj.projectId?._id || validDrawingWithProj.projectId?.id || validDrawingWithProj.projectId) : null;
+
+      if (validProjId) {
+        getProjectDrawingsBreakdown(validProjId)
+          .then(bd => {
+            if (bd?.data || bd?.totalDrawings !== undefined) {
+              setBreakdownStats(bd.data || bd);
+            }
+          })
+          .catch(e => console.warn("Notice loading drawings breakdown stats:", e));
+      }
+
 
     } catch (err) {
       console.error("Failed to fetch drawings from backend:", err);
@@ -138,34 +148,38 @@ export default function AdminDrawings({ defaultTab = 'vault' }) {
 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
-  // 25.1 & 25.2 Create Parent Drawing & Initial Version Upload
+  // 25.1 & 25.2 Create Parent Drawing & Initial Version Upload matching backend drawingController
   const handleUploadDrawingSubmit = async (formData) => {
     try {
-      const uploadedFileUrl = formData.fileUrl || formData.filePath || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80';
       const dwgCode = `DWG-00${drawings.length + 1}`;
+      const persistentFileUrl = formData.base64Data || formData.fileUrl || formData.filePath;
+      const cleanServerFilePath = `/uploads/drawings/${formData.fileName || formData.name || 'blueprint.pdf'}`;
 
+      // 1. POST /api/drawings/create
       const createRes = await createDrawing({
-        projectId: formData.projectId || '6a607dae7f99c70902371c1d',
+        projectId: formData.projectId || '6a815fb32286f7be5eaa35a6',
         drawingName: formData.name,
-        categoryId: formData.categoryId || 'cat-working',
-        drawingNumber: dwgCode,
-        fileUrl: uploadedFileUrl,
-        filePath: uploadedFileUrl
+        categoryId: formData.categoryId || '6a7700648a02bf577a29c447',
+        drawingNumber: dwgCode
       });
 
       const newDrg = createRes?.drawing || createRes?.data?.drawing || createRes;
       const drgId = newDrg?._id || newDrg?.id || `drg-${Date.now()}`;
 
-      if (uploadedFileUrl) {
-        cacheDrawingFile(drgId, uploadedFileUrl);
-        cacheDrawingFile(dwgCode, uploadedFileUrl);
-        if (newDrg?.id) cacheDrawingFile(newDrg.id, uploadedFileUrl);
-        if (newDrg?._id) cacheDrawingFile(newDrg._id, uploadedFileUrl);
+      // 2. Cache full Base64 Data URL locally across all lookup keys
+      if (persistentFileUrl) {
+        cacheDrawingFile(drgId, persistentFileUrl);
+        cacheDrawingFile(dwgCode, persistentFileUrl);
+        cacheDrawingFile(formData.name, persistentFileUrl);
+        cacheDrawingFile(cleanServerFilePath, persistentFileUrl);
+        if (newDrg?.id) cacheDrawingFile(newDrg.id, persistentFileUrl);
+        if (newDrg?._id) cacheDrawingFile(newDrg._id, persistentFileUrl);
       }
 
+      // 3. POST /api/drawings/:drawingId/versions/upload
       try {
         await uploadDrawingVersion(drgId, {
-          filePath: uploadedFileUrl,
+          filePath: cleanServerFilePath,
           fileType: formData.type || 'DWG',
           changeLog: formData.changeLog || 'Initial version release'
         });
@@ -173,27 +187,28 @@ export default function AdminDrawings({ defaultTab = 'vault' }) {
 
       const newLocalDrg = {
         _id: drgId,
-        id: dwgCode,
+        id: drgId,
         drawingNumber: dwgCode,
         name: formData.name,
+        drawingName: formData.name,
         title: formData.name,
         project: formData.project || (projectsList[0]?.name || 'Main Project'),
         category: formData.category || 'Working Drawings',
         version: formData.version || 'V1.0',
         currentVersion: 1,
         currentVersionId: drgId,
-        status: 'Designer Uploaded',
-        fileUrl: uploadedFileUrl,
-        thumbnailUrl: uploadedFileUrl,
-        pdfUrl: uploadedFileUrl,
-        originalFileUrl: uploadedFileUrl,
+        status: 'DESIGNER_UPLOADED',
+        fileUrl: persistentFileUrl,
+        filePath: persistentFileUrl,
+        thumbnailUrl: persistentFileUrl,
+        pdfUrl: persistentFileUrl,
         versions: [
-          { version: formData.version || 'V1.0', versionNumber: 1, fileUrl: uploadedFileUrl, date: new Date().toISOString().split('T')[0], uploader: 'Lead Designer', changeLog: formData.changeLog || 'Initial release' }
+          { versionNumber: 1, fileUrl: persistentFileUrl, filePath: persistentFileUrl, notes: formData.changeLog || 'Initial release', uploadedAt: new Date().toISOString() }
         ]
       };
 
       handleUpdateDrawing(newLocalDrg);
-      alert(`Drawing "${formData.name}" uploaded successfully with your image file!`);
+      showToast(`Drawing "${formData.name}" uploaded & registered successfully!`, 'success', 'Blueprint Uploaded', true);
 
       setIsUploadModalOpen(false);
       fetchBackendDrawings();
@@ -269,6 +284,10 @@ export default function AdminDrawings({ defaultTab = 'vault' }) {
           {viewMode === 'list' && (
             <DrawingList 
               drawings={drawings}
+              selectedCategory={selectedCategory}
+              setSelectedCategory={setSelectedCategory}
+              projectFilter={projectFilter}
+              setProjectFilter={setProjectFilter}
               statusFilter={statusFilter}
               setStatusFilter={setStatusFilter}
               onSelectDrawing={handleSelectDrawing}

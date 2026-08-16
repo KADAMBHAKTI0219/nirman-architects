@@ -14,7 +14,9 @@ export default function CustomDatePicker({
   minDate = new Date().toISOString().split('T')[0],
   maxDate = `${new Date().getFullYear()}-12-31`,
   disabled = false,
-  required = false
+  required = false,
+  alignRight = false,
+  align = 'left'
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
@@ -137,7 +139,7 @@ export default function CustomDatePicker({
 
       {/* Popover Calendar Card */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-3xl border border-slate-200 shadow-2xl z-50 p-4 animate-in fade-in zoom-in-95 duration-150 text-slate-800 space-y-3">
+        <div className={`absolute top-full ${alignRight || align === 'right' ? 'right-0 left-auto' : 'left-0 right-auto'} mt-2 w-72 max-w-[calc(100vw-2rem)] bg-white rounded-3xl border border-slate-200/90 shadow-2xl z-[100000] p-4 animate-in fade-in zoom-in-95 duration-150 text-slate-800 space-y-3`}>
           
           {/* Header Month / Year Selector */}
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">

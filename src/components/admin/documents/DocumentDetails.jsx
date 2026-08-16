@@ -14,6 +14,7 @@ import {
   previewDocument,
   downloadDocument 
 } from '../../../service/document';
+import { getCachedDocumentFile } from '../../../service/document';
 import { getCachedDrawingFile } from '../../../service/drawing';
 import DocumentVersionModal from './DocumentVersionModal';
 import { detectFileType, getCleanFileUrl } from '../../../utils/fileTypeDetector';
@@ -36,7 +37,17 @@ export default function DocumentDetails({
   
   const resolveTargetFileUrl = (d) => {
     if (!d) return '';
-    const cached = getCachedDrawingFile(d._id || d.id || d.documentName || d.fileName || d.name);
+    const cached = getCachedDocumentFile(d._id) || 
+                   getCachedDocumentFile(d.id) || 
+                   getCachedDocumentFile(d.documentName) || 
+                   getCachedDocumentFile(d.fileName) || 
+                   getCachedDocumentFile(d.name) ||
+                   getCachedDrawingFile(d._id) ||
+                   getCachedDrawingFile(d.id) ||
+                   getCachedDrawingFile(d.documentName) ||
+                   getCachedDrawingFile(d.fileName) ||
+                   getCachedDrawingFile(d.name);
+
     const verPath = d.currentVersionId && typeof d.currentVersionId === 'object' ? (d.currentVersionId.filePath || d.currentVersionId.fileUrl) : null;
     const raw = cached || d.filePath || d.fileUrl || d.url || d.file || d.previewUrl || d.pdfUrl || verPath ||
       (Array.isArray(d.versions) && d.versions.length > 0 ? (d.versions[d.versions.length - 1]?.filePath || d.versions[d.versions.length - 1]?.fileUrl) : null);

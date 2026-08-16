@@ -26,6 +26,16 @@ export default function Dashboard() {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
+      // 0. Fetch User Assigned Projects
+      let pId = '';
+      try {
+        const projRes = await getProjects();
+        if (projRes?.projects && Array.isArray(projRes.projects) && projRes.projects.length > 0) {
+          setProjectsList(projRes.projects);
+          pId = projRes.projects[0]._id || projRes.projects[0].id || '';
+        }
+      } catch (e) {}
+
       // 1. Fetch Tasks
       const taskRes = await getTasks();
       let rawTasks = [];
@@ -45,10 +55,12 @@ export default function Dashboard() {
       }
       setTasks(rawTasks);
 
-      // 2. Fetch Drawings
-      const dwgRes = await getProjectDrawings('proj-1');
+      // 2. Fetch Drawings for Assigned Project
+      const dwgRes = await getProjectDrawings(pId);
       if (dwgRes?.allDrawings && Array.isArray(dwgRes.allDrawings)) {
         setDrawings(dwgRes.allDrawings);
+      } else if (dwgRes?.drawings && Array.isArray(dwgRes.drawings)) {
+        setDrawings(dwgRes.drawings);
       } else {
         setDrawings([]);
       }
@@ -69,20 +81,14 @@ export default function Dashboard() {
       } else {
         setUnreadCount(0);
       }
-
-      // 5. Fetch Projects
-      const projRes = await getProjects();
-      if (projRes?.success && Array.isArray(projRes.projects)) {
-        setProjectsList(projRes.projects);
-      } else {
-        setProjectsList([]);
-      }
     } catch (err) {
       console.warn("Failed to load studio analytics data:", err);
     } finally {
       setLoading(false);
     }
   };
+
+  const fetchDashboardData = loadDashboardData;
 
   useEffect(() => {
     loadDashboardData();

@@ -23,10 +23,10 @@ export default function DrawingCreateModal({
 
   const [formData, setFormData] = useState({
     name: '',
-    project: 'Central Office Tower',
+    project: '',
     projectId: '',
-    category: 'Working Drawings',
-    categoryId: 'cat-working',
+    category: '',
+    categoryId: '',
     version: 'V1.0',
     accessLevel: 'Admin & Staff Only',
     fileSize: '3.2 MB',
@@ -36,30 +36,31 @@ export default function DrawingCreateModal({
   });
 
   const [selectedFile, setSelectedFile] = useState(null);
+  const [fileTypeFormat, setFileTypeFormat] = useState('JPEG');
   const [isCreatingNewCategory, setIsCreatingNewCategory] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [newCatRequiresApproval, setNewCatRequiresApproval] = useState(true);
   const [newCatRestrictedEdit, setNewCatRestrictedEdit] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
     if (isOpen) {
-      // 1. Fetch Drawing Categories
+      setFieldErrors({});
+      // 1. Fetch Drawing Categories from backend
       getActiveDrawingCategories()
         .then(res => {
           if (res?.categories && res.categories.length > 0) {
             setCategories(res.categories);
-            if (!formData.categoryId) {
-              setFormData(prev => ({
-                ...prev,
-                categoryId: res.categories[0]._id,
-                category: res.categories[0].name
-              }));
-            }
+            setFormData(prev => ({
+              ...prev,
+              categoryId: prev.categoryId || res.categories[0]._id,
+              category: prev.category || res.categories[0].name
+            }));
           }
         })
         .catch(err => console.warn(err));
 
-      // 2. Fetch Projects dynamically from backend API
+      // 2. Fetch Projects dynamically from backend API (filters user assigned projects for employee)
       getProjects()
         .then(res => {
           let list = [];
@@ -75,8 +76,8 @@ export default function DrawingCreateModal({
             const pId = firstP._id || firstP.id;
             setFormData(prev => ({
               ...prev,
-              project: pName || prev.project,
-              projectId: pId || prev.projectId
+              project: prev.project || pName || '',
+              projectId: prev.projectId || pId || ''
             }));
           }
         })
@@ -86,6 +87,30 @@ export default function DrawingCreateModal({
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    if (fieldErrors[field]) {
+      setFieldErrors(prev => ({ ...prev, [field]: null }));
+    }
+  };
+
+  const handleFormatChange = (fmt) => {
+    setFileTypeFormat(fmt);
+    setFormData(prev => ({ ...prev, fileTypeFormat: fmt, format: fmt, fileType: fmt }));
+  };
+
+  const getAcceptAttribute = (fmt) => {
+    switch (fmt) {
+      case 'JPEG':
+      case 'JPG':
+        return '.jpg,.jpeg,image/jpeg';
+      case 'PNG':
+        return '.png,image/png';
+      case 'PDF':
+        return '.pdf,application/pdf';
+      case 'DWG':
+        return '.dwg,application/dwg';
+      default:
+        return '.pdf,.png,.jpg,.jpeg,.dwg,application/pdf,image/*';
+    }
   };
 
   const handleCategorySelect = (catName) => {
@@ -94,6 +119,9 @@ export default function DrawingCreateModal({
       setFormData(prev => ({ ...prev, category: found.name, categoryId: found._id }));
     } else {
       setFormData(prev => ({ ...prev, category: catName }));
+    }
+    if (fieldErrors.category) {
+      setFieldErrors(prev => ({ ...prev, category: null }));
     }
   };
 
@@ -125,15 +153,34 @@ export default function DrawingCreateModal({
       setSelectedFile(file);
       const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
       
+      const blobUrl = URL.createObjectURL(file);
+      const ext = (file.name.split('.').pop() || '').toLowerCase();
+      
+      let detectedFmt = fileTypeFormat;
+      if (ext === 'jpg' || ext === 'jpeg') detectedFmt = 'JPEG';
+      else if (ext === 'png') detectedFmt = 'PNG';
+      else if (ext === 'pdf') detectedFmt = 'PDF';
+      else if (ext === 'dwg') detectedFmt = 'DWG';
+
+      setFileTypeFormat(detectedFmt);
+      if (fieldErrors.file) {
+        setFieldErrors(prev => ({ ...prev, file: null }));
+      }
+      
       const reader = new FileReader();
       reader.onload = (event) => {
         const fileDataUrl = event.target.result;
         setFormData(prev => ({
           ...prev,
           rawFile: file,
-          fileUrl: fileDataUrl,
+          fileUrl: blobUrl,
+          filePath: blobUrl,
+          base64Data: fileDataUrl,
           fileName: file.name,
           fileSize: `${sizeMB} MB`,
+          fileTypeFormat: detectedFmt,
+          format: detectedFmt,
+          fileType: detectedFmt,
           name: prev.name || file.name.replace(/\.[^/.]+$/, "")
         }));
       };
@@ -143,18 +190,34 @@ export default function DrawingCreateModal({
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
-    if (!formData.fileUrl) {
-      showToast("Please select a PDF or Image blueprint file to upload.", 'warning', 'File Required', false);
+    const errors = {};
+    if (!formData.name.trim()) {
+      errors.name = "Drawing title / name is required";
+    }
+    if (!formData.project) {
+      errors.project = "Project reference is required";
+    }
+    if (!formData.category) {
+      errors.category = "Category master is required";
+    }
+    if (!formData.fileUrl && !selectedFile) {
+      errors.file = "Blueprint file is required";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
+
+    setFieldErrors({});
     onSubmit(formData);
     showToast(`Blueprint "${formData.name}" uploaded successfully!`, 'success', 'Blueprint Uploaded', true);
     setFormData({
       name: '',
-      project: 'Central Office Tower',
-      projectId: '',
-      category: 'Working Drawings',
-      categoryId: 'cat-working',
+      project: projectsList[0]?.name || projectsList[0]?.projectName || '',
+      projectId: projectsList[0]?._id || projectsList[0]?.id || '',
+      category: categories[0]?.name || '',
+      categoryId: categories[0]?._id || '',
       version: 'V1.0',
       accessLevel: 'Admin & Staff Only',
       fileSize: '3.2 MB',
@@ -186,22 +249,30 @@ export default function DrawingCreateModal({
         </div>
 
         {/* Form fields */}
-        <form onSubmit={handleFormSubmit} className="p-6 overflow-y-auto max-h-[500px] space-y-4 text-xs font-medium">
+        <form noValidate onSubmit={handleFormSubmit} className="p-6 overflow-y-auto max-h-[500px] space-y-4 text-xs font-medium">
           <div>
-            <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Drawing Title / Name *</label>
+            <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+              Drawing Title / Name <span className="text-red-500 font-bold ml-0.5">*</span>
+            </label>
             <input 
               type="text" 
-              required 
               value={formData.name}
               onChange={(e) => handleChange('name', e.target.value)}
               placeholder="e.g. Ground Floor Electrical Elevation Schematic"
-              className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 bg-white font-semibold"
+              className={`w-full px-3.5 py-2.5 text-xs border rounded-xl focus:outline-none focus:ring-2 text-slate-800 bg-white font-semibold ${
+                fieldErrors.name ? 'border-red-500 focus:ring-red-500/20' : 'border-slate-200 focus:ring-indigo-500'
+              }`}
             />
+            {fieldErrors.name && (
+              <span className="text-[11px] font-bold text-red-500 mt-1 block">{fieldErrors.name}</span>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Project Reference *</label>
+              <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                Project Reference <span className="text-red-500 font-bold ml-0.5">*</span>
+              </label>
               <select 
                 value={formData.project}
                 onChange={(e) => {
@@ -214,7 +285,9 @@ export default function DrawingCreateModal({
                     handleChange('project', val);
                   }
                 }}
-                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 bg-white font-semibold cursor-pointer"
+                className={`w-full px-3.5 py-2.5 text-xs border rounded-xl focus:outline-none focus:ring-2 text-slate-800 bg-white font-semibold cursor-pointer ${
+                  fieldErrors.project ? 'border-red-500 focus:ring-red-500/20' : 'border-slate-200 focus:ring-indigo-500'
+                }`}
               >
                 {projectsList.length > 0 ? (
                   projectsList.map(p => {
@@ -227,18 +300,19 @@ export default function DrawingCreateModal({
                     );
                   })
                 ) : (
-                  <>
-                    <option value="Central Office Tower">Central Office Tower</option>
-                    <option value="Oceanic Luxury Villas">Oceanic Luxury Villas</option>
-                    <option value="Smart City Mall">Smart City Mall</option>
-                  </>
+                  <option value="">No Projects Available</option>
                 )}
               </select>
+              {fieldErrors.project && (
+                <span className="text-[11px] font-bold text-red-500 mt-1 block">{fieldErrors.project}</span>
+              )}
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">Category Master *</label>
+                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">
+                  Category Master <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <button
                   type="button"
                   onClick={() => setIsCreatingNewCategory(prev => !prev)}
@@ -250,15 +324,22 @@ export default function DrawingCreateModal({
               </div>
 
               {!isCreatingNewCategory ? (
-                <select 
-                  value={formData.category}
-                  onChange={(e) => handleCategorySelect(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 bg-white font-semibold cursor-pointer"
-                >
-                  {categories.map(cat => (
-                    <option key={cat._id} value={cat.name}>{cat.name}</option>
-                  ))}
-                </select>
+                <>
+                  <select 
+                    value={formData.category}
+                    onChange={(e) => handleCategorySelect(e.target.value)}
+                    className={`w-full px-3.5 py-2.5 text-xs border rounded-xl focus:outline-none focus:ring-2 text-slate-800 bg-white font-semibold cursor-pointer ${
+                      fieldErrors.category ? 'border-red-500 focus:ring-red-500/20' : 'border-slate-200 focus:ring-indigo-500'
+                    }`}
+                  >
+                    {categories.map(cat => (
+                      <option key={cat._id || cat.name} value={cat.name}>{cat.name}</option>
+                    ))}
+                  </select>
+                  {fieldErrors.category && (
+                    <span className="text-[11px] font-bold text-red-500 mt-1 block">{fieldErrors.category}</span>
+                  )}
+                </>
               ) : (
                 <div className="p-2.5 border border-indigo-200 bg-indigo-50/50 rounded-xl space-y-2">
                   <input
@@ -290,16 +371,30 @@ export default function DrawingCreateModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                FILE TYPE FORMAT <span className="text-red-500 font-bold ml-0.5">*</span>
+              </label>
+              <select 
+                value={fileTypeFormat}
+                onChange={(e) => handleFormatChange(e.target.value)}
+                className="w-full px-3 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 bg-white font-bold cursor-pointer"
+              >
+                <option value="JPEG">JPEG</option>
+                <option value="PNG">PNG</option>
+                <option value="PDF">PDF</option>
+                <option value="DWG">DWG</option>
+              </select>
+            </div>
             <div>
               <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Initial Version</label>
               <input 
                 type="text" 
-                required 
                 value={formData.version}
                 onChange={(e) => handleChange('version', e.target.value)}
                 placeholder="V1.0"
-                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 bg-white font-semibold"
+                className="w-full px-3 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 bg-white font-semibold"
               />
             </div>
             <div>
@@ -307,38 +402,44 @@ export default function DrawingCreateModal({
               <select 
                 value={formData.accessLevel}
                 onChange={(e) => handleChange('accessLevel', e.target.value)}
-                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 bg-white font-semibold cursor-pointer"
+                className="w-full px-3 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 bg-white font-semibold cursor-pointer"
               >
-                <option value="Admin & Staff Only">Admin & Staff Only (Internal)</option>
-                <option value="Public & Client Visible">Public & Client Visible (Shared)</option>
+                <option value="Admin & Staff Only">Internal</option>
+                <option value="Public & Client Visible">Public</option>
               </select>
             </div>
           </div>
 
-          {/* File Upload Input for PDF or Images */}
+          {/* File Upload Input */}
           <div className="space-y-1">
-            <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">Blueprint File (DWG / PDF / Image) *</label>
-            <div className="p-4 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50 hover:bg-slate-100/80 transition-all text-center space-y-2">
+            <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">
+              Blueprint File ({fileTypeFormat} Format) <span className="text-red-500 font-bold ml-0.5">*</span>
+            </label>
+            <div className={`p-4 border-2 border-dashed rounded-2xl transition-all text-center space-y-2 ${
+              fieldErrors.file ? 'border-red-500 bg-red-50/20' : 'border-slate-200 bg-slate-50 hover:bg-slate-100/80'
+            }`}>
               <input 
                 type="file" 
-                required={!formData.fileUrl}
-                accept="application/pdf,image/*,.pdf,.png,.jpg,.jpeg,.dwg"
+                accept={getAcceptAttribute(fileTypeFormat)}
                 onChange={handleFileChange}
                 className="hidden" 
                 id="modal-pdf-upload"
               />
               <label htmlFor="modal-pdf-upload" className="cursor-pointer flex flex-col items-center justify-center space-y-1">
                 <FileText className="w-8 h-8 text-indigo-600" />
-                <span className="text-xs font-extrabold text-indigo-600">Click to Select Blueprint DWG / PDF / Image</span>
-                <span className="text-[10px] text-slate-400">Supports DWG, PDF, PNG, JPG files up to 50MB</span>
+                <span className="text-xs font-extrabold text-indigo-600">Click to Select Blueprint ({fileTypeFormat})</span>
+                <span className="text-[10px] text-slate-400">Accepted format: {fileTypeFormat} files up to 50MB</span>
               </label>
 
               {selectedFile && (
                 <div className="p-2 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5">
-                  <Check className="w-3.5 h-3.5 text-emerald-600" /> Selected: {selectedFile.name} ({formData.fileSize})
+                  <Check className="w-3.5 h-3.5 text-emerald-600" /> Selected: {selectedFile.name} ({formData.fileSize}) - Format: {fileTypeFormat}
                 </div>
               )}
             </div>
+            {fieldErrors.file && (
+              <span className="text-[11px] font-bold text-red-500 mt-1 block">{fieldErrors.file}</span>
+            )}
           </div>
 
           <div>

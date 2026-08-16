@@ -204,7 +204,8 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
 
         const computedBalances = rawBalances.map(bal => {
           const typeName = bal.leaveTypeName || bal.name || 'Leave';
-          const usedDays = mappedRequests
+
+          const approvedDays = mappedRequests
             .filter(r => r.status && r.status.toLowerCase() === 'approved' && 
               (r.leaveTypeName.toLowerCase().includes(typeName.toLowerCase()) || 
                 typeName.toLowerCase().includes(r.leaveTypeName.toLowerCase()) ||
@@ -213,14 +214,25 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
             )
             .reduce((sum, r) => sum + (Number(r.days) || 1), 0);
 
+          const pendingDays = mappedRequests
+            .filter(r => r.status && r.status.toLowerCase() === 'pending' && 
+              (r.leaveTypeName.toLowerCase().includes(typeName.toLowerCase()) || 
+                typeName.toLowerCase().includes(r.leaveTypeName.toLowerCase()) ||
+                (bal.code && r.leaveTypeName.toUpperCase().includes(bal.code.toUpperCase()))
+              )
+            )
+            .reduce((sum, r) => sum + (Number(r.days) || 1), 0);
+
           const allocated = bal.allocatedDays !== undefined ? Number(bal.allocatedDays) : (bal.defaultQuotaPerYear || 12);
-          const remaining = Math.max(0, allocated - usedDays);
+          const usedDays = bal.usedDays !== undefined && bal.usedDays > 0 ? Number(bal.usedDays) : approvedDays;
+          const remaining = Math.max(0, allocated - usedDays - pendingDays);
 
           return {
             ...bal,
             leaveTypeName: typeName,
             allocatedDays: allocated,
             usedDays,
+            pendingDays,
             remainingDays: remaining
           };
         });
@@ -270,6 +282,13 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
     }
   };
 
+  const handleManualRefresh = async () => {
+    fetchActiveTypes();
+    await fetchMyLeavesData();
+    if (isManager) await fetchTeamPendingRequests();
+    if (isSuperAdmin) fetchAllTypes();
+  };
+
   useEffect(() => {
     fetchActiveTypes();
     if (isSuperAdmin) fetchAllTypes();
@@ -280,6 +299,14 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
     if (isManager) {
       fetchTeamPendingRequests();
     }
+
+    // Auto-refresh leave requests & quota balances every 10 seconds
+    const timer = setInterval(() => {
+      fetchMyLeavesData();
+      if (isManager) fetchTeamPendingRequests();
+    }, 10000);
+
+    return () => clearInterval(timer);
   }, [userRole, isManager]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -494,6 +521,13 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleManualRefresh}
+              className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs rounded-2xl transition-all cursor-pointer border border-slate-200 flex items-center justify-center shrink-0"
+              title="Refresh Quota & Leave Applications"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-brand-dark' : ''}`} />
+            </button>
             {isSuperAdmin && (
               <button
                 onClick={() => setIsCreateTypeModalOpen(true)}
@@ -774,19 +808,36 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
           {/* 1. Leave Balance Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {balances.map((bal, idx) => (
-              <div key={idx} className="bg-white p-5 rounded-3xl border border-slate-100 shadow-2xs space-y-3">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">{bal.leaveTypeName} balance</span>
-                <div className="flex justify-between items-end">
-                  <strong className="text-xl font-black text-slate-805 block">{bal.usedDays} / {bal.allocatedDays} Days Used</strong>
-                  <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+              <div key={idx} className="bg-white p-5 rounded-3xl border border-slate-100/90 shadow-2xs space-y-3 hover:border-slate-300 transition-all">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">{bal.leaveTypeName} Balance</span>
+                <div className="flex justify-between items-end gap-2">
+                  <div>
+                    <strong className="text-lg font-black text-slate-800 block">{bal.usedDays} / {bal.allocatedDays} Days Used</strong>
+                    {bal.pendingDays > 0 && (
+                      <span className="text-[10px] text-amber-600 font-extrabold block mt-0.5">
+                        ⏳ {bal.pendingDays} Day{bal.pendingDays > 1 ? 's' : ''} Pending
+                      </span>
+                    )}
+                  </div>
+                  <span className={`text-xs font-black px-2.5 py-1 rounded-xl border shrink-0 ${
+                    bal.remainingDays === 0 
+                      ? 'text-rose-600 bg-rose-50 border-rose-100' 
+                      : 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                  }`}>
                     {bal.remainingDays} Left
                   </span>
                 </div>
-                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden flex">
                   <div 
-                    className="bg-brand-primary h-full rounded-full transition-all duration-500" 
+                    className="bg-emerald-500 h-full transition-all duration-500" 
                     style={{ width: `${Math.min(100, (bal.usedDays / (bal.allocatedDays || 1)) * 100)}%` }}
                   />
+                  {bal.pendingDays > 0 && (
+                    <div 
+                      className="bg-amber-400 h-full transition-all duration-500" 
+                      style={{ width: `${Math.min(100 - (bal.usedDays / (bal.allocatedDays || 1)) * 100, (bal.pendingDays / (bal.allocatedDays || 1)) * 100)}%` }}
+                    />
+                  )}
                 </div>
               </div>
             ))}
@@ -889,8 +940,8 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
 
       {/* 3. Apply Leave Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl border border-slate-100 max-w-md w-full shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 z-[99999] overflow-y-auto animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl border border-slate-100 max-w-lg w-full shadow-2xl p-6 sm:p-7 space-y-5 animate-in zoom-in-95 duration-200 my-auto">
             <div className="flex justify-between items-start border-b border-slate-50 pb-2">
               <div>
                 <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider">Apply for Leave</h4>
@@ -928,7 +979,7 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <CustomDatePicker
                   label="Start Date"
                   required
@@ -941,6 +992,7 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
                 <CustomDatePicker
                   label="End Date"
                   required
+                  alignRight={true}
                   placeholder="Select End Date"
                   value={formData.toDate}
                   onChange={(dateStr) => setFormData(prev => ({ ...prev, toDate: dateStr }))}

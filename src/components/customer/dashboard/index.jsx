@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   CheckCircle, Clock, AlertTriangle, Send, FileText, 
   Image as ImageIcon, HelpCircle, ChevronRight, ChevronDown, Check, X, MessageSquare, 
@@ -31,6 +32,7 @@ import {
 import useSEO from '../../../hooks/useSEO';
 
 export default function CustomerDashboard() {
+  const navigate = useNavigate();
   const [user, setUser] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('user') || '{}');
@@ -348,11 +350,11 @@ export default function CustomerDashboard() {
             <span>Change Password</span>
           </button>
           <button
-            onClick={() => setShowTicketsModal(true)}
+            onClick={() => navigate('/customer/support-queries')}
             className="px-4 py-2 bg-brand-primary text-slate-900 font-extrabold text-xs rounded-xl shadow-2xs hover:bg-brand-secondary transition-all flex items-center gap-1.5 cursor-pointer"
           >
             <LifeBuoy className="w-4 h-4 text-slate-900" />
-            <span>Support Tickets ({myTickets.length})</span>
+            <span>Support Queries ({myTickets.length})</span>
           </button>
         </div>
       </div>
@@ -560,7 +562,9 @@ export default function CustomerDashboard() {
 
             <form onSubmit={handleProfileUpdateSubmit} className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Full Name *</label>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Full Name <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <input
                   type="text"
                   value={profileForm.name}
@@ -691,7 +695,9 @@ export default function CustomerDashboard() {
 
             <form onSubmit={handleCreateTicketSubmit} className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Subject *</label>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Subject <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <input
                   type="text"
                   required
@@ -716,7 +722,9 @@ export default function CustomerDashboard() {
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Issue Description *</label>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Issue Description <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <textarea
                   rows="4"
                   required
@@ -765,7 +773,9 @@ export default function CustomerDashboard() {
 
             <form onSubmit={handleChangePasswordSubmit} className="space-y-3 text-xs font-medium">
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Current / Temporary Password *</label>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Current / Temporary Password <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <input
                   type="password"
                   required
@@ -777,7 +787,9 @@ export default function CustomerDashboard() {
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1">New Secure Password *</label>
+                <label className="block text-slate-700 font-bold mb-1">
+                  New Secure Password <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <input
                   type="password"
                   required
@@ -789,7 +801,9 @@ export default function CustomerDashboard() {
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Confirm New Password *</label>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Confirm New Password <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <input
                   type="password"
                   required

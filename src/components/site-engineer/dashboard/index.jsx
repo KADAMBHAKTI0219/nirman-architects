@@ -1,10 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   MapPin, Users, AlertTriangle, Send, Camera, Clock, 
   CheckSquare, ArrowRight, Eye, Image as ImageIcon 
 } from 'lucide-react';
+import { 
+  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, 
+  CartesianGrid, Tooltip, BarChart as RechartsBarChart, Bar, Cell 
+} from 'recharts';
 import Card from '../../common/Card';
-import { siteCheckin, siteCheckout } from '../../../service/mockApi';
+import { clockInAttendance, clockOutAttendance } from '../../../service/hrm/attendance';
+import SiteLocationModal from './SiteLocationModal';
+import { getProjects } from '../../../service/project';
 
 const SITE_PROGRESS_DATA = [
   { week: 'Wk 1', 'Smart City Mall': 10, 'Metro Tunnel': 40 },
@@ -18,9 +24,6 @@ const ISSUE_SEVERITY = [
   { name: 'Medium', count: 3, fill: '#F59E0B' },
   { name: 'Low', count: 1, fill: '#64748B' }
 ];
-
-import SiteLocationModal from './SiteLocationModal';
-import { getProjects } from '../../../service/project';
 
 export default function Dashboard() {
   const [projectsList, setProjectsList] = useState([]);
@@ -59,9 +62,7 @@ export default function Dashboard() {
 
   const handleConfirmPunchIn = async (userLoc, geoRes) => {
     try {
-      const savedUser = localStorage.getItem('user');
-      const userId = savedUser ? JSON.parse(savedUser).id : 'usr_5';
-      const response = await siteCheckin(userId, 'proj_1', userLoc.lat, userLoc.lng, 'https://cdn.example.com/selfie.jpg');
+      const response = await clockInAttendance({ latitude: userLoc.lat, longitude: userLoc.lng, isSiteGeoPunch: true });
       setIsCheckedIn(true);
       alert(`Site Punch-In Verified! (${geoRes.distanceMeters}m from site center)`);
     } catch (err) {
@@ -72,16 +73,15 @@ export default function Dashboard() {
 
   const handleSiteCheckout = async () => {
     try {
-      const savedUser = localStorage.getItem('user');
-      const userId = savedUser ? JSON.parse(savedUser).id : 'usr_5';
-      const response = await siteCheckout(userId, 'proj_1', 21.1702, 72.8311);
+      const response = await clockOutAttendance({ isSiteGeoPunch: true });
       setIsCheckedIn(false);
-      alert(response.message || "Site check-out recorded successfully!");
+      alert(response?.message || "Site check-out recorded successfully!");
     } catch (err) {
       setIsCheckedIn(false);
       alert("Site check-out recorded successfully.");
     }
   };
+
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">

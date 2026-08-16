@@ -5,24 +5,26 @@ import {
   CheckCircle2, ChevronRight, UserCheck, ExternalLink, Filter
 } from 'lucide-react';
 import { getUsersList } from '../../../service/auth';
-import { getUsers, getHRDashboardWidgets, getSiteLocations } from '../../../service/mockApi';
+import { getSiteLocations } from '../../../service/siteLocationService';
 import { getProjects } from '../../../service/project';
+import { getClients } from '../../../service/crm/client';
 import BrandLoader from '../../common/BrandLoader';
 
 export default function Stats() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
-    totalUsers: 6,
-    activeClients: 2,
-    activeSites: 1,
-    pendingProjects: 2,
-    onlineCount: 2,
+    totalUsers: 0,
+    activeClients: 0,
+    activeSites: 0,
+    pendingProjects: 0,
+    onlineCount: 0,
     usersList: []
   });
 
   const [activeModalType, setActiveModalType] = useState(null); // 'employees' | 'clients' | 'sites' | 'projects'
   const [projectsList, setProjectsList] = useState([]);
   const [sitesList, setSitesList] = useState([]);
+  const [clientsList, setClientsList] = useState([]);
   const [modalSubFilter, setModalSubFilter] = useState('All');
   const [modalLoading, setModalLoading] = useState(false);
   
@@ -50,113 +52,62 @@ export default function Stats() {
     const fetchStats = async () => {
       try {
         // 1. Fetch real registered users from backend API service
-        let backendUsers = [];
+        let users = [];
         try {
           const userRes = await getUsersList();
           if (userRes) {
             if (Array.isArray(userRes.users)) {
-              backendUsers = userRes.users;
+              users = userRes.users;
             } else if (Array.isArray(userRes.data)) {
-              backendUsers = userRes.data;
+              users = userRes.data;
             } else if (Array.isArray(userRes)) {
-              backendUsers = userRes;
-            } else if (typeof userRes === 'object') {
-              const uArray = [];
-              Object.keys(userRes).forEach(k => {
-                if (userRes[k] && typeof userRes[k] === 'object' && (userRes[k].email || userRes[k].name || userRes[k].id || userRes[k]._id)) {
-                  uArray.push(userRes[k]);
-                }
-              });
-              if (uArray.length > 0) backendUsers = uArray;
+              users = userRes;
             }
           }
         } catch (apiErr) {
-          console.warn("Backend getUsersList API call failed, using local/mock fallback:", apiErr);
+          console.warn("Backend getUsersList API call notice:", apiErr.message);
         }
 
-        // 2. Fetch mock API users + LocalStorage users as fallbacks
-        const usersRes = await getUsers();
-        const mockUsers = usersRes.users || [];
-        
-        let localEmp = [];
-        let localUsers = [];
-        try {
-          localEmp = JSON.parse(localStorage.getItem('nirman_employees') || '[]');
-          localUsers = JSON.parse(localStorage.getItem('nirman_users') || '[]');
-        } catch (e) {
-          console.warn("Error reading local users storage:", e);
-        }
-
-        // 3. Merge user datasets, prioritizing real registered backend users
-        const userMap = new Map();
-        const MOCK_MOCK_EMAILS = [
-          'architect@nirman.com', 
-          'engineer@nirman.com', 
-          'pm@nirman.com', 
-          'hr@nirman.com', 
-          'admin@nirman.com'
-        ];
-
-        const mergeList = (list, isBackend = false) => {
-          if (!Array.isArray(list)) return;
-          list.forEach(u => {
-            if (!u) return;
-            const email = String(u.email || u.userEmail || '').toLowerCase().trim();
-            const key = email || String(u.id || u._id || u.employeeId || u.name || '').toLowerCase();
-            
-            // Skip hardcoded mock emails unless user has explicitly registered with one
-            if (!isBackend && MOCK_MOCK_EMAILS.includes(email)) return;
-
-            if (key && !userMap.has(key)) {
-              userMap.set(key, u);
-            }
-          });
-        };
-
-        if (Array.isArray(backendUsers) && backendUsers.length > 0) {
-          mergeList(backendUsers, true);
-          mergeList(localEmp, true);
-        } else {
-          mergeList(backendUsers, true);
-          mergeList(localEmp, true);
-          mergeList(localUsers, false);
-          mergeList(mockUsers, false);
-        }
-
-        const users = Array.from(userMap.values());
-        const siteRes = await getSiteLocations();
-        const widgetRes = await getHRDashboardWidgets();
-
-        const sites = siteRes.locations || [];
-        setSitesList(sites);
-
-        const clients = users.filter(u => {
-          const r = String(u.role || u.designation || '').toLowerCase();
-          return r.includes('client') || r.includes('customer');
-        }).length || 2;
-        
-        const total = users.length || 6;
-        const online = widgetRes.onlineCount || 2;
-        
-        // Fetch projects through project service so mock projects are initialized and correctly fetched
+        // 2. Fetch real projects from backend
         let projects = [];
         try {
-          const res = await getProjects();
-          if (res && res.success && Array.isArray(res.projects)) {
-            projects = res.projects;
-          } else if (res && Array.isArray(res.data)) {
-            projects = res.data;
-          } else if (Array.isArray(res)) {
-            projects = res;
-          }
-        } catch (projErr) {
-          console.warn("Could not fetch projects through API in stats:", projErr);
-        }
-
-        if (projects.length === 0) {
-          projects = JSON.parse(localStorage.getItem('nirman_projects') || '[]');
+          const projRes = await getProjects();
+          if (projRes?.projects) projects = projRes.projects;
+          else if (Array.isArray(projRes)) projects = projRes;
+        } catch (e) {
+          console.warn("Notice loading projects:", e.message);
         }
         setProjectsList(projects);
+
+        // 3. Fetch real sites from site location service
+        let sites = [];
+        try {
+          const siteRes = await getSiteLocations();
+          if (siteRes?.locations) sites = siteRes.locations;
+          else if (Array.isArray(siteRes)) sites = siteRes;
+        } catch (e) {
+          console.warn("Notice loading sites:", e.message);
+        }
+        setSitesList(sites);
+
+        // 4. Fetch real clients
+        let clients = [];
+        try {
+          const clientRes = await getClients();
+          if (clientRes?.clients) clients = clientRes.clients;
+          else if (Array.isArray(clientRes)) clients = clientRes;
+        } catch (e) {
+          console.warn("Notice loading clients:", e.message);
+        }
+        setClientsList(clients);
+
+        const clientUsersCount = users.filter(u => {
+          const r = String(u.role || u.designation || '').toLowerCase();
+          return r.includes('client') || r.includes('customer');
+        }).length || clients.length;
+        
+        const total = users.length;
+        const online = users.filter(u => u.status === 'ACTIVE' || u.isOnline).length || 1;
 
         const pendingProjsCount = projects.filter(p => {
           const s = String(p.status || '').toLowerCase();
@@ -165,18 +116,19 @@ export default function Stats() {
 
         setStats({
           totalUsers: total,
-          activeClients: clients,
-          activeSites: sites.length || 1,
-          pendingProjects: pendingProjsCount || 2,
+          activeClients: clientUsersCount,
+          activeSites: sites.length,
+          pendingProjects: pendingProjsCount,
           onlineCount: online,
           usersList: users
         });
       } catch (err) {
-        console.error("Error loading admin stats:", err);
+        console.error("Dashboard stats error:", err);
       } finally {
         setLoading(false);
       }
     };
+
     fetchStats();
   }, []);
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getActiveDepartments, getCleanDepartmentName } from '../../service/departments';
+import { getActiveDepartments, parseDepartments, DEFAULT_ARCHITECTURAL_DEPARTMENTS } from '../../service/departments';
 import { Building, RefreshCw } from 'lucide-react';
 
 export default function DepartmentSelect({ value, onChange, required = false, className = '', disabled = false }) {
@@ -12,18 +12,12 @@ export default function DepartmentSelect({ value, onChange, required = false, cl
     setError(false);
     try {
       const res = await getActiveDepartments();
-      if (res && res.success && Array.isArray(res.departments)) {
-        setDepartments(res.departments);
-      } else if (Array.isArray(res)) {
-        setDepartments(res);
-      } else if (res && Array.isArray(res.data)) {
-        setDepartments(res.data);
-      } else {
-        setDepartments([]);
-      }
+      const cleanNames = parseDepartments(res);
+      setDepartments(cleanNames);
     } catch (err) {
       console.warn("DepartmentSelect fetch error:", err);
       setError(true);
+      setDepartments(DEFAULT_ARCHITECTURAL_DEPARTMENTS.map(d => d.name));
     } finally {
       setLoading(false);
     }
@@ -49,19 +43,16 @@ export default function DepartmentSelect({ value, onChange, required = false, cl
         onChange={(e) => onChange(e.target.value)}
         required={required}
         disabled={disabled}
-        className={`w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-brand-secondary bg-white font-semibold text-xs text-slate-800 ${className}`}
+        className={`w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 bg-white font-semibold text-xs text-slate-800 cursor-pointer ${className}`}
       >
-        <option value="">Select Department *</option>
-        {departments.map((dept, idx) => {
-          const deptName = getCleanDepartmentName(dept);
-          if (!deptName) return null;
-          return (
-            <option key={dept._id || dept.id || idx} value={deptName}>
-              {deptName}
-            </option>
-          );
-        })}
+        <option value="">Select Department...</option>
+        {departments.map((deptName, idx) => (
+          <option key={idx} value={deptName}>
+            {deptName}
+          </option>
+        ))}
       </select>
+
 
       {error && (
         <div className="flex items-center justify-between text-[10px] text-amber-600 font-bold mt-1">

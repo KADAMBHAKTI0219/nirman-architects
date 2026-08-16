@@ -1,110 +1,110 @@
 import React, { useState, useRef } from 'react';
 import {
   MousePointer, Type, Square, Circle, Triangle, ArrowRight, Minus, Cloud,
-  Ruler as RulerIcon, Pin, Hand, Plus, Check, ChevronRight, X
+  Ruler as RulerIcon, Pin, Hand, Plus, Check, ChevronRight, X, Stamp as StampIcon
 } from 'lucide-react';
 
-/* Realistic SVG Renderers for iOS Pencil Kit Brushes */
+/* Realistic 3D Apple PencilKit SVG Brush Renderers */
 
-// 1. Technical Pen
+// 1. Technical Pen (Fine white tip, dark barrel, silver ring)
 const TechnicalPenSvg = ({ color, isActive }) => (
-  <svg viewBox="0 0 36 120" className="w-9 h-28 transition-transform duration-200">
-    <rect x="13" y="60" width="10" height="55" rx="3" fill="#1E293B" />
-    <rect x="13" y="55" width="10" height="5" fill="#E2E8F0" />
-    <path d="M 14 55 L 18 20 L 22 55 Z" fill="#0F172A" />
-    <rect x="17" y="5" width="2" height="15" fill="#F8FAFC" />
-    {/* Active Color Ring */}
-    <rect x="13" y="75" width="10" height="6" fill={color} />
+  <svg viewBox="0 0 36 120" className="w-9 h-28 transition-transform duration-200 filter drop-shadow-md">
+    <rect x="13" y="50" width="10" height="65" rx="3" fill="#18181B" />
+    <rect x="13" y="45" width="10" height="5" fill="#E2E8F0" />
+    <rect x="13" y="70" width="10" height="5" fill={color || '#38BDF8'} />
+    <path d="M 14 45 L 18 15 L 22 45 Z" fill="#27272A" />
+    <rect x="17" y="5" width="2" height="12" fill="#FFFFFF" />
   </svg>
 );
 
-// 2. Crayon / Wax Pastel
+// 2. Crayon / Wax Pastel (Red wax tip, black wrapper, double red bands)
 const CrayonSvg = ({ color, isActive }) => (
-  <svg viewBox="0 0 38 120" className="w-10 h-28 transition-transform duration-200">
-    <path d="M 12 40 L 19 10 L 26 40 Z" fill={color} />
-    <rect x="11" y="40" width="16" height="75" rx="2" fill="#0F172A" />
-    <rect x="11" y="50" width="16" height="40" fill={color} opacity="0.9" />
-    <line x1="11" y1="58" x2="27" y2="58" stroke="#1E293B" strokeWidth="2" />
-    <line x1="11" y1="82" x2="27" y2="82" stroke="#1E293B" strokeWidth="2" />
+  <svg viewBox="0 0 38 120" className="w-10 h-28 transition-transform duration-200 filter drop-shadow-md">
+    <path d="M 11 38 L 19 8 L 27 38 Z" fill={color || '#DC2626'} />
+    <rect x="10" y="38" width="18" height="78" rx="2" fill="#18181B" />
+    <rect x="10" y="48" width="18" height="8" fill={color || '#DC2626'} />
+    <rect x="10" y="94" width="18" height="8" fill={color || '#DC2626'} />
   </svg>
 );
 
-// 3. Fountain Pen (Calligraphy)
+// 3. Fountain Pen (Calligraphy 45° Silver Metallic Nib, Breather Hole)
 const FountainPenSvg = ({ color, isActive }) => (
-  <svg viewBox="0 0 38 120" className="w-10 h-28 transition-transform duration-200">
-    <rect x="12" y="55" width="14" height="60" rx="3" fill="#0F172A" />
-    <rect x="12" y="50" width="14" height="5" fill="#CBD5E1" />
-    {/* Metallic Nib */}
-    <path d="M 13 50 L 19 12 L 25 50 Z" fill="#94A3B8" stroke="#64748B" strokeWidth="1" />
-    <line x1="19" y1="12" x2="19" y2="35" stroke="#334155" strokeWidth="1.5" />
-    <circle cx="19" cy="35" r="2" fill="#334155" />
-    {/* Active Color Ring */}
-    <rect x="12" y="70" width="14" height="6" fill={color} />
+  <svg viewBox="0 0 38 120" className="w-10 h-28 transition-transform duration-200 filter drop-shadow-md">
+    <rect x="12" y="52" width="14" height="64" rx="3" fill="#18181B" />
+    <rect x="12" y="46" width="14" height="6" fill="#E2E8F0" />
+    <rect x="12" y="68" width="14" height="5" fill={color || '#2484C6'} />
+    {/* Silver Metallic Nib */}
+    <path d="M 12 46 L 19 8 L 26 46 Z" fill="url(#silverGradient)" stroke="#94A3B8" strokeWidth="1" />
+    <line x1="19" y1="8" x2="19" y2="30" stroke="#334155" strokeWidth="1.5" />
+    <circle cx="19" cy="30" r="2.5" fill="#334155" />
+    <defs>
+      <linearGradient id="silverGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor="#94A3B8" />
+        <stop offset="50%" stopColor="#F8FAFC" />
+        <stop offset="100%" stopColor="#64748B" />
+      </linearGradient>
+    </defs>
   </svg>
 );
 
-// 4. Watercolor / Acrylic Brush
+// 4. Watercolor / Acrylic Paint Brush (Wood handle, silver ferrule, chiseled white paint tip)
 const AcrylicBrushSvg = ({ color, isActive }) => (
-  <svg viewBox="0 0 38 120" className="w-10 h-28 transition-transform duration-200">
+  <svg viewBox="0 0 38 120" className="w-10 h-28 transition-transform duration-200 filter drop-shadow-md">
     <rect x="13" y="60" width="12" height="55" rx="2" fill="#78350F" />
-    <rect x="13" y="50" width="12" height="10" fill="#CBD5E1" />
-    {/* Brush Tip */}
-    <path d="M 13 50 Q 11 25 19 8 Q 27 25 25 50 Z" fill={color} />
+    <rect x="13" y="48" width="12" height="12" fill="#CBD5E1" />
+    {/* White Tapered Bristle Tip */}
+    <path d="M 13 48 Q 10 22 19 6 Q 28 22 25 48 Z" fill="#F8FAFC" />
+    <path d="M 13 48 Q 12 30 19 14 Q 26 30 25 48 Z" fill={color || '#2484C6'} opacity="0.4" />
   </svg>
 );
 
-// 5. Fine Marker (Lasso Selection Brush)
+// 5. Fine Marker (Lasso Selection Brush with blue glowing halo tip)
 const FineMarkerSvg = ({ color, isActive }) => (
-  <svg viewBox="0 0 36 120" className="w-9 h-28 transition-transform duration-200">
+  <svg viewBox="0 0 36 120" className="w-9 h-28 transition-transform duration-200 filter drop-shadow-md">
     <rect x="12" y="45" width="12" height="70" rx="3" fill="#18181B" />
     <rect x="12" y="40" width="12" height="5" fill="#FAFAFA" />
     <path d="M 15 40 L 18 18 L 21 40 Z" fill="#FFFFFF" />
-    {/* Active Color Tip & Ring */}
-    <circle cx="18" cy="18" r="2.5" fill={color || '#38BDF8'} />
+    <circle cx="18" cy="18" r="3" fill={color || '#38BDF8'} />
     <rect x="12" y="65" width="12" height="5" fill={color || '#38BDF8'} />
-    {/* Dashed Lasso Ring around tip */}
     <ellipse cx="18" cy="18" rx="8" ry="8" fill="none" stroke="#38BDF8" strokeWidth="1.5" strokeDasharray="3 2" />
   </svg>
 );
 
-// 6. Chiseled Highlighter
+// 6. Chiseled Highlighter (Flat black body, angled yellow tip, "80" text)
 const HighlighterSvg = ({ color, isActive }) => (
-  <svg viewBox="0 0 40 120" className="w-10 h-28 transition-transform duration-200">
+  <svg viewBox="0 0 40 120" className="w-10 h-28 transition-transform duration-200 filter drop-shadow-md">
     <rect x="10" y="45" width="20" height="70" rx="4" fill="#18181B" />
     <rect x="10" y="85" width="20" height="10" fill={color || '#FACC15'} />
-    {/* Chiseled Tip */}
     <path d="M 12 45 L 14 20 L 26 25 L 28 45 Z" fill={color || '#FACC15'} />
     <text x="20" y="105" fontFamily="Arial" fontSize="9" fontWeight="bold" fill="#FFFFFF" textAnchor="middle">80</text>
   </svg>
 );
 
-// 7. Rubber Eraser
+// 7. Rubber Eraser (Black cylinder body, pink rubber cap)
 const EraserSvg = ({ isActive }) => (
-  <svg viewBox="0 0 38 120" className="w-10 h-28 transition-transform duration-200">
+  <svg viewBox="0 0 38 120" className="w-10 h-28 transition-transform duration-200 filter drop-shadow-md">
     <rect x="11" y="45" width="16" height="70" rx="3" fill="#18181B" />
     <rect x="11" y="45" width="16" height="6" fill="#CBD5E1" />
-    {/* Pink Rubber Eraser Tip */}
     <rect x="11" y="20" width="16" height="25" rx="4" fill="#F472B6" />
   </svg>
 );
 
-// 8. Graphite Pencil
+// 8. Graphite Pencil (Striped hex body, wooden cone, dark lead tip)
 const PencilSvg = ({ color, isActive }) => (
-  <svg viewBox="0 0 36 120" className="w-9 h-28 transition-transform duration-200">
-    <rect x="12" y="45" width="12" height="70" rx="2" fill="#1E293B" />
-    {/* Wooden Conical Tip */}
+  <svg viewBox="0 0 36 120" className="w-9 h-28 transition-transform duration-200 filter drop-shadow-md">
+    <rect x="12" y="45" width="12" height="70" rx="2" fill="#18181B" />
     <path d="M 12 45 L 18 15 L 24 45 Z" fill="#D97706" />
     <path d="M 16 20 L 18 15 L 20 20 Z" fill="#334155" />
     <line x1="16" y1="45" x2="16" y2="115" stroke="#334155" strokeWidth="1" />
     <line x1="20" y1="45" x2="20" y2="115" stroke="#334155" strokeWidth="1" />
+    <rect x="12" y="85" width="12" height="4" fill={color || '#38BDF8'} />
   </svg>
 );
 
-// 9. Acrylic Ruler
+// 9. Acrylic Ruler (Clear ruler with white millimeter scale ticks)
 const RulerSvg = ({ isActive }) => (
-  <svg viewBox="0 0 42 120" className="w-11 h-28 transition-transform duration-200">
+  <svg viewBox="0 0 42 120" className="w-11 h-28 transition-transform duration-200 filter drop-shadow-md">
     <rect x="10" y="10" width="22" height="105" rx="2" fill="#475569" opacity="0.85" stroke="#94A3B8" strokeWidth="1" />
-    {/* Tick Marks */}
     <line x1="10" y1="20" x2="20" y2="20" stroke="#F8FAFC" strokeWidth="1.5" />
     <line x1="10" y1="30" x2="16" y2="30" stroke="#F8FAFC" strokeWidth="1" />
     <line x1="10" y1="40" x2="20" y2="40" stroke="#F8FAFC" strokeWidth="1.5" />
@@ -117,6 +117,7 @@ const RulerSvg = ({ isActive }) => (
   </svg>
 );
 
+
 export default function BottomToolbar({
   activeTool = 'pen',
   activeShape = 'rectangle',
@@ -127,6 +128,7 @@ export default function BottomToolbar({
   isSettingsOpen
 }) {
   const [showPlusMenu, setShowPlusMenu] = useState(false);
+  const [hoveredTool, setHoveredTool] = useState(null);
   const scrollContainerRef = useRef(null);
 
   const toolsList = [
@@ -144,6 +146,8 @@ export default function BottomToolbar({
   const plusMenuItems = [
     { id: 'text', label: 'Text Box', icon: Type },
     { id: 'pin', label: 'Comment Pin', icon: Pin },
+    { id: 'stamp', label: 'Review Stamp', icon: StampIcon },
+    { id: 'dimension', label: 'Dimension (mm)', icon: RulerIcon, isShape: true },
     { id: 'pan', label: 'Pan Hand', icon: Hand },
     { id: 'select', label: 'Select Tool', icon: MousePointer },
     { id: 'rectangle', label: 'Rectangle', icon: Square, isShape: true },
@@ -154,8 +158,21 @@ export default function BottomToolbar({
     { id: 'cloud', label: 'Revision Cloud', icon: Cloud, isShape: true }
   ];
 
+  const displayTool = hoveredTool || activeTool;
+  const currentToolObj = toolsList.find(t => t.id === displayTool) || plusMenuItems.find(t => t.id === displayTool);
+
   return (
     <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-40 w-[95vw] sm:w-[540px] max-w-full">
+      {/* Speech Bubble Tooltip Pill (matching user image 2) */}
+      {currentToolObj && (
+        <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-indigo-600 border border-indigo-400/40 text-white font-extrabold text-xs px-3.5 py-1.5 rounded-2xl shadow-2xl tracking-tight relative flex items-center gap-1.5 whitespace-nowrap">
+            <span>{currentToolObj.label}</span>
+            <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-0 h-0 border-x-6 border-x-transparent border-t-6 border-t-indigo-600"></div>
+          </div>
+        </div>
+      )}
+
       {/* Plus Menu Popup (Shapes, Text, Pins) */}
       {showPlusMenu && (
         <div
@@ -211,8 +228,13 @@ export default function BottomToolbar({
             return (
               <button
                 key={t.id}
+                onMouseEnter={() => setHoveredTool(t.id)}
+                onMouseLeave={() => setHoveredTool(null)}
                 onClick={() => {
-                  if (isActive && onToggleSettings) {
+                  if (isActive && t.id === 'ruler') {
+                    // Double click / second click on ruler toggles ruler off
+                    onSelectTool('pen');
+                  } else if (isActive && onToggleSettings) {
                     onToggleSettings();
                   } else {
                     onSelectTool(t.id);
@@ -231,6 +253,7 @@ export default function BottomToolbar({
             );
           })}
         </div>
+
 
         {/* Right Fixed Controls (Color Wheel & Plus Button) */}
         <div className="flex items-center gap-2 pl-3 border-l border-slate-800/80 flex-shrink-0">

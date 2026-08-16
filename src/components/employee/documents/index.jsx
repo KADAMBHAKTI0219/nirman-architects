@@ -19,6 +19,7 @@ import {
   getClientEngagementSummary,
   ALLOWED_FILE_TYPES
 } from '../../../service/document';
+import { getProjects } from '../../../service/project';
 import DocumentUploadModal from '../../admin/documents/DocumentUploadModal';
 import DocumentVersionModal from '../../admin/documents/DocumentVersionModal';
 import DocumentAccessLogModal from '../../admin/documents/DocumentAccessLogModal';
@@ -27,6 +28,10 @@ export default function EmployeeDocs() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFolder, setSelectedFolder] = useState('All');
   const [inspectingDoc, setInspectingDoc] = useState(null);
+
+  // User Projects State
+  const [userProjects, setUserProjects] = useState([]);
+  const [selectedProjectId, setSelectedProjectId] = useState('');
 
   // Offer Letter Integration
   const [offerMetadata, setOfferMetadata] = useState(null);
@@ -64,27 +69,47 @@ export default function EmployeeDocs() {
     }, 4500);
   };
 
-  // 1. Load Personal Offer Letter
+  // 1. Load Personal Offer Letter & User Projects
   useEffect(() => {
-    const fetchMyOfferLetter = async () => {
-      if (!loggedInUser) return;
-      const uId = loggedInUser.id || loggedInUser._id;
-      if (!uId) return;
-      try {
-        setLoadingOffer(true);
-        const res = await getOfferLetterMetadata(uId);
-        if (res && res.success && res.data) {
-          setOfferMetadata(res.data.latest || null);
-        } else if (res && res.latest) {
-          setOfferMetadata(res.latest || null);
+    const fetchInitialData = async () => {
+      if (loggedInUser) {
+        const uId = loggedInUser.id || loggedInUser._id;
+        if (uId) {
+          try {
+            setLoadingOffer(true);
+            const res = await getOfferLetterMetadata(uId);
+            if (res && res.success && res.data) {
+              setOfferMetadata(res.data.latest || null);
+            } else if (res && res.latest) {
+              setOfferMetadata(res.latest || null);
+            }
+          } catch (err) {
+            console.error("Failed to load personal offer letter metadata:", err);
+          } finally {
+            setLoadingOffer(false);
+          }
         }
-      } catch (err) {
-        console.error("Failed to load personal offer letter metadata:", err);
-      } finally {
-        setLoadingOffer(false);
+      }
+
+      // Fetch assigned user projects
+      try {
+        const projRes = await getProjects();
+        if (projRes?.projects && Array.isArray(projRes.projects) && projRes.projects.length > 0) {
+          setUserProjects(projRes.projects);
+          const firstId = projRes.projects[0]._id || projRes.projects[0].id || '';
+          setSelectedProjectId(firstId);
+          fetchFolders(firstId);
+        } else {
+          fetchFolders('');
+        }
+      } catch (e) {
+        fetchFolders('');
       }
     };
-    fetchMyOfferLetter();
+
+    fetchInitialData();
+    fetchDocs();
+    fetchEngagement();
   }, []);
 
   const handleDownloadOfferLetter = async () => {
@@ -101,9 +126,9 @@ export default function EmployeeDocs() {
   };
 
   // 2. Fetch Project Folders (API 28.1 GET /api/projects/:projectId/document-folders)
-  const fetchFolders = async () => {
+  const fetchFolders = async (pId = selectedProjectId) => {
     try {
-      const res = await getProjectFolders('proj-1');
+      const res = await getProjectFolders(pId || '');
       if (res && (res.folders || res.data)) {
         setProjectFolders(res.folders || res.data || []);
       }
@@ -129,10 +154,10 @@ export default function EmployeeDocs() {
   };
 
   // 4. Fetch Client Engagement Summary (API 28.5 GET /api/documents/client/:clientId/engagement-summary)
-  const fetchEngagement = async () => {
+  const fetchEngagement = async (pId = selectedProjectId) => {
     setLoadingEngagement(true);
     try {
-      const res = await getClientEngagementSummary('client-1', 'proj-1');
+      const res = await getClientEngagementSummary('client-1', pId || '');
       if (res && res.summary) {
         setEngagementSummary(res.summary);
       }
@@ -143,20 +168,14 @@ export default function EmployeeDocs() {
     }
   };
 
-  useEffect(() => {
-    fetchFolders();
-    fetchDocs();
-    fetchEngagement();
-  }, []);
-
   // Handler: Create Project Folder (API 28.1 POST /api/projects/:projectId/document-folders/create)
   const handleCreateFolder = async () => {
     const folderName = await window.prompt("Enter new Project Document Folder Name:", "", "Create Project Folder");
     if (!folderName || !folderName.trim()) return;
     try {
-      const res = await createProjectFolder('proj-1', folderName.trim(), 'Created via Employee Panel');
-      showToast(`Folder "${folderName.trim()}" created successfully! (POST /api/projects/proj-1/document-folders/create)`);
-      fetchFolders();
+      const res = await createProjectFolder(selectedProjectId || '', folderName.trim(), 'Created via Employee Panel');
+      showToast(`Folder "${folderName.trim()}" created successfully!`);
+      fetchFolders(selectedProjectId);
     } catch (err) {
       showToast("Error creating project folder", "error");
     }

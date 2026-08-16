@@ -59,7 +59,7 @@ export function getCleanFileUrl(targetUrl) {
   if (typeof targetUrl === 'string') {
     const clean = targetUrl.trim();
     if (!clean) return '';
-    if (clean.startsWith('http') || clean.startsWith('data:') || clean.startsWith('blob:')) return clean;
+    if (clean.startsWith('http') || clean.startsWith('data:')) return clean;
     if (clean.startsWith('/')) return `https://nirman-architects.onrender.com${clean}`;
     return `https://nirman-architects.onrender.com/${clean}`;
   }

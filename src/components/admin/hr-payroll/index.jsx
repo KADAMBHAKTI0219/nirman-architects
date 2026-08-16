@@ -4,6 +4,8 @@ import HRLeaves from './HRLeaves';
 import HRPayrollOps from './HRPayrollOps';
 import HRPerformance from './HRPerformance';
 import LeaveMaster from './LeaveMaster';
+import HRPayrollData from '../../hr/payroll-data/index';
+import HROfferLetters from '../../hr/offer-letters/index';
 import {
   getPendingLeaveRequests,
   approveLeaveRequest,
@@ -352,17 +354,19 @@ export default function HRPayroll({ defaultTab = 'payroll' }) {
   return (
     <div className="space-y-6 font-sans text-slate-800 pb-12 animate-in fade-in duration-200">
       
-      {/* TOP PAGE HEADER */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            {currentHeader.title}
-          </h1>
-          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
-            {currentHeader.subtitle}
-          </p>
+      {/* TOP PAGE HEADER (Hidden for payroll as PayrollHeader renders header bar) */}
+      {activeTab !== 'payroll' && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              {currentHeader.title}
+            </h1>
+            <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+              {currentHeader.subtitle}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Render selected HR module section */}
       <div>
@@ -388,7 +392,11 @@ export default function HRPayroll({ defaultTab = 'payroll' }) {
         )}
 
         {activeTab === 'payroll' && (
-          <HRPayrollOps />
+          <HRPayrollData />
+        )}
+
+        {activeTab === 'offer-letters' && (
+          <HROfferLetters />
         )}
 
         {activeTab === 'performance' && (

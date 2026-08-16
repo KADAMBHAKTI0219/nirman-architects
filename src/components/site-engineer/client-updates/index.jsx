@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Plus, Send, FileText, Image as ImageIcon, MapPin, 
   CheckCheck, Clock, Archive 
 } from 'lucide-react';
 import Card from '../../common/Card';
+import { getProjects } from '../../../service/project';
 
 const INITIAL_UPDATES = [
   { id: 1, date: "2026-07-22", site: "Metro Station Tunnel Excavation", title: "Tunnel excavation finished", description: "All site excavation finished ahead of schedule. Preparing GFC layout checks and scaffolding.", status: "Sent to Client", photos: 2 },
@@ -14,8 +15,24 @@ const INITIAL_UPDATES = [
 export default function ClientUpdates() {
   const [updates, setUpdates] = useState(INITIAL_UPDATES);
   const [newTitle, setNewTitle] = useState('');
-  const [newSite, setNewSite] = useState('Smart City Mall Foundations');
+  const [newSite, setNewSite] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [projectsList, setProjectsList] = useState([]);
+
+  useEffect(() => {
+    getProjects()
+      .then(res => {
+        let list = [];
+        if (res?.projects && Array.isArray(res.projects)) list = res.projects;
+        else if (Array.isArray(res)) list = res;
+        if (list.length > 0) {
+          setProjectsList(list);
+          const firstP = list[0].projectName || list[0].name || list[0].title || '';
+          setNewSite(firstP);
+        }
+      })
+      .catch(err => console.warn(err));
+  }, []);
 
   const handlePostUpdate = (status = 'Sent to Client') => {
     if (!newTitle.trim() || !newDesc.trim()) return;
@@ -96,7 +113,9 @@ export default function ClientUpdates() {
       <Card title="Compose Client Update" subtitle="Broadcast site construction metrics">
         <div className="space-y-4 text-xs font-semibold text-slate-550">
           <div className="space-y-1">
-            <label className="text-[10px] text-slate-400 block uppercase">Update Title *</label>
+            <label className="text-[10px] text-slate-400 block uppercase">
+              Update Title <span className="text-red-500 font-bold ml-0.5">*</span>
+            </label>
             <input 
               type="text" 
               value={newTitle}
@@ -111,16 +130,25 @@ export default function ClientUpdates() {
             <select 
               value={newSite} 
               onChange={(e) => setNewSite(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-205 rounded-xl bg-white text-slate-700 font-semibold"
+              className="w-full px-3 py-2 border border-slate-205 rounded-xl bg-white text-slate-700 font-semibold cursor-pointer"
             >
-              <option value="Smart City Mall Foundations">Smart City Mall Foundations</option>
-              <option value="Metro Station Tunnel Excavation">Metro Station Tunnel Excavation</option>
-              <option value="Oceanic Villas Block C Slab">Oceanic Villas Block C Slab</option>
+              {projectsList.length > 0 ? (
+                projectsList.map(p => {
+                  const pName = p.projectName || p.name || p.title || 'Site Location';
+                  return (
+                    <option key={p._id || p.id || pName} value={pName}>{pName}</option>
+                  );
+                })
+              ) : (
+                <option value="">No Active Sites Available</option>
+              )}
             </select>
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] text-slate-400 block uppercase">Brief Description *</label>
+            <label className="text-[10px] text-slate-400 block uppercase">
+              Brief Description <span className="text-red-500 font-bold ml-0.5">*</span>
+            </label>
             <textarea 
               value={newDesc}
               onChange={(e) => setNewDesc(e.target.value)}

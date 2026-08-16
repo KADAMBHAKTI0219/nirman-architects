@@ -12,6 +12,7 @@ const PMCommunication = lazy(() => import('../components/project-manager/client-
 const PMReports = lazy(() => import('../components/project-manager/reports/index'));
 const EmployeeAttendance = lazy(() => import('../components/employee/attendance/index'));
 const LeavesPortal = lazy(() => import('../components/common/LeavesPortal'));
+const SupportQueryCenter = lazy(() => import('../components/admin/crm/SupportQueryCenter'));
 const AppUsageTracking = lazy(() => import('../components/admin/app-usage/AppUsageTracking'));
 const WorkLocations = lazy(() => import('../components/admin/work-locations/index'));
 
@@ -87,6 +88,11 @@ export default function getPmRoutes(handleRoleChange) {
       <Route path="/project-manager/queries" element={
         <DashboardLayout role="ProjectManager" onChangeRole={handleRoleChange} title="Queries">
           <LazyWrap><PMCommunication /></LazyWrap>
+        </DashboardLayout>
+      } />
+      <Route path="/project-manager/support-queries" element={
+        <DashboardLayout role="ProjectManager" onChangeRole={handleRoleChange} title="Support Queries Operations">
+          <LazyWrap><SupportQueryCenter /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/project-manager/reports/projects" element={

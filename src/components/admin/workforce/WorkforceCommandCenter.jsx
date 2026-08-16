@@ -10,7 +10,8 @@ import DeviceBindingApprovals from './DeviceBindingApprovals';
 import AppUsageTracking from '../app-usage/AppUsageTracking';
 import { getAllAttendanceList } from '../../../service/hrm/attendance';
 import { getRoles, registerUser, getUsersList, getUserById, updateUser, getPendingDeviceRequests, approveDevice } from '../../../service/auth';
-import { getDepartments } from '../../../service/departments';
+import { getDepartments, parseDepartments } from '../../../service/departments';
+
 import { parseIndexedObjectToArray } from '../../../service/hrm/leave';
 
 export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
@@ -189,8 +190,10 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
   });
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState('');
+  const [createFieldErrors, setCreateFieldErrors] = useState({});
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState('');
+  const [editFieldErrors, setEditFieldErrors] = useState({});
 
   // Fetch roles & departments dynamically from real backend API when modal opens
   useEffect(() => {
@@ -242,14 +245,7 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
         try {
           setDepartmentsLoading(true);
           const res = await getDepartments();
-          let deptList = [];
-          if (res && res.success && Array.isArray(res.departments)) {
-            deptList = res.departments;
-          } else if (Array.isArray(res)) {
-            deptList = res;
-          } else if (res && Array.isArray(res.departments)) {
-            deptList = res.departments;
-          }
+          const deptList = parseDepartments(res);
           setDepartments(deptList);
         } catch (err) {
           console.error("Failed to load departments from backend API:", err);
@@ -258,10 +254,50 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
         }
       };
 
+
       fetchRoles();
       fetchDepts();
     }
   }, [showAddModal, showEditModal]);
+
+  const autoMatchDepartment = (roleObj, availableDepts = []) => {
+    if (!roleObj) return '';
+    const code = (roleObj.roleCode || roleObj.code || '').toUpperCase();
+    const name = (roleObj.roleName || roleObj.name || '').toLowerCase();
+
+    const deptNames = availableDepts.map(d => typeof d === 'string' ? d : (d.name || d.departmentName || d.title || '')).filter(Boolean);
+
+    // 1. Try fuzzy match in availableDepts
+    let matched = deptNames.find(d => {
+      const dLower = d.toLowerCase();
+      if (code.includes('HR') || name.includes('hr') || name.includes('human')) {
+        return dLower.includes('hr') || dLower.includes('human') || dLower.includes('admin');
+      }
+      if (code.includes('ARCHITECT') || name.includes('architect')) {
+        return dLower.includes('architect') || dLower.includes('design');
+      }
+      if (code.includes('PROJECT') || code.includes('PM') || name.includes('project')) {
+        return dLower.includes('project') || dLower.includes('management');
+      }
+      if (code.includes('ACCOUNT') || code.includes('FINANCE') || name.includes('finance')) {
+        return dLower.includes('account') || dLower.includes('finance');
+      }
+      if (code.includes('SITE') || code.includes('ENGINEER') || name.includes('engineer')) {
+        return dLower.includes('engineering') || dLower.includes('site') || dLower.includes('structural');
+      }
+      return dLower.includes(name) || name.includes(dLower);
+    });
+
+    if (matched) return matched;
+
+    // 2. Specific role code fallbacks
+    if (code.includes('HR') || name.includes('hr')) return 'HR & Administration';
+    if (code.includes('SUPER_ADMIN') || code.includes('ADMIN')) return 'Super Admin';
+    if (code.includes('ARCHITECT')) return 'Architecture & Design';
+    if (code.includes('PM') || code.includes('PROJECT')) return 'Project Management';
+
+    return roleObj.roleName ? `${roleObj.roleName} Department` : (deptNames[0] || 'Office Staff');
+  };
 
   const handleAddEmployee = () => {
     setNewEmployee({
@@ -283,39 +319,48 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
   const handleCreateEmployeeSubmit = async (e) => {
     e.preventDefault();
     setCreateError('');
-    setCreateLoading(true);
+    setCreateFieldErrors({});
 
+    const errors = {};
     const { name, email, password, phone, roleId, role, department, designation, baseSalary, deviceId } = newEmployee;
 
-    if (!name || !email || !password || !phone || !roleId || !role || !department || !designation || !baseSalary) {
-      setCreateError('Please fill in all required fields.');
-      setCreateLoading(false);
-      return;
+    if (!name || !name.trim()) errors.name = 'Full Name is required.';
+    if (!email || !email.trim()) {
+      errors.email = 'Email address is required.';
+    } else if (/[A-Z]/.test(email)) {
+      errors.email = 'Email address must contain only lowercase letters (e.g. john@nirman.com).';
     }
 
-    if (/[A-Z]/.test(email)) {
-      setCreateError('Email address must contain only lowercase letters (no capital letters allowed, e.g. john@nirman.com).');
-      setCreateLoading(false);
-      return;
+    if (!password) {
+      errors.password = 'Password is required.';
+    } else {
+      const isPassValid = 
+        password.length >= 8 &&
+        password.length <= 15 &&
+        /[A-Z]/.test(password) &&
+        /[a-z]/.test(password) &&
+        /[0-9]/.test(password) &&
+        /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+
+      if (!isPassValid) {
+        errors.password = 'Password must be 8-15 chars with uppercase, lowercase, number & special char.';
+      }
     }
 
-    if (phone.length !== 10) {
-      setCreateError('Phone number must be exactly 10 digits.');
-      setCreateLoading(false);
-      return;
+    if (!phone || !phone.trim()) {
+      errors.phone = 'Phone number is required.';
+    } else if (phone.length !== 10) {
+      errors.phone = 'Phone number must be exactly 10 digits.';
     }
 
-    const isPassValid = 
-      password.length >= 8 &&
-      password.length <= 15 &&
-      /[A-Z]/.test(password) &&
-      /[a-z]/.test(password) &&
-      /[0-9]/.test(password) &&
-      /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+    if (!roleId) errors.roleId = 'Please select a system role.';
+    if (!department || !department.trim()) errors.department = 'Department selection is required.';
+    if (!designation || !designation.trim()) errors.designation = 'Designation is required.';
+    if (!baseSalary) errors.baseSalary = 'Base Salary (INR) is required.';
+    if (!deviceId || !deviceId.trim()) errors.deviceId = 'Hardware Device ID is required.';
 
-    if (!isPassValid) {
-      setCreateError('Password must be 8-15 characters long and contain at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character (@,#,$,etc.).');
-      setCreateLoading(false);
+    if (Object.keys(errors).length > 0) {
+      setCreateFieldErrors(errors);
       return;
     }
 
@@ -428,15 +473,30 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
   const handleEditEmployeeSubmit = async (e) => {
     e.preventDefault();
     setEditError('');
-    setEditLoading(true);
+    setEditFieldErrors({});
 
+    const errors = {};
     const { id, name, email, phone, roleId, role, department, designation, baseSalary, deviceId } = editEmployeeData;
 
-    if (!name || !email || !phone || !roleId || !role || !department || !designation || !baseSalary) {
-      setEditError('Please fill in all required fields.');
-      setEditLoading(false);
+    if (!name || !name.trim()) errors.name = 'Full Name is required.';
+    if (!email || !email.trim()) errors.email = 'Email address is required.';
+    if (!phone || !phone.trim()) {
+      errors.phone = 'Phone number is required.';
+    } else if (phone.length !== 10) {
+      errors.phone = 'Phone number must be exactly 10 digits.';
+    }
+    if (!roleId) errors.roleId = 'Please select a system role.';
+    if (!department || !department.trim()) errors.department = 'Department selection is required.';
+    if (!designation || !designation.trim()) errors.designation = 'Designation is required.';
+    if (!baseSalary) errors.baseSalary = 'Base Salary (INR) is required.';
+    if (!deviceId || !deviceId.trim()) errors.deviceId = 'Hardware Device ID is required.';
+
+    if (Object.keys(errors).length > 0) {
+      setEditFieldErrors(errors);
       return;
     }
+
+    setEditLoading(true);
 
     try {
       const payload = {
@@ -762,13 +822,17 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
                       const selectedRoleId = e.target.value;
                       const selectedRole = roles.find(r => (r._id || r.id) === selectedRoleId);
                       if (selectedRole) {
+                        const matchedDept = autoMatchDepartment(selectedRole, departments);
                         setNewEmployee(prev => ({
                           ...prev,
                           roleId: selectedRoleId,
                           role: selectedRole.roleCode,
                           designation: selectedRole.roleName,
-                          department: selectedRole.roleCode === 'SUPER_ADMIN' ? 'Super Admin' : (selectedRole.roleName + ' Department')
+                          department: matchedDept
                         }));
+                        if (matchedDept) {
+                          setCreateFieldErrors(prev => ({ ...prev, department: '' }));
+                        }
                       }
                     }}
                     className="w-full pl-9 pr-4 py-2.5 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-800"
@@ -798,26 +862,36 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
                   <div className="relative">
                     <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none z-10" />
                     <select 
-                      required
                       value={newEmployee.department}
-                      onChange={(e) => setNewEmployee(prev => ({ ...prev, department: e.target.value }))}
-                      className="w-full pl-9 pr-4 py-2.5 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-brand-secondary font-semibold text-slate-800 cursor-pointer"
+                      onChange={(e) => {
+                        setNewEmployee(prev => ({ ...prev, department: e.target.value }));
+                        if (e.target.value) setCreateFieldErrors(prev => ({ ...prev, department: '' }));
+                      }}
+                      className={`w-full pl-9 pr-4 py-2.5 text-xs border rounded-xl bg-white focus:outline-none font-semibold text-slate-800 cursor-pointer ${
+                        createFieldErrors.department ? 'border-rose-500 bg-rose-50/20 text-rose-900 focus:border-rose-500' : 'border-slate-200 focus:border-brand-secondary'
+                      }`}
                     >
                       <option value="">Select Department *</option>
                       {departmentsLoading ? (
                         <option value="" disabled>Loading departments from API...</option>
                       ) : (
-                        departments.map((d, idx) => {
-                          const deptName = typeof d === 'string' ? d : (d.name || d.departmentName || d.title || 'Department');
-                          return (
-                            <option key={d._id || d.id || idx} value={deptName}>
-                              {deptName}
-                            </option>
-                          );
-                        })
+                        Array.from(new Set([
+                          ...(newEmployee.department ? [newEmployee.department] : []),
+                          ...departments.map(d => typeof d === 'string' ? d : (d.name || d.departmentName || d.title || 'Department'))
+                        ])).filter(Boolean).map((deptName, idx) => (
+                          <option key={idx} value={deptName}>
+                            {deptName}
+                          </option>
+                        ))
                       )}
                     </select>
                   </div>
+                  {createFieldErrors.department && (
+                    <span className="text-[10px] font-extrabold text-rose-600 flex items-center gap-1 mt-1 animate-in fade-in">
+                      <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />
+                      {createFieldErrors.department}
+                    </span>
+                  )}
                 </div>
 
                 <div className="space-y-1">
@@ -828,13 +902,23 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
                     <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
                       type="text" 
-                      required
                       value={newEmployee.designation}
-                      onChange={(e) => setNewEmployee(prev => ({ ...prev, designation: e.target.value }))}
+                      onChange={(e) => {
+                        setNewEmployee(prev => ({ ...prev, designation: e.target.value }));
+                        if (e.target.value) setCreateFieldErrors(prev => ({ ...prev, designation: '' }));
+                      }}
                       placeholder="e.g. Employee / Senior Architect" 
-                      className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-800"
+                      className={`w-full pl-9 pr-4 py-2 text-xs border rounded-xl bg-white focus:outline-none font-semibold text-slate-800 ${
+                        createFieldErrors.designation ? 'border-rose-500 bg-rose-50/20 text-rose-900 focus:border-rose-500' : 'border-slate-200 focus:border-brand-primary'
+                      }`}
                     />
                   </div>
+                  {createFieldErrors.designation && (
+                    <span className="text-[10px] font-extrabold text-rose-600 flex items-center gap-1 mt-1 animate-in fade-in">
+                      <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />
+                      {createFieldErrors.designation}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -848,13 +932,23 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
                     <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
                       type="number" 
-                      required
                       value={newEmployee.baseSalary}
-                      onChange={(e) => setNewEmployee(prev => ({ ...prev, baseSalary: e.target.value }))}
+                      onChange={(e) => {
+                        setNewEmployee(prev => ({ ...prev, baseSalary: e.target.value }));
+                        if (e.target.value) setCreateFieldErrors(prev => ({ ...prev, baseSalary: '' }));
+                      }}
                       placeholder="25000" 
-                      className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-800"
+                      className={`w-full pl-9 pr-4 py-2 text-xs border rounded-xl bg-white focus:outline-none font-semibold text-slate-800 ${
+                        createFieldErrors.baseSalary ? 'border-rose-500 bg-rose-50/20 text-rose-900 focus:border-rose-500' : 'border-slate-200 focus:border-brand-primary'
+                      }`}
                     />
                   </div>
+                  {createFieldErrors.baseSalary && (
+                    <span className="text-[10px] font-extrabold text-rose-600 flex items-center gap-1 mt-1 animate-in fade-in">
+                      <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />
+                      {createFieldErrors.baseSalary}
+                    </span>
+                  )}
                 </div>
 
                 <div className="space-y-1">
@@ -865,13 +959,23 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
                     <Laptop className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
                       type="text" 
-                      required
                       value={newEmployee.deviceId}
-                      onChange={(e) => setNewEmployee(prev => ({ ...prev, deviceId: e.target.value }))}
+                      onChange={(e) => {
+                        setNewEmployee(prev => ({ ...prev, deviceId: e.target.value }));
+                        if (e.target.value) setCreateFieldErrors(prev => ({ ...prev, deviceId: '' }));
+                      }}
                       placeholder="GUID-MACHINE-123" 
-                      className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-800"
+                      className={`w-full pl-9 pr-4 py-2 text-xs border rounded-xl bg-white focus:outline-none font-semibold text-slate-800 ${
+                        createFieldErrors.deviceId ? 'border-rose-500 bg-rose-50/20 text-rose-900 focus:border-rose-500' : 'border-slate-200 focus:border-brand-primary'
+                      }`}
                     />
                   </div>
+                  {createFieldErrors.deviceId && (
+                    <span className="text-[10px] font-extrabold text-rose-600 flex items-center gap-1 mt-1 animate-in fade-in">
+                      <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />
+                      {createFieldErrors.deviceId}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -994,13 +1098,17 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
                         const selectedRoleId = e.target.value;
                         const selectedRole = roles.find(r => (r._id || r.id) === selectedRoleId);
                         if (selectedRole) {
+                          const matchedDept = autoMatchDepartment(selectedRole, departments);
                           setEditEmployeeData(prev => ({
                             ...prev,
                             roleId: selectedRoleId,
                             role: selectedRole.roleCode,
                             designation: selectedRole.roleName,
-                            department: selectedRole.roleCode === 'SUPER_ADMIN' ? 'Super Admin' : (selectedRole.roleName + ' Department')
+                            department: matchedDept
                           }));
+                          if (matchedDept) {
+                            setEditFieldErrors(prev => ({ ...prev, department: '' }));
+                          }
                         }
                       }}
                       className="w-full pl-9 pr-4 py-2.5 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
@@ -1028,74 +1136,114 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
                     <div className="relative">
                       <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none z-10" />
                       <select 
-                        required
                         value={editEmployeeData.department}
-                        onChange={(e) => setEditEmployeeData(prev => ({ ...prev, department: e.target.value }))}
-                        className="w-full pl-9 pr-4 py-2.5 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-brand-secondary font-semibold text-slate-800 cursor-pointer"
+                        onChange={(e) => {
+                          setEditEmployeeData(prev => ({ ...prev, department: e.target.value }));
+                          if (e.target.value) setEditFieldErrors(prev => ({ ...prev, department: '' }));
+                        }}
+                        className={`w-full pl-9 pr-4 py-2.5 text-xs border rounded-xl bg-white focus:outline-none font-semibold text-slate-800 cursor-pointer ${
+                          editFieldErrors.department ? 'border-rose-500 bg-rose-50/20 text-rose-900 focus:border-rose-500' : 'border-slate-200 focus:border-brand-secondary'
+                        }`}
                       >
                         <option value="">Select Department *</option>
                         {departmentsLoading ? (
                           <option value="" disabled>Loading departments from API...</option>
                         ) : (
-                          departments.map((d, idx) => {
-                            const deptName = typeof d === 'string' ? d : (d.name || d.departmentName || d.title || 'Department');
-                            return (
-                              <option key={d._id || d.id || idx} value={deptName}>
-                                {deptName}
-                              </option>
-                            );
-                          })
+                          Array.from(new Set([
+                            ...(editEmployeeData.department ? [editEmployeeData.department] : []),
+                            ...departments.map(d => typeof d === 'string' ? d : (d.name || d.departmentName || d.title || 'Department'))
+                          ])).filter(Boolean).map((deptName, idx) => (
+                            <option key={idx} value={deptName}>
+                              {deptName}
+                            </option>
+                          ))
                         )}
                       </select>
                     </div>
+                    {editFieldErrors.department && (
+                      <span className="text-[10px] font-extrabold text-rose-600 flex items-center gap-1 mt-1 animate-in fade-in">
+                        <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />
+                        {editFieldErrors.department}
+                      </span>
+                    )}
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Designation</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Designation <span className="text-rose-500 font-bold">*</span></label>
                     <div className="relative">
                       <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
                         type="text" 
-                        required
                         value={editEmployeeData.designation}
-                        onChange={(e) => setEditEmployeeData(prev => ({ ...prev, designation: e.target.value }))}
+                        onChange={(e) => {
+                          setEditEmployeeData(prev => ({ ...prev, designation: e.target.value }));
+                          if (e.target.value) setEditFieldErrors(prev => ({ ...prev, designation: '' }));
+                        }}
                         placeholder="e.g. Employee / Senior Architect" 
-                        className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
+                        className={`w-full pl-9 pr-4 py-2 text-xs border rounded-xl bg-white focus:outline-none font-semibold text-slate-800 ${
+                          editFieldErrors.designation ? 'border-rose-500 bg-rose-50/20 text-rose-900 focus:border-rose-500' : 'border-slate-200 focus:border-brand-primary'
+                        }`}
                       />
                     </div>
+                    {editFieldErrors.designation && (
+                      <span className="text-[10px] font-extrabold text-rose-600 flex items-center gap-1 mt-1 animate-in fade-in">
+                        <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />
+                        {editFieldErrors.designation}
+                      </span>
+                    )}
                   </div>
                 </div>
 
                 {/* Base Salary & Hardware Device ID (GUI) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Base Salary (INR)</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Base Salary (INR) <span className="text-rose-500 font-bold">*</span></label>
                     <div className="relative">
                       <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
                         type="number" 
-                        required
                         value={editEmployeeData.baseSalary}
-                        onChange={(e) => setEditEmployeeData(prev => ({ ...prev, baseSalary: e.target.value }))}
-                        placeholder="25055" 
-                        className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
+                        onChange={(e) => {
+                          setEditEmployeeData(prev => ({ ...prev, baseSalary: e.target.value }));
+                          if (e.target.value) setEditFieldErrors(prev => ({ ...prev, baseSalary: '' }));
+                        }}
+                        placeholder="25000" 
+                        className={`w-full pl-9 pr-4 py-2 text-xs border rounded-xl bg-white focus:outline-none font-semibold text-slate-800 ${
+                          editFieldErrors.baseSalary ? 'border-rose-500 bg-rose-50/20 text-rose-900 focus:border-rose-500' : 'border-slate-200 focus:border-brand-primary'
+                        }`}
                       />
                     </div>
+                    {editFieldErrors.baseSalary && (
+                      <span className="text-[10px] font-extrabold text-rose-600 flex items-center gap-1 mt-1 animate-in fade-in">
+                        <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />
+                        {editFieldErrors.baseSalary}
+                      </span>
+                    )}
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Hardware Device ID (GUID)</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Hardware Device ID (GUID) <span className="text-rose-500 font-bold">*</span></label>
                     <div className="relative">
                       <Laptop className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
                         type="text" 
-                        required
                         value={editEmployeeData.deviceId}
-                        onChange={(e) => setEditEmployeeData(prev => ({ ...prev, deviceId: e.target.value }))}
+                        onChange={(e) => {
+                          setEditEmployeeData(prev => ({ ...prev, deviceId: e.target.value }));
+                          if (e.target.value) setEditFieldErrors(prev => ({ ...prev, deviceId: '' }));
+                        }}
                         placeholder="GUID-MACHINE-123" 
-                        className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
+                        className={`w-full pl-9 pr-4 py-2 text-xs border rounded-xl bg-white focus:outline-none font-semibold text-slate-800 ${
+                          editFieldErrors.deviceId ? 'border-rose-500 bg-rose-50/20 text-rose-900 focus:border-rose-500' : 'border-slate-200 focus:border-brand-primary'
+                        }`}
                       />
                     </div>
+                    {editFieldErrors.deviceId && (
+                      <span className="text-[10px] font-extrabold text-rose-600 flex items-center gap-1 mt-1 animate-in fade-in">
+                        <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />
+                        {editFieldErrors.deviceId}
+                      </span>
+                    )}
                   </div>
                 </div>
 

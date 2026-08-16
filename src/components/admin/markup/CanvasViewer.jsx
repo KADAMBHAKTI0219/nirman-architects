@@ -5,13 +5,17 @@ import {
   ensureRulerGuide,
   removeRulerGuide,
   applyRulerSnap,
-  eraseObjectsNear
+  eraseObjectsNear,
+  createDimensionShape,
+  createCloudShape,
+  createStampShape
 } from './CustomBrushes';
 
 export default function CanvasViewer({
   bgImageSrc,
   activeTool = 'pen',
   activeShape = 'rectangle',
+  activeStampType = 'APPROVED',
   strokeColor = '#2484C6',
   strokeWidth = 4,
   opacity = 1,
@@ -21,9 +25,12 @@ export default function CanvasViewer({
   onCanvasReady,
   onSelectionChange,
   onObjectsChange,
+  onActionRecorded,
   onPinDropped,
   onPinClick
 }) {
+
+
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
   const fabricCanvasRef = useRef(null);
@@ -177,6 +184,8 @@ export default function CanvasViewer({
           isBackground: true
         });
 
+        canvas.__bgImageObj = fabricImg;
+
         canvas.getObjects().forEach((obj) => {
           if (obj.isBackground) canvas.remove(obj);
         });
@@ -188,6 +197,7 @@ export default function CanvasViewer({
         console.warn('Fabric background image loading issue:', err);
       }
     };
+
 
     imgElement.onerror = (err) => {
       console.warn('Background image failed to load, loading fallback architectural drawing artwork:', err);
@@ -408,6 +418,16 @@ export default function CanvasViewer({
         return;
       }
 
+      // 4.5. Stamp Tool
+      if (activeTool === 'stamp') {
+        const stampObj = createStampShape(pointer.x, pointer.y, activeStampType || 'APPROVED');
+        canvas.add(stampObj);
+        canvas.setActiveObject(stampObj);
+        canvas.renderAll();
+        if (onObjectsChange) onObjectsChange();
+        return;
+      }
+
       // 5. Shapes Tool Creation (ruler-snapped start point when near the guide)
       if (activeTool === 'shape') {
         isMouseDownRef.current = true;
@@ -429,7 +449,7 @@ export default function CanvasViewer({
             left: pointer.x, top: pointer.y, width: 1, height: 1,
             fill: 'transparent', stroke: strokeColor, strokeWidth: strokeWidth, opacity: opacity
           });
-        } else if (activeShape === 'line' || activeShape === 'arrow' || activeShape === 'dimension') {
+        } else if (activeShape === 'line' || activeShape === 'arrow' || activeShape === 'dimension' || activeShape === 'cloud') {
           shapeObj = new fabric.Line([pointer.x, pointer.y, pointer.x, pointer.y], {
             stroke: strokeColor, strokeWidth: strokeWidth, opacity: opacity
           });
@@ -459,13 +479,14 @@ export default function CanvasViewer({
         tempLassoPathRef.current.set({ points: lassoPointsRef.current });
         canvas.requestRenderAll();
         return;
-      }
-
-      if (activeTool === 'eraser' && isErasingRef.current) {
+      }      if (activeTool === 'eraser' && isErasingRef.current) {
         const pointer = canvas.getScenePoint(opt.e);
-        const radius = Math.max(24, strokeWidth * 2.2);
-        const erased = eraseObjectsNear(canvas, pointer, radius);
-        if (erased && onObjectsChange) onObjectsChange();
+        const radius = Math.max(16, strokeWidth * 2);
+        const erasedObjects = eraseObjectsNear(canvas, pointer, radius, { mode: eraserMode || 'pixel' });
+        if (erasedObjects && erasedObjects.length) {
+          if (onActionRecorded) onActionRecorded({ type: 'remove', targets: erasedObjects });
+          else if (onObjectsChange) onObjectsChange();
+        }
         return;
       }
 
@@ -483,7 +504,7 @@ export default function CanvasViewer({
           obj.set({ left: Math.min(startX, pointer.x), top: Math.min(startY, pointer.y), width, height });
         } else if (activeShape === 'circle') {
           obj.set({ left: Math.min(startX, pointer.x), top: Math.min(startY, pointer.y), radius: width / 2 });
-        } else if (activeShape === 'line' || activeShape === 'arrow' || activeShape === 'dimension') {
+        } else if (activeShape === 'line' || activeShape === 'arrow' || activeShape === 'dimension' || activeShape === 'cloud') {
           obj.set({ x2: pointer.x, y2: pointer.y });
         }
 
@@ -491,7 +512,7 @@ export default function CanvasViewer({
       }
     };
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (opt) => {
       isPanning = false;
       isErasingRef.current = false;
       if (activeTool === 'pan') canvas.defaultCursor = 'grab';
@@ -533,8 +554,30 @@ export default function CanvasViewer({
       }
 
       if (isMouseDownRef.current && tempShapeObjRef.current) {
+        const startX = shapeStartCoordsRef.current.x;
+        const startY = shapeStartCoordsRef.current.y;
+        const endPointer = applyRulerSnap(canvas, canvas.getScenePoint(opt?.e || {}));
+        const tempObj = tempShapeObjRef.current;
+
+        if (activeShape === 'dimension') {
+          canvas.remove(tempObj);
+          const dimGroup = createDimensionShape(startX, startY, endPointer.x, endPointer.y, {
+            color: strokeColor, width: strokeWidth, opacity
+          });
+          canvas.add(dimGroup);
+        } else if (activeShape === 'cloud') {
+          canvas.remove(tempObj);
+          const cloudWidth = Math.abs(endPointer.x - startX);
+          const cloudHeight = Math.abs(endPointer.y - startY);
+          const cloudPath = createCloudShape(Math.min(startX, endPointer.x), Math.min(startY, endPointer.y), cloudWidth, cloudHeight, {
+            color: strokeColor, strokeWidth, opacity
+          });
+          canvas.add(cloudPath);
+        }
+
         isMouseDownRef.current = false;
         tempShapeObjRef.current = null;
+        canvas.renderAll();
         if (onObjectsChange) onObjectsChange();
       }
     };
@@ -546,12 +589,17 @@ export default function CanvasViewer({
       if (onSelectionChange) onSelectionChange(null);
     };
     const handleObjectAdded = (e) => {
-      if (e.target && !e.target.isBackground && !e.target.isRulerGuide && onObjectsChange) {
-        onObjectsChange();
+      if (e.target && !e.target.isBackground && !e.target.isRulerGuide && !canvas.__isUndoRedo) {
+        if (onActionRecorded) {
+          onActionRecorded({ type: 'add', target: e.target });
+        } else if (onObjectsChange) {
+          onObjectsChange();
+        }
       }
     };
 
     canvas.on('mouse:down', handleMouseDown);
+
     canvas.on('mouse:move', handleMouseMove);
     canvas.on('mouse:up', handleMouseUp);
     canvas.on('selection:created', handleSelectionCreated);

@@ -7,6 +7,8 @@ const CustomerDashboard = lazy(() => import('../components/customer/dashboard/in
 const CustomerTimeline = lazy(() => import('../components/customer/timeline/index'));
 const CustomerDrawings = lazy(() => import('../components/customer/drawings/index'));
 const CustomerPhotos3D = lazy(() => import('../components/customer/photos-3d/index'));
+const CustomerSupportQueries = lazy(() => import('../components/customer/support-queries/index'));
+const CustomerFeedback = lazy(() => import('../components/customer/feedback/index'));
 const CustomerChat = lazy(() => import('../components/customer/chat-queries/index'));
 const CustomerNotifications = lazy(() => import('../components/customer/notifications/index'));
 const CustomerHistory = lazy(() => import('../components/customer/history/index'));
@@ -43,6 +45,16 @@ export default function getCustomerRoutes(handleRoleChange) {
       <Route path="/customer/views" element={
         <DashboardLayout role="Customer" onChangeRole={handleRoleChange} title="Photos & 3D Views">
           <LazyWrap><CustomerPhotos3D /></LazyWrap>
+        </DashboardLayout>
+      } />
+      <Route path="/customer/support-queries" element={
+        <DashboardLayout role="Customer" onChangeRole={handleRoleChange} title="Support Queries">
+          <LazyWrap><CustomerSupportQueries /></LazyWrap>
+        </DashboardLayout>
+      } />
+      <Route path="/customer/feedback" element={
+        <DashboardLayout role="Customer" onChangeRole={handleRoleChange} title="Client Feedback & Review">
+          <LazyWrap><CustomerFeedback /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/customer/chat" element={

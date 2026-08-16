@@ -415,7 +415,9 @@ export default function RoleMasterPage() {
 
             <form onSubmit={handleFormSubmit} className="space-y-4 text-xs">
               <div>
-                <label className="block text-slate-700 font-bold mb-1.5">Role Name *</label>
+                <label className="block text-slate-700 font-bold mb-1.5">
+                  Role Name <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <input
                   type="text"
                   required

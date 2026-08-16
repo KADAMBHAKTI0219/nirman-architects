@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Upload, AlertCircle, FileText, CheckCircle2 } from 'lucide-react';
 import { uploadDrawingVersion } from '../../../service/drawing';
+import { useToast } from '../../../context/ToastContext';
 
 export default function DrawingVersionModal({
   isOpen,
@@ -8,7 +9,9 @@ export default function DrawingVersionModal({
   drawing,
   onSuccess
 }) {
+  const { showToast } = useToast();
   const [selectedFile, setSelectedFile] = useState(null);
+  const [fileTypeFormat, setFileTypeFormat] = useState('JPEG');
   const [changeLog, setChangeLog] = useState('');
   const [fileUrlInput, setFileUrlInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,11 +22,36 @@ export default function DrawingVersionModal({
   const drawingId = drawing._id || drawing.id;
   const drawingTitle = drawing.drawingName || drawing.title || drawing.name || 'Drawing';
 
+  const getAcceptAttribute = (fmt) => {
+    switch (fmt) {
+      case 'JPEG':
+      case 'JPG':
+        return '.jpg,.jpeg,image/jpeg';
+      case 'PNG':
+        return '.png,image/png';
+      case 'PDF':
+        return '.pdf,application/pdf';
+      case 'DWG':
+        return '.dwg,application/dwg';
+      default:
+        return '.pdf,.png,.jpg,.jpeg,.dwg,application/pdf,image/*';
+    }
+  };
+
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setSelectedFile(file);
       setErrorMsg('');
+
+      const ext = (file.name.split('.').pop() || '').toLowerCase();
+      let detectedFmt = fileTypeFormat;
+      if (ext === 'jpg' || ext === 'jpeg') detectedFmt = 'JPEG';
+      else if (ext === 'png') detectedFmt = 'PNG';
+      else if (ext === 'pdf') detectedFmt = 'PDF';
+      else if (ext === 'dwg') detectedFmt = 'DWG';
+
+      setFileTypeFormat(detectedFmt);
     }
   };
 
@@ -44,24 +72,34 @@ export default function DrawingVersionModal({
         payload.append('file', selectedFile);
         payload.append('filePath', `/uploads/drawings/${selectedFile.name}`);
         payload.append('changeLog', changeLog.trim() || 'Revised blueprint drawing version');
+        payload.append('fileTypeFormat', fileTypeFormat);
+        payload.append('format', fileTypeFormat);
+        payload.append('fileType', fileTypeFormat);
       } else {
         payload = {
           filePath: fileUrlInput.trim(),
           fileUrl: fileUrlInput.trim(),
-          changeLog: changeLog.trim() || 'Revised blueprint drawing version'
+          changeLog: changeLog.trim() || 'Revised blueprint drawing version',
+          fileTypeFormat: fileTypeFormat,
+          format: fileTypeFormat,
+          fileType: fileTypeFormat
         };
       }
 
       const res = await uploadDrawingVersion(drawingId, payload);
       if (res && (res.success || res.drawing || res.version)) {
-        alert(res.message || 'Drawing version uploaded successfully!');
+        showToast(res.message || 'Drawing version uploaded successfully!', 'success', 'Version Uploaded', true);
         if (onSuccess) onSuccess(res);
         onClose();
       } else {
-        setErrorMsg(res?.message || 'Failed to upload new drawing version.');
+        const errMsg = res?.message || 'Failed to upload new drawing version.';
+        setErrorMsg(errMsg);
+        showToast(errMsg, 'error', 'Upload Error', false);
       }
     } catch (err) {
-      setErrorMsg(err?.message || 'Error uploading drawing version.');
+      const errMsg = err?.message || 'Error uploading drawing version.';
+      setErrorMsg(errMsg);
+      showToast(errMsg, 'error', 'Upload Error', false);
     } finally {
       setLoading(false);
     }
@@ -111,17 +149,33 @@ export default function DrawingVersionModal({
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1">Select File (.dwg, .pdf, .png, .jpg)</label>
+            <label className="block text-[11px] font-extrabold text-slate-600 uppercase tracking-wider mb-1">
+              FILE TYPE FORMAT <span className="text-red-500 font-bold ml-0.5">*</span>
+            </label>
+            <select
+              value={fileTypeFormat}
+              onChange={(e) => setFileTypeFormat(e.target.value)}
+              className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            >
+              <option value="JPEG">JPEG (.jpeg, .jpg)</option>
+              <option value="PNG">PNG (.png)</option>
+              <option value="PDF">PDF (.pdf)</option>
+              <option value="DWG">DWG (.dwg)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">Select File ({fileTypeFormat})</label>
             <div className="border-2 border-dashed border-slate-200 rounded-2xl p-4 text-center hover:border-indigo-400 transition-colors bg-slate-50/50 cursor-pointer relative">
               <input 
                 type="file" 
                 onChange={handleFileChange}
-                accept=".dwg,.pdf,.png,.jpg,.jpeg,.svg"
+                accept={getAcceptAttribute(fileTypeFormat)}
                 className="absolute inset-0 opacity-0 cursor-pointer"
               />
               <Upload className="w-6 h-6 text-slate-400 mx-auto mb-1" />
               <span className="font-bold text-slate-700 block text-xs">
-                {selectedFile ? selectedFile.name : 'Click to select file from computer'}
+                {selectedFile ? `${selectedFile.name} (${fileTypeFormat})` : `Click to select ${fileTypeFormat} file from computer`}
               </span>
               <span className="text-[10px] text-slate-400 font-semibold block mt-0.5">Max size 25MB</span>
             </div>

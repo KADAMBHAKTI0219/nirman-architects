@@ -775,8 +775,7 @@ export default function ProjectDetails({
             { id: 'clients', label: `Linked Clients (${clientLinks.length})` },
             { id: 'team', label: 'Team Matrix' },
             { id: 'documents', label: 'Documents' },
-            { id: 'chat', label: 'Client Chat' },
-            { id: 'approvals', label: `Approvals (${project.pendingApprovals || 0})` },
+            { id: 'approvals', label: `Approvals (${(projectDrawingsList || project.drawings || []).filter(d => d.status !== 'Approved' && d.status !== 'APPROVED').length})` },
             { id: 'reports', label: 'Visual Reports' }
           ].map(t => (
             <button
@@ -1142,22 +1141,6 @@ export default function ProjectDetails({
           </div>
         )}
 
-        {/* CLIENT CHAT PANEL (WhatsApp Style Client Communication Hub) */}
-        {activeTab === 'chat' && (
-          <div className="bg-white border border-slate-200/90 rounded-3xl p-4 shadow-2xs space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div>
-                <h3 className="text-sm font-black text-slate-900">WhatsApp-Style Client Communication Hub</h3>
-                <p className="text-xs text-slate-500">Real-time messaging stream, swipe-to-reply, quoted messages & PM team notes</p>
-              </div>
-              <span className="px-3 py-1 bg-emerald-50 text-emerald-700 font-extrabold text-[10px] uppercase rounded-full border border-emerald-200">
-                Live Sync Channel
-              </span>
-            </div>
-            <ClientCommunication defaultProjectId={projectId} />
-          </div>
-        )}
-
         {/* TIMELINE & MILESTONES PANEL */}
         {activeTab === 'timeline' && (
           <div className="space-y-4">
@@ -1300,24 +1283,48 @@ export default function ProjectDetails({
               </button>
             </div>
 
-            {Array.isArray(project.team) && project.team.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-normal">
-                {project.team.map((member, i) => (
-                  <div key={member._id || i} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
-                    <span className="text-slate-900 font-semibold text-xs block">{member.name}</span>
-                    <span className="text-[11px] text-slate-500 block">{member.role || member.projectRole}</span>
-                    <div className="flex justify-between items-center text-[10px] pt-2 border-t border-slate-200/60">
-                      <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded uppercase">{member.dept || 'Engineering'}</span>
-                      <span className="text-slate-500 font-mono">{member.phone || 'Assigned'}</span>
-                    </div>
+            {(() => {
+              const projectTeam = (Array.isArray(project.teamAssignments) && project.teamAssignments.length > 0)
+                ? project.teamAssignments
+                : (Array.isArray(project.team) ? project.team : []);
+
+              if (projectTeam.length > 0) {
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-normal">
+                    {projectTeam.map((member, i) => {
+                      const userObj = typeof member.userId === 'object' && member.userId !== null ? member.userId : null;
+                      const mName = userObj?.name || member.name || member.memberName || userObj?.email || 'Team Member';
+                      const mRole = member.projectRole || member.role || userObj?.designation || 'Architect';
+                      const mEmail = userObj?.email || member.email || '';
+                      const mDept = member.dept || userObj?.department?.name || 'Engineering';
+
+                      return (
+                        <div key={member._id || member.id || i} className="p-4 bg-slate-50/80 border border-slate-200 rounded-2xl space-y-2 hover:border-indigo-200 transition-all">
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-900 font-extrabold text-xs block">{mName}</span>
+                            <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[9px] font-black rounded-lg uppercase">
+                              ID: {userObj?.id || userObj?._id ? String(userObj?.id || userObj?._id).slice(-6) : `MEM-${i+1}`}
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-slate-500 font-bold block">{mRole}</span>
+                          {mEmail && <span className="text-[10px] text-slate-400 font-medium block truncate">{mEmail}</span>}
+                          <div className="flex justify-between items-center text-[10px] pt-2 border-t border-slate-200/60">
+                            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 font-black rounded-md uppercase tracking-wider">{mDept}</span>
+                            <span className="text-slate-500 font-mono font-semibold">Assigned</span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-10 text-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-                <p className="text-xs font-normal">No team members assigned to this project yet. Click "+ Assign Team Member" to add personnel.</p>
-              </div>
-            )}
+                );
+              }
+
+              return (
+                <div className="py-10 text-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                  <p className="text-xs font-normal">No team members assigned to this project yet. Click "+ Assign Team Member" to add personnel.</p>
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -1515,55 +1522,266 @@ export default function ProjectDetails({
 
         {/* APPROVALS PANEL */}
         {activeTab === 'approvals' && (
-          <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
-            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-              <div>
-                <h3 className="text-sm font-semibold text-slate-900">Pending Client & Internal Approvals</h3>
-                <p className="text-xs text-slate-500">Audit list of drawings and design revisions awaiting sign-off</p>
+          <div className="space-y-5 animate-in fade-in duration-200">
+            {/* Summary KPI Bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-3xs space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Drawings</span>
+                <span className="text-2xl font-black text-slate-900">{(projectDrawingsList || project.drawings || []).length}</span>
+                <span className="text-[10px] text-slate-500 block font-medium">Registered in Project</span>
+              </div>
+              <div className="bg-amber-50/70 p-4 rounded-2xl border border-amber-200/80 shadow-3xs space-y-1">
+                <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">Pending Approval</span>
+                <span className="text-2xl font-black text-amber-900">
+                  {(projectDrawingsList || project.drawings || []).filter(d => d.status !== 'Approved' && d.status !== 'APPROVED').length}
+                </span>
+                <span className="text-[10px] text-amber-800 block font-semibold">Requires Client/PM Review</span>
+              </div>
+              <div className="bg-emerald-50/70 p-4 rounded-2xl border border-emerald-200/80 shadow-3xs space-y-1">
+                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Approved GFC</span>
+                <span className="text-2xl font-black text-emerald-900">
+                  {(projectDrawingsList || project.drawings || []).filter(d => d.status === 'Approved' || d.status === 'APPROVED').length}
+                </span>
+                <span className="text-[10px] text-emerald-800 block font-semibold">Released for Site Execution</span>
+              </div>
+              <div className="bg-indigo-50/70 p-4 rounded-2xl border border-indigo-200/80 shadow-3xs space-y-1">
+                <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider block">Completed Tasks</span>
+                <span className="text-2xl font-black text-indigo-900">
+                  {projectTasksList.filter(t => t.status === 'Completed' || t.status === 'DONE').length} / {projectTasksList.length}
+                </span>
+                <span className="text-[10px] text-indigo-800 block font-semibold">Milestone Task Work</span>
               </div>
             </div>
 
-            {Array.isArray(project.drawings) && project.drawings.filter(d => d.status !== 'Approved' && d.status !== 'APPROVED').length > 0 ? (
-              <div className="space-y-3">
-                {project.drawings.filter(d => d.status !== 'Approved' && d.status !== 'APPROVED').map((d, i) => (
-                  <div key={d._id || i} className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between text-xs">
-                    <div className="space-y-1">
-                      <span className="text-amber-900 font-semibold block">{d.title || d.name || d.code}</span>
-                      <p className="text-amber-700 text-[11px]">Submitted for approval on {formatDate(d.uploadedAt || d.createdAt)}</p>
-                    </div>
-                    <span className="px-3 py-1 bg-amber-100 text-amber-800 font-medium rounded-full text-[10px] uppercase">
-                      Awaiting Response
-                    </span>
-                  </div>
-                ))}
+            {/* Approvals Main List */}
+            <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">Drawing & Revision Approval Workflow</h3>
+                  <p className="text-xs text-slate-500">Audit list of blueprints, structural calculations and design revisions requiring sign-off</p>
+                </div>
+                <span className="px-3 py-1 bg-amber-100 text-amber-900 font-extrabold text-[10px] uppercase rounded-full border border-amber-300 shadow-3xs self-start sm:self-auto">
+                  {(projectDrawingsList || project.drawings || []).filter(d => d.status !== 'Approved' && d.status !== 'APPROVED').length} Action Items Pending
+                </span>
               </div>
-            ) : (
-              <div className="py-10 text-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-                <p className="text-xs font-normal">No pending approvals required for this project.</p>
-              </div>
-            )}
+
+              {(projectDrawingsList || project.drawings || []).length > 0 ? (
+                <div className="space-y-3">
+                  {(projectDrawingsList || project.drawings || []).map((d, i) => {
+                    const isApproved = d.status === 'Approved' || d.status === 'APPROVED';
+                    const titleStr = d.title || d.drawingName || d.name || d.code || `Drawing #${i+1}`;
+                    const codeStr = d.drawingNumber || d.code || `DWG-00${i+1}`;
+
+                    return (
+                      <div 
+                        key={d._id || d.id || i} 
+                        className={`p-4 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                          isApproved 
+                            ? 'bg-emerald-50/40 border-emerald-200/80' 
+                            : 'bg-amber-50/60 border-amber-200/90 shadow-3xs'
+                        }`}
+                      >
+                        <div className="space-y-1.5 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="px-2 py-0.5 bg-slate-900 text-white rounded text-[10px] font-mono font-bold">
+                              {codeStr}
+                            </span>
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
+                              isApproved 
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
+                                : 'bg-amber-100 text-amber-900 border-amber-300'
+                            }`}>
+                              {isApproved ? 'Approved GFC' : 'Awaiting Review'}
+                            </span>
+                            <span className="text-[11px] font-semibold text-slate-500">
+                              v{d.currentVersion || d.version || '1.0'}
+                            </span>
+                          </div>
+                          
+                          <h4 className="text-sm font-bold text-slate-900 truncate">{titleStr}</h4>
+                          
+                          <div className="flex items-center gap-3 text-[11px] text-slate-600 font-medium flex-wrap">
+                            <span>Submitted: {formatDate(d.uploadedAt || d.createdAt || d.updatedAt)}</span>
+                            <span>&bull;</span>
+                            <span>Category: {d.category || 'Working Drawing'}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
+                          {isApproved ? (
+                            <span className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-3xs">
+                              <CheckCircle2 className="w-4 h-4" /> Approved & Signed
+                            </span>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleWorkflowApprove(codeStr);
+                                  showToast(`Drawing "${titleStr}" approved!`, 'success', 'Approval Granted', true);
+                                }}
+                                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-2xs transition-all cursor-pointer flex items-center gap-1"
+                              >
+                                <Check className="w-3.5 h-3.5" /> Grant Approval
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  alert(`Revision request logged for "${titleStr}". Project team notified.`);
+                                }}
+                                className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                              >
+                                <X className="w-3.5 h-3.5" /> Request Revision
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="py-12 text-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 space-y-2">
+                  <CheckCircle2 className="w-8 h-8 text-slate-300 mx-auto" />
+                  <p className="text-xs font-semibold text-slate-700">No pending approvals required for this project.</p>
+                  <p className="text-[11px] text-slate-400">All submitted architectural blueprints have been audited and signed off.</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
         {/* REPORTS PANEL */}
         {activeTab === 'reports' && (
-          <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
-            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-              <div>
-                <h3 className="text-sm font-semibold text-slate-900">Visual Operational Reports & Analytics</h3>
-                <p className="text-xs text-slate-500">Project velocity, milestone progress, and budget tracking</p>
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* Visual Header Banner */}
+            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 rounded-3xl shadow-xl border border-slate-800 relative overflow-hidden">
+              <div className="relative z-10 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <span className="px-3 py-1 bg-white/10 text-indigo-200 rounded-full text-[10px] font-bold uppercase tracking-wider border border-white/10">
+                      Project Analytics & Visual Operations
+                    </span>
+                    <h2 className="text-xl sm:text-2xl font-black text-white mt-1">Operational Velocity Dashboard</h2>
+                    <p className="text-xs text-indigo-200 font-medium">Real-time progress metrics, milestone completion curves & departmental delivery</p>
+                  </div>
+                  <div className="bg-white/10 backdrop-blur-md p-3.5 rounded-2xl border border-white/10 text-center min-w-[130px]">
+                    <span className="text-[10px] text-indigo-200 font-bold uppercase block">Overall Progress</span>
+                    <span className="text-3xl font-black text-amber-300">
+                      {project.progressPercentage ?? project.progressPercent ?? project.progress ?? 0}%
+                    </span>
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="space-y-1.5 pt-2">
+                  <div className="flex justify-between text-xs font-bold text-indigo-100">
+                    <span>Handover Timeline Progress</span>
+                    <span>Target Target: {formatDate(project.endDate || project.targetCompletionDate)}</span>
+                  </div>
+                  <div className="w-full bg-slate-800/80 h-3.5 rounded-full overflow-hidden p-0.5 border border-white/10">
+                    <div 
+                      className="bg-gradient-to-r from-amber-400 via-emerald-400 to-indigo-400 h-full rounded-full transition-all duration-700 shadow-sm"
+                      style={{ width: `${Math.min(100, Math.max(0, project.progressPercentage ?? project.progressPercent ?? project.progress ?? 0))}%` }}
+                    ></div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="h-48 bg-slate-50 border border-slate-200 rounded-2xl p-5 flex flex-col justify-between">
-              <span className="text-xs font-medium text-slate-600 uppercase">Overall Project Progress</span>
-              <div className="w-full bg-slate-200 h-4 rounded-full overflow-hidden my-auto">
-                <div className="bg-brand-primary h-full rounded-full transition-all duration-500" style={{ width: `${project.progressPercentage || project.progress || 0}%` }}></div>
+            {/* Grid Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              
+              {/* Milestone Progress Breakdown */}
+              <div className="md:col-span-2 bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Milestone Delivery Breakdown</h3>
+                    <span className="text-[11px] text-slate-500 font-medium">Progress curves for registered project phases</span>
+                  </div>
+                  <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded-lg border border-indigo-100">
+                    {milestonesList.length} Phases Total
+                  </span>
+                </div>
+
+                {milestonesList.length > 0 ? (
+                  <div className="space-y-3">
+                    {milestonesList.map((m, idx) => {
+                      const pct = m.progressPercentage || (m.isCompleted ? 100 : 50);
+                      const isDone = m.isCompleted || pct === 100;
+                      return (
+                        <div key={m._id || m.id || idx} className="p-3.5 bg-slate-50/70 border border-slate-200/80 rounded-2xl space-y-2">
+                          <div className="flex items-center justify-between text-xs font-bold">
+                            <span className="text-slate-900 flex items-center gap-2">
+                              <span className={`w-2 h-2 rounded-full ${isDone ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}></span>
+                              {m.name}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                              isDone ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                            }`}>
+                              {isDone ? '100% Completed' : `${pct}% Active`}
+                            </span>
+                          </div>
+                          <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full rounded-full transition-all duration-500 ${isDone ? 'bg-emerald-500' : 'bg-indigo-600'}`}
+                              style={{ width: `${pct}%` }}
+                            ></div>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium pt-0.5">
+                            <span>Target Date: {formatDate(m.targetDate)}</span>
+                            <span>{isDone ? `Finished on ${formatDate(m.completedDate || m.targetDate)}` : 'In Execution Phase'}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="py-8 text-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                    <p className="text-xs font-semibold text-slate-600">No milestone targets registered.</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Add milestones in the Timeline tab to track phase progress.</p>
+                  </div>
+                )}
               </div>
-              <div className="flex justify-between text-xs font-medium text-slate-700">
-                <span>Completed: {project.progressPercentage || project.progress || 0}%</span>
-                <span>Milestones Registered: {milestonesList.length}</span>
+
+              {/* Departmental Task Distribution */}
+              <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
+                <div className="pb-3 border-b border-slate-100">
+                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Workload & Task Analytics</h3>
+                  <span className="text-[11px] text-slate-500 font-medium">Departmental execution breakdown</span>
+                </div>
+
+                <div className="space-y-3">
+                  {[
+                    { dept: 'Architecture & Design', color: 'bg-indigo-600', count: projectTasksList.filter(t => (t.dept || '').includes('Arch')).length },
+                    { dept: 'Structural Engineering', color: 'bg-emerald-600', count: projectTasksList.filter(t => (t.dept || '').includes('Eng')).length },
+                    { dept: 'Procurement & Material', color: 'bg-amber-600', count: projectTasksList.filter(t => (t.dept || '').includes('Procure')).length },
+                    { dept: 'Quality Control (QC)', color: 'bg-rose-600', count: projectTasksList.filter(t => (t.dept || '').includes('Quality') || (t.dept || '').includes('QC')).length }
+                  ].map((d, i) => {
+                    const totalT = projectTasksList.length || 1;
+                    const pct = Math.round((d.count / totalT) * 100);
+                    return (
+                      <div key={i} className="p-3 bg-slate-50 rounded-2xl space-y-1.5 border border-slate-100">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                          <span className="truncate">{d.dept}</span>
+                          <span>{d.count} Tasks ({pct}%)</span>
+                        </div>
+                        <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                          <div className={`${d.color} h-full rounded-full`} style={{ width: `${Math.max(5, pct)}%` }}></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-700">
+                  <span>Total Active Work Orders:</span>
+                  <span className="px-2.5 py-1 bg-slate-900 text-white rounded-lg text-[10px]">
+                    {projectTasksList.length} Tasks
+                  </span>
+                </div>
               </div>
+
             </div>
           </div>
         )}
@@ -1584,7 +1802,9 @@ export default function ProjectDetails({
 
             <form onSubmit={handleCreateLinkSubmit} className="space-y-4 text-xs font-medium">
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Target Client Account *</label>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Target Client Account <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <select
                   value={selectedClientId}
                   onChange={(e) => setSelectedClientId(e.target.value)}
@@ -1728,7 +1948,9 @@ export default function ProjectDetails({
             </div>
             <form onSubmit={handleAddMilestoneSubmit} className="space-y-4 text-xs">
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">Milestone Name *</label>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  Milestone Name <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <input
                   type="text"
                   required
@@ -1739,7 +1961,9 @@ export default function ProjectDetails({
                 />
               </div>
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">Target Completion Date *</label>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  Target Completion Date <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <input
                   type="date"
                   required
@@ -1773,7 +1997,9 @@ export default function ProjectDetails({
             </div>
             <form onSubmit={handleAssignTeamSubmit} className="space-y-4 text-xs font-medium">
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">Select Member / Employee *</label>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  Select Member / Employee <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 {loadingSystemUsers ? (
                   <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-400 text-xs flex items-center gap-2 font-normal">
                     <RefreshCw className="w-4 h-4 animate-spin text-indigo-500" />
@@ -1811,7 +2037,9 @@ export default function ProjectDetails({
                 )}
               </div>
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">Project Role *</label>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  Project Role <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <input
                   type="text"
                   required
@@ -1858,7 +2086,9 @@ export default function ProjectDetails({
             </div>
             <form onSubmit={handleUpdateProgressSubmit} className="space-y-4 text-xs font-medium">
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">Progress Percentage (0 - 100%) *</label>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  Progress Percentage (0 - 100%) <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <input
                   type="number"
                   min="0"

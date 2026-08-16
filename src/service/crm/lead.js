@@ -13,6 +13,7 @@ import api from '../auth';
  * - GET /leads/:id/interactions
  * - GET /leads/:id/status-history
  * - POST /leads/:id/convert-to-client
+ * - DELETE /leads/:id
  */
 
 export const createLead = async (payload) => {
@@ -21,13 +22,37 @@ export const createLead = async (payload) => {
 };
 
 export const getLeads = async (params = {}) => {
-  const response = await api.get('/leads', { params });
-  return response.data;
+  try {
+    const response = await api.get('/leads', { params });
+    if (response.data) {
+      if (Array.isArray(response.data)) {
+        return { success: true, leads: response.data };
+      }
+      if (response.data.data && Array.isArray(response.data.data.leads)) {
+        return { success: true, leads: response.data.data.leads };
+      }
+      if (Array.isArray(response.data.leads)) {
+        return { success: true, leads: response.data.leads };
+      }
+      if (Array.isArray(response.data.data)) {
+        return { success: true, leads: response.data.data };
+      }
+      return { success: true, leads: response.data.leads || [] };
+    }
+    return { success: true, leads: [] };
+  } catch (err) {
+    console.warn("getLeads API call failed:", err);
+    return { success: false, leads: [], message: err.message };
+  }
 };
 
 export const getDueFollowUps = async (params = {}) => {
-  const response = await api.get('/leads/followups/due', { params });
-  return response.data;
+  try {
+    const response = await api.get('/leads/followups/due', { params });
+    return response.data;
+  } catch (err) {
+    return { success: false, data: [] };
+  }
 };
 
 export const getLeadById = async (id) => {
@@ -61,7 +86,17 @@ export const getLeadStatusHistory = async (id) => {
 };
 
 export const convertToClientStub = async (id) => {
-  const response = await api.post(`/leads/${id}/convert-to-client`);
+  try {
+    const response = await api.post(`/leads/${id}/convert-to-client`);
+    return response.data;
+  } catch (err) {
+    console.warn("convert-to-client endpoint error:", err);
+    throw err;
+  }
+};
+
+export const deleteLead = async (id) => {
+  const response = await api.delete(`/leads/${id}`);
   return response.data;
 };
 
@@ -75,5 +110,6 @@ export default {
   logInteraction,
   getLeadInteractions,
   getLeadStatusHistory,
-  convertToClientStub
+  convertToClientStub,
+  deleteLead
 };

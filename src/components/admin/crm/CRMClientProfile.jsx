@@ -932,7 +932,9 @@ export default function CRMClientProfile({
 
             <form onSubmit={handleAddContactSubmit} className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Contact Full Name *</label>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Contact Full Name <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <input
                   type="text"
                   placeholder="e.g. Sarah Connor"
@@ -944,7 +946,9 @@ export default function CRMClientProfile({
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Login Email Address *</label>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Login Email Address <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <input
                   type="email"
                   placeholder="sarah@company.com"
@@ -968,7 +972,9 @@ export default function CRMClientProfile({
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Permission Level *</label>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Permission Level <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <select
                   value={newContactForm.permissionLevel}
                   onChange={(e) => setNewContactForm({ ...newContactForm, permissionLevel: e.target.value })}
@@ -1013,7 +1019,9 @@ export default function CRMClientProfile({
 
             <form onSubmit={handleCreateLinkSubmit} className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">Select Project to Link *</label>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  Select Project to Link <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 {loadingAllProjects ? (
                   <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-400 text-xs flex items-center gap-2 font-normal">
                     <RefreshCw className="w-4 h-4 animate-spin text-indigo-500" />

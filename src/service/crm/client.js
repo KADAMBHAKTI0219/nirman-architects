@@ -1,44 +1,54 @@
-import api, { isMockSession } from '../auth';
-import * as mockApi from '../mockApi';
+import api from '../auth';
 
 // ==========================================
 // CRM MODULE 2 - CLIENT MASTER APIS
 // ==========================================
 
 export const createClient = async (payload) => {
-  if (isMockSession()) return await mockApi.mockCreateClient(payload);
-  try {
-    const response = await api.post('/clients', payload);
-    return response.data;
-  } catch (error) {
-    const response = await api.post('/clients/create', payload);
-    return response.data;
-  }
-};
-
-export const getClients = async (params = {}) => {
-  if (isMockSession()) return await mockApi.mockGetClients(params);
-  const response = await api.get('/clients', { params });
+  const response = await api.post('/clients/create', payload);
   return response.data;
 };
 
+export const getClients = async (params = {}) => {
+  try {
+    const response = await api.get('/clients', { params });
+    if (response.data) {
+      if (Array.isArray(response.data)) {
+        return { success: true, clients: response.data };
+      }
+      if (response.data.data && Array.isArray(response.data.data.clients)) {
+        return { success: true, clients: response.data.data.clients };
+      }
+      if (Array.isArray(response.data.clients)) {
+        return { success: true, clients: response.data.clients };
+      }
+      if (Array.isArray(response.data.data)) {
+        return { success: true, clients: response.data.data };
+      }
+      return { success: true, clients: response.data.clients || [] };
+    }
+    return { success: true, clients: [] };
+  } catch (err) {
+    console.warn("getClients API error:", err);
+    return { success: false, clients: [], message: err.response?.data?.message || err.message };
+  }
+};
+
 export const getClientById = async (id) => {
-  if (isMockSession()) return await mockApi.mockGetClientById(id);
   const response = await api.get(`/clients/${id}`);
   return response.data;
 };
 
 export const updateClient = async (id, payload) => {
-  if (isMockSession()) return await mockApi.mockUpdateClient(id, payload);
   const response = await api.put(`/clients/${id}`, payload);
   return response.data;
 };
 
 export const deactivateClient = async (id, force = false) => {
-  if (isMockSession()) return await mockApi.mockDeactivateClient(id, force);
   const response = await api.put(`/clients/${id}/deactivate`, {}, { params: { force } });
   return response.data;
 };
+
 
 // ==========================================
 // CRM MODULE 2 - CLIENT CONTACTS APIS
@@ -50,8 +60,12 @@ export const addClientContact = async (clientId, payload) => {
 };
 
 export const getClientContacts = async (clientId) => {
-  const response = await api.get(`/clients/${clientId}/contacts`);
-  return response.data;
+  try {
+    const response = await api.get(`/clients/${clientId}/contacts`);
+    return response.data;
+  } catch (err) {
+    return { success: false, data: [] };
+  }
 };
 
 export const updateContactPermission = async (clientId, contactId, newPermissionLevel) => {
@@ -151,13 +165,21 @@ export const createClientProjectLink = async (payload) => {
 };
 
 export const getLinksByClient = async (clientId) => {
-  const response = await api.get(`/client-project-links/by-client/${clientId}`);
-  return response.data;
+  try {
+    const response = await api.get(`/client-project-links/by-client/${clientId}`);
+    return response.data;
+  } catch (err) {
+    return { success: false, data: [] };
+  }
 };
 
 export const getLinksByProject = async (projectId) => {
-  const response = await api.get(`/client-project-links/by-project/${projectId}`);
-  return response.data;
+  try {
+    const response = await api.get(`/client-project-links/by-project/${projectId}`);
+    return response.data;
+  } catch (err) {
+    return { success: false, data: [] };
+  }
 };
 
 export const toggleProjectLinkVisibility = async (id, visibleToClient) => {
@@ -171,8 +193,12 @@ export const unlinkProject = async (id, notes = '') => {
 };
 
 export const getMyClientProjects = async () => {
-  const response = await api.get('/client/projects/my');
-  return response.data;
+  try {
+    const response = await api.get('/client/projects/my');
+    return response.data;
+  } catch (err) {
+    return { success: false, projects: [] };
+  }
 };
 
 // Re-export CRM Module 4 Client Portal Core APIs

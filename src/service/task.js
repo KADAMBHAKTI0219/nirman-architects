@@ -1,15 +1,11 @@
-import api, { isMockSession } from './auth';
-import * as mockApi from './mockApi';
+import api from './auth';
 
 /**
  * ERP Module 2 - Task Management System API Services
- * Direct backend endpoints matching client controllers & models (24.1 to 24.15):
- * With automatic mock fallback when offline or in mock session mode.
+ * Direct backend endpoints matching client controllers & models (24.1 to 24.15)
  */
 
 export const createTask = async (taskData) => {
-  if (isMockSession()) return await mockApi.createTask(taskData);
-
   const payload = {
     projectId: taskData.projectId || taskData.project,
     taskName: taskData.taskName || taskData.title || taskData.name || 'Untitled Task',
@@ -32,18 +28,11 @@ export const createTask = async (taskData) => {
           : [])
   };
 
-  try {
-    const response = await api.post('/tasks/create', payload);
-    if (response.data) return response.data;
-  } catch (err) {
-    return await mockApi.createTask(taskData);
-  }
-  return await mockApi.createTask(taskData);
+  const response = await api.post('/tasks/create', payload);
+  return response.data;
 };
 
 export const getTasks = async (params = {}) => {
-  if (isMockSession()) return await mockApi.getTasks(params);
-
   try {
     const response = await api.get('/tasks', { params });
     if (response.data) {
@@ -55,275 +44,200 @@ export const getTasks = async (params = {}) => {
       }
       return { success: true, tasks: response.data.data || [], ...response.data };
     }
+    return { success: true, tasks: [] };
   } catch (err) {
-    return await mockApi.getTasks(params);
+    return { success: false, tasks: [], message: err.response?.data?.message || err.message };
   }
-  return await mockApi.getTasks(params);
 };
 
 export const getTaskById = async (id) => {
-  if (isMockSession()) return await mockApi.getTaskById(id);
-
-  try {
-    const response = await api.get(`/tasks/${id}`);
-    if (response.data) return response.data;
-  } catch (err) {
-    return await mockApi.getTaskById(id);
-  }
-  return await mockApi.getTaskById(id);
+  const response = await api.get(`/tasks/${id}`);
+  return response.data;
 };
 
 export const updateTask = async (id, taskData) => {
-  if (isMockSession()) return await mockApi.updateTask(id, taskData);
-
-  try {
-    const response = await api.put(`/tasks/${id}`, taskData);
-    if (response.data) return response.data;
-  } catch (err) {
-    return await mockApi.updateTask(id, taskData);
-  }
-  return await mockApi.updateTask(id, taskData);
+  const response = await api.put(`/tasks/${id}`, taskData);
+  return response.data;
 };
 export const updateTaskStatus = updateTask;
 
 export const acceptTask = async (id) => {
-  if (isMockSession()) return await mockApi.acceptTask(id);
-
-  try {
-    const response = await api.put(`/tasks/${id}/accept`);
-    if (response.data) return response.data;
-  } catch (err) {
-    return await mockApi.acceptTask(id);
-  }
-  return await mockApi.acceptTask(id);
+  const response = await api.put(`/tasks/${id}/accept`);
+  return response.data;
 };
 
 export const rejectTask = async (id, reason = '') => {
-  if (isMockSession()) return await mockApi.rejectTask(id, reason);
-
-  try {
-    const response = await api.put(`/tasks/${id}/reject`, { reason });
-    if (response.data) return response.data;
-  } catch (err) {
-    return await mockApi.rejectTask(id, reason);
-  }
-  return await mockApi.rejectTask(id, reason);
+  const response = await api.put(`/tasks/${id}/reject`, { reason });
+  return response.data;
 };
 
 export const startTask = async (id) => {
-  if (isMockSession()) return await mockApi.startTask(id);
-
-  try {
-    const response = await api.put(`/tasks/${id}/start`);
-    if (response.data) return response.data;
-  } catch (err) {
-    return await mockApi.startTask(id);
-  }
-  return await mockApi.startTask(id);
+  const response = await api.put(`/tasks/${id}/start`);
+  return response.data;
 };
 
 export const pauseTask = async (id, minutes = 0) => {
-  if (isMockSession()) return { success: true, message: 'Task paused' };
-
-  try {
-    const response = await api.put(`/tasks/${id}/pause`, { minutes });
-    if (response.data) return response.data;
-  } catch (err) {
-    return { success: true, message: 'Task paused' };
-  }
-  return { success: true, message: 'Task paused' };
+  const response = await api.put(`/tasks/${id}/pause`, { minutes });
+  return response.data;
 };
 
 export const stopTask = async (id, payload = {}) => {
-  if (isMockSession()) return { success: true, message: 'Task stopped and time logged' };
-
-  try {
-    const response = await api.put(`/tasks/${id}/stop`, payload);
-    if (response.data) return response.data;
-  } catch (err) {
-    return { success: true, message: 'Task stopped and time logged' };
-  }
-  return { success: true, message: 'Task stopped and time logged' };
+  const response = await api.put(`/tasks/${id}/stop`, payload);
+  return response.data;
 };
 
 export const logTaskTime = async (id, payload = {}) => {
-  if (isMockSession()) return { success: true, message: 'Time logged successfully' };
-
-  try {
-    const response = await api.post(`/tasks/${id}/log-time`, payload);
-    if (response.data) return response.data;
-  } catch (err) {
-    return { success: true, message: 'Time logged successfully' };
-  }
-  return { success: true, message: 'Time logged successfully' };
+  const response = await api.post(`/tasks/${id}/log-time`, payload);
+  return response.data;
 };
 
-
 export const submitTaskForReview = async (id) => {
-  if (isMockSession()) return await mockApi.submitTaskForReview(id);
-
-  try {
-    const response = await api.put(`/tasks/${id}/submit-for-review`);
-    if (response.data) return response.data;
-  } catch (err) {
-    return await mockApi.submitTaskForReview(id);
-  }
-  return await mockApi.submitTaskForReview(id);
+  const response = await api.put(`/tasks/${id}/submit-for-review`);
+  return response.data;
 };
 
 export const approveTask = async (id) => {
-  if (isMockSession()) return await mockApi.approveTask(id);
-
-  try {
-    const response = await api.put(`/tasks/${id}/approve`);
-    if (response.data) return response.data;
-  } catch (err) {
-    return await mockApi.approveTask(id);
-  }
-  return await mockApi.approveTask(id);
+  const response = await api.put(`/tasks/${id}/approve`);
+  return response.data;
 };
 
 export const completeTask = async (id) => {
-  if (isMockSession()) return await mockApi.completeTask(id);
-
-  try {
-    const response = await api.put(`/tasks/${id}/complete`);
-    if (response.data) return response.data;
-  } catch (err) {
-    return await mockApi.completeTask(id);
-  }
-  return await mockApi.completeTask(id);
+  const response = await api.put(`/tasks/${id}/complete`);
+  return response.data;
 };
 
 export const getTaskStatusHistory = async (id) => {
-  if (isMockSession()) return await mockApi.getTaskStatusHistory(id);
-
-  try {
-    const response = await api.get(`/tasks/${id}/status-history`);
-    if (response.data) return response.data;
-  } catch (err) {
-    return await mockApi.getTaskStatusHistory(id);
-  }
-  return await mockApi.getTaskStatusHistory(id);
+  const response = await api.get(`/tasks/${id}/status-history`);
+  return response.data;
 };
 
 export const reassignTask = async (id, reassignData) => {
-  if (isMockSession()) return await mockApi.reassignTask(id, reassignData);
-
-  try {
-    const response = await api.put(`/tasks/${id}/reassign`, reassignData);
-    if (response.data) return response.data;
-  } catch (err) {
-    return await mockApi.reassignTask(id, reassignData);
-  }
-  return await mockApi.reassignTask(id, reassignData);
+  const response = await api.put(`/tasks/${id}/reassign`, reassignData);
+  return response.data;
 };
 
 export const addChecklistItem = async (id, text) => {
-  if (isMockSession()) return await mockApi.addChecklistItem(id, text);
-
-  try {
-    const response = await api.post(`/tasks/${id}/checklist/add`, { text });
-    if (response.data) return response.data;
-  } catch (err) {
-    return await mockApi.addChecklistItem(id, text);
-  }
-  return await mockApi.addChecklistItem(id, text);
+  const response = await api.post(`/tasks/${id}/checklist/add`, { text });
+  return response.data;
 };
 
 export const toggleChecklistItem = async (id, itemId) => {
-  if (isMockSession()) return await mockApi.toggleChecklistItem(id, itemId);
-
-  try {
-    const response = await api.put(`/tasks/${id}/checklist/${itemId}/toggle`);
-    if (response.data) return response.data;
-  } catch (err) {
-    return await mockApi.toggleChecklistItem(id, itemId);
-  }
-  return await mockApi.toggleChecklistItem(id, itemId);
+  const response = await api.put(`/tasks/${id}/checklist/${itemId}/toggle`);
+  return response.data;
 };
 
 export const deleteChecklistItem = async (id, itemId) => {
-  if (isMockSession()) return await mockApi.deleteChecklistItem(id, itemId);
-
-  try {
-    const response = await api.delete(`/tasks/${id}/checklist/${itemId}`);
-    if (response.data) return response.data;
-  } catch (err) {
-    return await mockApi.deleteChecklistItem(id, itemId);
-  }
-  return await mockApi.deleteChecklistItem(id, itemId);
+  const response = await api.delete(`/tasks/${id}/checklist/${itemId}`);
+  return response.data;
 };
 
 export const addTaskComment = async (id, commentText) => {
-  if (isMockSession()) return await mockApi.addTaskComment(id, commentText);
-
-  try {
-    const response = await api.post(`/tasks/${id}/comments/add`, { commentText });
-    if (response.data) return response.data;
-  } catch (err) {
-    return await mockApi.addTaskComment(id, commentText);
-  }
-  return await mockApi.addTaskComment(id, commentText);
+  const response = await api.post(`/tasks/${id}/comments/add`, { commentText });
+  return response.data;
 };
 
 export const getTaskComments = async (id) => {
-  if (isMockSession()) return await mockApi.getTaskComments(id);
-
-  try {
-    const response = await api.get(`/tasks/${id}/comments`);
-    if (response.data) return response.data;
-  } catch (err) {
-    return await mockApi.getTaskComments(id);
-  }
-  return await mockApi.getTaskComments(id);
+  const response = await api.get(`/tasks/${id}/comments`);
+  return response.data;
 };
 
 export const getTaskTimeAnalysis = async (id) => {
-  if (isMockSession()) return await mockApi.getTaskTimeAnalysis(id);
+  const response = await api.get(`/tasks/${id}/time-analysis`);
+  return response.data;
+};
 
-  try {
-    const response = await api.get(`/tasks/${id}/time-analysis`);
-    if (response.data) return response.data;
-  } catch (err) {
-    return await mockApi.getTaskTimeAnalysis(id);
-  }
-  return await mockApi.getTaskTimeAnalysis(id);
+export const getTaskScheduleComparison = async (id) => {
+  const response = await api.get(`/tasks/${id}/schedule-comparison`);
+  return response.data;
 };
 
 export const getOverdueTasks = async () => {
-  if (isMockSession()) return await mockApi.getOverdueTasks();
-
-  try {
-    const response = await api.get('/tasks/overdue');
-    if (response.data) return response.data;
-  } catch (err) {
-    return await mockApi.getOverdueTasks();
-  }
-  return await mockApi.getOverdueTasks();
+  const response = await api.get('/tasks/overdue');
+  return response.data;
 };
 
 export const getPendingReviewTooLongTasks = async () => {
-  if (isMockSession()) return await mockApi.getPendingReviewTooLongTasks();
-
-  try {
-    const response = await api.get('/tasks/pending-review-too-long');
-    if (response.data) return response.data;
-  } catch (err) {
-    return await mockApi.getPendingReviewTooLongTasks();
-  }
-  return await mockApi.getPendingReviewTooLongTasks();
+  const response = await api.get('/tasks/pending-review-too-long');
+  return response.data;
 };
 
 export const getProjectTasksBreakdown = async (projectId) => {
-  if (isMockSession()) return await mockApi.getProjectTasksBreakdown(projectId);
-
   try {
+    const isValidMongoId = typeof projectId === 'string' && /^[0-9a-fA-F]{24}$/.test(projectId);
+    if (!isValidMongoId) return { success: false, breakdown: null };
     const response = await api.get(`/projects/${projectId}/tasks/breakdown`);
-    if (response.data) return response.data;
+    return response.data;
   } catch (err) {
-    return await mockApi.getProjectTasksBreakdown(projectId);
+    console.warn("Task breakdown notice:", err.message);
+    return { success: false, breakdown: null };
   }
-  return await mockApi.getProjectTasksBreakdown(projectId);
 };
+
+/**
+ * Normalizes backend task payloads to a consistent frontend object contract.
+ */
+export const normalizeTask = (t) => {
+  if (!t) return null;
+  const rawId = t._id || t.id || '';
+  const projObj = typeof t.projectId === 'object' ? t.projectId : null;
+  const empObj = typeof t.assignedEmployee === 'object' ? t.assignedEmployee : null;
+  const deptObj = typeof t.departmentId === 'object' ? t.departmentId : null;
+
+  const displayId = rawId ? (rawId.startsWith('TSK-') ? rawId : `TSK-${rawId.slice(-5).toUpperCase()}`) : 'TSK-000';
+  const taskName = t.taskName || t.title || t.name || 'Untitled Task';
+
+  const checklistArr = Array.isArray(t.checklist) ? t.checklist.map(c => ({
+    _id: c._id || c.id,
+    id: c._id || c.id,
+    text: c.text || '',
+    isCompleted: Boolean(c.isCompleted || c.checked),
+    checked: Boolean(c.isCompleted || c.checked)
+  })) : [];
+
+  const completedChecklistCount = checklistArr.filter(c => c.isCompleted).length;
+  const computedProgress = checklistArr.length > 0 
+    ? Math.round((completedChecklistCount / checklistArr.length) * 100)
+    : (t.status === 'Completed' ? 100 : (t.status === 'Approved' || t.status === 'Review' ? 80 : 30));
+
+  return {
+    _id: rawId,
+    id: displayId,
+    taskName,
+    title: taskName,
+    name: taskName,
+    description: t.description || '',
+    projectId: projObj ? (projObj._id || projObj.id) : (t.projectId || t.project || ''),
+    projectName: projObj ? (projObj.projectName || projObj.name) : (t.project || t.projectName || 'General Project'),
+    project: projObj ? (projObj.projectName || projObj.name) : (t.project || t.projectName || 'General Project'),
+    departmentId: deptObj ? (deptObj._id || deptObj.id) : (t.departmentId || t.dept || ''),
+    departmentName: deptObj ? deptObj.name : (t.dept || t.departmentName || 'Architecture'),
+    dept: deptObj ? deptObj.name : (t.dept || t.departmentName || 'Architecture'),
+    assignedEmployeeId: empObj ? (empObj._id || empObj.id) : (t.assignedEmployee || t.assignee || ''),
+    assignedEmployeeName: empObj ? (empObj.name || empObj.fullName || empObj.email) : (t.assignee || (typeof t.assignedEmployee === 'string' ? t.assignedEmployee : 'Assigned Staff')),
+    assignee: empObj ? (empObj.name || empObj.fullName || empObj.email) : (t.assignee || (typeof t.assignedEmployee === 'string' ? t.assignedEmployee : 'Assigned Staff')),
+    assignedEmployeeObj: empObj,
+    priority: t.priority || 'Medium',
+    status: t.status || 'Pending',
+    estimatedTime: typeof t.estimatedTime === 'number' ? t.estimatedTime : (t.estTime || 12),
+    estTime: typeof t.estimatedTime === 'number' ? t.estimatedTime : (t.estTime || 12),
+    startDate: t.startDate ? new Date(t.startDate).toISOString().split('T')[0] : null,
+    endDate: t.endDate ? new Date(t.endDate).toISOString().split('T')[0] : null,
+    deadline: t.deadline ? new Date(t.deadline).toISOString().split('T')[0] : (t.endDate ? new Date(t.endDate).toISOString().split('T')[0] : 'No Due Date'),
+    dependsOn: Array.isArray(t.dependsOn) ? t.dependsOn : [],
+    checklist: checklistArr,
+    progress: computedProgress,
+    attachments: Array.isArray(t.attachments) ? t.attachments : [],
+    actualStartTime: t.actualStartTime || null,
+    completionTime: t.completionTime || null,
+    totalWorkingTimeMinutes: t.totalWorkingTimeMinutes || 0,
+    idleTimeMinutes: t.idleTimeMinutes || null,
+    productivityScore: t.productivityScore || null,
+    isDelayed: Boolean(t.isDelayed),
+    createdAt: t.createdAt || null,
+    createdBy: t.createdBy || null,
+    rejectionReason: t.rejectionReason || null
+  };
+};
+
+
 

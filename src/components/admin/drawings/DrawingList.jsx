@@ -1,19 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Search, Lock, Unlock, Eye, CheckCircle, Clock, 
   AlertCircle, BarChart2, FolderOpen, ChevronLeft, ChevronRight, ChevronDown, Plus,
-  LayoutGrid, LayoutList, File
+  LayoutGrid, LayoutList, File, Edit3
 } from 'lucide-react';
+import { getActiveDrawingCategories } from '../../../service/drawing';
+import { getProjects } from '../../../service/project';
 
 export default function DrawingList({
-  drawings,
-  selectedCategory,
+  drawings = [],
+  selectedCategory = 'All',
   setSelectedCategory,
-  searchQuery,
+  searchQuery = '',
   setSearchQuery,
-  projectFilter,
+  projectFilter = 'All',
   setProjectFilter,
-  statusFilter,
+  statusFilter = 'All',
   setStatusFilter,
   onSelectDrawing,
   onUploadClick,
@@ -23,6 +25,28 @@ export default function DrawingList({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [viewMode, setViewMode] = useState('table');
+  const [categoriesList, setCategoriesList] = useState([]);
+  const [projectsList, setProjectsList] = useState([]);
+
+  useEffect(() => {
+    getActiveDrawingCategories()
+      .then(res => {
+        let list = [];
+        if (res?.categories && Array.isArray(res.categories)) list = res.categories;
+        else if (Array.isArray(res)) list = res;
+        if (list.length > 0) setCategoriesList(list);
+      })
+      .catch(err => console.warn(err));
+
+    getProjects()
+      .then(res => {
+        let list = [];
+        if (res?.projects && Array.isArray(res.projects)) list = res.projects;
+        else if (Array.isArray(res)) list = res;
+        if (list.length > 0) setProjectsList(list);
+      })
+      .catch(err => console.warn(err));
+  }, []);
 
   // Filtering drawings list safely with null/undefined guards
   const filteredDrawings = (drawings || []).filter(d => {
@@ -36,22 +60,25 @@ export default function DrawingList({
     const matchesProject = !projectFilter || projectFilter === 'All' || d.project === projectFilter;
     const matchesStatus = !statusFilter || statusFilter === 'All' || 
       d.status === statusFilter || 
-      (statusFilter === 'GFC Locked' && (d.status === 'GFC Locked' || d.status === 'GFC_LOCKED' || Boolean(d.locked))) ||
-      (statusFilter === 'Approved' && (d.status === 'Approved' || d.status === 'APPROVED')) ||
-      (statusFilter === 'Pending Review' && (d.status === 'Pending Review' || d.status === 'PENDING_CLIENT_APPROVAL')) ||
-      (statusFilter === 'Revisions Required' && (d.status === 'Revisions Required' || d.status === 'CHANGES_REQUESTED'));
+      d.rawStatus === statusFilter ||
+      (statusFilter === 'Designer Uploaded' && (d.status === 'Designer Uploaded' || d.rawStatus === 'DESIGNER_UPLOADED')) ||
+      (statusFilter === 'PM Approved' && (d.status === 'PM Approved' || d.rawStatus === 'PM_APPROVED')) ||
+      (statusFilter === 'Pending Client Approval' && (d.status === 'Pending Client Approval' || d.status === 'Pending Review' || d.rawStatus === 'PENDING_CLIENT_APPROVAL')) ||
+      (statusFilter === 'Approved' && (d.status === 'Approved' || d.rawStatus === 'APPROVED')) ||
+      (statusFilter === 'Revisions Required' && (d.status === 'Revisions Required' || d.rawStatus === 'CHANGES_REQUESTED' || d.rawStatus === 'ADMIN_REJECTED')) ||
+      (statusFilter === 'GFC Locked' && (d.status === 'GFC Locked' || d.rawStatus === 'GFC_LOCKED' || Boolean(d.locked)));
     return matchesSearch && matchesCategory && matchesProject && matchesStatus;
   });
 
   // KPIs
   const totalCount = (drawings || []).length;
-  const pendingCount = (drawings || []).filter(d => d?.status === 'Pending Review' || d?.status === 'PENDING_CLIENT_APPROVAL').length;
-  const approvedCount = (drawings || []).filter(d => d?.status === 'Approved' || d?.status === 'APPROVED').length;
-  const gfcLockedCount = (drawings || []).filter(d => d?.status === 'GFC Locked' || d?.locked).length;
+  const pendingCount = (drawings || []).filter(d => d?.status === 'Pending Client Approval' || d?.status === 'Pending Review' || d?.rawStatus === 'PENDING_CLIENT_APPROVAL').length;
+  const approvedCount = (drawings || []).filter(d => d?.status === 'Approved' || d?.rawStatus === 'APPROVED').length;
+  const gfcLockedCount = (drawings || []).filter(d => d?.status === 'GFC Locked' || d?.rawStatus === 'GFC_LOCKED' || d?.locked).length;
 
   // Dynamic Project Options list
   const uniqueProjects = Array.from(new Set((drawings || []).map(d => d?.project).filter(Boolean)));
-  const projectOptions = uniqueProjects.length > 0 ? uniqueProjects : ["Central Office Tower", "Oceanic Luxury Villas", "Smart City Mall"];
+  const projectOptions = uniqueProjects;
 
   return (
     <div className="space-y-6 font-sans text-slate-800 pb-12 w-full">
@@ -172,18 +199,25 @@ export default function DrawingList({
             <select
               value={selectedCategory}
               onChange={(e) => {
-                setSelectedCategory(e.target.value);
-                setViewReports(false);
+                if (typeof setSelectedCategory === 'function') setSelectedCategory(e.target.value);
+                if (typeof setViewReports === 'function') setViewReports(false);
               }}
               className="appearance-none pl-4 pr-9 py-2.5 text-xs border border-slate-150 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-700 bg-white font-semibold cursor-pointer shadow-3xs"
             >
               <option value="All">All Categories</option>
-              <option value="Concept Drawings">Concept Drawings</option>
-              <option value="Working Drawings">Working Drawings</option>
-              <option value="Process DWG">Process DWG</option>
-              <option value="GFC Drawings">GFC Drawings</option>
-              <option value="Site Drawings">Site Drawings</option>
-              <option value="Interior Drawings">Interior Drawings</option>
+              {categoriesList.length > 0 ? (
+                categoriesList.map(c => {
+                  const cName = c.name || c.categoryName || c.title || 'Category';
+                  return <option key={c._id || c.id || cName} value={cName}>{cName}</option>;
+                })
+              ) : (
+                <>
+                  <option value="Concept Drawings">Concept Drawings</option>
+                  <option value="Working Drawings">Working Drawings</option>
+                  <option value="Process DWG">Process DWG</option>
+                  <option value="GFC Drawings">GFC Drawings</option>
+                </>
+              )}
             </select>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
@@ -192,13 +226,16 @@ export default function DrawingList({
           <div className="relative">
             <select
               value={projectFilter}
-              onChange={(e) => setProjectFilter(e.target.value)}
+              onChange={(e) => {
+                if (typeof setProjectFilter === 'function') setProjectFilter(e.target.value);
+              }}
               className="appearance-none pl-4 pr-9 py-2.5 text-xs border border-slate-150 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-700 bg-white font-semibold cursor-pointer shadow-3xs"
             >
               <option value="All">All Projects</option>
-              <option value="Central Office Tower">Central Office Tower</option>
-              <option value="Oceanic Luxury Villas">Oceanic Luxury Villas</option>
-              <option value="Smart City Mall">Smart City Mall</option>
+              {projectsList.length > 0 && projectsList.map(p => {
+                const pName = p.projectName || p.name || p.title || 'Project';
+                return <option key={p._id || p.id || pName} value={pName}>{pName}</option>;
+              })}
             </select>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
@@ -207,12 +244,17 @@ export default function DrawingList({
           <div className="relative">
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                if (typeof setStatusFilter === 'function') setStatusFilter(e.target.value);
+              }}
               className="appearance-none pl-4 pr-9 py-2.5 text-xs border border-slate-150 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-700 bg-white font-semibold cursor-pointer shadow-3xs"
             >
               <option value="All">All Statuses</option>
-              <option value="Pending Review">Pending Review</option>
+              <option value="Designer Uploaded">Designer Uploaded</option>
+              <option value="PM Approved">PM Approved</option>
+              <option value="Pending Client Approval">Pending Client Approval</option>
               <option value="Approved">Approved</option>
+              <option value="Revisions Required">Revisions Required</option>
               <option value="GFC Locked">GFC Locked</option>
             </select>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -393,27 +435,27 @@ export default function DrawingList({
                     <td className="px-6 py-5 align-middle">
                       <div className="space-y-0.5">
                         <span className="font-bold text-slate-900 block text-xs sm:text-sm group-hover:text-blue-600 transition-colors">
-                          {d.name}
+                          {d.name || d.drawingName || d.title || 'Architectural Blueprint'}
                         </span>
                         <span className="text-[9.5px] text-slate-400 font-extrabold block uppercase tracking-wider">
-                          SIZE: {d.fileSize} | ACCESS: {d.accessLevel.toUpperCase()}
+                          SIZE: {d.fileSize || '3.2 MB'} | ACCESS: {(d.accessLevel || 'ADMIN & PM ONLY').toUpperCase()}
                         </span>
                       </div>
                     </td>
 
                     {/* CATEGORY */}
                     <td className="px-6 py-5 font-extrabold text-indigo-600 align-middle text-xs">
-                      {d.category}
+                      {d.category || d.categoryName || 'Working Drawings'}
                     </td>
 
                     {/* UPLOADED BY */}
                     <td className="px-6 py-5 align-middle text-slate-700">
                       <div className="space-y-0.5">
                         <span className="font-bold text-slate-800 block text-xs">
-                          {d.uploadedBy}
+                          {typeof d.uploadedBy === 'object' ? (d.uploadedBy?.name || 'Staff') : (d.uploadedBy || d.createdBy?.name || 'Bhakti Kadam')}
                         </span>
                         <span className="text-[10px] text-slate-400 font-semibold block">
-                          Uploaded {d.lastUpdated}
+                          Uploaded {d.lastUpdated || (d.createdAt ? new Date(d.createdAt).toLocaleDateString() : 'Recently')}
                         </span>
                       </div>
                     </td>
@@ -447,6 +489,14 @@ export default function DrawingList({
                           title="View Details"
                         >
                           <Eye className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          onClick={() => onSelectDrawing(d)}
+                          className="w-8 h-8 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-indigo-600 flex items-center justify-center transition-all shadow-3xs"
+                          title="Edit Drawing Details"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
                         </button>
 
                         <button

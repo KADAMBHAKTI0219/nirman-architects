@@ -479,7 +479,9 @@ export default function DeviceBindingApprovals({ employees = [], onRefresh }) {
 
             <form onSubmit={handleDirectAssignSubmit} className="space-y-4 text-xs font-medium">
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Target Employee *</label>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Target Employee <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <select
                   value={targetUserId}
                   onChange={e => setTargetUserId(e.target.value)}
@@ -496,7 +498,9 @@ export default function DeviceBindingApprovals({ employees = [], onRefresh }) {
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Device ID / Machine GUID *</label>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Device ID / Machine GUID <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <input
                   type="text"
                   placeholder="e.g. c5dbdd5f-e416-479b-aa77-12c661c48bcb"

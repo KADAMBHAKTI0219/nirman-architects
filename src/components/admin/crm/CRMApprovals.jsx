@@ -294,7 +294,9 @@ export default function CRMApprovals({
 
             <form onSubmit={handleCreateSubmit} className="space-y-3.5 text-xs font-medium">
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Document / Drawing Title *</label>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Document / Drawing Title <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <input
                   type="text"
                   placeholder="e.g. Glass Facade Structural Calculation Release"
@@ -332,7 +334,9 @@ export default function CRMApprovals({
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Target Client Account *</label>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Target Client Account <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <input
                   type="text"
                   value={formData.clientName}
@@ -343,7 +347,9 @@ export default function CRMApprovals({
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Project Link *</label>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Project Link <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <input
                   type="text"
                   value={formData.projectName}

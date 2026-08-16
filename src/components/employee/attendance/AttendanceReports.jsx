@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Card from '../../common/Card';
-import { getMyCorrections } from '../../../service/mockApi';
+import { getMyAttendance } from '../../../service/hrm/attendance';
 
 export default function AttendanceReports({ logs }) {
   const [corrections, setCorrections] = useState([]);
@@ -9,15 +9,16 @@ export default function AttendanceReports({ logs }) {
   useEffect(() => {
     const fetchCorrections = async () => {
       try {
-        const res = await getMyCorrections();
-        if (res.success && res.corrections) {
-          setCorrections(res.corrections);
+        const res = await getMyAttendance();
+        if (res?.logs && Array.isArray(res.logs)) {
+          setCorrections(res.logs);
         }
       } catch (err) {
-        console.error("Failed to load personal corrections:", err);
+        console.warn("Notice loading personal attendance reports:", err);
       }
     };
     fetchCorrections();
+
   }, []);
 
   // Mock trend data

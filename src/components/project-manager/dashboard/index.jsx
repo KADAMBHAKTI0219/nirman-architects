@@ -5,8 +5,9 @@ import ClientQueriesPanel from './ClientQueriesPanel';
 import Card from '../../common/Card';
 import DrawingViewer from '../../common/DrawingViewer';
 import MarkupEditor from '../../admin/markup/MarkupEditor';
-import { getProjectAttendance, getHRDashboardWidgets } from '../../../service/mockApi';
+import { getAllAttendanceList } from '../../../service/hrm/attendance';
 import { getDrawings, getProjectDrawings, approveDrawing, uploadDrawing } from '../../../service/drawing';
+import { getProjects } from '../../../service/project';
 import SiteLocationManagerModal from '../projects/SiteLocationManagerModal';
 import TaskCreateModal from '../../admin/tasks/TaskCreateModal';
 import { createTask } from '../../../service/task';
@@ -23,6 +24,23 @@ export default function Dashboard() {
   const [widgets, setWidgets] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isSiteLocationModalOpen, setIsSiteLocationModalOpen] = useState(false);
+  const [projectsList, setProjectsList] = useState([]);
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  useEffect(() => {
+    getProjects()
+      .then(res => {
+        let list = [];
+        if (res?.projects && Array.isArray(res.projects)) list = res.projects;
+        else if (Array.isArray(res)) list = res;
+        if (list.length > 0) {
+          setProjectsList(list);
+          const firstP = list[0].projectName || list[0].name || list[0].title || '';
+          setNewDrawingProject(prev => prev || firstP);
+        }
+      })
+      .catch(err => console.warn(err));
+  }, []);
   const [isNewDrawingModalOpen, setIsNewDrawingModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,54 +53,17 @@ export default function Dashboard() {
   const [newDrawingNotes, setNewDrawingNotes] = useState('');
   const [isUploading, setIsUploading] = useState(false);
 
-  const [drawingQueue, setDrawingQueue] = useState([
-    {
-      id: 1,
-      title: "Foundation Elevation Details V2.1",
-      project: "Oceanic Luxury Villas",
-      type: "STRUCTURAL DWG",
-      uploader: "Sarah Connor",
-      role: "Architect",
-      avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80",
-      status: "AWAITING PM APPROVAL",
-      date: "2026-07-22"
-    },
-    {
-      id: 2,
-      title: "HVAC Layout Schematic V1.0",
-      project: "Smart City Mall",
-      type: "SERVICE DWG",
-      uploader: "Mike Tyson",
-      role: "Designer",
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80",
-      status: "AWAITING PM APPROVAL",
-      date: "2026-07-21"
-    },
-    {
-      id: 3,
-      title: "Bioclimatic Facade Mockup V1.3",
-      project: "Central Office Tower",
-      type: "CONCEPT DWG",
-      uploader: "Sarah Connor",
-      role: "Architect",
-      avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80",
-      status: "AWAITING CLIENT SIGNOFF",
-      date: "2026-07-20"
-    }
-  ]);
+  const [drawingQueue, setDrawingQueue] = useState([]);
 
   useEffect(() => {
     const loadPMData = async () => {
       try {
         setLoading(true);
-        const widgetsRes = await getHRDashboardWidgets();
-        if (widgetsRes.success && widgetsRes.data) {
-          setWidgets(widgetsRes.data);
+        const attRes = await getAllAttendanceList().catch(() => null);
+        if (attRes?.logs || Array.isArray(attRes)) {
+          setPmAttendance(attRes.logs || attRes);
         }
-        const response = await getProjectAttendance('proj_1');
-        if (response.success && response.logs) {
-          setPmAttendance(response.logs);
-        }
+
 
         // Try loading drawings from drawing service
         const drawingsRes = await getDrawings({}).catch(() => null);
@@ -503,12 +484,13 @@ export default function Dashboard() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateNewDrawing} className="p-6 space-y-4 text-xs">
+            <form noValidate onSubmit={handleCreateNewDrawing} className="p-6 space-y-4 text-xs">
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Drawing Title *</label>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Drawing Title <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <input
                   type="text"
-                  required
                   placeholder="e.g. Ground Floor Electrical Plan V1.0"
                   value={newDrawingTitle}
                   onChange={(e) => setNewDrawingTitle(e.target.value)}
@@ -517,7 +499,9 @@ export default function Dashboard() {
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Select Blueprint File (PDF, DWG, PNG, JPG)</label>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Select Blueprint File (PDF, DWG, PNG, JPG) <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <input
                   type="file"
                   accept=".pdf,.png,.jpg,.jpeg,.dwg,.dxf"
@@ -532,16 +516,24 @@ export default function Dashboard() {
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Project</label>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Project Reference <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <select
                   value={newDrawingProject}
                   onChange={(e) => setNewDrawingProject(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500 cursor-pointer"
                 >
-                  <option value="Oceanic Luxury Villas">Oceanic Luxury Villas</option>
-                  <option value="Central Office Tower">Central Office Tower</option>
-                  <option value="Smart City Mall">Smart City Mall</option>
-                  <option value="Metro Station Phase 3">Metro Station Phase 3</option>
+                  {projectsList.length > 0 ? (
+                    projectsList.map(p => {
+                      const pName = p.projectName || p.name || p.title || 'Project';
+                      return (
+                        <option key={p._id || p.id || pName} value={pName}>{pName}</option>
+                      );
+                    })
+                  ) : (
+                    <option value="">No Projects Available</option>
+                  )}
                 </select>
               </div>
 

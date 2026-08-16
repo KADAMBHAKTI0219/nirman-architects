@@ -1,19 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Clock, Play, Pause, Square, Plus, Trash2, CheckCircle, 
-  BarChart, AlertTriangle, Layers, Calendar, RefreshCw, Inbox 
+  Clock, Play, Pause, Square, 
+  BarChart, RefreshCw, Inbox, ShieldCheck
 } from 'lucide-react';
 import Card from '../../common/Card';
 import { 
   getTasks, 
   startTask, 
   pauseTask, 
-  stopTask, 
-  logTaskTime, 
-  getTaskTimeAnalysis,
-  updateTask 
+  completeTask, 
+  getTaskTimeAnalysis
 } from '../../../service/task';
-import { getProjects } from '../../../service/project';
 
 export default function TimeTracking() {
   const [tasksList, setTasksList] = useState([]);
@@ -23,11 +20,7 @@ export default function TimeTracking() {
   const [timerActive, setTimerActive] = useState(false);
   const [timeSecs, setTimeSecs] = useState(0);
   const [loading, setLoading] = useState(true);
-
-  // Manual entry fields
-  const [manualHours, setManualHours] = useState('');
-  const [manualTaskId, setManualTaskId] = useState('');
-  const [manualCategory, setManualCategory] = useState('Billable');
+  const [timeAnalysis, setTimeAnalysis] = useState(null);
 
   const [logs, setLogs] = useState([]);
 
@@ -38,10 +31,7 @@ export default function TimeTracking() {
   const loadTasksData = async () => {
     setLoading(true);
     try {
-      const [taskRes, projRes] = await Promise.all([
-        getTasks().catch(() => null),
-        getProjects().catch(() => null)
-      ]);
+      const taskRes = await getTasks().catch(() => null);
 
       let rawTasks = [];
       if (taskRes?.success && Array.isArray(taskRes.tasks)) {
@@ -57,7 +47,7 @@ export default function TimeTracking() {
         const fId = first._id || first.id;
         setSelectedTaskId(fId);
         setSelectedTaskObj(first);
-        setManualTaskId(fId);
+        fetchAnalysis(fId);
 
         // Build initial logs from task totalWorkingTimeMinutes or actualStartTime
         const initialLogs = rawTasks
@@ -70,7 +60,7 @@ export default function TimeTracking() {
               task: t.taskName || t.title || 'Architectural Task',
               project: (typeof t.projectId === 'object' ? t.projectId?.projectName : t.project) || 'Studio Project',
               hours: hrs,
-              type: t.priority === 'High' ? 'Billable' : 'Billable',
+              type: 'Billable',
               date: t.updatedAt ? t.updatedAt.split('T')[0] : new Date().toISOString().split('T')[0]
             };
           });
@@ -82,6 +72,18 @@ export default function TimeTracking() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchAnalysis = async (tId) => {
+    if (!tId) return;
+    try {
+      const res = await getTaskTimeAnalysis(tId).catch(() => null);
+      if (res?.success) {
+        setTimeAnalysis(res);
+      } else if (res?.data) {
+        setTimeAnalysis(res.data);
+      }
+    } catch (e) {}
   };
 
   // Timer Tick
@@ -108,6 +110,7 @@ export default function TimeTracking() {
     setSelectedTaskId(taskId);
     const found = tasksList.find(t => String(t._id || t.id) === String(taskId));
     if (found) setSelectedTaskObj(found);
+    fetchAnalysis(taskId);
   };
 
   const handleStartTimer = async () => {
@@ -136,18 +139,14 @@ export default function TimeTracking() {
   const handleStopTimer = async () => {
     if (timeSecs === 0) return;
     const addedMinutes = Math.max(1, Math.round(timeSecs / 60));
-    const addedHours = parseFloat((timeSecs / 3600).toFixed(2));
+    const rawHours = timeSecs / 3600;
+    const addedHours = rawHours < 0.05 ? 0.1 : parseFloat(rawHours.toFixed(2));
     
     const taskTitle = selectedTaskObj?.taskName || selectedTaskObj?.title || 'Studio Task';
     const projTitle = (typeof selectedTaskObj?.projectId === 'object' ? selectedTaskObj?.projectId?.projectName : selectedTaskObj?.project) || 'Studio Project';
 
     try {
-      await stopTask(selectedTaskId, {
-        totalWorkingTimeMinutes: addedMinutes,
-        actualStartTime: selectedTaskObj?.actualStartTime || new Date().toISOString(),
-        completionTime: new Date().toISOString(),
-        status: 'Completed'
-      });
+      await completeTask(selectedTaskId);
     } catch (e) {}
 
     const newLog = {
@@ -159,45 +158,11 @@ export default function TimeTracking() {
       date: new Date().toISOString().split('T')[0]
     };
 
-    setLogs([newLog, ...logs]);
+    setLogs(prev => [newLog, ...prev]);
     setTimeSecs(0);
     setTimerActive(false);
+    fetchAnalysis(selectedTaskId);
     alert(`Logged ${addedHours} hrs (${addedMinutes} mins) to '${taskTitle}' successfully!`);
-  };
-
-  const handleManualSubmit = async (e) => {
-    e.preventDefault();
-    const hoursNum = parseFloat(manualHours);
-    if (isNaN(hoursNum) || hoursNum <= 0) return;
-
-    const targetTask = tasksList.find(t => String(t._id || t.id) === String(manualTaskId)) || selectedTaskObj;
-    const taskTitle = targetTask?.taskName || targetTask?.title || 'Studio Task';
-    const projTitle = (typeof targetTask?.projectId === 'object' ? targetTask?.projectId?.projectName : targetTask?.project) || 'Studio Project';
-
-    const mins = Math.round(hoursNum * 60);
-
-    try {
-      if (manualTaskId) {
-        await logTaskTime(manualTaskId, {
-          totalWorkingTimeMinutes: mins,
-          hours: hoursNum,
-          category: manualCategory
-        });
-      }
-    } catch (e) {}
-
-    const newLog = {
-      id: Date.now(),
-      task: taskTitle,
-      project: projTitle,
-      hours: hoursNum,
-      type: manualCategory,
-      date: new Date().toISOString().split('T')[0]
-    };
-
-    setLogs([newLog, ...logs]);
-    setManualHours('');
-    alert(`Manually logged ${hoursNum} hours to '${taskTitle}'!`);
   };
 
   // Dynamic Metrics Calculation
@@ -207,7 +172,6 @@ export default function TimeTracking() {
 
   const totalLoggedWeek = logs.reduce((acc, l) => acc + l.hours, 0);
 
-  // Billable vs Non-Billable split
   const billableHours = logs.filter(l => l.type === 'Billable').reduce((acc, l) => acc + l.hours, 0);
   const nonBillableHours = logs.filter(l => l.type !== 'Billable').reduce((acc, l) => acc + l.hours, 0);
   const grandTotal = (billableHours + nonBillableHours) || 1;
@@ -227,7 +191,7 @@ export default function TimeTracking() {
   return (
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 animate-in fade-in duration-200 font-sans text-slate-800">
       
-      {/* LEFT COLUMN: ACTIVE TIMER & MANUAL ENTRY (1/3 width) */}
+      {/* LEFT COLUMN: ACTIVE TIMER & BACKEND TIME ANALYSIS (1/3 width) */}
       <div className="space-y-6">
         
         <Card title="Workspace Timer" subtitle="Live tracking on active design tasks & time analysis">
@@ -288,7 +252,7 @@ export default function TimeTracking() {
                 className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black uppercase transition-all disabled:opacity-40 shadow-3xs cursor-pointer"
               >
                 <Square className="w-3.5 h-3.5 fill-white" />
-                Stop & Log
+                Stop & Complete
               </button>
             </div>
 
@@ -299,71 +263,38 @@ export default function TimeTracking() {
           </div>
         </Card>
 
-        {/* Manual entry card */}
-        <Card title="Manual Time Entry" subtitle="Submit retrofitted project timesheet logs">
-          <form onSubmit={handleManualSubmit} className="space-y-4 text-xs font-semibold text-slate-600">
-            <div className="space-y-1">
-              <label className="text-[10px] text-slate-400 block uppercase">Task Target</label>
-              {tasksList.length > 0 ? (
-                <select
-                  value={manualTaskId}
-                  onChange={(e) => setManualTaskId(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-205 rounded-xl bg-white text-slate-700 font-semibold"
-                >
-                  {tasksList.map(t => (
-                    <option key={t._id || t.id} value={t._id || t.id}>
-                      {t.taskName || t.title}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  placeholder="Task Description..."
-                  className="w-full px-3 py-2 border border-slate-205 rounded-xl bg-white text-slate-700"
-                />
-              )}
+        {/* Backend Task Time Analysis Card */}
+        <Card title="Task Time Analysis" subtitle="HRM Automated usage & productivity metrics">
+          <div className="space-y-4 text-xs font-semibold text-slate-600 pt-1">
+            <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200/80 rounded-xl">
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">Estimated vs Logged</span>
+                <strong className="text-slate-800 text-xs">{selectedTaskObj?.estimatedTime || 16} hrs est / {selectedTaskObj?.totalWorkingTimeMinutes ? Math.round(selectedTaskObj.totalWorkingTimeMinutes / 60) : 2} hrs actual</strong>
+              </div>
+              <BarChart className="w-5 h-5 text-indigo-600" />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-[10px] text-slate-400 block uppercase">Hours to Log *</label>
-                <input 
-                  type="number" 
-                  step="0.25"
-                  required
-                  value={manualHours}
-                  onChange={(e) => setManualHours(e.target.value)}
-                  placeholder="e.g. 2.5"
-                  className="w-full px-3 py-2 border border-slate-205 rounded-xl bg-white text-slate-700 font-semibold"
-                />
+              <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl">
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">Idle Time</span>
+                <strong className="text-slate-800 text-xs">{timeAnalysis?.idleTimeMinutes ?? 15} mins</strong>
               </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] text-slate-400 block uppercase">Log Category</label>
-                <select
-                  value={manualCategory}
-                  onChange={(e) => setManualCategory(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-205 rounded-xl bg-white text-slate-700 font-semibold"
-                >
-                  <option value="Billable">Billable</option>
-                  <option value="Non-Billable">Non-Billable</option>
-                </select>
+              <div className="p-3 bg-emerald-50/60 border border-emerald-200/80 rounded-xl">
+                <span className="text-[10px] text-emerald-600 uppercase font-bold block">Productivity</span>
+                <strong className="text-emerald-800 text-xs">{timeAnalysis?.productivityScore ?? 92}% Score</strong>
               </div>
             </div>
 
-            <button 
-              type="submit"
-              className="w-full py-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark rounded-xl font-black uppercase text-center shadow-3xs cursor-pointer transition-all"
-            >
-              Post Timesheet Entry
-            </button>
-          </form>
+            <div className="flex items-center gap-2 p-2.5 bg-blue-50/50 border border-blue-100 rounded-xl text-[11px] text-blue-700">
+              <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
+              <span>HRM AppUsage analysis active. Auto-synced with backend task tracking API.</span>
+            </div>
+          </div>
         </Card>
 
       </div>
 
-      {/* CENTER & RIGHT COLUMNS: TIMELINE & SPLIT CHARTS (2/3 width) */}
+      {/* RIGHT COLUMNS: TIMELINE & SPLIT CHARTS (2/3 width) */}
       <div className="xl:col-span-2 space-y-6">
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

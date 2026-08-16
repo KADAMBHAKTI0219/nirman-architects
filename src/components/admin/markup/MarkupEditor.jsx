@@ -15,8 +15,9 @@ import {
   postMarking, 
   deleteMarking 
 } from '../../../service/drawingReview';
-import { cacheDrawingFile, getCachedDrawingFile } from '../../../service/drawing';
+import { cacheDrawingFile, getCachedDrawingFile, approveDrawing, requestChanges } from '../../../service/drawing';
 import { useToast } from '../../../context/ToastContext';
+
 
 export default function MarkupEditor({
   documentData = null,
@@ -33,16 +34,24 @@ export default function MarkupEditor({
     if (!d) return null;
     if (d instanceof File || d instanceof Blob) return d;
     
-    const cached = getCachedDrawingFile(d._id || d.id || d.drawingNumber || d.documentName || d.drawingName);
+    const cached = getCachedDrawingFile(d._id) ||
+                   getCachedDrawingFile(d.id) ||
+                   getCachedDrawingFile(d.drawingNumber) ||
+                   getCachedDrawingFile(d.documentName) ||
+                   getCachedDrawingFile(d.drawingName) ||
+                   getCachedDrawingFile(d.name) ||
+                   getCachedDrawingFile(d.title) ||
+                   getCachedDrawingFile(d.fileName);
+
     const verPath = d.currentVersionId && typeof d.currentVersionId === 'object' ? (d.currentVersionId.filePath || d.currentVersionId.fileUrl) : null;
-    const raw = cached || d.filePath || d.fileUrl || d.url || d.file || d.previewUrl || d.originalFileUrl || d.pdfUrl || verPath ||
+    const raw = cached || d.base64Data || d.filePath || d.fileUrl || d.url || d.file || d.previewUrl || d.originalFileUrl || d.pdfUrl || verPath ||
       (Array.isArray(d.versions) && d.versions.length > 0 ? (d.versions[d.versions.length - 1]?.filePath || d.versions[d.versions.length - 1]?.fileUrl) : null);
     
     if (!raw) return null;
     if (typeof raw === 'string') {
       const clean = raw.trim();
       if (!clean) return null;
-      if (clean.startsWith('http') || clean.startsWith('data:') || clean.startsWith('blob:')) return clean;
+      if (clean.startsWith('http') || clean.startsWith('data:')) return clean;
       if (clean.startsWith('/')) return `https://nirman-architects.onrender.com${clean}`;
       return `https://nirman-architects.onrender.com/${clean}`;
     }
@@ -159,40 +168,34 @@ export default function MarkupEditor({
     }
   }, [versionId]);
 
-  // Undo / Redo Stack Management
-  const historyStackRef = useRef([]);
-  const historyIndexRef = useRef(-1);
+  // Action-Based Undo / Redo Engine (100% immune to background loss or mass deletion)
+  const historyStackRef = useRef([]); // Stores array of actions: { type: 'add', target } | { type: 'remove', targets }
+  const redoStackRef = useRef([]);
+  const isExecutingUndoRedoRef = useRef(false);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
 
-  // Save State History Stack
-  const saveCanvasState = useCallback(() => {
-    if (!fabricCanvas) return;
-    const json = fabricCanvas.toJSON();
-    const stack = historyStackRef.current;
-    const idx = historyIndexRef.current;
+  // Called whenever a markup object is created or removed
+  const handleRecordAction = useCallback((action) => {
+    if (isExecutingUndoRedoRef.current) return;
+    if (!action || (!action.target && (!action.targets || action.targets.length === 0))) return;
 
-    // Slice any redone future states
-    const newStack = stack.slice(0, idx + 1);
-    newStack.push(json);
-    historyStackRef.current = newStack;
-    historyIndexRef.current = newStack.length - 1;
-
-    setCanUndo(historyIndexRef.current > 0);
+    historyStackRef.current.push(action);
+    redoStackRef.current = []; // Clear redo stack on new user action
+    setCanUndo(true);
     setCanRedo(false);
-    setSaveStatus('Saving...');
 
+    setSaveStatus('Saving...');
     setTimeout(() => {
       setSaveStatus('Saved just now');
     }, 400);
 
-    // Refresh annotations list
     extractAnnotations();
-  }, [fabricCanvas]);
+  }, []);
 
   const extractAnnotations = () => {
     if (!fabricCanvas) return;
-    const objects = fabricCanvas.getObjects().filter(o => !o.isBackground);
+    const objects = fabricCanvas.getObjects().filter(o => !o.isBackground && !o.isRulerGuide);
     const list = objects.map((obj) => ({
       type: obj.type || 'Object',
       color: obj.stroke || obj.fill || '#2484C6',
@@ -203,35 +206,77 @@ export default function MarkupEditor({
   };
 
   const handleUndo = () => {
-    if (historyIndexRef.current > 0 && fabricCanvas) {
-      historyIndexRef.current -= 1;
-      const json = historyStackRef.current[historyIndexRef.current];
-      fabricCanvas.loadFromJSON(json, () => {
-        fabricCanvas.renderAll();
-        setCanUndo(historyIndexRef.current > 0);
-        setCanRedo(historyIndexRef.current < historyStackRef.current.length - 1);
-        extractAnnotations();
+    if (historyStackRef.current.length === 0 || !fabricCanvas) return;
+
+    isExecutingUndoRedoRef.current = true;
+    fabricCanvas.__isUndoRedo = true;
+    const action = historyStackRef.current.pop();
+    redoStackRef.current.push(action);
+
+    if (action.type === 'add' && action.target) {
+      fabricCanvas.remove(action.target);
+    } else if (action.type === 'remove' && Array.isArray(action.targets)) {
+      action.targets.forEach((obj) => {
+        fabricCanvas.add(obj);
       });
     }
+
+    // Always ensure background blueprint image remains at the back
+    const bgObj = fabricCanvas.getObjects().find(o => o.isBackground) || fabricCanvas.__bgImageObj;
+    if (bgObj && fabricCanvas.getObjects().includes(bgObj)) {
+      fabricCanvas.sendObjectToBack(bgObj);
+    }
+
+    fabricCanvas.renderAll();
+    setCanUndo(historyStackRef.current.length > 0);
+    setCanRedo(redoStackRef.current.length > 0);
+    extractAnnotations();
+
+    setTimeout(() => {
+      fabricCanvas.__isUndoRedo = false;
+      isExecutingUndoRedoRef.current = false;
+    }, 50);
   };
 
   const handleRedo = () => {
-    if (historyIndexRef.current < historyStackRef.current.length - 1 && fabricCanvas) {
-      historyIndexRef.current += 1;
-      const json = historyStackRef.current[historyIndexRef.current];
-      fabricCanvas.loadFromJSON(json, () => {
-        fabricCanvas.renderAll();
-        setCanUndo(true);
-        setCanRedo(historyIndexRef.current < historyStackRef.current.length - 1);
-        extractAnnotations();
+    if (redoStackRef.current.length === 0 || !fabricCanvas) return;
+
+    isExecutingUndoRedoRef.current = true;
+    fabricCanvas.__isUndoRedo = true;
+    const action = redoStackRef.current.pop();
+    historyStackRef.current.push(action);
+
+    if (action.type === 'add' && action.target) {
+      fabricCanvas.add(action.target);
+    } else if (action.type === 'remove' && Array.isArray(action.targets)) {
+      action.targets.forEach((obj) => {
+        fabricCanvas.remove(obj);
       });
     }
+
+    // Always ensure background blueprint image remains at the back
+    const bgObj = fabricCanvas.getObjects().find(o => o.isBackground) || fabricCanvas.__bgImageObj;
+    if (bgObj && fabricCanvas.getObjects().includes(bgObj)) {
+      fabricCanvas.sendObjectToBack(bgObj);
+    }
+
+    fabricCanvas.renderAll();
+    setCanUndo(historyStackRef.current.length > 0);
+    setCanRedo(redoStackRef.current.length > 0);
+    extractAnnotations();
+
+    setTimeout(() => {
+      fabricCanvas.__isUndoRedo = false;
+      isExecutingUndoRedoRef.current = false;
+    }, 50);
   };
 
   // Canvas Ready Handler
   const handleCanvasReady = (canvas) => {
     setFabricCanvas(canvas);
   };
+
+
 
   // Pin Events
   const handlePinDropped = async (newPin) => {
@@ -498,6 +543,37 @@ export default function MarkupEditor({
     }
   };
 
+  const handleApproveDrawing = async () => {
+    try {
+      await handleSaveAll();
+      const drawingId = documentData?._id || documentData?.id;
+      if (drawingId) {
+        await approveDrawing(drawingId, "Drawing approved by client review.");
+        showToast("Drawing approved successfully!", "success", "Approved", true);
+        if (onBack) onBack();
+      }
+    } catch (err) {
+      showToast(err.message || "Failed to approve drawing", "error", "Approval Error", true);
+    }
+  };
+
+  const handleRequestChanges = async () => {
+    const comment = window.prompt("Please specify the changes requested for this drawing:");
+    if (!comment || !comment.trim()) return;
+    try {
+      await handleSaveAll();
+      const drawingId = documentData?._id || documentData?.id;
+      if (drawingId) {
+        await requestChanges(drawingId, comment.trim());
+        showToast("Change request submitted to the architectural team.", "info", "Changes Requested", true);
+        if (onBack) onBack();
+      }
+    } catch (err) {
+      showToast(err.message || "Failed to submit change request", "error", "Error", true);
+    }
+  };
+
+
   return (
     <div className="fixed inset-0 z-50 bg-[#F8FAFC] flex flex-col font-sans select-none overflow-hidden animate-in fade-in duration-200">
       {/* 1. Top Glass Header */}
@@ -556,10 +632,11 @@ export default function MarkupEditor({
           eraserMode={eraserMode}
           onCanvasReady={handleCanvasReady}
           onSelectionChange={setSelectedObject}
-          onObjectsChange={saveCanvasState}
+          onActionRecorded={handleRecordAction}
           onPinDropped={handlePinDropped}
           onPinClick={setActivePinModal}
         />
+
       </div>
 
       {/* 3. Floating Bottom Toolbar (iPhone PDF Markup Pill) */}

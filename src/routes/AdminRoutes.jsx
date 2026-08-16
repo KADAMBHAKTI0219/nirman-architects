@@ -15,7 +15,10 @@ const AdminWorkLocations = lazy(() => import('../components/admin/work-locations
 const AdminRoles = lazy(() => import('../components/admin/roles/index'));
 const AdminAttendance = lazy(() => import('../components/admin/workforce/WorkforceCommandCenter'));
 const AdminHRPayroll = lazy(() => import('../components/admin/hr-payroll/index'));
+const AdminOfferLetters = lazy(() => import('../components/hr/offer-letters/index'));
 const AdminCRM = lazy(() => import('../components/admin/crm/index'));
+const AdminSupportQueries = lazy(() => import('../components/admin/crm/SupportQueryCenter'));
+const AdminFeedbackCenter = lazy(() => import('../components/admin/crm/FeedbackCenter'));
 const AdminDocs = lazy(() => import('../components/admin/documents/index'));
 const AdminAnalytics = lazy(() => import('../components/admin/analytics/index'));
 const AdminNotifications = lazy(() => import('../components/admin/notifications/index'));
@@ -143,8 +146,18 @@ export default function getAdminRoutes(handleRoleChange) {
         </DashboardLayout>
       } />
       <Route path="/admin/hr/payroll" element={
-        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="HR & Payroll">
+        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Payroll">
           <LazyWrap><AdminHRPayroll defaultTab="payroll" /></LazyWrap>
+        </DashboardLayout>
+      } />
+      <Route path="/admin/hr/offer-letters" element={
+        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Offer Letters">
+          <LazyWrap><AdminOfferLetters /></LazyWrap>
+        </DashboardLayout>
+      } />
+      <Route path="/admin/offer-letters" element={
+        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Offer Letters">
+          <LazyWrap><AdminOfferLetters /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/hr/performance" element={
@@ -170,6 +183,16 @@ export default function getAdminRoutes(handleRoleChange) {
       <Route path="/admin/crm/clients" element={
         <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Clients & CRM">
           <LazyWrap><AdminCRM defaultTab="clients" /></LazyWrap>
+        </DashboardLayout>
+      } />
+      <Route path="/admin/crm/support-queries" element={
+        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Support Query Operations">
+          <LazyWrap><AdminSupportQueries /></LazyWrap>
+        </DashboardLayout>
+      } />
+      <Route path="/admin/crm/feedback" element={
+        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Client Feedback & Review">
+          <LazyWrap><AdminFeedbackCenter /></LazyWrap>
         </DashboardLayout>
       } />
 

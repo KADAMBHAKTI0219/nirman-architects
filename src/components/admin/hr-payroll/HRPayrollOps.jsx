@@ -169,20 +169,26 @@ export default function HRPayrollOps() {
       await downloadAllPayslipsZip(monthNum, yearNum);
       showToast("ZIP archive downloaded successfully!");
     } catch (err) {
-      console.warn("Bulk ZIP download failed on backend, falling back to sequential downloads:", err);
+      const errMsg = err?.message || 'Server ZIP compilation error.';
+      console.warn("Bulk ZIP download failed on backend, falling back to sequential downloads:", errMsg);
       showToast("ZIP server compilation failed. Downloading individual payslips...", "warning");
       
       try {
+        let count = 0;
         for (const rec of payroll) {
           const empId = rec.userId || rec._id || rec.id;
           if (empId) {
             await downloadEmployeePayslip(empId, rec.name, monthNum, yearNum);
+            count++;
           }
         }
-        showToast("All individual payslips downloaded successfully!", "success");
+        if (count > 0) {
+          showToast("All individual payslips downloaded successfully!", "success");
+        }
       } catch (fallbackErr) {
-        console.error("Sequential download fallback failed:", fallbackErr);
-        showToast("Failed to download individual payslips.", "error");
+        const fallbackMsg = fallbackErr?.message || "Failed to download individual payslips.";
+        console.error("Sequential download fallback failed:", fallbackMsg);
+        showToast(fallbackMsg, "error");
       }
     }
   };

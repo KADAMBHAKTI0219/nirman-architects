@@ -30,6 +30,7 @@ const SIDEBAR_ITEMS = {
       icon: "Briefcase",
       subItems: [
         { label: "Payroll Center", path: "/admin/hr/payroll" },
+        { label: "Offer Letters", path: "/admin/hr/offer-letters" },
         { label: "Leave Management", path: "/admin/hr/leaves" },
         { label: "Leave Master", path: "/admin/hr/leave-master" },
         { label: "Performance Score", path: "/admin/hr/performance" }
@@ -41,7 +42,9 @@ const SIDEBAR_ITEMS = {
       icon: "BadgeAlert",
       subItems: [
         { label: "Lead Management", path: "/admin/crm/leads" },
-        { label: "Client Directory", path: "/admin/crm/clients" }
+        { label: "Client Directory", path: "/admin/crm/clients" },
+        { label: "Support Queries", path: "/admin/crm/support-queries" },
+        { label: "Client Feedback", path: "/admin/crm/feedback" }
       ]
     },
     { category: "COMMUNICATION" },
@@ -79,6 +82,7 @@ const SIDEBAR_ITEMS = {
       ]
     },
     { label: "Payroll", path: "/hr/payroll", icon: "Briefcase" },
+    { label: "Offer Letters", path: "/hr/offer-letters", icon: "FileText" },
     { label: "Performance", path: "/hr/reviews", icon: "Award" },
     { category: "COMMUNICATION" },
     { label: "Internal Chat", path: "/internal-chat", icon: "MessageSquare" },
@@ -147,6 +151,8 @@ const SIDEBAR_ITEMS = {
     { category: "CLIENT PORTAL" },
     { label: "Project Timeline", path: "/customer/timeline", icon: "Milestone" },
     { label: "Photos & 3D Views", path: "/customer/views", icon: "Sparkles" },
+    { label: "Support Queries", path: "/customer/support-queries", icon: "HelpCircle" },
+    { label: "Client Feedback", path: "/customer/feedback", icon: "Award" },
     { label: "Project History", path: "/customer/history", icon: "History" },
     { category: "COMMUNICATION" },
     { label: "Client Chat", path: "/client-chat", icon: "Building2" },

@@ -45,13 +45,20 @@ export function ensureRulerGuide(canvas) {
     const length = 480;
     const bar = new fabric.Rect({
         left: 0, top: -45, width: length, height: 90, rx: 12, ry: 12,
-        fill: 'rgba(241, 245, 249, 0.52)',
+        fill: 'rgba(241, 245, 249, 0.75)',
         stroke: 'rgba(148, 163, 184, 0.9)',
         strokeWidth: 1.5,
         shadow: new fabric.Shadow({ color: 'rgba(0,0,0,0.25)', blur: 20, offsetY: 8 })
     });
 
-    const elements = [bar];
+    const angleText = new fabric.Text('0°', {
+        left: 20, top: 0, originX: 'center', originY: 'center',
+        fontSize: 12, fontFamily: 'monospace', fontWeight: 'bold', fill: '#0EA5E9',
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        padding: 4, rx: 4, ry: 4
+    });
+
+    const elements = [bar, angleText];
     const SNAP_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315, 360];
 
     // Engraved ticks & numbers (0 1 2 3 4 5 6 7 8 9 10)
@@ -78,8 +85,8 @@ export function ensureRulerGuide(canvas) {
     }
 
     const guide = new fabric.Group(elements, {
-        left: 180,
-        top: 280,
+        left: 220,
+        top: 300,
         angle: 0,
         selectable: true,
         evented: true,
@@ -100,15 +107,25 @@ export function ensureRulerGuide(canvas) {
         mtr: true
     });
 
-    // 360° Angle Snapping Physics
+    // 360° Angle Snapping Physics & Live Badge Update
     guide.on('rotating', () => {
         const current = ((guide.angle % 360) + 360) % 360;
+        let finalAngle = Math.round(current);
         for (const snap of SNAP_ANGLES) {
             if (Math.abs(current - snap) <= 3.5 || Math.abs(current - snap) >= 356.5) {
-                guide.set('angle', snap % 360);
+                finalAngle = snap % 360;
+                guide.set('angle', finalAngle);
                 break;
             }
         }
+        angleText.set('text', `${finalAngle}°`);
+        canvas.renderAll();
+    });
+
+    // Double-click ruler directly on canvas to delete / hide ruler guide
+    guide.on('mousedblclick', () => {
+        removeRulerGuide(canvas);
+        canvas.renderAll();
     });
 
     canvas.add(guide);
@@ -121,8 +138,10 @@ export function removeRulerGuide(canvas) {
     if (canvas.__rulerGuide) {
         canvas.remove(canvas.__rulerGuide);
         canvas.__rulerGuide = null;
+        canvas.renderAll();
     }
 }
+
 
 /** Projects a scene point onto the ruler's edge if it's close enough. */
 export function applyRulerSnap(canvas, pointer) {
@@ -444,12 +463,87 @@ function distToSegmentSquared(p, v, w) {
 }
 
 /**
+ * Sub-path segment splitter for TRUE PIXEL/SEGMENT ERASING.
+ * Erases only the exact line segments under the eraser circle instead of deleting the whole line object!
+ */
+function splitAndErasePath(canvas, pathObj, pointer, radius) {
+  if (!pathObj || !pathObj.path || !Array.isArray(pathObj.path) || pathObj.path.length < 2) return false;
+
+  const matrix = pathObj.calcTransformMatrix ? pathObj.calcTransformMatrix() : [1, 0, 0, 1, pathObj.left || 0, pathObj.top || 0];
+  const r2 = radius * radius;
+  const pathCmds = pathObj.path;
+
+  const newSegments = [];
+  let currentSeg = [];
+
+  for (let i = 0; i < pathCmds.length; i++) {
+    const cmd = pathCmds[i];
+    if (!cmd || cmd.length < 3) continue;
+
+    const x = cmd[cmd.length - 2];
+    const y = cmd[cmd.length - 1];
+    const pt = fabric.util.transformPoint({ x, y }, matrix);
+
+    const distSq = (pointer.x - pt.x) ** 2 + (pointer.y - pt.y) ** 2;
+    const isErased = distSq <= r2;
+
+    if (!isErased) {
+      currentSeg.push(cmd);
+    } else {
+      if (currentSeg.length >= 2) {
+        newSegments.push(currentSeg);
+      }
+      currentSeg = [];
+    }
+  }
+
+  if (currentSeg.length >= 2) {
+    newSegments.push(currentSeg);
+  }
+
+  // If no points were erased, do nothing
+  if (newSegments.length === 1 && newSegments[0].length === pathCmds.length) {
+    return false;
+  }
+
+  // Remove original path object from canvas
+  canvas.remove(pathObj);
+
+  // If entire path was erased, return true
+  if (newSegments.length === 0) {
+    return true;
+  }
+
+  // Add the remaining non-erased path segments back to canvas
+  newSegments.forEach((seg) => {
+    const formattedSeg = seg.map((c, idx) => {
+      if (idx === 0) return ['M', c[c.length - 2], c[c.length - 1]];
+      return c;
+    });
+
+    const newPath = new fabric.Path(formattedSeg, {
+      stroke: pathObj.stroke,
+      strokeWidth: pathObj.strokeWidth,
+      fill: pathObj.fill,
+      opacity: pathObj.opacity,
+      strokeLineCap: pathObj.strokeLineCap || 'round',
+      strokeLineJoin: pathObj.strokeLineJoin || 'round',
+      globalCompositeOperation: pathObj.globalCompositeOperation,
+      toolType: pathObj.toolType || 'pen'
+    });
+
+    canvas.add(newPath);
+  });
+
+  return true;
+}
+
+/**
  * Checks if an object (path, group, shape, text) intersects with eraser circle at pointer
  */
 function doesObjectIntersectEraser(obj, pointer, radius) {
   if (!obj || obj.isBackground) return false;
 
-  // 1. Bounding box check with radius margin
   const rect = obj.getBoundingRect();
   if (
     pointer.x < rect.left - radius ||
@@ -462,7 +556,6 @@ function doesObjectIntersectEraser(obj, pointer, radius) {
 
   const r2 = radius * radius;
 
-  // 2. If object is a Path (pen, pencil, marker, highlighter stroke)
   if (obj.path && Array.isArray(obj.path)) {
     try {
       const matrix = obj.calcTransformMatrix ? obj.calcTransformMatrix() : [1, 0, 0, 1, obj.left || 0, obj.top || 0];
@@ -489,7 +582,6 @@ function doesObjectIntersectEraser(obj, pointer, radius) {
     }
   }
 
-  // 3. If object is a Group (Crayon, PencilTexture, Acrylic multi-layer strokes)
   if (obj.type === 'group' && typeof obj.getObjects === 'function') {
     const children = obj.getObjects();
     for (let child of children) {
@@ -497,7 +589,6 @@ function doesObjectIntersectEraser(obj, pointer, radius) {
     }
   }
 
-  // 4. Center point & bounding box fallback for shapes, text, pins
   const center = obj.getCenterPoint();
   const distCenterSq = (pointer.x - center.x) ** 2 + (pointer.y - center.y) ** 2;
   if (distCenterSq <= (radius + Math.max(rect.width, rect.height) / 2) ** 2) return true;
@@ -506,28 +597,201 @@ function doesObjectIntersectEraser(obj, pointer, radius) {
 }
 
 /* ===========================================================
-   VECTOR ERASER — removes markup objects that intersect the
-   pointer (never the background blueprint, never the ruler
-   unless directly clicked).
+   VECTOR & PIXEL ERASER ENGINE
+   Supports:
+   - 'pixel' mode: Segment splitting (erases ONLY the exact pixels under cursor)
+   - 'object' mode: Deletes whole object when touched
 =========================================================== */
-export function eraseObjectsNear(canvas, pointer, radius = 24, { includeGuide = false } = {}) {
-  const toRemove = [];
+export function eraseObjectsNear(canvas, pointer, radius = 24, { mode = 'pixel', includeGuide = false } = {}) {
+  const removedList = [];
 
-  canvas.getObjects().forEach((obj) => {
-    if (obj.isBackground) return;
-    if (obj.isRulerGuide && !includeGuide) return;
+  const candidateObjects = canvas.getObjects().filter(obj => {
+    if (obj.isBackground) return false;
+    if (obj.isRulerGuide && !includeGuide) return false;
+    return doesObjectIntersectEraser(obj, pointer, radius);
+  });
 
-    if (doesObjectIntersectEraser(obj, pointer, radius)) {
-      toRemove.push(obj);
+  candidateObjects.forEach((obj) => {
+    if (mode === 'pixel' && obj.path && Array.isArray(obj.path)) {
+      const isSplit = splitAndErasePath(canvas, obj, pointer, radius);
+      if (isSplit) removedList.push(obj);
+    } else {
+      canvas.remove(obj);
+      if (obj === canvas.__rulerGuide) canvas.__rulerGuide = null;
+      removedList.push(obj);
     }
   });
 
-  if (toRemove.length) {
-    toRemove.forEach((o) => {
-      canvas.remove(o);
-      if (o === canvas.__rulerGuide) canvas.__rulerGuide = null;
-    });
+  if (removedList.length) {
     canvas.requestRenderAll();
   }
-  return toRemove.length > 0;
+
+  return removedList;
 }
+
+
+
+/* ===========================================================
+   ARCHITECTURAL DIMENSION TOOL
+   Creates dimension lines with extension ticks, arrows, and
+   scaled measurement label (e.g. <---------- 4500 mm ---------->).
+=========================================================== */
+export function createDimensionShape(x1, y1, x2, y2, { color = '#2484C6', width = 2, opacity = 1, unit = 'mm', scale = 10 } = {}) {
+  const dist = Math.hypot(x2 - x1, y2 - y1);
+  const val = Math.round(dist * scale);
+  const textLabel = `${val} ${unit}`;
+
+  const angle = Math.atan2(y2 - y1, x2 - x1);
+  const perp = angle + Math.PI / 2;
+
+  const extLen = 14;
+  const pX = Math.cos(perp) * extLen;
+  const pY = Math.sin(perp) * extLen;
+
+  // Main dimension line
+  const mainLine = new fabric.Line([x1, y1, x2, y2], {
+    stroke: color, strokeWidth: width, opacity
+  });
+
+  // Start extension line
+  const ext1 = new fabric.Line([x1 - pX, y1 - pY, x1 + pX, y1 + pY], {
+    stroke: color, strokeWidth: width, opacity
+  });
+
+  // End extension line
+  const ext2 = new fabric.Line([x2 - pX, y2 - pY, x2 + pX, y2 + pY], {
+    stroke: color, strokeWidth: width, opacity
+  });
+
+  // Center measurement text
+  const midX = (x1 + x2) / 2;
+  const midY = (y1 + y2) / 2;
+
+  const text = new fabric.Text(textLabel, {
+    left: midX,
+    top: midY - 12,
+    originX: 'center',
+    originY: 'center',
+    fontSize: 13,
+    fontFamily: 'monospace',
+    fontWeight: 'bold',
+    fill: color,
+    opacity,
+    angle: (angle * 180) / Math.PI
+  });
+
+  const group = new fabric.Group([mainLine, ext1, ext2, text], {
+    left: Math.min(x1, x2),
+    top: Math.min(y1, y2) - 15,
+    isDimension: true,
+    toolType: 'dimension',
+    dimensionData: { x1, y1, x2, y2, val, unit }
+  });
+
+  return group;
+}
+
+/* ===========================================================
+   REVISION CLOUD TOOL
+   Creates scalloped arc revision clouds for architectural revisions.
+=========================================================== */
+export function createCloudShape(left, top, width, height, { color = '#EF4444', strokeWidth = 2, opacity = 1 } = {}) {
+  const w = Math.max(30, width);
+  const h = Math.max(30, height);
+  const r = 12; // arc radius
+
+  let d = `M ${left + r} ${top} `;
+  // Top edge arcs
+  for (let x = left + r; x < left + w; x += r * 1.5) {
+    const nextX = Math.min(left + w, x + r * 1.5);
+    d += `A ${r} ${r} 0 0 1 ${nextX} ${top} `;
+  }
+  // Right edge arcs
+  for (let y = top; y < top + h; y += r * 1.5) {
+    const nextY = Math.min(top + h, y + r * 1.5);
+    d += `A ${r} ${r} 0 0 1 ${left + w} ${nextY} `;
+  }
+  // Bottom edge arcs
+  for (let x = left + w; x > left; x -= r * 1.5) {
+    const nextX = Math.max(left, x - r * 1.5);
+    d += `A ${r} ${r} 0 0 1 ${nextX} ${top + h} `;
+  }
+  // Left edge arcs
+  for (let y = top + h; y > top; y -= r * 1.5) {
+    const nextY = Math.max(top, y - r * 1.5);
+    d += `A ${r} ${r} 0 0 1 ${left} ${nextY} `;
+  }
+  d += 'Z';
+
+  const path = new fabric.Path(d, {
+    fill: 'transparent',
+    stroke: color,
+    strokeWidth,
+    opacity,
+    strokeLineCap: 'round',
+    strokeLineJoin: 'round',
+    toolType: 'cloud'
+  });
+
+  return path;
+}
+
+/* ===========================================================
+   REVIEW STAMP TOOL
+   Creates architectural review stamps (APPROVED, REVIEW, REVISE, REJECTED).
+=========================================================== */
+export function createStampShape(x, y, stampType = 'APPROVED') {
+  const typeConfigs = {
+    APPROVED: { label: 'APPROVED', color: '#16A34A', bg: 'rgba(22, 163, 74, 0.08)' },
+    REVIEW: { label: 'UNDER REVIEW', color: '#2563EB', bg: 'rgba(37, 99, 235, 0.08)' },
+    REVISE: { label: 'REVISE & RESUBMIT', color: '#D97706', bg: 'rgba(217, 119, 6, 0.08)' },
+    REJECTED: { label: 'REJECTED', color: '#DC2626', bg: 'rgba(220, 38, 38, 0.08)' }
+  };
+
+  const cfg = typeConfigs[stampType] || typeConfigs.APPROVED;
+
+  const rect = new fabric.Rect({
+    width: 210,
+    height: 60,
+    rx: 8,
+    ry: 8,
+    fill: cfg.bg,
+    stroke: cfg.color,
+    strokeWidth: 3.5,
+    originX: 'center',
+    originY: 'center'
+  });
+
+  const text = new fabric.Text(cfg.label, {
+    fontSize: 18,
+    fontFamily: 'Impact, sans-serif',
+    fontWeight: 'bold',
+    fill: cfg.color,
+    originX: 'center',
+    originY: 'center',
+    letterSpacing: 2
+  });
+
+  const dateText = new fabric.Text(new Date().toISOString().split('T')[0], {
+    fontSize: 10,
+    fontFamily: 'monospace',
+    fill: cfg.color,
+    originX: 'center',
+    originY: 'center',
+    top: 18
+  });
+
+  const stampGroup = new fabric.Group([rect, text, dateText], {
+    left: x,
+    top: y,
+    originX: 'center',
+    originY: 'center',
+    angle: -8,
+    selectable: true,
+    isStamp: true,
+    toolType: 'stamp',
+    stampType
+  });
+
+  return stampGroup;
+}

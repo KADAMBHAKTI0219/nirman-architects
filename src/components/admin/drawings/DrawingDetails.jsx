@@ -11,12 +11,15 @@ import {
 } from '../../../service/drawing';
 import {
   ArrowLeft, Lock, Unlock, ZoomIn, ZoomOut, Plus,
-  CheckCircle, PenTool, AlertCircle, FileText, History, ShieldAlert, Upload
+  CheckCircle, PenTool, AlertCircle, FileText, History, ShieldAlert, Upload, Edit3
 } from 'lucide-react';
 import Card from '../../common/Card';
 import MarkupEditor from '../markup/MarkupEditor';
 import DrawingVersionModal from './DrawingVersionModal';
+import DrawingEditModal from './DrawingEditModal';
 import { detectFileType, getCleanFileUrl } from '../../../utils/fileTypeDetector';
+import { getBlueprintSvgDataUrl } from '../markup/sampleAssets';
+import { useToast } from '../../../context/ToastContext';
 
 export default function DrawingDetails({
   drawing,
@@ -24,6 +27,7 @@ export default function DrawingDetails({
   onUpdateDrawing,
   onCompareTrigger
 }) {
+  const { showToast } = useToast();
   const [isFullMarkupMode, setIsFullMarkupMode] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [commentText, setCommentText] = useState('');
@@ -39,7 +43,9 @@ export default function DrawingDetails({
   const [actionLoading, setActionLoading] = useState(false);
   const [liveDrawing, setLiveDrawing] = useState(drawing);
   const [versionHistoryList, setVersionHistoryList] = useState(drawing?.versions || []);
+  const [selectedVersion, setSelectedVersion] = useState(null);
   const [isVersionModalOpen, setIsVersionModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const userStr = localStorage.getItem('user') || '{}';
   const currentUser = JSON.parse(userStr);
@@ -50,6 +56,33 @@ export default function DrawingDetails({
 
   const drawingId = liveDrawing ? (liveDrawing._id || liveDrawing.id) : null;
 
+  // Helper to extract exact Version Mongo ID for PM and Admin review APIs
+  const getSelectedVersionId = () => {
+    if (selectedVersion) {
+      const vId = selectedVersion._id || selectedVersion.id;
+      if (vId && typeof vId === 'string' && /^[0-9a-fA-F]{24}$/.test(vId)) {
+        return vId;
+      }
+    }
+    const curVer = liveDrawing?.currentVersionId;
+    if (typeof curVer === 'object' && curVer !== null) {
+      const vId = curVer._id || curVer.id;
+      if (vId && typeof vId === 'string' && /^[0-9a-fA-F]{24}$/.test(vId)) {
+        return vId;
+      }
+    } else if (typeof curVer === 'string' && /^[0-9a-fA-F]{24}$/.test(curVer)) {
+      return curVer;
+    }
+    if (versionHistoryList && versionHistoryList.length > 0) {
+      const firstV = versionHistoryList[0];
+      const vId = firstV._id || firstV.id;
+      if (vId && typeof vId === 'string' && /^[0-9a-fA-F]{24}$/.test(vId)) {
+        return vId;
+      }
+    }
+    return liveDrawing?._id || liveDrawing?.id || drawingId;
+  };
+
   const fetchFreshDrawingDetails = async () => {
     if (!drawingId) return;
     try {
@@ -58,8 +91,14 @@ export default function DrawingDetails({
         setLiveDrawing(res.drawing);
         if (res.versionHistory && Array.isArray(res.versionHistory)) {
           setVersionHistoryList(res.versionHistory);
+          if (res.versionHistory.length > 0 && !selectedVersion) {
+            setSelectedVersion(res.versionHistory[0]);
+          }
         } else if (res.drawing.versions && Array.isArray(res.drawing.versions)) {
           setVersionHistoryList(res.drawing.versions);
+          if (res.drawing.versions.length > 0 && !selectedVersion) {
+            setSelectedVersion(res.drawing.versions[0]);
+          }
         }
       }
     } catch (e) {
@@ -72,17 +111,23 @@ export default function DrawingDetails({
       setLiveDrawing(drawing);
       if (drawing.versions && Array.isArray(drawing.versions)) {
         setVersionHistoryList(drawing.versions);
+        if (drawing.versions.length > 0 && !selectedVersion) {
+          setSelectedVersion(drawing.versions[0]);
+        }
       }
     }
-    fetchFreshDrawingDetails();
-    if (drawingId) {
-      getClientApprovalLog(drawingId)
+    const rawStatusStr = String(liveDrawing?.status || drawing?.status || '').toUpperCase();
+    const isApprovalPhase = rawStatusStr.includes('CLIENT') || rawStatusStr.includes('APPROV') || rawStatusStr.includes('GFC');
+    const targetVersionId = getSelectedVersionId();
+    
+    if (targetVersionId && isApprovalPhase) {
+      getClientApprovalLog(targetVersionId)
         .then(res => {
           if (res?.approvalLogs || res?.logs) {
             setApprovalLogs(res.approvalLogs || res.logs || []);
           }
         })
-        .catch(err => console.warn(err));
+        .catch(() => {});
     }
   }, [drawingId, drawing]);
 
@@ -135,54 +180,61 @@ export default function DrawingDetails({
     setCommentText('');
   };
 
-  // 25.5 PM Review Handler
+  // 25.5 PM Review Handler with Exact Version ID & Toast System
   const handlePmReviewAction = async (decision) => {
     if (decision === 'REJECT' && !reviewComments.trim()) {
-      alert("Mandatory comments are required for PM rejection.");
+      showToast("Mandatory comments are required for PM rejection.", 'warning', 'Comments Required', false);
       return;
     }
     setActionLoading(true);
     try {
-      const verObj = drawing.currentVersionId;
-      const targetVersionId = (typeof verObj === 'object' && verObj !== null) ? (verObj._id || verObj.id) : (verObj || drawing._id || drawing.id);
+      const targetVersionId = getSelectedVersionId();
       const res = await pmReview(targetVersionId, { decision, comments: reviewComments });
       if (res?.success) {
         const newStatus = decision === 'APPROVE' ? 'PM Approved' : 'PM Rejected';
         onUpdateDrawing({ ...drawing, status: newStatus });
-        alert(`PM Review completed: ${newStatus}`);
+        showToast(`PM Review completed: ${newStatus}`, 'success', 'PM Review Completed', true);
         setReviewModalType(null);
         setReviewComments('');
+        fetchFreshDrawingDetails();
+      } else {
+        showToast(res?.message || "Failed to process PM review on backend server.", 'error', 'PM Review Failed', false);
       }
     } catch (err) {
-      alert(err.message || "Failed to submit PM review.");
+      showToast(err.message || "Failed to submit PM review.", 'error', 'PM Review Error', false);
     } finally {
       setActionLoading(false);
     }
   };
 
-  // 25.6 Admin Review Handler (CRM Module 5 Handoff Point)
+  // 25.6 Admin Review Handler with Exact Version ID & Toast System
   const handleAdminReviewAction = async (decision) => {
     if (decision === 'REJECT' && !reviewComments.trim()) {
-      alert("Mandatory comments are required for Admin rejection.");
+      showToast("Mandatory comments are required for Admin rejection.", 'warning', 'Comments Required', false);
       return;
     }
     setActionLoading(true);
     try {
-      const verObj = drawing.currentVersionId;
-      const targetVersionId = (typeof verObj === 'object' && verObj !== null) ? (verObj._id || verObj.id) : (verObj || drawing._id || drawing.id);
+      const targetVersionId = getSelectedVersionId();
       const res = await adminReview(targetVersionId, { decision, comments: reviewComments });
       if (res?.success) {
         const newStatus = decision === 'APPROVE' ? 'Pending Client Approval' : 'Admin Rejected';
         onUpdateDrawing({ ...drawing, status: newStatus, visibleToClient: decision === 'APPROVE' });
-        alert(decision === 'APPROVE'
+        showToast(decision === 'APPROVE'
           ? "Admin Review Approved! Blueprint handed off to Client Portal (CRM Module 5)."
-          : "Admin Review Rejected."
+          : "Admin Review Rejected.",
+          'success',
+          decision === 'APPROVE' ? 'Admin Approved & Published' : 'Admin Rejected',
+          true
         );
         setReviewModalType(null);
         setReviewComments('');
+        fetchFreshDrawingDetails();
+      } else {
+        showToast(res?.message || "Failed to process Admin review on backend server.", 'error', 'Admin Review Failed', false);
       }
     } catch (err) {
-      alert(err.message || "Failed to submit Admin review.");
+      showToast(err.message || "Failed to submit Admin review.", 'error', 'Admin Review Error', false);
     } finally {
       setActionLoading(false);
     }
@@ -190,16 +242,20 @@ export default function DrawingDetails({
 
   // 25.7 Promote to GFC Handler
   const handlePromoteGFC = async () => {
-    if (!window.confirm("Promote this drawing to GFC Locked state? New version uploads will be blocked.")) return;
+    if (!window.confirm("Promote this drawing to GFC Locked state? New version uploads will be blocked.")) {
+      return;
+    }
     setActionLoading(true);
     try {
       const res = await promoteToGFC(drawing._id || drawing.id);
       if (res?.success) {
         onUpdateDrawing({ ...drawing, status: 'GFC Locked', locked: true });
-        alert("Drawing promoted to locked GFC state successfully.");
+        showToast("Drawing promoted to locked GFC state successfully.", 'success', 'GFC Locked', true);
+      } else {
+        showToast(res?.message || "Failed to promote drawing to GFC.", 'error', 'GFC Promotion Error', false);
       }
     } catch (err) {
-      alert(err.message || "Failed to promote drawing to GFC.");
+      showToast(err.message || "Failed to promote drawing to GFC.", 'error', 'GFC Promotion Error', false);
     } finally {
       setActionLoading(false);
     }
@@ -208,7 +264,7 @@ export default function DrawingDetails({
   // 25.7 Unlock GFC Handler
   const handleUnlockGFC = async () => {
     if (!unlockReason.trim()) {
-      alert("Mandatory reason required to unlock GFC drawing.");
+      showToast("Mandatory reason required to unlock GFC drawing.", 'warning', 'Reason Required', false);
       return;
     }
     setActionLoading(true);
@@ -216,12 +272,14 @@ export default function DrawingDetails({
       const res = await unlockGFC(drawing._id || drawing.id, { reason: unlockReason });
       if (res?.success) {
         onUpdateDrawing({ ...drawing, status: 'Designer Uploaded', locked: false });
-        alert("GFC drawing unlocked successfully.");
+        showToast("GFC drawing unlocked successfully.", 'success', 'GFC Unlocked', true);
         setReviewModalType(null);
         setUnlockReason('');
+      } else {
+        showToast(res?.message || "Failed to unlock GFC drawing.", 'error', 'GFC Unlock Error', false);
       }
     } catch (err) {
-      alert(err.message || "Failed to unlock GFC drawing.");
+      showToast(err.message || "Failed to unlock GFC drawing.", 'error', 'GFC Unlock Error', false);
     } finally {
       setActionLoading(false);
     }
@@ -230,7 +288,7 @@ export default function DrawingDetails({
   // 25.8 In-Place Process DWG Edit
   const handleEditProcessDwgInPlace = async () => {
     if (!editFilePath.trim()) {
-      alert("Updated file URL is required.");
+      showToast("Updated file URL is required.", 'warning', 'File Required', false);
       return;
     }
     setActionLoading(true);
@@ -240,11 +298,13 @@ export default function DrawingDetails({
       const res = await editInPlaceProcessDwg(targetVersionId, { updatedFilePath: editFilePath, changeLog: reviewComments });
       if (res?.success) {
         onUpdateDrawing({ ...drawing, fileUrl: editFilePath });
-        alert("Process DWG edited in place successfully without incrementing version number.");
+        showToast("Process DWG edited in place successfully without incrementing version number.", 'success', 'DWG Updated', true);
         setReviewModalType(null);
+      } else {
+        showToast(res?.message || "Failed to edit Process DWG in place.", 'error', 'Edit Error', false);
       }
     } catch (err) {
-      alert(err.message || "Failed to edit Process DWG in place.");
+      showToast(err.message || "Failed to edit Process DWG in place.", 'error', 'Edit Error', false);
     } finally {
       setActionLoading(false);
     }
@@ -307,6 +367,14 @@ export default function DrawingDetails({
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+          <button
+            onClick={() => setIsEditModalOpen(true)}
+            className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer border border-slate-700 whitespace-nowrap"
+          >
+            <Edit3 className="w-4 h-4 text-indigo-300 shrink-0" />
+            <span>Edit Details</span>
+          </button>
+
           <button
             onClick={() => setIsFullMarkupMode(true)}
             className="px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer border border-brand-secondary/40 whitespace-nowrap"
@@ -376,16 +444,33 @@ export default function DrawingDetails({
                 style={{ transform: `scale(${zoomLevel})` }}
               >
                 {(() => {
-                  const cached = getCachedDrawingFile(drawing._id || drawing.id || drawing.drawingNumber);
+                  const cached = getCachedDrawingFile(drawing._id) || 
+                                 getCachedDrawingFile(drawing.id) || 
+                                 getCachedDrawingFile(drawing.drawingNumber) || 
+                                 getCachedDrawingFile(drawing.drawingName) || 
+                                 getCachedDrawingFile(drawing.name) || 
+                                 getCachedDrawingFile(drawing.title) || 
+                                 getCachedDrawingFile(drawing.fileName) ||
+                                 getCachedDrawingFile(drawing.fileUrl) ||
+                                 getCachedDrawingFile(drawing.filePath) ||
+                                 (drawing.currentVersionId ? (getCachedDrawingFile(drawing.currentVersionId._id) || getCachedDrawingFile(drawing.currentVersionId.filePath) || getCachedDrawingFile(drawing.currentVersionId.fileUrl)) : null);
+
                   const currentVerPath = versionHistoryList && versionHistoryList.length > 0 ? (versionHistoryList[0].filePath || versionHistoryList[0].fileUrl) : null;
-                  const targetUrl = cached || drawing.fileUrl || drawing.filePath || drawing.pdfUrl || currentVerPath;
+                  
+                  // Prioritize cached Base64 data string first, then valid server URLs
+                  let targetUrl = cached || drawing.base64Data || currentVerPath || drawing.fileUrl || drawing.filePath || drawing.pdfUrl;
 
                   const rawUrl = getCleanFileUrl(targetUrl);
-                  const fileType = detectFileType(targetUrl || rawUrl, drawing);
+                  
+                  const metaForDetection = {
+                    fileType: drawing.fileType || drawing.type,
+                    name: drawing.name || drawing.drawingName || drawing.title || drawing.fileName
+                  };
+                  const fileType = detectFileType(targetUrl || rawUrl, metaForDetection);
                   const isDwg = fileType === 'dwg';
                   const isPdf = fileType === 'pdf';
 
-                  if (isPdf && rawUrl) {
+                  if (isPdf && rawUrl && !rawUrl.includes('nirman-architects.storage')) {
                     const iframeSrc = rawUrl.includes('#') ? rawUrl : `${rawUrl}#toolbar=1&navpanes=1`;
                     return (
                       <iframe
@@ -396,9 +481,10 @@ export default function DrawingDetails({
                     );
                   }
 
-                  // Default architectural blueprint fallback image
-                  const defaultBlueprint = "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80";
-                  const imageSrc = (rawUrl && !isDwg) ? rawUrl : defaultBlueprint;
+                  // CAD Blueprint SVG Generator Fallback
+                  const cadSvgFallback = getBlueprintSvgDataUrl(drawing.name || drawing.drawingName || drawing.title || "GROUND FLOOR BLUEPRINT", drawing.version || "REV 1.0");
+                  const isValidRenderUrl = rawUrl && !rawUrl.includes('nirman-architects.storage') && !isDwg;
+                  const imageSrc = isValidRenderUrl ? rawUrl : cadSvgFallback;
 
                   return (
                     <div className="w-full h-full flex flex-col items-center justify-center relative">
@@ -407,14 +493,14 @@ export default function DrawingDetails({
                         alt={drawing.name || drawing.drawingName || drawing.title}
                         onError={(e) => {
                           e.target.onerror = null;
-                          e.target.src = defaultBlueprint;
+                          e.target.src = cadSvgFallback;
                         }}
                         className="w-full h-full object-contain rounded-2xl select-none shadow-2xl"
                       />
                       {isDwg && (
                         <div className="absolute top-4 right-4 bg-slate-900/90 text-sky-300 border border-sky-500/30 px-3 py-1.5 rounded-xl text-[10px] font-extrabold flex items-center gap-2 backdrop-blur-md shadow-lg">
                           <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
-                          DWG CAD FILE: {rawUrl.split('/').pop()}
+                          DWG CAD FILE: {rawUrl ? rawUrl.split('/').pop() : (drawing.fileName || 'drawing.dwg')}
                         </div>
                       )}
                     </div>
@@ -497,11 +583,22 @@ export default function DrawingDetails({
                 const uploaderName = typeof ver.uploadedBy === 'object' ? (ver.uploadedBy?.name || ver.uploadedBy?.email) : (ver.uploadedBy || 'Bhakti Kadam');
                 const notesStr = ver.changeLog || ver.notes || 'Initial design blueprint upload';
                 const dateStr = ver.uploadDate ? new Date(ver.uploadDate).toLocaleDateString() : (ver.uploadedAt ? new Date(ver.uploadedAt).toLocaleDateString() : '2026-08-10');
+                const isSelected = selectedVersion ? (selectedVersion._id === ver._id || selectedVersion.versionNumber === ver.versionNumber) : idx === 0;
 
                 return (
-                  <div key={ver._id || idx} className="flex justify-between items-center p-4 bg-slate-50/80 border border-slate-200/80 rounded-2xl text-xs flex-wrap gap-3 hover:bg-slate-100/60 transition-all">
+                  <div
+                    key={ver._id || idx}
+                    onClick={() => setSelectedVersion(ver)}
+                    className={`flex justify-between items-center p-4 rounded-2xl text-xs flex-wrap gap-3 cursor-pointer transition-all ${
+                      isSelected
+                        ? 'bg-amber-50/90 border-2 border-amber-500 shadow-xs'
+                        : 'bg-slate-50/80 border border-slate-200/80 hover:bg-slate-100/60'
+                    }`}
+                  >
                     <div className="flex items-center gap-3.5">
-                      <span className="px-3 py-1.5 bg-brand-soft border border-brand-secondary/60 rounded-xl font-black text-xs text-slate-900 shadow-3xs">
+                      <span className={`px-3 py-1.5 rounded-xl font-black text-xs shadow-3xs ${
+                        isSelected ? 'bg-amber-500 text-white' : 'bg-brand-soft border border-brand-secondary/60 text-slate-900'
+                      }`}>
                         {vNum}
                       </span>
                       <div>
@@ -511,17 +608,25 @@ export default function DrawingDetails({
                         </span>
                       </div>
                     </div>
-                    {fileTarget && (
-                      <a
-                        href={fileTarget}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 rounded-xl text-xs font-bold transition-all shadow-3xs cursor-pointer flex items-center gap-1.5"
-                      >
-                        <FileText className="w-3.5 h-3.5 text-slate-500" />
-                        <span>View File</span>
-                      </a>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {isSelected && (
+                        <span className="px-2.5 py-1 bg-amber-100 text-amber-800 font-extrabold text-[10px] uppercase rounded-lg">
+                          Active Version
+                        </span>
+                      )}
+                      {fileTarget && (
+                        <a
+                          href={fileTarget}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 rounded-xl text-xs font-bold transition-all shadow-3xs cursor-pointer flex items-center gap-1.5"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-slate-500" />
+                          <span>View File</span>
+                        </a>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -602,8 +707,8 @@ export default function DrawingDetails({
 
             <div className="space-y-3.5">
 
-              {/* PM Review Gate */}
-              {isPM && (drawing.status === 'Designer Uploaded' || drawing.status === 'DESIGNER_UPLOADED' || drawing.status === 'PM Rejected') && (
+              {/* PM Review Gate - Only show when drawing version history exists */}
+              {isPM && ((versionHistoryList && versionHistoryList.length > 0) || (drawing?.versions && drawing.versions.length > 0) || !!drawing?.currentVersionId) && (drawing.status === 'Designer Uploaded' || drawing.status === 'DESIGNER_UPLOADED' || drawing.status === 'PM Rejected' || drawing.status === 'PM_REJECTED') && (
                 <div className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-2xl space-y-2.5">
                   <div className="flex items-center gap-2 text-amber-900 font-extrabold text-xs">
                     <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
@@ -840,6 +945,18 @@ export default function DrawingDetails({
         onClose={() => setIsVersionModalOpen(false)}
         drawing={liveDrawing}
         onSuccess={() => fetchFreshDrawingDetails()}
+      />
+
+      {/* Edit Drawing Details Modal */}
+      <DrawingEditModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        drawing={liveDrawing}
+        onSuccess={(updated) => {
+          setLiveDrawing(prev => ({ ...prev, ...updated }));
+          if (onUpdateDrawing) onUpdateDrawing({ ...liveDrawing, ...updated });
+          fetchFreshDrawingDetails();
+        }}
       />
 
     </div>

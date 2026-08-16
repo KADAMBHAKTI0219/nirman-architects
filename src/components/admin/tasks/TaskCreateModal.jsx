@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, RefreshCw, Plus, Trash2, Link, FileText, CheckCircle2 } from 'lucide-react';
+import { X, RefreshCw, Plus, Trash2, Link, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
 import { getProjects } from '../../../service/project';
 import { getUsersList } from '../../../service/auth';
 import { getTasks } from '../../../service/task';
+import { getDepartments, parseDepartments, getCleanDepartmentName } from '../../../service/departments';
 
 export default function TaskCreateModal({
   isOpen,
@@ -11,8 +12,15 @@ export default function TaskCreateModal({
 }) {
   const [projectsList, setProjectsList] = useState([]);
   const [usersList, setUsersList] = useState([]);
+  const [departmentsList, setDepartmentsList] = useState([
+    'Architecture',
+    'Engineering',
+    'Procurement',
+    'Quality Control'
+  ]);
   const [loadingData, setLoadingData] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const [formData, setFormData] = useState({
     title: '',
@@ -40,7 +48,8 @@ export default function TaskCreateModal({
 
   useEffect(() => {
     if (isOpen) {
-      loadProjectsAndUsers();
+      loadProjectsUsersAndDepts();
+      setFieldErrors({});
     }
   }, [isOpen]);
 
@@ -64,6 +73,41 @@ export default function TaskCreateModal({
     } catch (e) {
       console.warn("Error fetching tasks for dependsOn selection:", e);
     }
+  };
+
+  const extractUserDepartment = (user) => {
+    if (!user) return '';
+    if (typeof user.department === 'string') return getCleanDepartmentName(user.department) || user.department;
+    if (user.department?.name) return getCleanDepartmentName(user.department.name) || user.department.name;
+    if (user.departmentId?.name) return getCleanDepartmentName(user.departmentId.name) || user.departmentId.name;
+    if (typeof user.departmentName === 'string') return getCleanDepartmentName(user.departmentName) || user.departmentName;
+    if (typeof user.dept === 'string') return getCleanDepartmentName(user.dept) || user.dept;
+    
+    // Role fallback mapping if department isn't explicit
+    const r = (typeof user.role === 'string' ? user.role : (user.role?.roleName || '')).toLowerCase();
+    if (r.includes('arch')) return 'Architecture';
+    if (r.includes('eng') || r.includes('struct')) return 'Engineering';
+    if (r.includes('procure') || r.includes('purchase')) return 'Procurement';
+    if (r.includes('qual') || r.includes('qc') || r.includes('qa')) return 'Quality Control';
+    if (r.includes('design')) return 'Architecture & Design';
+    if (r.includes('pm') || r.includes('project')) return 'Project Management';
+    return '';
+  };
+
+  const findMatchingDepartment = (userDeptStr, availableDepts) => {
+    if (!userDeptStr) return '';
+    const cleanStr = getCleanDepartmentName(userDeptStr) || userDeptStr;
+    const lowerUserDept = cleanStr.toLowerCase();
+
+    // Direct match
+    const exact = availableDepts.find(d => d.toLowerCase() === lowerUserDept);
+    if (exact) return exact;
+
+    // Partial match
+    const partial = availableDepts.find(d => d.toLowerCase().includes(lowerUserDept) || lowerUserDept.includes(d.toLowerCase()));
+    if (partial) return partial;
+
+    return cleanStr;
   };
 
   const handleAddChecklistItem = (e) => {
@@ -94,12 +138,13 @@ export default function TaskCreateModal({
     );
   };
 
-  const loadProjectsAndUsers = async () => {
+  const loadProjectsUsersAndDepts = async () => {
     setLoadingData(true);
     try {
-      const [projRes, userRes] = await Promise.allSettled([
+      const [projRes, userRes, deptRes] = await Promise.allSettled([
         getProjects(),
-        getUsersList()
+        getUsersList(),
+        getDepartments()
       ]);
 
       let loadedProjs = [];
@@ -113,11 +158,8 @@ export default function TaskCreateModal({
         loadedUsers = userRes.value.users;
       }
 
-      // If getUsersList returned 403 or empty, extract team members from projects + logged-in user
       if (loadedUsers.length === 0) {
         const teamMap = new Map();
-
-        // 1. Current logged in user
         try {
           const u = JSON.parse(localStorage.getItem('user') || '{}');
           if (u._id || u.id || u.name || u.email) {
@@ -125,20 +167,21 @@ export default function TaskCreateModal({
             teamMap.set(uid, {
               _id: uid,
               name: typeof u.name === 'string' ? u.name : (typeof u.fullName === 'string' ? u.fullName : (typeof u.email === 'string' ? u.email : 'Project Manager')),
-              role: typeof u.role === 'string' ? u.role : (u.role?.roleName || 'Project Manager')
+              role: typeof u.role === 'string' ? u.role : (u.role?.roleName || 'Project Manager'),
+              department: u.department || u.dept || 'Architecture'
             });
           }
         } catch (e) { }
 
-        // 2. Extracted team members from projects
         loadedProjs.forEach(p => {
           (p.teamAssignments || []).forEach(ta => {
             if (ta.userId) {
               const uid = typeof ta.userId === 'object' ? (ta.userId._id || ta.userId.id) : ta.userId;
               const uname = typeof ta.userId === 'object' ? (ta.userId.name || ta.userId.fullName || ta.userId.email) : 'Team Member';
               const urole = ta.projectRole || 'Architect';
+              const udept = typeof ta.userId === 'object' ? (ta.userId.department || ta.userId.dept) : 'Architecture';
               if (uid && !teamMap.has(uid)) {
-                teamMap.set(uid, { _id: uid, name: uname, role: urole });
+                teamMap.set(uid, { _id: uid, name: uname, role: urole, department: udept });
               }
             }
           });
@@ -149,18 +192,65 @@ export default function TaskCreateModal({
 
       setUsersList(loadedUsers);
 
+      // Load Backend Departments dynamically
+      let loadedDepts = ['Architecture', 'Engineering', 'Procurement', 'Quality Control'];
+      if (deptRes.status === 'fulfilled' && deptRes.value) {
+        const parsed = parseDepartments(deptRes.value);
+        if (parsed.length > 0) {
+          loadedDepts = parsed;
+        }
+      }
+      setDepartmentsList(loadedDepts);
+
       const firstProjId = loadedProjs[0] ? (loadedProjs[0]._id || loadedProjs[0].id) : '';
-      const firstUserId = loadedUsers[0] ? (loadedUsers[0]._id || loadedUsers[0].id) : '';
+      const firstUser = loadedUsers[0];
+      const firstUserId = firstUser ? (firstUser._id || firstUser.id) : '';
+
+      let initialDept = loadedDepts[0] || 'Architecture';
+      if (firstUser) {
+        const extractedDept = extractUserDepartment(firstUser);
+        const matched = findMatchingDepartment(extractedDept, loadedDepts);
+        if (matched) initialDept = matched;
+      }
 
       setFormData(prev => ({
         ...prev,
         projectId: prev.projectId || firstProjId,
-        assignedEmployee: prev.assignedEmployee || firstUserId
+        assignedEmployee: prev.assignedEmployee || firstUserId,
+        dept: prev.dept || initialDept
       }));
     } catch (err) {
       console.warn("Notice loading modal options:", err);
     } finally {
       setLoadingData(false);
+    }
+  };
+
+  const handleUserSelectChange = (selectedUserId) => {
+    const selectedUser = usersList.find(u => (u._id === selectedUserId || u.id === selectedUserId));
+    let nextDept = formData.dept;
+
+    if (selectedUser) {
+      const extracted = extractUserDepartment(selectedUser);
+      const matched = findMatchingDepartment(extracted, departmentsList);
+      if (matched) {
+        nextDept = matched;
+      } else if (extracted) {
+        if (!departmentsList.includes(extracted)) {
+          setDepartmentsList(prev => [...prev, extracted]);
+        }
+        nextDept = extracted;
+      }
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      assignedEmployee: selectedUserId,
+      dept: nextDept
+    }));
+
+    if (fieldErrors.assignedEmployee) {
+      setFieldErrors(prev => ({ ...prev, assignedEmployee: null }));
     }
   };
 
@@ -266,42 +356,63 @@ export default function TaskCreateModal({
           )}
 
           <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Task Title *</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+              Task Title <span className="text-rose-500 font-bold ml-0.5">*</span>
+            </label>
             <input 
               type="text" 
-              required 
               value={formData.title}
               onChange={(e) => handleChange('title', e.target.value)}
               placeholder="e.g. Detailed Architectural Floor Plan & Structural Rebar"
-              className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/30 text-slate-900 bg-white font-semibold"
+              className={`w-full px-3.5 py-2.5 text-xs border rounded-xl focus:outline-none focus:ring-2 text-slate-900 bg-white font-semibold ${
+                fieldErrors.title ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/30' : 'border-slate-200 focus:ring-brand-primary/30'
+              }`}
             />
+            {fieldErrors.title && (
+              <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" /> {fieldErrors.title}
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Select Project *</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                Select Project <span className="text-rose-500 font-bold ml-0.5">*</span>
+              </label>
               <select 
                 value={formData.projectId}
                 onChange={(e) => handleChange('projectId', e.target.value)}
-                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/30 text-slate-900 bg-white font-semibold cursor-pointer"
-                required
+                className={`w-full px-3.5 py-2.5 text-xs border rounded-xl focus:outline-none focus:ring-2 text-slate-900 bg-white font-semibold cursor-pointer ${
+                  fieldErrors.projectId ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200 focus:ring-brand-primary/30'
+                }`}
               >
+                <option value="" disabled>Select project...</option>
                 {projectsList.map(p => (
                   <option key={p._id || p.id} value={p._id || p.id}>
                     {p.projectName || p.name || 'Project'}
                   </option>
                 ))}
               </select>
+              {fieldErrors.projectId && (
+                <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" /> {fieldErrors.projectId}
+                </p>
+              )}
             </div>
 
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Assign Employee *</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                Assign Employee <span className="text-rose-500 font-bold ml-0.5">*</span>
+              </label>
               <select 
                 value={formData.assignedEmployee}
-                onChange={(e) => handleChange('assignedEmployee', e.target.value)}
-                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/30 text-slate-900 bg-white font-semibold cursor-pointer"
-                required
+                onChange={(e) => handleUserSelectChange(e.target.value)}
+                className={`w-full px-3.5 py-2.5 text-xs border rounded-xl focus:outline-none focus:ring-2 text-slate-900 bg-white font-semibold cursor-pointer ${
+                  fieldErrors.assignedEmployee ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200 focus:ring-brand-primary/30'
+                }`}
               >
+                <option value="" disabled>Select assigned employee...</option>
                 {usersList.map(u => {
                   const nameStr = typeof u.name === 'string' ? u.name : (typeof u.fullName === 'string' ? u.fullName : (typeof u.email === 'string' ? u.email : 'Employee'));
                   const roleStr = typeof u.role === 'string' ? u.role : (u.role?.roleName || 'Staff');
@@ -312,21 +423,29 @@ export default function TaskCreateModal({
                   );
                 })}
               </select>
+              {fieldErrors.assignedEmployee && (
+                <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" /> {fieldErrors.assignedEmployee}
+                </p>
+              )}
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Department</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                Department (Auto-selected)
+              </label>
               <select 
                 value={formData.dept}
                 onChange={(e) => handleChange('dept', e.target.value)}
                 className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/30 text-slate-900 bg-white font-semibold cursor-pointer"
               >
-                <option value="Architecture">Architecture</option>
-                <option value="Engineering">Engineering</option>
-                <option value="Procurement">Procurement</option>
-                <option value="Quality Control">Quality Control</option>
+                {departmentsList.map(dept => (
+                  <option key={dept} value={dept}>
+                    {dept}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -345,25 +464,41 @@ export default function TaskCreateModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Est Time (Hours)</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                Est Time (Hours) <span className="text-rose-500 font-bold ml-0.5">*</span>
+              </label>
               <input 
                 type="number" 
-                required 
                 value={formData.estTime}
                 onChange={(e) => handleChange('estTime', e.target.value)}
                 placeholder="16"
-                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/30 text-slate-900 bg-white font-semibold"
+                className={`w-full px-3.5 py-2.5 text-xs border rounded-xl focus:outline-none focus:ring-2 text-slate-900 bg-white font-semibold ${
+                  fieldErrors.estTime ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200 focus:ring-brand-primary/30'
+                }`}
               />
+              {fieldErrors.estTime && (
+                <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" /> {fieldErrors.estTime}
+                </p>
+              )}
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Deadline Date *</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                Deadline Date <span className="text-rose-500 font-bold ml-0.5">*</span>
+              </label>
               <input 
                 type="date" 
-                required 
                 value={formData.deadline}
                 onChange={(e) => handleChange('deadline', e.target.value)}
-                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/30 text-slate-900 bg-white font-semibold cursor-pointer"
+                className={`w-full px-3.5 py-2.5 text-xs border rounded-xl focus:outline-none focus:ring-2 text-slate-900 bg-white font-semibold cursor-pointer ${
+                  fieldErrors.deadline ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200 focus:ring-brand-primary/30'
+                }`}
               />
+              {fieldErrors.deadline && (
+                <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" /> {fieldErrors.deadline}
+                </p>
+              )}
             </div>
           </div>
 

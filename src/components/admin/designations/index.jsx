@@ -312,7 +312,9 @@ export default function DesignationsPage() {
 
             <form onSubmit={handleFormSubmit} className="space-y-3.5 text-xs">
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Designation Title *</label>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Designation Title <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <input
                   type="text"
                   required

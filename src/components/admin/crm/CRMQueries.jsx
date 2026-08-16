@@ -15,6 +15,7 @@ import {
   createClientTicket
 } from '../../../service/crm/ticket';
 import { getUsersList } from '../../../service/auth';
+import { getProjects } from '../../../service/project';
 
 export default function CRMQueries() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -22,6 +23,8 @@ export default function CRMQueries() {
   const [priorityFilter, setPriorityFilter] = useState('');
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [projectsList, setProjectsList] = useState([]);
+  const [fieldErrors, setFieldErrors] = useState({});
 
   // Detail Modal & Response Thread State
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -48,6 +51,19 @@ export default function CRMQueries() {
 
   useEffect(() => {
     fetchTickets();
+    getProjects()
+      .then(res => {
+        let list = [];
+        if (res?.projects && Array.isArray(res.projects)) list = res.projects;
+        else if (Array.isArray(res)) list = res;
+        if (list.length > 0) {
+          setProjectsList(list);
+          const firstP = list[0].projectName || list[0].name || list[0].title || '';
+          setNewTicketForm(prev => ({ ...prev, projectName: prev.projectName || firstP }));
+        }
+      })
+      .catch(err => console.warn(err));
+  }, []);
     fetchStaffUsers();
   }, [statusFilter, priorityFilter]);
 
@@ -558,14 +574,13 @@ export default function CRMQueries() {
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleCreateTicketSubmit} className="p-6 space-y-4 text-xs font-medium">
+            <form noValidate onSubmit={handleCreateTicketSubmit} className="p-6 space-y-4 text-xs font-medium">
               <div>
                 <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                  Ticket Subject / Issue Title *
+                  Ticket Subject / Issue Title <span className="text-red-500 font-bold ml-0.5">*</span>
                 </label>
                 <input
                   type="text"
-                  required
                   placeholder="e.g. GFC Slab Reinforcement CAD Specs Request"
                   value={newTicketForm.subject}
                   onChange={(e) => setNewTicketForm(prev => ({ ...prev, subject: e.target.value }))}
@@ -576,23 +591,29 @@ export default function CRMQueries() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                    Project Name *
+                    Project Reference <span className="text-red-500 font-bold ml-0.5">*</span>
                   </label>
                   <select
                     value={newTicketForm.projectName}
                     onChange={(e) => setNewTicketForm(prev => ({ ...prev, projectName: e.target.value }))}
                     className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-secondary font-semibold bg-white cursor-pointer"
                   >
-                    <option value="Central Office Tower">Central Office Tower</option>
-                    <option value="Smart City Mall">Smart City Mall</option>
-                    <option value="Oceanic Luxury Villas">Oceanic Luxury Villas</option>
-                    <option value="Residential Villa Residency">Residential Villa Residency</option>
+                    {projectsList.length > 0 ? (
+                      projectsList.map(p => {
+                        const pName = p.projectName || p.name || p.title || 'Project';
+                        return (
+                          <option key={p._id || p.id || pName} value={pName}>{pName}</option>
+                        );
+                      })
+                    ) : (
+                      <option value="">No Projects Available</option>
+                    )}
                   </select>
                 </div>
 
                 <div>
                   <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                    Priority Level *
+                    Priority Level <span className="text-red-500 font-bold ml-0.5">*</span>
                   </label>
                   <select
                     value={newTicketForm.priority}

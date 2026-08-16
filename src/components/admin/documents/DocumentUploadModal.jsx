@@ -34,8 +34,11 @@ export default function DocumentUploadModal({
     changeLog: 'Initial upload'
   });
 
+  const [fieldErrors, setFieldErrors] = useState({});
+
   useEffect(() => {
     if (isOpen) {
+      setFieldErrors({});
       getProjects()
         .then(res => {
           let list = [];
@@ -51,8 +54,8 @@ export default function DocumentUploadModal({
             const pId = firstP._id || firstP.id;
             setFormData(prev => ({
               ...prev,
-              project: pName || '',
-              projectId: pId || ''
+              project: prev.project || pName || '',
+              projectId: prev.projectId || pId || ''
             }));
           }
         })
@@ -97,6 +100,9 @@ export default function DocumentUploadModal({
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    if (fieldErrors[field]) {
+      setFieldErrors(prev => ({ ...prev, [field]: null }));
+    }
   };
 
   const handleFileSelect = (e) => {
@@ -104,6 +110,8 @@ export default function DocumentUploadModal({
     if (!file) return;
 
     setSelectedFileObj(file);
+    if (fieldErrors.file) setFieldErrors(prev => ({ ...prev, file: null }));
+
     const sizeKB = Math.round(file.size / 1024);
     const formattedSize = sizeKB > 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
 
@@ -136,6 +144,23 @@ export default function DocumentUploadModal({
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
+    const errors = {};
+    if (!selectedFileObj && !formData.filePath) {
+      errors.file = "Please select a document file to upload";
+    }
+    if (!formData.name.trim()) {
+      errors.name = "File name is required";
+    }
+    if (!formData.project) {
+      errors.project = "Project reference is required";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+    setFieldErrors({});
+
     onSubmit(formData);
     showToast(`Document "${formData.documentName || formData.name || 'File'}" uploaded successfully!`, 'success', 'Document Uploaded', true);
     setSelectedFileObj(null);
@@ -144,8 +169,8 @@ export default function DocumentUploadModal({
       documentName: '',
       fileName: '',
       filePath: '',
-      project: '',
-      projectId: '',
+      project: projectsList[0]?.name || projectsList[0]?.projectName || '',
+      projectId: projectsList[0]?._id || projectsList[0]?.id || '',
       folder: 'Other Shared Documents',
       category: 'Other Shared Documents',
       type: 'PDF',
@@ -179,11 +204,13 @@ export default function DocumentUploadModal({
         </div>
 
         {/* Form fields */}
-        <form onSubmit={handleFormSubmit} className="p-6 overflow-y-auto max-h-[500px] space-y-4">
+        <form noValidate onSubmit={handleFormSubmit} className="p-6 overflow-y-auto max-h-[500px] space-y-4">
           
           {/* FILE PICKER DROPZONE */}
           <div>
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">Select File from Computer</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">
+              Select File from Computer <span className="text-red-500 font-bold ml-0.5">*</span>
+            </label>
             <input 
               type="file"
               ref={fileInputRef}
@@ -195,7 +222,7 @@ export default function DocumentUploadModal({
             <div 
               onClick={() => fileInputRef.current && fileInputRef.current.click()}
               className={`p-4 border-2 border-dashed rounded-2xl text-center cursor-pointer transition-all flex flex-col items-center justify-center space-y-2 ${
-                selectedFileObj 
+                fieldErrors.file ? 'border-red-500 bg-red-50/20' : selectedFileObj 
                   ? 'bg-emerald-50/50 border-emerald-300 hover:bg-emerald-50' 
                   : 'bg-slate-50/80 border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/30'
               }`}
@@ -225,23 +252,34 @@ export default function DocumentUploadModal({
                 </>
               )}
             </div>
+            {fieldErrors.file && (
+              <span className="text-[11px] font-bold text-red-500 mt-1 block">{fieldErrors.file}</span>
+            )}
           </div>
 
           <div>
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">File Name</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">
+              File Name <span className="text-red-500 font-bold ml-0.5">*</span>
+            </label>
             <input 
               type="text" 
-              required 
               value={formData.name}
               onChange={(e) => handleChange('name', e.target.value)}
               placeholder="e.g. Geotechnical_Soil_Bearing_Analysis.pdf"
-              className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-semibold"
+              className={`w-full px-3.5 py-2.5 text-xs border rounded-xl focus:outline-none focus:ring-2 text-slate-800 bg-white font-semibold ${
+                fieldErrors.name ? 'border-red-500 focus:ring-red-500/20' : 'border-slate-200 focus:ring-brand-primary/20 focus:border-brand-primary'
+              }`}
             />
+            {fieldErrors.name && (
+              <span className="text-[11px] font-bold text-red-500 mt-1 block">{fieldErrors.name}</span>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">Project Reference</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">
+                Project Reference <span className="text-red-500 font-bold ml-0.5">*</span>
+              </label>
               <select 
                 value={formData.project}
                 onChange={(e) => {
@@ -254,18 +292,27 @@ export default function DocumentUploadModal({
                     handleChange('project', val);
                   }
                 }}
-                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-semibold cursor-pointer"
+                className={`w-full px-3.5 py-2.5 text-xs border rounded-xl focus:outline-none focus:ring-2 text-slate-800 bg-white font-semibold cursor-pointer ${
+                  fieldErrors.project ? 'border-red-500 focus:ring-red-500/20' : 'border-slate-200 focus:ring-brand-primary/20 focus:border-brand-primary'
+                }`}
               >
-                {projectsList.map(p => {
-                  const pName = p.name || p.projectName || p.title || 'Main Project';
-                  const pId = p._id || p.id;
-                  return (
-                    <option key={pId || pName} value={pName}>
-                      {pName}
-                    </option>
-                  );
-                })}
+                {projectsList.length > 0 ? (
+                  projectsList.map(p => {
+                    const pName = p.name || p.projectName || p.title || 'Main Project';
+                    const pId = p._id || p.id;
+                    return (
+                      <option key={pId || pName} value={pName}>
+                        {pName}
+                      </option>
+                    );
+                  })
+                ) : (
+                  <option value="">No Projects Available</option>
+                )}
               </select>
+              {fieldErrors.project && (
+                <span className="text-[11px] font-bold text-red-500 mt-1 block">{fieldErrors.project}</span>
+              )}
             </div>
 
             <div>

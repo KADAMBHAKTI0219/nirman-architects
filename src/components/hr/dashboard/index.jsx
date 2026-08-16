@@ -5,13 +5,9 @@ import {
   Check, X, Cake, ShieldCheck, IndianRupee, Award, RefreshCw, UserPlus, Plus 
 } from 'lucide-react';
 import Card from '../../common/Card';
-import { 
-  getAllAttendance, 
-  getHRDashboardWidgets, 
-  getPendingLeaveRequests, 
-  approveLeaveRequest, 
-  rejectLeaveRequest 
-} from '../../../service/mockApi';
+import { getAllAttendanceList } from '../../../service/hrm/attendance';
+import { getPendingLeaveRequests, approveLeaveRequest, rejectLeaveRequest } from '../../../service/hrm/leave';
+import { getUsersList } from '../../../service/auth';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444'];
 
@@ -21,9 +17,9 @@ export default function HRDashboard() {
   const [apiError, setApiError] = useState('');
   const [attendanceData, setAttendanceData] = useState([]);
   const [widgetsData, setWidgetsData] = useState({
-    totalUsers: 6,
-    onlineCount: 2,
-    offlineCount: 4,
+    totalUsers: 0,
+    onlineCount: 0,
+    offlineCount: 0,
     pendingCorrections: 0,
     securityAlerts: 0
   });
@@ -36,36 +32,41 @@ export default function HRDashboard() {
       setLoading(true);
       setApiError('');
       
-      const response = await getAllAttendance();
-      if (response.success && Array.isArray(response.data)) {
-        setAttendanceData(response.data);
-      }
+      const response = await getAllAttendanceList().catch(() => null);
+      const logs = response?.logs || (Array.isArray(response) ? response : []);
+      setAttendanceData(logs);
 
-      const widgetsResponse = await getHRDashboardWidgets();
-      if (widgetsResponse.success) {
-        setWidgetsData(widgetsResponse);
-      }
+      const usersRes = await getUsersList().catch(() => null);
+      const uList = usersRes?.users || (Array.isArray(usersRes) ? usersRes : []);
+      setWidgetsData({
+        totalUsers: uList.length,
+        onlineCount: logs.filter(l => l.status === 'PRESENT' || l.clockInTime).length,
+        offlineCount: Math.max(0, uList.length - logs.length),
+        pendingCorrections: 0,
+        securityAlerts: 0
+      });
 
-      const pendingLeaves = await getPendingLeaveRequests();
-      if (pendingLeaves.success && Array.isArray(pendingLeaves.requests)) {
+      const pendingLeaves = await getPendingLeaveRequests().catch(() => null);
+      if (pendingLeaves?.requests && Array.isArray(pendingLeaves.requests)) {
         const formatted = pendingLeaves.requests.map(r => ({
-          id: r.id,
-          name: r.employeeName || 'Employee',
-          dept: r.department || 'Architecture',
+          id: r._id || r.id,
+          name: r.employeeName || r.userId?.name || 'Employee',
+          dept: r.department || r.userId?.department || 'Architecture',
           type: r.leaveTypeName || r.code || 'Leave',
-          dates: `${r.fromDate} - ${r.toDate}`,
+          dates: `${r.fromDate || r.startDate || ''} - ${r.toDate || r.endDate || ''}`,
           days: 1,
-          reason: r.reason
+          reason: r.reason || 'Leave request'
         }));
         setLeaveQueue(formatted);
       }
     } catch (err) {
       console.error(err);
-      setApiError('Unable to load real-time attendance feed.');
+      setApiError('Notice updating real-time attendance feed.');
     } finally {
       setLoading(false);
     }
   };
+
 
   useEffect(() => {
     loadHRData();

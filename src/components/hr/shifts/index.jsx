@@ -3,9 +3,9 @@ import { Calendar as CalendarIcon, Clock, ShieldAlert, Plus } from 'lucide-react
 import ShiftStats from './ShiftStats';
 import ShiftWeeklyGrid from './ShiftWeeklyGrid';
 import ShiftDetailDrawer from './ShiftDetailDrawer';
-import { updateShiftConfig, updateHeartbeatConfig } from '../../../service/mockApi';
 
 const INITIAL_ROSTER = [
+
   {
     name: "Sarah Connor",
     role: "Lead Architect",

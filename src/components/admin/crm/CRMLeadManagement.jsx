@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Users, UserPlus, Search, Filter, Phone, Mail, Calendar, Clock, AlertTriangle,
   CheckCircle2, ArrowRight, X, MessageSquare, History, Award, Check, RefreshCw,
-  Kanban, List, AlertCircle, FileText, ChevronRight, UserCheck, ShieldAlert,
+  Kanban, List, LayoutGrid, AlertCircle, FileText, ChevronRight, UserCheck, ShieldAlert,
   MoreVertical, TrendingUp, TrendingDown, Trophy, SlidersHorizontal, Plus,
   BarChart2, User, IndianRupee, Eye, EyeOff, Trash2, Edit3, CheckCircle, PieChart,
   GripVertical, Building, Building2
@@ -322,13 +322,14 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
     phone: '',
     email: '',
     projectType: 'Residential Project',
-    amount: '1800000',
+    amount: '',
     priorityTag: 'Hot Lead',
     source: 'Website',
     requirementNotes: '',
     assignedTo: '',
     nextFollowUpDate: ''
   });
+  const [createFormErrors, setCreateFormErrors] = useState({});
   const [createDuplicateWarning, setCreateDuplicateWarning] = useState(null);
   const [createLoading, setCreateLoading] = useState(false);
 
@@ -373,8 +374,34 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
   const fetchUsers = async () => {
     try {
       const res = await getUsersList();
-      const userList = Array.isArray(res) ? res : (res?.users || []);
-      setUsers(userList);
+      let userList = [];
+      if (Array.isArray(res)) {
+        userList = res;
+      } else if (res?.users && Array.isArray(res.users)) {
+        userList = res.users;
+      } else if (res?.data && Array.isArray(res.data)) {
+        userList = res.data;
+      }
+
+      const seen = new Set();
+      const uniqueUsers = userList.filter(u => {
+        const uId = u._id || u.id || u.email || u.name;
+        if (!uId || seen.has(uId)) return false;
+        seen.add(uId);
+        return true;
+      });
+
+      if (uniqueUsers.length > 0) {
+        setUsers(uniqueUsers);
+      } else {
+        const activeUserStr = localStorage.getItem('user');
+        if (activeUserStr) {
+          try {
+            const parsed = JSON.parse(activeUserStr);
+            setUsers([parsed]);
+          } catch(e) {}
+        }
+      }
     } catch (err) {
       console.error("Failed to load users", err);
     }
@@ -396,50 +423,46 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
     setLoading(true);
     setError('');
     try {
-      if (viewMode === 'pipeline') {
-        const res = await getLeads({
-          pipelineView: true,
-          search: searchQuery,
-          assignedTo: ownerFilter
-        });
-        if (res?.success) {
-          const grouped = {};
-          ALL_STATUSES.forEach(st => { grouped[st] = []; });
-          
-          if (res.pipeline && typeof res.pipeline === 'object' && Object.keys(res.pipeline).length > 0) {
-            Object.keys(res.pipeline).forEach(rawKey => {
-              const normalized = normalizeStatusKey(rawKey);
-              if (Array.isArray(res.pipeline[rawKey])) {
-                grouped[normalized] = [...(grouped[normalized] || []), ...res.pipeline[rawKey]];
-              }
-            });
-          } else if (Array.isArray(res.leads)) {
-            res.leads.forEach(l => {
-              const normalized = normalizeStatusKey(l.status);
-              if (grouped[normalized]) {
-                grouped[normalized].push(l);
-              }
-            });
+      const [pipeRes, listRes, dueRes] = await Promise.all([
+        getLeads({ pipelineView: true, search: searchQuery, assignedTo: ownerFilter }).catch(() => null),
+        getLeads({ page, limit: 100, search: searchQuery, status: statusFilter, assignedTo: ownerFilter }).catch(() => null),
+        getDueFollowUps({ date: dueDateFilter }).catch(() => null)
+      ]);
+
+      const grouped = {};
+      ALL_STATUSES.forEach(st => { grouped[st] = []; });
+
+      let fetchedList = [];
+      if (listRes?.success && Array.isArray(listRes.leads)) {
+        fetchedList = listRes.leads;
+      } else if (pipeRes?.success && Array.isArray(pipeRes.leads)) {
+        fetchedList = pipeRes.leads;
+      }
+
+      if (pipeRes?.pipeline && typeof pipeRes.pipeline === 'object' && Object.keys(pipeRes.pipeline).length > 0) {
+        Object.keys(pipeRes.pipeline).forEach(rawKey => {
+          const normalized = normalizeStatusKey(rawKey);
+          if (Array.isArray(pipeRes.pipeline[rawKey])) {
+            grouped[normalized] = [...(grouped[normalized] || []), ...pipeRes.pipeline[rawKey]];
           }
-          setPipelineData(grouped);
-        }
-      } else if (viewMode === 'list') {
-        const res = await getLeads({
-          page,
-          limit: 15,
-          search: searchQuery,
-          status: statusFilter,
-          assignedTo: ownerFilter
         });
-        if (res?.success) {
-          setLeads(res.leads || []);
-          setPagination(res.pagination || { total: 0, pages: 1 });
-        }
-      } else if (viewMode === 'due') {
-        const res = await getDueFollowUps({ date: dueDateFilter });
-        if (res?.success) {
-          setDueLeads(res.leads || []);
-        }
+      } else if (fetchedList.length > 0) {
+        fetchedList.forEach(l => {
+          const normalized = normalizeStatusKey(l.status);
+          if (grouped[normalized]) {
+            grouped[normalized].push(l);
+          }
+        });
+      }
+
+      setPipelineData(grouped);
+      setLeads(fetchedList);
+      if (listRes?.pagination) {
+        setPagination(listRes.pagination);
+      }
+
+      if (dueRes?.success && Array.isArray(dueRes.leads)) {
+        setDueLeads(dueRes.leads);
       }
     } catch (err) {
       setError(err.message || 'Failed to fetch lead data.');
@@ -664,19 +687,67 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
       phone: '',
       email: '',
       projectType: 'Residential Project',
-      amount: '1800000',
+      amount: '',
       priorityTag: preStatus === 'NEW' ? 'Hot Lead' : preStatus === 'QUALIFIED' ? 'High Priority' : preStatus === 'PROPOSAL_SENT' ? 'Proposal Sent' : preStatus === 'WON' ? 'Client Won' : 'Interested',
       source: 'Website',
       requirementNotes: '',
       assignedTo: '',
       nextFollowUpDate: new Date().toISOString().split('T')[0]
     });
+    setCreateFormErrors({});
     setCreateDuplicateWarning(null);
     setShowCreateModal(true);
   };
 
+  const handlePhoneInputChange = (e) => {
+    const rawVal = e.target.value;
+    const digitsOnly = rawVal.replace(/\D/g, '').slice(0, 10);
+    setNewLeadForm(prev => ({ ...prev, phone: digitsOnly }));
+    
+    if (digitsOnly.length > 0 && digitsOnly.length < 10) {
+      setCreateFormErrors(prev => ({ ...prev, phone: 'Phone number must be exactly 10 digits.' }));
+    } else {
+      setCreateFormErrors(prev => ({ ...prev, phone: null }));
+    }
+  };
+
+  const handleEmailInputChange = (e) => {
+    const rawVal = e.target.value;
+    // Lowercase & allow only a-z, 0-9, @, ., _, -
+    const cleanEmail = rawVal.toLowerCase().replace(/[^a-z0-9@._-]/g, '');
+    setNewLeadForm(prev => ({ ...prev, email: cleanEmail }));
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (cleanEmail && (!cleanEmail.includes('@') || !emailRegex.test(cleanEmail))) {
+      setCreateFormErrors(prev => ({ ...prev, email: "Please enter a valid email address containing '@' (e.g. client@example.com)." }));
+    } else {
+      setCreateFormErrors(prev => ({ ...prev, email: null }));
+    }
+  };
+
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
+    const errors = {};
+
+    if (!newLeadForm.name || !newLeadForm.name.trim()) {
+      errors.name = 'Full Name / Prospect Name is required.';
+    }
+
+    if (!newLeadForm.phone || newLeadForm.phone.length !== 10) {
+      errors.phone = 'Phone number must be exactly 10 digits.';
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (newLeadForm.email && (!newLeadForm.email.includes('@') || !emailRegex.test(newLeadForm.email))) {
+      errors.email = "Please enter a valid email address containing '@' (e.g. client@example.com).";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setCreateFormErrors(errors);
+      return;
+    }
+
+    setCreateFormErrors({});
     setCreateLoading(true);
     setCreateDuplicateWarning(null);
     try {
@@ -1069,28 +1140,50 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
 
         {/* Right Action & View Toggle Buttons */}
         <div className="flex items-center gap-2">
-          {/* View mode toggle */}
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+          {/* View mode toggle: Kanban, Cards, Stripe, Due */}
+          <div className="p-1 bg-white border border-slate-200 rounded-2xl flex items-center gap-1 shadow-3xs">
             <button
               onClick={() => setViewMode('pipeline')}
-              className={`p-2 rounded-lg transition-all cursor-pointer ${viewMode === 'pipeline' ? 'bg-brand-accent text-white shadow-2xs' : 'text-slate-500 hover:text-slate-800'}`}
-              title="Kanban Board View"
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                viewMode === 'pipeline' ? 'bg-gradient-to-r from-[#BDE0FE] to-[#8FC9FF] text-slate-900 shadow-3xs border border-[#8FC9FF]/60' : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Kanban Board Pipeline View"
             >
-              <Kanban className="w-4 h-4" />
+              <Kanban className="w-3.5 h-3.5" />
+              <span>Kanban</span>
             </button>
+
+            <button
+              onClick={() => setViewMode('cards')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                viewMode === 'cards' ? 'bg-gradient-to-r from-[#BDE0FE] to-[#8FC9FF] text-slate-900 shadow-3xs border border-[#8FC9FF]/60' : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Cards Grid View"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Cards</span>
+            </button>
+
             <button
               onClick={() => setViewMode('list')}
-              className={`p-2 rounded-lg transition-all cursor-pointer ${viewMode === 'list' ? 'bg-brand-accent text-white shadow-2xs' : 'text-slate-500 hover:text-slate-800'}`}
-              title="Directory Table View"
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                viewMode === 'list' ? 'bg-gradient-to-r from-[#BDE0FE] to-[#8FC9FF] text-slate-900 shadow-3xs border border-[#8FC9FF]/60' : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Stripe Directory List View"
             >
-              <List className="w-4 h-4" />
+              <List className="w-3.5 h-3.5" />
+              <span>Stripe</span>
             </button>
+
             <button
               onClick={() => setViewMode('due')}
-              className={`p-2 rounded-lg transition-all cursor-pointer ${viewMode === 'due' ? 'bg-brand-accent text-white shadow-2xs' : 'text-slate-500 hover:text-slate-800'}`}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                viewMode === 'due' ? 'bg-gradient-to-r from-[#BDE0FE] to-[#8FC9FF] text-slate-900 shadow-3xs border border-[#8FC9FF]/60' : 'text-slate-600 hover:text-slate-900'
+              }`}
               title="Due Follow-ups"
             >
-              <Clock className="w-4 h-4" />
+              <Clock className="w-3.5 h-3.5" />
+              <span>Due</span>
             </button>
           </div>
 
@@ -1305,6 +1398,109 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
         </div>
       )}
 
+      {/* VIEW: CARDS GRID VIEW */}
+      {viewMode === 'cards' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 font-sans">
+          {leads.length > 0 ? (
+            leads.map(lead => {
+              const normalizedSt = normalizeStatusKey(lead.status);
+              const cfg = STATUS_CONFIG[normalizedSt] || STATUS_CONFIG.NEW;
+              const avatarBg = getAvatarColor(lead.name);
+              const initials = getInitials(lead.name);
+              const leadId = lead._id || lead.id;
+
+              return (
+                <div
+                  key={leadId}
+                  className="bg-white rounded-3xl border border-slate-200/90 hover:border-indigo-300 transition-all p-5 shadow-2xs space-y-4 flex flex-col justify-between"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border ${cfg.color}`}>
+                        {cfg.label}
+                      </span>
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-md border ${getPriorityBadgeStyle(lead.priorityTag, lead.status)}`}>
+                        {lead.priorityTag || 'Hot Lead'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-start gap-3">
+                      <div className={`w-10 h-10 rounded-2xl font-black text-xs flex items-center justify-center border shrink-0 ${avatarBg}`}>
+                        {initials}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <strong
+                          onClick={() => handleOpenLeadDetails(leadId)}
+                          className="text-slate-900 block text-sm font-extrabold truncate hover:text-brand-accent cursor-pointer"
+                        >
+                          {lead.name}
+                        </strong>
+                        <span className="text-[11px] text-slate-500 font-medium block truncate">
+                          {lead.projectType || 'Architectural Project'} &bull; {lead.source || 'Website'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-slate-50/80 rounded-2xl border border-slate-100 space-y-1.5 text-xs font-semibold">
+                      <div className="flex items-center justify-between text-slate-700">
+                        <span className="text-slate-400 font-bold text-[10px] uppercase">Valuation:</span>
+                        <span className="font-extrabold text-slate-900">{formatCurrency(lead.amount)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-slate-700">
+                        <span className="text-slate-400 font-bold text-[10px] uppercase">Phone:</span>
+                        <span className="font-mono text-slate-800">{lead.phone}</span>
+                      </div>
+                      {lead.email && (
+                        <div className="flex items-center justify-between text-slate-700 truncate">
+                          <span className="text-slate-400 font-bold text-[10px] uppercase shrink-0">Email:</span>
+                          <span className="text-slate-600 truncate text-[11px]">{lead.email}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <span className="text-[10px] text-slate-500 font-bold flex items-center gap-1">
+                      <User className="w-3.5 h-3.5 text-slate-400" />
+                      {lead.assignedTo?.name || 'Bhakti'}
+                    </span>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleOpenLeadDetails(leadId)}
+                        className="p-1.5 bg-brand-soft hover:bg-brand-primary text-slate-900 rounded-xl transition-all border border-brand-secondary/40 text-xs font-extrabold cursor-pointer"
+                        title="View Details"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleEditFromOuter(lead)}
+                        className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-xl transition-all border border-amber-200 text-xs font-extrabold cursor-pointer"
+                        title="Edit Lead"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      {['WON', 'CONVERTED'].includes(normalizedSt) && (
+                        <button
+                          onClick={() => triggerClientConversion(lead)}
+                          className="px-2.5 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-xl text-[10px] font-black transition-all border border-emerald-300 cursor-pointer"
+                        >
+                          Convert Client
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="col-span-full py-12 text-center text-slate-400 font-bold border border-dashed border-slate-200 rounded-3xl bg-slate-50/50">
+              No prospective leads found in Cards Grid.
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 5. VIEW 2: LEADS DIRECTORY LIST TABLE */}
       {viewMode === 'list' && (
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
@@ -1506,153 +1702,7 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
         </div>
       )}
 
-      {/* 7. MODAL: CREATE NEW LEAD */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-slate-100 space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-indigo-600" />
-                Add New Lead ({STATUS_CONFIG[createPreSelectedStatus]?.label || 'New Lead'})
-              </h3>
-              <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            {createDuplicateWarning && (
-              <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs space-y-1">
-                <div className="font-bold flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-600" />
-                  Duplicate Lead Phone Number Detected!
-                </div>
-                <p>An active lead with phone <strong>{newLeadForm.phone}</strong> already exists for <strong>{createDuplicateWarning.name}</strong> (Status: {createDuplicateWarning.status}).</p>
-              </div>
-            )}
-
-            <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Full Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Bhakti Kadam"
-                  value={newLeadForm.name}
-                  onChange={(e) => setNewLeadForm({ ...newLeadForm, name: e.target.value })}
-                  className="w-full px-3.5 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Phone Number *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="09274322242"
-                    value={newLeadForm.phone}
-                    onChange={(e) => setNewLeadForm({ ...newLeadForm, phone: e.target.value })}
-                    className="w-full px-3.5 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Email Address</label>
-                  <input
-                    type="email"
-                    placeholder="bhakti@gmail.com"
-                    value={newLeadForm.email}
-                    onChange={(e) => setNewLeadForm({ ...newLeadForm, email: e.target.value })}
-                    className="w-full px-3.5 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Project Type</label>
-                  <select
-                    value={newLeadForm.projectType}
-                    onChange={(e) => setNewLeadForm({ ...newLeadForm, projectType: e.target.value })}
-                    className="w-full px-3.5 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
-                  >
-                    <option value="Residential Project">Residential Project</option>
-                    <option value="Commercial Project">Commercial Project</option>
-                    <option value="Interior Project">Interior Project</option>
-                    <option value="Villa Project">Villa Project</option>
-                    <option value="Office Renovation">Office Renovation</option>
-                    <option value="Luxury Villa">Luxury Villa</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Est. Budget (₹)</label>
-                  <input
-                    type="number"
-                    placeholder="1800000"
-                    value={newLeadForm.amount}
-                    onChange={(e) => setNewLeadForm({ ...newLeadForm, amount: e.target.value })}
-                    className="w-full px-3.5 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Source *</label>
-                  <select
-                    value={newLeadForm.source}
-                    onChange={(e) => setNewLeadForm({ ...newLeadForm, source: e.target.value })}
-                    className="w-full px-3.5 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
-                  >
-                    <option value="Website">Website</option>
-                    <option value="Referral">Referral</option>
-                    <option value="WalkIn">WalkIn</option>
-                    <option value="SocialMedia">SocialMedia</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Assign Staff Owner</label>
-                  <select
-                    value={newLeadForm.assignedTo}
-                    onChange={(e) => setNewLeadForm({ ...newLeadForm, assignedTo: e.target.value })}
-                    className="w-full px-3.5 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
-                  >
-                    <option value="">Default (Bhakti)</option>
-                    <option value="Bhakti">Bhakti</option>
-                    <option value="Rohit">Rohit</option>
-                    {users.map(u => (
-                      <option key={u.id || u._id} value={u.name}>
-                        {u.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Requirement Notes</label>
-                <textarea
-                  rows="3"
-                  placeholder="Architectural design requirements, budget range..."
-                  value={newLeadForm.requirementNotes}
-                  onChange={(e) => setNewLeadForm({ ...newLeadForm, requirementNotes: e.target.value })}
-                  className="w-full px-3.5 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
-                ></textarea>
-              </div>
-
-              <button
-                type="submit"
-                disabled={createLoading}
-                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
-              >
-                {createLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                {createLoading ? 'Saving Lead...' : 'Submit Lead Registration'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* 8. MODAL: VIEW ANALYTICS OVERVIEW */}
       {showAnalyticsModal && (
@@ -2079,9 +2129,10 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
                       <span className="text-[10px] font-bold text-slate-500 uppercase">Set Follow-Up:</span>
                       <input
                         type="date"
+                        min={new Date().toISOString().split('T')[0]}
                         value={interactionForm.nextFollowUpDate || ''}
                         onChange={(e) => setInteractionForm({ ...interactionForm, nextFollowUpDate: e.target.value })}
-                        className="px-2.5 py-1 border border-slate-200 rounded-lg text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="px-2.5 py-1 border border-slate-200 rounded-lg text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                       />
                     </div>
                   </div>
@@ -2206,28 +2257,50 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Full Name */}
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">Full Name / Prospect Name *</label>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    Full Name / Prospect Name <span className="text-red-500 font-bold ml-0.5">*</span>
+                  </label>
                   <input
                     type="text"
-                    required
                     placeholder="e.g. Rahul Sharma"
                     value={newLeadForm.name}
-                    onChange={(e) => setNewLeadForm(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary bg-slate-50/50"
+                    onChange={(e) => {
+                      setNewLeadForm(prev => ({ ...prev, name: e.target.value }));
+                      if (e.target.value.trim()) setCreateFormErrors(prev => ({ ...prev, name: null }));
+                    }}
+                    className={`w-full px-3.5 py-2.5 border rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 bg-slate-50/50 ${
+                      createFormErrors.name ? 'border-red-500 focus:ring-red-200 bg-red-50/20' : 'border-slate-200 focus:ring-brand-primary/40 focus:border-brand-primary'
+                    }`}
                   />
+                  {createFormErrors.name && (
+                    <p className="text-red-500 text-[11px] font-semibold mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0 text-red-500" />
+                      <span>{createFormErrors.name}</span>
+                    </p>
+                  )}
                 </div>
 
                 {/* Phone */}
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">Phone Number *</label>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    Phone Number <span className="text-red-500 font-bold ml-0.5">*</span>
+                  </label>
                   <input
                     type="tel"
-                    required
-                    placeholder="e.g. +91 9876543210"
+                    maxLength={10}
+                    placeholder="e.g. 9876543210"
                     value={newLeadForm.phone}
-                    onChange={(e) => setNewLeadForm(prev => ({ ...prev, phone: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary bg-slate-50/50"
+                    onChange={handlePhoneInputChange}
+                    className={`w-full px-3.5 py-2.5 border rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 bg-slate-50/50 ${
+                      createFormErrors.phone ? 'border-red-500 focus:ring-red-200 bg-red-50/20' : 'border-slate-200 focus:ring-brand-primary/40 focus:border-brand-primary'
+                    }`}
                   />
+                  {createFormErrors.phone && (
+                    <p className="text-red-500 text-[11px] font-semibold mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0 text-red-500" />
+                      <span>{createFormErrors.phone}</span>
+                    </p>
+                  )}
                 </div>
 
                 {/* Email */}
@@ -2237,14 +2310,24 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
                     type="email"
                     placeholder="e.g. client@example.com"
                     value={newLeadForm.email}
-                    onChange={(e) => setNewLeadForm(prev => ({ ...prev, email: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary bg-slate-50/50"
+                    onChange={handleEmailInputChange}
+                    className={`w-full px-3.5 py-2.5 border rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 bg-slate-50/50 ${
+                      createFormErrors.email ? 'border-red-500 focus:ring-red-200 bg-red-50/20' : 'border-slate-200 focus:ring-brand-primary/40 focus:border-brand-primary'
+                    }`}
                   />
+                  {createFormErrors.email && (
+                    <p className="text-red-500 text-[11px] font-semibold mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0 text-red-500" />
+                      <span>{createFormErrors.email}</span>
+                    </p>
+                  )}
                 </div>
 
                 {/* Lead Source */}
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">Lead Source *</label>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    Lead Source <span className="text-red-500 font-bold ml-0.5">*</span>
+                  </label>
                   <select
                     value={newLeadForm.source}
                     onChange={(e) => setNewLeadForm(prev => ({ ...prev, source: e.target.value }))}
@@ -2260,7 +2343,9 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
 
                 {/* Initial Status */}
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">Initial Pipeline Stage *</label>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    Initial Pipeline Stage <span className="text-red-500 font-bold ml-0.5">*</span>
+                  </label>
                   <select
                     value={createPreSelectedStatus}
                     onChange={(e) => setCreatePreSelectedStatus(e.target.value)}
@@ -2326,12 +2411,13 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
 
               {/* Next Follow-up Date */}
               <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">Next Scheduled Follow-up Date</label>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">Next Scheduled Follow-up Date (Today & Future Dates Only)</label>
                 <input
                   type="date"
+                  min={new Date().toISOString().split('T')[0]}
                   value={newLeadForm.nextFollowUpDate}
                   onChange={(e) => setNewLeadForm(prev => ({ ...prev, nextFollowUpDate: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary bg-slate-50/50"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary bg-slate-50/50 cursor-pointer"
                 />
               </div>
 
@@ -2383,7 +2469,9 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
 
             <form onSubmit={handleStatusChangeSubmit} className="space-y-4">
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Select New Lifecycle Status *</label>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Select New Lifecycle Status <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <select
                   value={targetStatus}
                   onChange={(e) => setTargetStatus(e.target.value)}
@@ -2398,7 +2486,9 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
 
               {targetStatus === 'LOST' && (
                 <div>
-                  <label className="block font-bold text-rose-700 mb-1">Mandatory Lost Reason *</label>
+                  <label className="block font-bold text-rose-700 mb-1">
+                    Mandatory Lost Reason <span className="text-red-500 font-bold ml-0.5">*</span>
+                  </label>
                   <textarea
                     rows="3"
                     required
@@ -2556,15 +2646,24 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
                 </span>
 
                 <div>
-                  <label className="block text-slate-750 font-bold mb-1">Company / Account Name *</label>
+                  <label className="block text-slate-750 font-bold mb-1">
+                    Company / Account Name <span className="text-rose-500 font-bold ml-0.5">*</span>
+                  </label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Wayne Enterprises"
                     value={clientFormData.name}
                     onChange={(e) => setClientFormData(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-slate-900 font-semibold"
+                    className={`w-full px-3 py-2 border rounded-xl bg-white text-slate-900 font-semibold ${
+                      !clientFormData.name.trim() && clientFormError ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/20' : 'border-slate-300'
+                    }`}
                   />
+                  {!clientFormData.name.trim() && clientFormError && (
+                    <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" /> Account name is required
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2579,16 +2678,30 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-750 font-bold mb-1">Company Phone * (10 Digits)</label>
+                    <label className="block text-slate-750 font-bold mb-1">
+                      Company Phone <span className="text-rose-500 font-bold ml-0.5">*</span> (10 Digits)
+                    </label>
                     <input
                       type="tel"
                       required
                       maxLength={10}
                       placeholder="9876543210"
                       value={clientFormData.phone}
-                      onChange={(e) => setClientFormData(prev => ({ ...prev, phone: e.target.value }))}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-slate-900 font-mono font-semibold"
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setClientFormData(prev => ({ ...prev, phone: digits }));
+                      }}
+                      className={`w-full px-3 py-2 border rounded-xl bg-white text-slate-900 font-mono font-semibold ${
+                        (clientFormData.phone && clientFormData.phone.length !== 10) || (!clientFormData.phone && clientFormError)
+                          ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/20'
+                          : 'border-slate-300'
+                      }`}
                     />
+                    {clientFormData.phone && clientFormData.phone.length !== 10 && (
+                      <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" /> Phone must be exactly 10 digits ({clientFormData.phone.length}/10)
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -2599,8 +2712,17 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
                     placeholder="e.g. info@company.com"
                     value={clientFormData.email}
                     onChange={(e) => setClientFormData(prev => ({ ...prev, email: e.target.value }))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-slate-900 font-semibold"
+                    className={`w-full px-3 py-2 border rounded-xl bg-white text-slate-900 font-semibold ${
+                      clientFormData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientFormData.email)
+                        ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/20'
+                        : 'border-slate-300'
+                    }`}
                   />
+                  {clientFormData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientFormData.email) && (
+                    <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" /> Enter a valid email address
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -2610,28 +2732,48 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
                 </span>
 
                 <div>
-                  <label className="block text-slate-750 font-bold mb-1">Primary Contact Full Name *</label>
+                  <label className="block text-slate-750 font-bold mb-1">
+                    Primary Contact Full Name <span className="text-rose-500 font-bold ml-0.5">*</span>
+                  </label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Bruce Wayne"
                     value={clientFormData.primaryContactName}
                     onChange={(e) => setClientFormData(prev => ({ ...prev, primaryContactName: e.target.value }))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-slate-900 font-semibold"
+                    className={`w-full px-3 py-2 border rounded-xl bg-white text-slate-900 font-semibold ${
+                      !clientFormData.primaryContactName.trim() && clientFormError ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/20' : 'border-slate-300'
+                    }`}
                   />
+                  {!clientFormData.primaryContactName.trim() && clientFormError && (
+                    <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" /> Contact person full name required
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-slate-750 font-bold mb-1">Portal Login Email *</label>
+                    <label className="block text-slate-750 font-bold mb-1">
+                      Portal Login Email <span className="text-rose-500 font-bold ml-0.5">*</span>
+                    </label>
                     <input
                       type="email"
                       required
                       placeholder="bruce@waynecorp.com"
                       value={clientFormData.primaryContactEmail}
                       onChange={(e) => setClientFormData(prev => ({ ...prev, primaryContactEmail: e.target.value }))}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-slate-900 font-semibold"
+                      className={`w-full px-3 py-2 border rounded-xl bg-white text-slate-900 font-semibold ${
+                        (clientFormData.primaryContactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientFormData.primaryContactEmail)) || (!clientFormData.primaryContactEmail && clientFormError)
+                          ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/20'
+                          : 'border-slate-300'
+                      }`}
                     />
+                    {clientFormData.primaryContactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientFormData.primaryContactEmail) && (
+                      <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" /> Enter a valid email format
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-slate-750 font-bold mb-1">Contact Phone (10 Digits)</label>
@@ -2640,9 +2782,21 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
                       maxLength={10}
                       placeholder="9876543210"
                       value={clientFormData.primaryContactPhone}
-                      onChange={(e) => setClientFormData(prev => ({ ...prev, primaryContactPhone: e.target.value }))}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-slate-900 font-mono font-semibold"
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setClientFormData(prev => ({ ...prev, primaryContactPhone: digits }));
+                      }}
+                      className={`w-full px-3 py-2 border rounded-xl bg-white text-slate-900 font-mono font-semibold ${
+                        clientFormData.primaryContactPhone && clientFormData.primaryContactPhone.length !== 10
+                          ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/20'
+                          : 'border-slate-300'
+                      }`}
                     />
+                    {clientFormData.primaryContactPhone && clientFormData.primaryContactPhone.length !== 10 && (
+                      <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" /> Phone must be 10 digits
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

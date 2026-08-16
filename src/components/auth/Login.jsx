@@ -814,7 +814,9 @@ export default function Login({ onLogin }) {
 
             <form noValidate onSubmit={handleForcePasswordChangeSubmit} className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Temporary / Current Password *</label>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Temporary / Current Password <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -833,7 +835,9 @@ export default function Login({ onLogin }) {
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1">New Secure Password *</label>
+                <label className="block text-slate-700 font-bold mb-1">
+                  New Secure Password <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -855,7 +859,9 @@ export default function Login({ onLogin }) {
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Confirm New Password *</label>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Confirm New Password <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -911,7 +917,9 @@ export default function Login({ onLogin }) {
             <form noValidate onSubmit={handleForgotSubmit} className="space-y-3 text-xs">
               {forgotStep === 1 ? (
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">Registered Client Email Address *</label>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Registered Client Email Address <span className="text-red-500 font-bold ml-0.5">*</span>
+                  </label>
                   <input
                     type="email"
                     value={forgotEmail}
@@ -926,7 +934,9 @@ export default function Login({ onLogin }) {
               ) : (
                 <>
                   <div>
-                    <label className="block text-slate-700 font-bold mb-1">Reset Token *</label>
+                    <label className="block text-slate-700 font-bold mb-1">
+                      Reset Token <span className="text-red-500 font-bold ml-0.5">*</span>
+                    </label>
                     <input
                       type="text"
                       value={resetToken}
@@ -936,7 +946,9 @@ export default function Login({ onLogin }) {
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-700 font-bold mb-1">New Password *</label>
+                    <label className="block text-slate-700 font-bold mb-1">
+                      New Password <span className="text-red-500 font-bold ml-0.5">*</span>
+                    </label>
                     <input
                       type="password"
                       minLength={8}

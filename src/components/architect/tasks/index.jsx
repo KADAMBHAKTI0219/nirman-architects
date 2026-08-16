@@ -1,21 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Search, LayoutGrid, List, Play, Square, Pause, Plus, Clock, 
-  AlertTriangle, X, Paperclip, MessageSquare, CheckCircle, RefreshCw 
+  AlertTriangle, X, Paperclip, MessageSquare, CheckCircle2, RefreshCw, Send, CheckCircle
 } from 'lucide-react';
 import Card from '../../common/Card';
 import { getProjects } from '../../../service/project';
-import { getTasks, acceptTask, startTask, submitTaskForReview, completeTask } from '../../../service/task';
+import { 
+  getTasks, acceptTask, startTask, submitTaskForReview, completeTask, normalizeTask 
+} from '../../../service/task';
 
 export default function Tasks() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState('kanban'); // kanban, list
-  const [selectedProject, setSelectedProject] = useState('All');
-  const [selectedPriority, setSelectedPriority] = useState('All');
+  const [selectedStatusTab, setSelectedStatusTab] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTask, setSelectedTask] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   useEffect(() => {
     fetchArchitectTasks();
@@ -25,68 +26,27 @@ export default function Tasks() {
     setLoading(true);
     try {
       const res = await getTasks();
-      if (res?.success && Array.isArray(res.tasks) && res.tasks.length > 0) {
-        const mapped = res.tasks.map((t, idx) => {
-          const projStr = typeof t.projectId === 'object' ? (t.projectId?.projectName || t.projectId?.name) : (t.project || 'General Project');
-          return {
-            id: t._id ? `TSK-${t._id.slice(-5).toUpperCase()}` : `TSK-${idx + 401}`,
-            _id: t._id,
-            title: t.taskName || t.title || 'Architectural Task',
-            project: projStr || 'General Project',
-            priority: t.priority || 'High',
-            status: t.status || 'In Progress',
-            deadline: t.deadline ? new Date(t.deadline).toISOString().split('T')[0] : '2026-12-31',
-            estHours: t.estimatedTime || 16,
-            loggedHours: t.totalWorkingTimeMinutes ? Math.round(t.totalWorkingTimeMinutes / 60) : 8,
-            timerActive: false
-          };
-        });
-
-        const unique = [];
-        const seen = new Set();
-        mapped.forEach(item => {
-          const key = item._id || item.id;
-          if (!seen.has(key)) {
-            seen.add(key);
-            unique.push(item);
-          }
-        });
-        setTasks(unique);
-      } else {
-        const projRes = await getProjects();
-        if (projRes?.success && Array.isArray(projRes.projects)) {
-          const loadedTasks = [];
-          projRes.projects.forEach((proj, pIdx) => {
-            const projName = proj.projectName || proj.name || 'Project';
-            const milestones = proj.milestones || [];
-            milestones.forEach((m, mIdx) => {
-              loadedTasks.push({
-                id: m._id ? `TSK-${m._id.slice(-5).toUpperCase()}` : `TSK-${pIdx + 1}0${mIdx + 1}`,
-                _id: m._id,
-                title: m.name || m.title || 'Architectural Task',
-                project: projName,
-                priority: proj.priority || 'High',
-                status: m.isCompleted ? 'Completed' : 'In Progress',
-                deadline: m.targetDate ? new Date(m.targetDate).toISOString().split('T')[0] : '2026-12-31',
-                estHours: 16,
-                loggedHours: m.isCompleted ? 16 : 8,
-                timerActive: false
-              });
-            });
-          });
-
-          const unique = [];
-          const seen = new Set();
-          loadedTasks.forEach(item => {
-            const key = item._id || item.id;
-            if (!seen.has(key)) {
-              seen.add(key);
-              unique.push(item);
-            }
-          });
-          setTasks(unique);
-        }
+      let rawTasks = [];
+      if (res?.success && Array.isArray(res.tasks)) {
+        rawTasks = res.tasks;
+      } else if (Array.isArray(res)) {
+        rawTasks = res;
       }
+
+      const normalized = rawTasks.map(t => normalizeTask(t)).filter(Boolean);
+      
+      // Deduplicate
+      const unique = [];
+      const seen = new Set();
+      normalized.forEach(item => {
+        const key = item._id || item.id;
+        if (!seen.has(key)) {
+          seen.add(key);
+          unique.push(item);
+        }
+      });
+
+      setTasks(unique);
     } catch (err) {
       console.warn("Failed to fetch architect tasks:", err);
     } finally {
@@ -94,17 +54,40 @@ export default function Tasks() {
     }
   };
 
+  const handleAction = async (taskId, actionType) => {
+    setActionError('');
+    try {
+      if (actionType === 'accept') await acceptTask(taskId);
+      else if (actionType === 'start') await startTask(taskId);
+      else if (actionType === 'submit') await submitTaskForReview(taskId);
+      else if (actionType === 'complete') await completeTask(taskId);
+      fetchArchitectTasks();
+      if (selectedTask) setDrawerOpen(false);
+    } catch (e) {
+      const msg = e.response?.data?.message || e.message || '';
+      if (msg.toLowerCase().includes('depend') || msg.toLowerCase().includes('block')) {
+        setActionError('Task cannot be started because dependent tasks are incomplete.');
+      } else {
+        setActionError(msg || 'Failed to update task workflow.');
+      }
+    }
+  };
+
   const filteredTasks = tasks.filter(t => {
     const matchesSearch = (t.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (t.project || '').toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesProject = selectedProject === 'All' || t.project === selectedProject;
-    const matchesPriority = selectedPriority === 'All' || t.priority === selectedPriority;
-    return matchesSearch && matchesProject && matchesPriority;
-  });
+                          (t.project || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (t.id || '').toLowerCase().includes(searchQuery.toLowerCase());
+    
+    let matchesTab = true;
+    if (selectedStatusTab === 'Pending') matchesTab = t.status === 'Pending';
+    else if (selectedStatusTab === 'Accepted') matchesTab = t.status === 'Accepted';
+    else if (selectedStatusTab === 'In Progress') matchesTab = t.status === 'In Progress';
+    else if (selectedStatusTab === 'Review') matchesTab = t.status === 'Review';
+    else if (selectedStatusTab === 'Completed') matchesTab = t.status === 'Completed' || t.status === 'Approved';
+    else if (selectedStatusTab === 'Overdue') matchesTab = t.isDelayed || (t.deadline && new Date(t.deadline) < new Date() && t.status !== 'Completed');
 
-  const toggleTimer = (taskId) => {
-    setTasks(tasks.map(t => t.id === taskId ? { ...t, timerActive: !t.timerActive } : t));
-  };
+    return matchesSearch && matchesTab;
+  });
 
   return (
     <div className="space-y-6 font-sans text-slate-800 animate-in fade-in duration-200 pb-16 w-full max-w-[1400px] mx-auto">
@@ -112,17 +95,17 @@ export default function Tasks() {
       {/* PAGE HEADER */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight">
-            Architect Design Tasks
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            My Design Tasks
           </h1>
-          <p className="text-slate-500 text-xs sm:text-sm mt-0.5 font-normal">
-            Track architectural CAD drafting assignments, design reviews & timesheet hours
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5 font-medium">
+            Assigned project deliverables, design reviews & workflow progress
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <button 
-            onClick={fetchTasksFromProjects}
+            onClick={fetchArchitectTasks}
             className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl border border-slate-200 transition-colors cursor-pointer"
             title="Refresh Tasks"
           >
@@ -131,8 +114,26 @@ export default function Tasks() {
         </div>
       </div>
 
-      {/* SEARCH BAR */}
+      {/* FILTER TABS & SEARCH */}
       <div className="bg-white p-4 rounded-3xl border border-slate-200/90 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-4">
+        
+        {/* Status Filter Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 font-extrabold text-xs">
+          {['All', 'Pending', 'Accepted', 'In Progress', 'Review', 'Completed', 'Overdue'].map(tab => (
+            <button
+              key={tab}
+              onClick={() => setSelectedStatusTab(tab)}
+              className={`px-3.5 py-2 rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+                selectedStatusTab === tab
+                  ? 'bg-slate-900 text-white shadow-3xs'
+                  : 'bg-slate-100/70 text-slate-600 hover:bg-slate-200/70'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
         <div className="relative w-full md:w-80">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
@@ -140,73 +141,101 @@ export default function Tasks() {
             placeholder="Search task title or project..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-normal focus:outline-none focus:ring-2 focus:ring-brand-primary/30 bg-slate-50"
+            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
           />
         </div>
       </div>
 
-      {/* TASKS VIEW */}
-      {loading ? (
-        <div className="py-16 text-center text-slate-400 bg-white rounded-3xl border border-slate-200/90 space-y-2">
-          <RefreshCw className="w-6 h-6 animate-spin mx-auto text-indigo-500" />
-          <p className="text-xs font-normal">Loading design tasks from backend...</p>
-        </div>
-      ) : filteredTasks.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {['To Do', 'In Progress', 'Completed'].map(statusName => (
-            <Card key={statusName} title={`${statusName} Tasks`}>
-              <div className="space-y-3 pt-2">
-                {filteredTasks.filter(t => t.status === statusName || (statusName === 'To Do' && t.status !== 'In Progress' && t.status !== 'Completed')).map((task, idx) => (
-                  <div 
-                    key={task._id ? `arch-card-${statusName}-${task._id}` : `arch-card-${statusName}-${task.id}-${idx}`}
-                    onClick={() => { setSelectedTask(task); setDrawerOpen(true); }}
-                    className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2 cursor-pointer hover:border-brand-secondary transition-all"
-                  >
-                    <span className="text-[10px] font-semibold text-slate-400 font-mono block">{task.id}</span>
-                    <h3 className="text-xs font-semibold text-slate-900 leading-snug">{task.title}</h3>
-                    <div className="flex justify-between items-center text-[10px] text-slate-500 font-normal pt-1 border-t border-slate-200/60">
-                      <span>Project: <strong>{task.project}</strong></span>
-                      <span>Target: {task.deadline}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <div className="py-16 text-center text-slate-400 bg-white rounded-3xl border border-slate-200/90 p-8 font-normal">
-          <Clock className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-          <p className="text-xs font-semibold text-slate-700">No design tasks found.</p>
+      {/* ERROR ALERT */}
+      {actionError && (
+        <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-xs font-bold text-rose-700 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+          <span>{actionError}</span>
         </div>
       )}
 
-      {/* DRAWER MODAL */}
-      {selectedTask && drawerOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-[99999]">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 font-sans text-left">
-            <div className="flex justify-between items-start border-b border-slate-100 pb-3">
-              <div>
-                <span className="text-[10px] font-mono text-indigo-600 uppercase font-semibold">{selectedTask.id}</span>
-                <h3 className="text-base font-semibold text-slate-900 mt-0.5">{selectedTask.title}</h3>
-              </div>
-              <button onClick={() => setDrawerOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold text-xl cursor-pointer">&times;</button>
-            </div>
-
-            <div className="space-y-3 text-xs font-normal text-slate-700">
-              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-1">
-                <span className="text-[9px] text-slate-400 uppercase font-medium block">Project & Deadline</span>
-                <span className="text-slate-900 font-semibold block">{selectedTask.project} &bull; {selectedTask.deadline}</span>
-              </div>
-            </div>
-
-            <button 
-              onClick={() => setDrawerOpen(false)}
-              className="w-full py-2.5 bg-brand-primary text-slate-900 font-semibold text-xs rounded-xl shadow-2xs cursor-pointer border border-brand-secondary/40"
+      {/* TASKS GRID */}
+      {loading ? (
+        <div className="py-16 text-center text-slate-400 bg-white rounded-3xl border border-slate-200/90 space-y-2">
+          <RefreshCw className="w-6 h-6 animate-spin mx-auto text-indigo-500" />
+          <p className="text-xs font-semibold">Loading assigned tasks from backend...</p>
+        </div>
+      ) : filteredTasks.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filteredTasks.map((task) => (
+            <div 
+              key={task._id || task.id}
+              className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between space-y-4"
             >
-              Close Details
-            </button>
-          </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono font-bold text-slate-400 uppercase">{task.id}</span>
+                  <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${
+                    task.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                    task.status === 'Review' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                    task.status === 'In Progress' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                    'bg-slate-100 text-slate-700 border-slate-200'
+                  }`}>
+                    {task.status}
+                  </span>
+                </div>
+
+                <h3 className="text-sm font-extrabold text-slate-900 leading-snug">{task.title}</h3>
+                <span className="text-xs text-slate-500 font-semibold block">{task.project}</span>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                <div className="text-[10px] text-slate-400 font-bold">
+                  Due: <span className="text-slate-800 font-mono">{task.deadline}</span>
+                </div>
+
+                {/* CONTEXTUAL ACTION CTA */}
+                <div>
+                  {task.status === 'Pending' && (
+                    <button 
+                      onClick={() => handleAction(task._id || task.id, 'accept')}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase shadow-3xs cursor-pointer"
+                    >
+                      Accept
+                    </button>
+                  )}
+
+                  {task.status === 'Accepted' && (
+                    <button 
+                      onClick={() => handleAction(task._id || task.id, 'start')}
+                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase shadow-3xs cursor-pointer flex items-center gap-1"
+                    >
+                      <Play className="w-3 h-3 fill-white" /> Start
+                    </button>
+                  )}
+
+                  {task.status === 'In Progress' && (
+                    <button 
+                      onClick={() => handleAction(task._id || task.id, 'submit')}
+                      className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black uppercase shadow-3xs cursor-pointer flex items-center gap-1"
+                    >
+                      <Send className="w-3 h-3" /> Submit
+                    </button>
+                  )}
+
+                  {task.status === 'Review' && (
+                    <span className="text-[10px] font-bold text-amber-600 italic">Waiting for PM Review</span>
+                  )}
+
+                  {task.status === 'Completed' && (
+                    <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Done
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="py-16 text-center text-slate-400 bg-white rounded-3xl border border-slate-200/90 p-8">
+          <Clock className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+          <p className="text-xs font-bold text-slate-700">No matching design tasks found.</p>
         </div>
       )}
 

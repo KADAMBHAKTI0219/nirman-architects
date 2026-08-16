@@ -84,7 +84,7 @@ export default function ArchitectDocuments() {
   const handleUploadSubmit = async (formData) => {
     try {
       const payload = {
-        projectId: formData.projectId || 'proj-1',
+        projectId: formData.projectId || selectedProjectId || '',
         folderId: formData.folderId || null,
         documentName: formData.name || formData.documentName || 'Architect Blueprint.pdf',
         fileName: formData.name || formData.fileName || 'Architect Blueprint.pdf',
@@ -97,7 +97,7 @@ export default function ArchitectDocuments() {
         visibleToClient: formData.visibleToClient === true ? true : false
       };
       await uploadDocument(payload);
-      alert(`Document "${payload.documentName}" uploaded successfully with V1 (visibleToClient: false by default)!`);
+      alert(`Document "${payload.documentName}" uploaded successfully!`);
       setIsUploadModalOpen(false);
       fetchDocs();
     } catch (err) {
@@ -110,10 +110,10 @@ export default function ArchitectDocuments() {
     const folderName = await window.prompt("Enter new Project Folder name:", "", "Create Folder");
     if (!folderName || !folderName.trim()) return;
     try {
-      await createProjectFolder('proj-1', folderName.trim(), 'Created by Architect');
+      await createProjectFolder(selectedProjectId || '', folderName.trim(), 'Created by Architect');
       fetchFolders();
       fetchDocs();
-      alert(`Folder "${folderName.trim()}" created successfully! (POST /api/projects/proj-1/document-folders/create)`);
+      alert(`Folder "${folderName.trim()}" created successfully!`);
     } catch (err) {
       alert("Error creating folder");
     }

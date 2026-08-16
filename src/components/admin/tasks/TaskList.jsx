@@ -115,6 +115,69 @@ export default function TaskList({
         </div>
       </div>
 
+      {/* 2. KPI SUMMARY CARDS */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3.5">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-3xs flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Tasks</span>
+            <span className="text-xl font-black text-slate-900 font-mono mt-0.5 block">{totalTasks}</span>
+          </div>
+          <div className="p-2 bg-slate-50 text-slate-600 rounded-xl border border-slate-200/60">
+            <CheckSquare className="w-4 h-4" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-3xs flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pending</span>
+            <span className="text-xl font-black text-slate-800 font-mono mt-0.5 block">{pendingTasks}</span>
+          </div>
+          <div className="p-2 bg-slate-100 text-slate-600 rounded-xl border border-slate-200/60">
+            <Clock className="w-4 h-4" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-3xs flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">In Progress</span>
+            <span className="text-xl font-black text-indigo-700 font-mono mt-0.5 block">{inProgressTasks}</span>
+          </div>
+          <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100">
+            <RefreshCw className="w-4 h-4 animate-spin" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-3xs flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider block">In Review</span>
+            <span className="text-xl font-black text-amber-700 font-mono mt-0.5 block">{reviewTasks}</span>
+          </div>
+          <div className="p-2 bg-amber-50 text-amber-600 rounded-xl border border-amber-100">
+            <AlertCircle className="w-4 h-4" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-3xs flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block">Overdue</span>
+            <span className="text-xl font-black text-rose-700 font-mono mt-0.5 block">{overdueTasks}</span>
+          </div>
+          <div className="p-2 bg-rose-50 text-rose-600 rounded-xl border border-rose-100">
+            <AlertTriangle className="w-4 h-4" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-3xs flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">Completed</span>
+            <span className="text-xl font-black text-emerald-700 font-mono mt-0.5 block">{completedTasks}</span>
+          </div>
+          <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100">
+            <CheckCircle className="w-4 h-4" />
+          </div>
+        </div>
+      </div>
+
       {/* 3. FILTERING & SEARCH CONTROL STRIP */}
       {viewMode !== 'reports' && (
         <div className="bg-white p-4 rounded-3xl border border-slate-200/90 shadow-2xs flex flex-col md:flex-row gap-3.5 items-stretch md:items-center justify-between">
@@ -137,9 +200,9 @@ export default function TaskList({
               className="px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl bg-white font-semibold text-slate-700 cursor-pointer"
             >
               <option value="All">All Projects</option>
-              <option value="Central Office Tower">Central Office Tower</option>
-              <option value="Oceanic Luxury Villas">Oceanic Luxury Villas</option>
-              <option value="Smart City Mall">Smart City Mall</option>
+              {Array.from(new Set((tasks || []).map(t => t.project || t.projectName).filter(Boolean))).map(pName => (
+                <option key={pName} value={pName}>{pName}</option>
+              ))}
             </select>
 
             <select
@@ -148,10 +211,9 @@ export default function TaskList({
               className="px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl bg-white font-semibold text-slate-700 cursor-pointer"
             >
               <option value="All">All Departments</option>
-              <option value="Architecture">Architecture</option>
-              <option value="Engineering">Engineering</option>
-              <option value="Procurement">Procurement</option>
-              <option value="Quality Control">Quality Control</option>
+              {Array.from(new Set((tasks || []).map(t => t.dept || t.departmentName).filter(Boolean))).map(dName => (
+                <option key={dName} value={dName}>{dName}</option>
+              ))}
             </select>
 
             <select
@@ -170,128 +232,146 @@ export default function TaskList({
         </div>
       )}
 
-      {/* 4. KANBAN BOARD VIEW (FLUID RESPONSIVE GRID + REAL-TIME DRAG & DROP) */}
+      {/* 4. KANBAN BOARD VIEW (HORIZONTALLY SCROLLABLE + REAL-TIME DRAG & DROP) */}
       {viewMode === 'kanban' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 w-full items-start">
-          {STATUS_COLUMNS.map((col) => {
-            const columnTasks = filteredTasks.filter(t => t.status === col.id);
-            const isHoveredOver = dragOverCol === col.id;
+        <div className="w-full overflow-x-auto pb-6 pt-1 custom-horizontal-scrollbar">
+          <div className="flex gap-4.5 items-start min-w-max">
+            {STATUS_COLUMNS.map((col) => {
+              const columnTasks = filteredTasks.filter(t => t.status === col.id);
+              const isHoveredOver = dragOverCol === col.id;
 
-            return (
-              <div
-                key={col.id}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = 'move';
-                  if (dragOverCol !== col.id) setDragOverCol(col.id);
-                }}
-                onDragLeave={(e) => {
-                  e.preventDefault();
-                  if (dragOverCol === col.id) setDragOverCol(null);
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragOverCol(null);
-                  alert("Task status updates are view-only in Admin Panel. Workflow status is updated by assigned team members & PMs.");
-                }}
-                className={`w-full p-3.5 rounded-3xl flex flex-col min-h-[480px] border transition-all duration-200 ${isHoveredOver
-                  ? 'bg-indigo-50/80 border-indigo-400 ring-2 ring-indigo-400/30 scale-[1.01] shadow-md'
-                  : 'bg-slate-50/90 border-slate-200/80 shadow-3xs'
+              return (
+                <div
+                  key={col.id}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (dragOverCol !== col.id) setDragOverCol(col.id);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    if (dragOverCol === col.id) setDragOverCol(null);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOverCol(null);
+                    alert("Task status updates are view-only in Admin Panel. Workflow status is updated by assigned team members & PMs.");
+                  }}
+                  className={`w-[300px] min-w-[280px] max-w-[320px] flex-shrink-0 p-4 rounded-3xl flex flex-col min-h-[580px] max-h-[calc(100vh-250px)] border transition-all duration-200 ${
+                    isHoveredOver
+                      ? 'bg-indigo-50/90 border-indigo-400 ring-2 ring-indigo-400/30 scale-[1.01] shadow-md'
+                      : 'bg-slate-50/90 border-slate-200/90 shadow-2xs'
                   }`}
-              >
+                >
 
-                {/* Column Header */}
-                <div className="flex justify-between items-center mb-3.5 pb-2 border-b border-slate-200/70 px-1">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2.5 h-2.5 rounded-full ${col.dotColor}`}></span>
-                    <span className="font-extrabold text-slate-900 text-xs tracking-tight">
-                      {col.label}
-                    </span>
-                  </div>
-                  <span className={`text-[10px] font-mono font-black px-2.5 py-0.5 rounded-full border ${col.badgeStyle}`}>
-                    {columnTasks.length}
-                  </span>
-                </div>
-
-                {/* Column Task Cards */}
-                <div className="flex-1 overflow-y-auto pt-2.5 pb-2 px-1 space-y-3 scrollbar-none">
-                  {columnTasks.map((t) => {
-                    const isCritical = t.priority === 'Critical';
-                    const isHigh = t.priority === 'High';
-
-                    return (
-                      <div
-                        key={t._id ? `col-${col.id}-${t._id}` : `col-${col.id}-${t.id}-${Math.random()}`}
-                        draggable={true}
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData('text/plain', t.id);
-                          e.dataTransfer.effectAllowed = 'move';
-                        }}
-                        onClick={() => onSelectTask(t)}
-                        className={`bg-white p-3.5 rounded-2xl border transition-all duration-200 cursor-grab active:cursor-grabbing flex flex-col justify-between gap-3 shadow-3xs hover:shadow-md hover:border-indigo-400 hover:-translate-y-0.5 ${t.delayFlag ? 'border-rose-300 bg-rose-50/20' : 'border-slate-200/90'
-                          }`}
-                      >
-                        <div className="space-y-2">
-                          {/* Project Tag & Priority Badge */}
-                          <div className="flex justify-between items-center gap-2">
-                            <span className="px-2 py-0.5 bg-brand-soft text-brand-dark rounded-md text-[8px] font-black uppercase tracking-wider truncate max-w-[110px] border border-brand-secondary/30">
-                              {t.project}
-                            </span>
-                            <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${isCritical ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                              isHigh ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                'bg-slate-100 text-slate-700 border-slate-200'
-                              }`}>
-                              {t.priority}
-                            </span>
-                          </div>
-
-                          {/* Task Title */}
-                          <h4 className="text-xs font-extrabold text-slate-900 leading-snug hover:text-indigo-600 transition-colors line-clamp-2">
-                            {t.title}
-                          </h4>
-
-                          {/* Task ID */}
-                          <span className="text-[9px] font-mono font-extrabold text-slate-400 block">
-                            {t.id}
-                          </span>
-                        </div>
-
-                        {/* Assignee & Time Footer */}
-                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] font-semibold text-slate-600">
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-4.5 h-4.5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[7px] font-black uppercase shadow-3xs">
-                              {(t.assignee || 'User').split(' ').map(n => n[0]).join('')}
-                            </div>
-                            <span className="font-bold text-slate-700 truncate max-w-[130px]">{t.assignee}</span>
-                          </div>
-
-                          <div className="flex items-center gap-1 font-mono font-bold text-slate-500">
-                            <Clock className="w-3 h-3 text-slate-400" />
-                            <span>{t.estTime || '8'}h</span>
-                            {t.delayFlag && (
-                              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" title="Overdue Alert"></span>
-                            )}
-                          </div>
-                        </div>
-
-                      </div>
-                    );
-                  })}
-
-                  {columnTasks.length === 0 && (
-                    <div className="py-10 text-center bg-white/60 border border-dashed border-slate-200/90 rounded-2xl">
-                      <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">
-                        {isHoveredOver ? 'Drop Here' : 'No tasks in stage'}
+                  {/* Column Header */}
+                  <div className="flex justify-between items-center mb-3 pb-2.5 border-b border-slate-200/80 px-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2.5 h-2.5 rounded-full ${col.dotColor}`}></span>
+                      <span className="font-black text-slate-900 text-xs uppercase tracking-wider">
+                        {col.label}
                       </span>
                     </div>
-                  )}
-                </div>
+                    <span className={`text-[10px] font-mono font-black px-2.5 py-0.5 rounded-full border ${col.badgeStyle}`}>
+                      {columnTasks.length}
+                    </span>
+                  </div>
 
-              </div>
-            );
-          })}
+                  {/* Column Task Cards Scroll Container */}
+                  <div className="flex-1 overflow-y-auto pt-1 pb-2 px-0.5 space-y-3 custom-scrollbar">
+                    {columnTasks.map((t) => {
+                      const isCritical = t.priority === 'Critical';
+                      const isHigh = t.priority === 'High';
+                      const isMedium = t.priority === 'Medium';
+
+                      return (
+                        <div
+                          key={t._id ? `col-${col.id}-${t._id}` : `col-${col.id}-${t.id}-${Math.random()}`}
+                          draggable={true}
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData('text/plain', t.id);
+                            e.dataTransfer.effectAllowed = 'move';
+                          }}
+                          onClick={() => onSelectTask(t)}
+                          className={`bg-white p-4 rounded-2xl border transition-all duration-200 cursor-grab active:cursor-grabbing flex flex-col justify-between gap-3 shadow-2xs hover:shadow-md hover:border-indigo-400 group ${
+                            t.delayFlag ? 'border-rose-300 bg-rose-50/30' : 'border-slate-200/90'
+                          }`}
+                        >
+                          <div className="space-y-2.5">
+                            {/* Project Tag & Priority Badge */}
+                            <div className="flex justify-between items-center gap-2">
+                              <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-[9px] font-black uppercase tracking-wider truncate max-w-[150px] border border-slate-200/80 group-hover:bg-indigo-50 group-hover:text-indigo-700 group-hover:border-indigo-200 transition-colors">
+                                {t.project}
+                              </span>
+                              <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg border flex-shrink-0 ${
+                                isCritical ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                isHigh ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                isMedium ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                                'bg-slate-100 text-slate-700 border-slate-200'
+                              }`}>
+                                {t.priority}
+                              </span>
+                            </div>
+
+                            {/* Task Title */}
+                            <h4 className="text-xs sm:text-sm font-extrabold text-slate-900 leading-snug line-clamp-2 group-hover:text-indigo-600 transition-colors">
+                              {t.title}
+                            </h4>
+
+                            {/* Task ID */}
+                            <span className="text-[10px] font-mono font-extrabold text-slate-400 block tracking-wider">
+                              {t.id}
+                            </span>
+
+                            {/* Mini Progress Bar */}
+                            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden my-1">
+                              <div
+                                className={`h-full rounded-full transition-all duration-300 ${
+                                  t.progress === 100 ? 'bg-emerald-500' : 'bg-indigo-600'
+                                }`}
+                                style={{ width: `${t.progress || 0}%` }}
+                              ></div>
+                            </div>
+                          </div>
+
+                          {/* Assignee & Time Footer */}
+                          <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2 text-xs font-semibold">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <div className="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center text-[9px] font-black uppercase shadow-3xs flex-shrink-0">
+                                {(t.assignee || 'User').split(' ').map(n => n[0]).join('')}
+                              </div>
+                              <span className="font-bold text-slate-700 truncate min-w-0 flex-1 text-xs">{t.assignee}</span>
+                            </div>
+
+                            <div className="flex items-center gap-1 font-mono font-extrabold text-slate-600 bg-slate-50 border border-slate-200/80 px-2 py-1 rounded-lg flex-shrink-0 text-[11px]">
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              <span>{t.estTime || '8'}h</span>
+                              {t.delayFlag && (
+                                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping ml-0.5" title="Overdue Alert"></span>
+                              )}
+                            </div>
+                          </div>
+
+                        </div>
+                      );
+                    })}
+
+                    {columnTasks.length === 0 && (
+                      <div className="py-14 text-center bg-white/70 border border-dashed border-slate-200/90 rounded-2xl flex flex-col items-center justify-center space-y-1">
+                        <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block">
+                          {isHoveredOver ? 'Drop Task Here' : 'No tasks in stage'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
+
 
       {/* 5. TABLE VIEW */}
       {viewMode === 'table' && (

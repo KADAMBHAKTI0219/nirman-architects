@@ -1,8 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Tag } from 'lucide-react';
+import { X, Plus, Building } from 'lucide-react';
 import { getActiveProjectCategories, createProjectCategory } from '../../../service/project';
 import { getUsersList } from '../../../service/auth';
 import { getClients } from '../../../service/crm/client';
+import { getDepartments, getCleanDepartmentName, parseDepartments } from '../../../service/departments';
+
+
+const DEFAULT_DEPTS = [
+  'Architecture & Design',
+  'Interior Design',
+  'Structural Engineering',
+  '3D Visualization & Modeling',
+  'Site Engineering & Execution',
+  'Project Management',
+  'Billing & Quantity Surveying',
+  'HR & Administration',
+  'Accounts & Finance',
+  'Client Relations & CRM'
+];
 
 export default function CreateProjectModal({
   isOpen,
@@ -14,23 +29,24 @@ export default function CreateProjectModal({
   const [categories, setCategories] = useState([]);
   const [usersList, setUsersList] = useState([]);
   const [clients, setClients] = useState([]);
+  const [departments, setDepartments] = useState(DEFAULT_DEPTS);
   const [showAddCatInput, setShowAddCatInput] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [catLoading, setCatLoading] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
-      loadCategoriesAndUsers();
-    }
+    loadFormData();
   }, [isOpen]);
 
-  const loadCategoriesAndUsers = async () => {
+  const loadFormData = async () => {
     try {
-      const [catRes, userRes, clientRes] = await Promise.all([
+      const [catRes, userRes, clientRes, deptRes] = await Promise.all([
         getActiveProjectCategories().catch(() => null),
         getUsersList().catch(() => null),
-        getClients({ limit: 100 }).catch(() => null)
+        getClients({ limit: 100 }).catch(() => null),
+        getDepartments().catch(() => null)
       ]);
+
       if (catRes?.success) {
         setCategories(catRes.categories || []);
       }
@@ -38,13 +54,19 @@ export default function CreateProjectModal({
         const uList = Array.isArray(userRes) ? userRes : (userRes.users || userRes.data || []);
         setUsersList(uList);
       }
-      if (clientRes?.success) {
-        setClients(clientRes.clients || []);
+      if (clientRes?.success || Array.isArray(clientRes?.clients)) {
+        setClients(clientRes.clients || clientRes || []);
+      }
+
+      const cleanDepts = parseDepartments(deptRes);
+      if (cleanDepts && cleanDepts.length > 0) {
+        setDepartments(cleanDepts);
       }
     } catch (err) {
-      console.warn("Failed to load project categories or users or clients", err);
+      console.warn("Failed to load project categories, users, clients, or departments", err);
     }
   };
+
 
   const handleCreateNewCategory = async (e) => {
     e.preventDefault();
@@ -53,7 +75,7 @@ export default function CreateProjectModal({
     try {
       const res = await createProjectCategory({ name: newCatName.trim() });
       if (res?.success) {
-        await loadCategories();
+        setCategories(prev => [...prev, res.category]);
         setNewProject({ ...newProject, category: res.category.name, projectCategoryId: res.category._id });
         setNewCatName('');
         setShowAddCatInput(false);
@@ -86,41 +108,48 @@ export default function CreateProjectModal({
         </div>
 
         {/* Form fields */}
-        <form onSubmit={onSubmit} className="p-6 overflow-y-auto max-h-[460px] space-y-4">
+        <form noValidate onSubmit={onSubmit} className="p-6 overflow-y-auto max-h-[460px] space-y-4 text-xs font-semibold">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Project Code</label>
+              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+                Project Code <span className="text-red-500 font-bold ml-0.5">*</span>
+              </label>
               <input 
                 type="text" 
-                required 
                 value={newProject.code || ''}
                 onChange={(e) => setNewProject({...newProject, code: e.target.value})}
                 placeholder="PRJ-CP-104"
-                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium"
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium"
               />
             </div>
             <div>
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Project Name *</label>
+              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+                Project Name <span className="text-red-500 font-bold ml-0.5">*</span>
+              </label>
               <input 
                 type="text" 
-                required 
                 value={newProject.name || newProject.projectName || ''}
                 onChange={(e) => setNewProject({...newProject, name: e.target.value, projectName: e.target.value})}
                 placeholder="Tower Phase 2"
-                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium"
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Client Info / Corporation</label>
+              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+                Client <span className="text-red-500 font-bold ml-0.5">*</span>
+              </label>
               <select 
-                value={newProject.client || newProject.clientInformation || ''}
+                required
+                value={newProject.clientId || ''}
                 onChange={(e) => {
-                  const clientName = e.target.value;
-                  const cObj = clients.find(c => c.name === clientName);
+                  const selectedId = e.target.value;
+                  const cObj = clients.find(c => String(c._id || c.id || c.clientId) === String(selectedId));
+                  const clientName = cObj ? cObj.name : '';
                   let addressVal = '';
+
                   if (cObj) {
                     if (Array.isArray(cObj.siteAddresses) && cObj.siteAddresses.length > 0) {
                       addressVal = cObj.siteAddresses[0];
@@ -132,37 +161,57 @@ export default function CreateProjectModal({
                       addressVal = cObj.address;
                     }
                   }
+
                   setNewProject({
                     ...newProject,
+                    clientId: selectedId,
                     client: clientName,
                     clientInformation: clientName,
                     location: addressVal,
                     address: addressVal
                   });
                 }}
-                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium cursor-pointer"
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium cursor-pointer"
               >
-                <option value="" disabled hidden>Select Client...</option>
-                {clients.map((c, idx) => (
-                  <option key={c._id || c.id || idx} value={c.name}>
-                    {c.name}
-                  </option>
+                <option value="" disabled hidden>Select Client *</option>
+                {clients.map((c, idx) => {
+                  const cId = c._id || c.id || c.clientId;
+                  return (
+                    <option key={cId || idx} value={cId}>
+                      {c.name || 'Client'} {c.companyName ? `(${c.companyName})` : ''} {c.email ? `• ${c.email}` : ''} {c.status ? `[${c.status}]` : ''}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Department</label>
+              <select
+                value={newProject.department || ''}
+                onChange={(e) => setNewProject({ ...newProject, department: e.target.value })}
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium cursor-pointer"
+              >
+                <option value="">Select Department...</option>
+                {departments.map(dept => (
+                  <option key={dept} value={dept}>{dept}</option>
                 ))}
               </select>
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Physical Location Address</label>
+              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Location Address</label>
               <input 
                 type="text" 
                 value={newProject.location || newProject.address || ''}
                 onChange={(e) => setNewProject({...newProject, location: e.target.value, address: e.target.value})}
                 placeholder="Sector 62, Noida"
-                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium"
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium"
               />
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Category Type</label>
@@ -189,7 +238,7 @@ export default function CreateProjectModal({
                     type="button"
                     onClick={handleCreateNewCategory}
                     disabled={catLoading}
-                    className="px-3 py-2 crm-brand-btn text-slate-900 rounded-xl text-xs font-semibold"
+                    className="px-3 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold"
                   >
                     Save
                   </button>
@@ -205,7 +254,7 @@ export default function CreateProjectModal({
                       projectCategoryId: sel ? sel._id : null
                     });
                   }}
-                  className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium"
                 >
                   <option value="" disabled hidden>Select Category...</option>
                   {categories.map(cat => (
@@ -218,84 +267,54 @@ export default function CreateProjectModal({
                 </select>
               )}
             </div>
-
-            <div>
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Priority Weight</label>
-              <select 
-                value={newProject.priority || 'Medium'}
-                onChange={(e) => setNewProject({...newProject, priority: e.target.value})}
-                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium"
-              >
-                <option value="High">High</option>
-                <option value="Medium">Medium</option>
-                <option value="Low">Low</option>
-              </select>
-            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Valuation Budget ($/₹)</label>
+              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Valuation Budget (₹)</label>
               <input 
                 type="text" 
                 required 
                 value={newProject.budget || ''}
                 onChange={(e) => setNewProject({...newProject, budget: e.target.value})}
                 placeholder="1500000"
-                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium"
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium"
               />
             </div>
+
             <div>
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Lead Manager *</label>
+              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+                Project Manager <span className="text-red-500 font-bold ml-0.5">*</span>
+              </label>
               <select
-                value={newProject.manager || ''}
-                onChange={(e) => setNewProject({...newProject, manager: e.target.value})}
-                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium cursor-pointer"
+                value={newProject.projectManagerId || newProject.manager || ''}
+                onChange={(e) => {
+                  const uId = e.target.value;
+                  const uObj = usersList.find(u => String(u._id || u.id) === String(uId));
+                  const uName = uObj ? (uObj.name || uObj.email) : uId;
+                  setNewProject({
+                    ...newProject,
+                    projectManagerId: uId,
+                    manager: uName
+                  });
+                }}
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium cursor-pointer"
               >
-                <option value="" disabled hidden>Select Lead Manager...</option>
-                {(() => {
-                  const currentUserStr = localStorage.getItem('user');
-                  let currentUserRole = '';
-                  if (currentUserStr) {
-                    try {
-                      const parsed = JSON.parse(currentUserStr);
-                      currentUserRole = (typeof parsed.role === 'object' ? (parsed.role?.roleCode || parsed.role?.roleName || parsed.role?.name) : parsed.role || '').toUpperCase();
-                    } catch (e) {}
-                  }
-
-                  const filtered = usersList.filter(u => {
-                    const roleStr = (typeof u.role === 'object' ? (u.role?.roleCode || u.role?.roleName || u.role?.name) : (u.role || u.designation)) || '';
-                    const upperRole = roleStr.toUpperCase();
-
-                    // Exclude ADMIN and SUPER_ADMIN
-                    if (upperRole.includes('ADMIN')) return false;
-
-                    // If PM, exclude PMs from dropdown
-                    if ((currentUserRole.includes('PROJECT_MANAGER') || currentUserRole === 'PM') && (upperRole.includes('PROJECT_MANAGER') || upperRole === 'PM')) {
-                      return false;
-                    }
-
-                    return upperRole.includes('ARCHITECT') || upperRole.includes('EMPLOYEE') || upperRole.includes('PROJECT_MANAGER') || upperRole.includes('SITE');
-                  });
-
-                  const displayUsers = filtered.length > 0 ? filtered : usersList.filter(u => {
-                    const roleStr = (typeof u.role === 'object' ? (u.role?.roleCode || u.role?.roleName || u.role?.name) : (u.role || u.designation)) || '';
-                    return !roleStr.toUpperCase().includes('ADMIN');
-                  });
-
-                  return displayUsers.map((u, idx) => {
-                    const name = u.name || u.email || 'Staff';
-                    const rawRole = typeof u.role === 'object' ? (u.role?.roleName || u.role?.name) : (u.role || u.designation || 'Staff');
-                    return (
-                      <option key={u._id || u.id || idx} value={name}>
-                        {name} ({rawRole})
-                      </option>
-                    );
-                  });
-                })()}
+                <option value="" disabled hidden>Select Project Manager...</option>
+                {usersList.map((u, idx) => {
+                  const uId = u._id || u.id;
+                  const name = u.name || u.email || 'Staff';
+                  const rawRole = typeof u.role === 'object' ? (u.role?.roleName || u.role?.name) : (u.role || u.designation || 'Staff');
+                  return (
+                    <option key={uId || idx} value={uId}>
+                      {name} ({rawRole})
+                    </option>
+                  );
+                })}
               </select>
             </div>
           </div>
+
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -305,7 +324,7 @@ export default function CreateProjectModal({
                 required 
                 value={newProject.startDate || ''}
                 onChange={(e) => setNewProject({...newProject, startDate: e.target.value})}
-                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium"
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium"
               />
             </div>
             <div>
@@ -315,7 +334,7 @@ export default function CreateProjectModal({
                 required 
                 value={newProject.estCompletion || newProject.estimatedCompletion || ''}
                 onChange={(e) => setNewProject({...newProject, estCompletion: e.target.value, estimatedCompletion: e.target.value})}
-                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium"
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium"
               />
             </div>
           </div>
@@ -331,7 +350,7 @@ export default function CreateProjectModal({
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-900 rounded-xl text-xs font-semibold shadow-2xs transition-all border border-brand-secondary/30"
+              className="px-5 py-2 bg-gradient-to-r from-[#BDE0FE] to-[#8FC9FF] text-slate-900 rounded-xl text-xs font-black shadow-2xs transition-all border border-[#8FC9FF]/60 cursor-pointer"
             >
               Register Contract
             </button>

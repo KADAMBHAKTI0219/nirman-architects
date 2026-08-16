@@ -397,14 +397,130 @@ export const getTasks = async (params = {}) => {
   const user = getSessionUser() || { role: 'Admin' };
   let tasks = JSON.parse(localStorage.getItem('nirman_tasks') || '[]');
 
-  // Role scoping: Employees / Engineers see tasks assigned to them or their projects
-  if (['Employee', 'SiteEngineer', 'Architect'].includes(user.role)) {
+  if (!tasks || tasks.length === 0) {
+    tasks = [
+      {
+        _id: 'task-101',
+        id: 'TSK-101',
+        projectId: 'proj-1',
+        project: 'Central Office Tower',
+        taskName: 'GFC Structural Blueprint Review',
+        title: 'GFC Structural Blueprint Review',
+        description: 'Review structural CAD drawings and update layout specifications.',
+        priority: 'High',
+        departmentId: 'dept-1',
+        dept: 'Architecture',
+        assignedEmployee: { _id: 'u1', id: 'u1', name: 'Bhakti Kadam', email: 'architect@nirman.com' },
+        assignee: 'Bhakti Kadam',
+        estimatedTime: 16,
+        totalWorkingTimeMinutes: 120,
+        status: 'In Progress',
+        deadline: new Date(Date.now() + 5 * 86400000).toISOString(),
+        checklist: [
+          { id: 'ck-1', text: 'Verify beam load calculations', checked: true, isCompleted: true },
+          { id: 'ck-2', text: 'Check column offset alignments', checked: false, isCompleted: false },
+          { id: 'ck-3', text: 'Prepare GFC revision stamp V2.0', checked: false, isCompleted: false }
+        ],
+        actualStartTime: new Date(Date.now() - 7200000).toISOString(),
+        createdAt: new Date().toISOString()
+      },
+      {
+        _id: 'task-102',
+        id: 'TSK-102',
+        projectId: 'proj-2',
+        project: 'Oceanic Luxury Villas',
+        taskName: 'Facade & Elevation Design Detailing',
+        title: 'Facade & Elevation Design Detailing',
+        description: 'Detail 3D render facades and material specifications.',
+        priority: 'Medium',
+        departmentId: 'dept-1',
+        dept: 'Architecture',
+        assignedEmployee: { _id: 'u1', id: 'u1', name: 'Bhakti Kadam', email: 'architect@nirman.com' },
+        assignee: 'Bhakti Kadam',
+        estimatedTime: 24,
+        totalWorkingTimeMinutes: 0,
+        status: 'Pending',
+        deadline: new Date(Date.now() + 10 * 86400000).toISOString(),
+        checklist: [
+          { id: 'ck-4', text: 'Draft exterior wall section DWG', checked: false, isCompleted: false },
+          { id: 'ck-5', text: 'Select glass coating tint specs', checked: false, isCompleted: false }
+        ],
+        createdAt: new Date().toISOString()
+      },
+      {
+        _id: 'task-103',
+        id: 'TSK-103',
+        projectId: 'proj-1',
+        project: 'Central Office Tower',
+        taskName: 'Site Foundation Quality Inspection',
+        title: 'Site Foundation Quality Inspection',
+        description: 'Perform soil compaction test and rebar tie checks.',
+        priority: 'High',
+        departmentId: 'dept-2',
+        dept: 'Site Engineering',
+        assignedEmployee: { _id: 'u2', id: 'u2', name: 'Alice Smith', email: 'employee@gmail.com' },
+        assignee: 'Alice Smith',
+        estimatedTime: 12,
+        totalWorkingTimeMinutes: 180,
+        status: 'In Progress',
+        deadline: new Date(Date.now() + 3 * 86400000).toISOString(),
+        checklist: [
+          { id: 'ck-6', text: 'Verify rebar diameter spacing', checked: true, isCompleted: true },
+          { id: 'ck-7', text: 'Upload site GPS photos', checked: false, isCompleted: false }
+        ],
+        actualStartTime: new Date(Date.now() - 10800000).toISOString(),
+        createdAt: new Date().toISOString()
+      },
+      {
+        _id: 'task-104',
+        id: 'TSK-104',
+        projectId: 'proj-3',
+        project: 'Smart City Mall',
+        taskName: 'HVAC & MEP Duct Routing Clearance',
+        title: 'HVAC & MEP Duct Routing Clearance',
+        description: 'Coordinate MEP ceiling height ducting with main structure.',
+        priority: 'Medium',
+        departmentId: 'dept-3',
+        dept: 'Engineering',
+        assignedEmployee: { _id: 'u2', id: 'u2', name: 'Alice Smith', email: 'employee@gmail.com' },
+        assignee: 'Alice Smith',
+        estimatedTime: 20,
+        totalWorkingTimeMinutes: 0,
+        status: 'Pending',
+        deadline: new Date(Date.now() + 7 * 86400000).toISOString(),
+        checklist: [
+          { id: 'ck-8', text: 'Cross-check architectural slab clearances', checked: false, isCompleted: false }
+        ],
+        createdAt: new Date().toISOString()
+      }
+    ];
+    localStorage.setItem('nirman_tasks', JSON.stringify(tasks));
+  }
+
+  const isElevatedRole = ['Admin', 'ProjectManager', 'HR', 'SUPER_ADMIN', 'ADMIN', 'PROJECT_MANAGER', 'PM'].includes(user.role) ||
+                         ['Admin', 'ProjectManager', 'HR', 'SUPER_ADMIN', 'ADMIN', 'PROJECT_MANAGER', 'PM'].includes(user.roleCode);
+
+  // Role scoping: Employees / Engineers / Architects see tasks assigned to them or their assigned projects
+  if (!isElevatedRole) {
+    const projRes = await mockGetProjects();
+    const userProjects = projRes?.projects || [];
+    const assignedProjIds = userProjects.map(p => String(p._id || p.id || '').toLowerCase());
+    const assignedProjNames = userProjects.map(p => String(p.projectName || p.name || p.title || '').toLowerCase());
+
     tasks = tasks.filter(t => {
-      const isAssigned = (t.assignedEmployee?._id && t.assignedEmployee._id === user.id) ||
-        (t.assignedEmployee?.id && t.assignedEmployee.id === user.id) ||
+      const isAssigned = (t.assignedEmployee?._id && String(t.assignedEmployee._id) === String(user.id)) ||
+        (t.assignedEmployee?.id && String(t.assignedEmployee.id) === String(user.id)) ||
         (t.assignedEmployee?.email && user.email && t.assignedEmployee.email.toLowerCase() === user.email.toLowerCase()) ||
-        (t.assignee && user.name && t.assignee.toLowerCase() === user.name.toLowerCase());
-      return isAssigned || true;
+        (t.assignee && user.name && t.assignee.toLowerCase() === user.name.toLowerCase()) ||
+        (t.assignedEmployee && user.name && String(t.assignedEmployee).toLowerCase() === user.name.toLowerCase());
+
+      const tProjId = String(t.projectId || t.project?._id || t.project?.id || '').toLowerCase();
+      const tProjName = String(t.projectName || t.project?.projectName || t.project?.name || t.project || '').toLowerCase();
+
+      const isUserProject = (tProjId && assignedProjIds.includes(tProjId)) ||
+                            (tProjName && assignedProjNames.some(pn => pn && tProjName.includes(pn)));
+
+      return isAssigned || isUserProject;
     });
   }
 
@@ -4042,6 +4158,41 @@ export const mockGetDrawings = async ({ projectId, categoryId, status, page = 1,
   await delay();
   let drawings = _getMockDrawingsStorage().filter(d => d.isActive !== false);
 
+  const userStr = localStorage.getItem('user');
+  if (userStr) {
+    try {
+      const userObj = JSON.parse(userStr);
+      const isElevatedRole = ['Admin', 'ProjectManager', 'HR'].includes(userObj.role) ||
+                             ['SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'PROJECT_MANAGER', 'PM'].includes(userObj.roleCode);
+
+      if (!isElevatedRole) {
+        // Retrieve projects assigned to this logged-in user
+        const projRes = await mockGetProjects();
+        const userProjects = projRes?.projects || [];
+
+        if (userProjects.length > 0) {
+          const assignedIds = userProjects.map(p => String(p._id || p.id || '').toLowerCase()).filter(Boolean);
+          const assignedNames = userProjects.map(p => String(p.projectName || p.name || p.title || '').toLowerCase()).filter(Boolean);
+
+          drawings = drawings.filter(d => {
+            const dProjId = String(d.projectId || d.project?._id || d.project?.id || '').toLowerCase();
+            const dProjName = String(d.projectName || d.project?.projectName || d.project?.name || d.project || '').toLowerCase();
+            const dUploader = String(d.uploadedBy?.name || d.uploadedBy || d.createdBy || '').toLowerCase();
+            const uName = (userObj.name || '').toLowerCase();
+
+            const isAssignedProject = (dProjId && assignedIds.includes(dProjId)) ||
+                                     (dProjName && assignedNames.some(n => n && dProjName.includes(n)));
+            const isUploader = Boolean(uName && dUploader.includes(uName));
+
+            return isAssignedProject || isUploader;
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to filter drawings for user role:", e);
+    }
+  }
+
   if (projectId) drawings = drawings.filter(d => String(d.projectId) === String(projectId));
   if (categoryId) drawings = drawings.filter(d => String(d.categoryId) === String(categoryId));
   if (status) drawings = drawings.filter(d => d.status === status);
@@ -4666,7 +4817,8 @@ const saveStoredProjects = (projects) => {
 
 export const mockGetProjects = async ({ search, status, priority } = {}) => {
   await delay();
-  let projects = getStoredProjects();
+  let allProjects = getStoredProjects();
+  let projects = [...allProjects];
 
   const userStr = localStorage.getItem('user');
   if (userStr) {
@@ -4674,15 +4826,44 @@ export const mockGetProjects = async ({ search, status, priority } = {}) => {
       const userObj = JSON.parse(userStr);
       const isElevatedRole = ['Admin', 'ProjectManager', 'HR'].includes(userObj.role) ||
                              ['SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'PROJECT_MANAGER', 'PM'].includes(userObj.roleCode);
-      if (!isElevatedRole && (userObj.id || userObj._id)) {
-        const loggedInUid = userObj.id || userObj._id;
-        projects = projects.filter(p => {
-          const team = Array.isArray(p.teamAssignments) ? p.teamAssignments : (Array.isArray(p.team) ? p.team : []);
-          return team.some(member => 
-            String(member.userId) === String(loggedInUid) ||
-            (member.name && userObj.name && member.name.toLowerCase() === userObj.name.toLowerCase())
-          );
-        });
+
+      if (!isElevatedRole && (userObj.id || userObj._id || userObj.name)) {
+        const loggedInUid = String(userObj.id || userObj._id || '');
+        const loggedInName = (userObj.name || '').toLowerCase().trim();
+        const loggedInEmail = (userObj.email || '').toLowerCase().trim();
+        const isClientUser = userObj.role === 'Client' || userObj.role === 'Customer' || userObj.isClient || userObj.userType === 'CLIENT';
+
+        if (isClientUser) {
+          // Client specific project filtering
+          const clientProjects = projects.filter(p => {
+            const pClient = String(p.client || p.clientId || '').toLowerCase();
+            const pClientInfo = String(p.clientInformation || '').toLowerCase();
+            const pClientEmail = String(p.clientEmail || '').toLowerCase();
+
+            return (loggedInUid && String(p.clientId) === loggedInUid) ||
+                   (loggedInName && (pClient.includes(loggedInName) || pClientInfo.includes(loggedInName))) ||
+                   (loggedInEmail && pClientEmail.includes(loggedInEmail));
+          });
+          projects = clientProjects.length > 0 ? clientProjects : projects.slice(0, 2);
+        } else {
+          // Employee / Staff role based project filtering
+          const assignedProjects = projects.filter(p => {
+            const team = Array.isArray(p.teamAssignments) ? p.teamAssignments : (Array.isArray(p.team) ? p.team : []);
+            const isAssignedInTeam = team.some(member => 
+              (loggedInUid && String(member.userId || member.id || member._id) === loggedInUid) ||
+              (member.name && loggedInName && member.name.toLowerCase().includes(loggedInName))
+            );
+            const isPM = (p.projectManager || p.pmId) && String(p.projectManager || p.pmId).toLowerCase().includes(loggedInName);
+            const isArch = (p.architect || p.architectId) && String(p.architect || p.architectId).toLowerCase().includes(loggedInName);
+            const isEng = (p.siteEngineer || p.engineerId) && String(p.siteEngineer || p.engineerId).toLowerCase().includes(loggedInName);
+
+            return isAssignedInTeam || isPM || isArch || isEng;
+          });
+          // If explicit team assignment filter found, return assigned; otherwise return active staff projects
+          if (assignedProjects.length > 0) {
+            projects = assignedProjects;
+          }
+        }
       }
     } catch (e) {
       console.error("Failed to parse user in mockGetProjects:", e);
@@ -4694,7 +4875,7 @@ export const mockGetProjects = async ({ search, status, priority } = {}) => {
     projects = projects.filter(p => 
       (p.projectName || p.name || '').toLowerCase().includes(q) ||
       (p.code || '').toLowerCase().includes(q) ||
-      (p.clientInformation || '').toLowerCase().includes(q)
+      (p.clientInformation || p.client || '').toLowerCase().includes(q)
     );
   }
   if (status && status !== 'All') {
