@@ -14,29 +14,16 @@ import api from './auth';
 export const ALLOWED_FILE_TYPES = ['PDF', 'DWG', 'JPEG', 'PNG', 'DOCX', 'XLSX', 'ZIP'];
 
 const getStoredCustomFolders = () => {
-  try {
-    const item = localStorage.getItem('nirman_custom_folders');
-    return item ? JSON.parse(item) : [];
-  } catch (e) {
-    return [];
-  }
+  return window._customFoldersStore || [];
 };
 
 const saveCustomFolderLocally = (folderObj) => {
-  try {
-    const list = getStoredCustomFolders();
-    const updated = [...list, folderObj];
-    localStorage.setItem('nirman_custom_folders', JSON.stringify(updated));
-  } catch (e) {}
+  const list = getStoredCustomFolders();
+  window._customFoldersStore = [...list, folderObj];
 };
 
 const getStoredCustomDocs = () => {
-  try {
-    const item = localStorage.getItem('nirman_custom_documents');
-    return item ? JSON.parse(item) : [];
-  } catch (e) {
-    return [];
-  }
+  return window._customDocsStore || [];
 };
 
 const saveCustomDocLocally = (doc) => {

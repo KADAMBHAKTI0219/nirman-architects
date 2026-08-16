@@ -28,9 +28,6 @@ const saveStoredTicket = (ticketObj) => {
   const current = getStoredTickets();
   const updated = [ticketObj, ...current];
   window._localTicketStore = updated;
-  try {
-    localStorage.setItem('nirman_client_tickets', JSON.stringify(updated));
-  } catch (e) {}
   return updated;
 };
 

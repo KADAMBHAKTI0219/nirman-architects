@@ -1,9 +1,57 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import AppRoutes from './routes/AppRoutes';
 import { ToastProvider } from './context/ToastContext';
 import CustomDialogProvider from './components/common/CustomDialogProvider';
 import './App.css';
+
+// Intercept localStorage to ensure nirman_* data keys never pollute real localStorage
+if (typeof window !== 'undefined' && !window._nirmanStorageIntercepted) {
+  window._nirmanStorageIntercepted = true;
+  window._nirmanMemoryStore = window._nirmanMemoryStore || {};
+
+  const _rawSetItem = localStorage.setItem.bind(localStorage);
+  const _rawGetItem = localStorage.getItem.bind(localStorage);
+  const _rawRemoveItem = localStorage.removeItem.bind(localStorage);
+
+  localStorage.setItem = function (key, value) {
+    if (typeof key === 'string' && (key.startsWith('nirman_') || key.startsWith('nirman-'))) {
+      window._nirmanMemoryStore[key] = String(value);
+      return;
+    }
+    return _rawSetItem(key, value);
+  };
+
+  localStorage.getItem = function (key) {
+    if (typeof key === 'string' && (key.startsWith('nirman_') || key.startsWith('nirman-'))) {
+      return window._nirmanMemoryStore[key] || null;
+    }
+    return _rawGetItem(key);
+  };
+
+  localStorage.removeItem = function (key) {
+    if (typeof key === 'string' && (key.startsWith('nirman_') || key.startsWith('nirman-'))) {
+      delete window._nirmanMemoryStore[key];
+      _rawRemoveItem(key);
+      return;
+    }
+    return _rawRemoveItem(key);
+  };
+
+  // Immediate purge of all legacy nirman_ keys from browser localStorage
+  try {
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith('nirman_') || k.startsWith('nirman-'))) {
+        keysToRemove.push(k);
+      }
+    }
+    keysToRemove.forEach(k => _rawRemoveItem(k));
+  } catch (e) {
+    console.warn("Storage purge notice:", e);
+  }
+}
 
 function App() {
   const [role, setRole] = useState(() => {

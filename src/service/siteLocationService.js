@@ -20,34 +20,23 @@ export function calculateDistanceInMeters(lat1, lon1, lat2, lon2) {
 }
 
 /**
- * Configure or update a Project Site Location (PM / HR)
+ * Configure or update a Project Site Location (PM / HR / Admin)
  * POST /site-locations
  */
 export const createSiteLocation = async (siteData) => {
   try {
-    const response = await api.post('/site-locations', siteData);
-    return response.data;
-  } catch (error) {
-    const existing = JSON.parse(localStorage.getItem('nirman_site_locations') || '[]');
-    const newSite = {
-      id: siteData.projectId || `site_${Date.now()}`,
-      projectId: siteData.projectId || null,
+    const payload = {
+      projectId: siteData.projectId || undefined,
       projectName: siteData.projectName,
       lat: Number(siteData.lat),
       lng: Number(siteData.lng),
-      radiusMeters: Number(siteData.radiusMeters || 100),
-      updatedAt: new Date().toISOString()
+      radiusMeters: Number(siteData.radiusMeters || 100)
     };
-    const index = existing.findIndex(
-      (s) => s.projectName === siteData.projectName || (siteData.projectId && s.projectId === siteData.projectId)
-    );
-    if (index >= 0) {
-      existing[index] = newSite;
-    } else {
-      existing.push(newSite);
-    }
-    localStorage.setItem('nirman_site_locations', JSON.stringify(existing));
-    return { success: true, message: 'Project site location configured successfully.', data: { siteLocation: newSite } };
+    const response = await api.post('/site-locations', payload);
+    return response.data;
+  } catch (error) {
+    const msg = error.response?.data?.message || error.message || 'Failed to save site location';
+    throw new Error(msg);
   }
 };
 
@@ -58,19 +47,23 @@ export const createSiteLocation = async (siteData) => {
 export const getSiteLocations = async () => {
   try {
     const response = await api.get('/site-locations');
-    return response.data;
-  } catch (error) {
-    const existing = JSON.parse(localStorage.getItem('nirman_site_locations') || '[]');
-    if (existing.length === 0) {
-      const defaultSites = [
-        { id: 'site1', projectId: 'proj_1', projectName: 'Nirman Commercial Tower', lat: 23.0225, lng: 72.5714, radiusMeters: 200 },
-        { id: 'site2', projectId: 'proj_2', projectName: 'Smart City Mall Foundations', lat: 21.1702, lng: 72.8311, radiusMeters: 150 },
-        { id: 'site3', projectId: 'proj_3', projectName: 'Metro Station Tunnel Excavation', lat: 23.0300, lng: 72.5800, radiusMeters: 300 }
-      ];
-      localStorage.setItem('nirman_site_locations', JSON.stringify(defaultSites));
-      return { success: true, data: { locations: defaultSites } };
+    const resData = response.data;
+    let locations = [];
+    if (resData) {
+      if (Array.isArray(resData.locations)) {
+        locations = resData.locations;
+      } else if (resData.data && Array.isArray(resData.data.locations)) {
+        locations = resData.data.locations;
+      } else if (Array.isArray(resData.data)) {
+        locations = resData.data;
+      } else if (Array.isArray(resData)) {
+        locations = resData;
+      }
     }
-    return { success: true, data: { locations: existing } };
+    return { success: true, locations };
+  } catch (error) {
+    const msg = error.response?.data?.message || error.message || 'Unable to load site locations.';
+    return { success: false, message: msg, locations: [] };
   }
 };
 

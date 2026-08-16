@@ -148,8 +148,8 @@ export const loginUser = async (email, password, loginType = 'staff') => {
     if (err.response) {
       if (err.response.status === 429) {
         const retryAfterHeader = err.response.headers?.['retry-after'];
-        const retryAfterSeconds = retryAfterHeader ? parseInt(retryAfterHeader, 10) : (err.response?.data?.retryAfter || 180);
-        const msg = err.response?.data?.message || err.response?.data?.error || '5 consecutive failed login attempts detected. Access has been temporarily restricted for security.';
+        const retryAfterSeconds = retryAfterHeader ? parseInt(retryAfterHeader, 10) : (err.response?.data?.retryAfter || 900);
+        const msg = err.response?.data?.message || err.response?.data?.error || 'Too many login attempts (maximum 5 allowed). Locked for 15 minutes. Please try again in 15 minute(s).';
         return {
           success: false,
           isRateLimited: true,
@@ -174,13 +174,13 @@ export const loginUser = async (email, password, loginType = 'staff') => {
           if (secondErr.response) {
             if (secondErr.response.status === 429) {
               const retryAfterHeader = secondErr.response.headers?.['retry-after'];
-              const retryAfterSeconds = retryAfterHeader ? parseInt(retryAfterHeader, 10) : 180;
+              const retryAfterSeconds = retryAfterHeader ? parseInt(retryAfterHeader, 10) : 900;
               return {
                 success: false,
                 isRateLimited: true,
                 status: 429,
                 retryAfter: retryAfterSeconds,
-                message: secondErr.response?.data?.message || '5 consecutive failed login attempts detected. Access restricted.'
+                message: secondErr.response?.data?.message || 'Too many login attempts (maximum 5 allowed). Locked for 15 minutes. Please try again in 15 minute(s).'
               };
             }
             const msg = secondErr.response?.data?.message || secondErr.response?.data?.error || 'Invalid credentials.';
@@ -217,22 +217,34 @@ export const createUser = async (payload) => {
  * Fetch all roles from the backend and normalize them into an array.
  */
 export const getRoles = async () => {
-  const response = await api.get('/role-master/all');
-  if (response.data && response.data.success) {
-    const rolesArray = [];
-    // The response returns roles with index keys (e.g. "0", "1", etc.)
-    Object.keys(response.data).forEach((key) => {
-      if (!isNaN(key)) {
-        rolesArray.push(response.data[key]);
+  try {
+    const response = await api.get('/role-master/all');
+    if (response.data) {
+      if (Array.isArray(response.data)) {
+        return { success: true, roles: response.data };
       }
-    });
-    return {
-      success: true,
-      roles: rolesArray,
-      message: response.data.message,
-    };
+      if (Array.isArray(response.data.roles)) {
+        return { success: true, roles: response.data.roles };
+      }
+      if (Array.isArray(response.data.data)) {
+        return { success: true, roles: response.data.data };
+      }
+      const rolesArray = [];
+      Object.keys(response.data).forEach((key) => {
+        if (!isNaN(key) && response.data[key] && typeof response.data[key] === 'object') {
+          rolesArray.push(response.data[key]);
+        }
+      });
+      if (rolesArray.length > 0) {
+        return { success: true, roles: rolesArray };
+      }
+      return { success: true, roles: response.data.roles || [] };
+    }
+    return { success: false, roles: [] };
+  } catch (err) {
+    console.warn("getRoles API error:", err.message);
+    return { success: false, roles: [], error: err.message };
   }
-  return response.data || { success: false, message: 'Failed to retrieve roles' };
 };
 
 /**

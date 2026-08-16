@@ -10,6 +10,7 @@ import DeviceBindingApprovals from './DeviceBindingApprovals';
 import AppUsageTracking from '../app-usage/AppUsageTracking';
 import { getAllAttendanceList } from '../../../service/hrm/attendance';
 import { getRoles, registerUser, getUsersList, getUserById, updateUser, getPendingDeviceRequests, approveDevice } from '../../../service/auth';
+import { getDepartments } from '../../../service/departments';
 import { parseIndexedObjectToArray } from '../../../service/hrm/leave';
 
 export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
@@ -160,6 +161,8 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
   const [showCreatePass, setShowCreatePass] = useState(false);
   const [roles, setRoles] = useState([]);
   const [rolesLoading, setRolesLoading] = useState(false);
+  const [departments, setDepartments] = useState([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(false);
   const [newEmployee, setNewEmployee] = useState({
     name: '',
     email: '',
@@ -170,7 +173,7 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
     department: '',
     designation: '',
     baseSalary: '',
-    deviceId: 'GUID-MACHINE-123'
+    deviceId: ''
   });
   const [editEmployeeData, setEditEmployeeData] = useState({
     id: '',
@@ -189,7 +192,7 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState('');
 
-  // Fetch roles dynamically when the modal is opened
+  // Fetch roles & departments dynamically from real backend API when modal opens
   useEffect(() => {
     if (showAddModal || showEditModal) {
       const fetchRoles = async () => {
@@ -208,17 +211,15 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
             ];
           }
           setRoles(rolesList);
-          // Default to EMPLOYEE role code or first available for the add modal
+          // Set default role selection without auto-populating text inputs
           if (showAddModal) {
             const defaultRole = rolesList.find(r => r.roleCode === 'EMPLOYEE') || rolesList[0];
-            if (defaultRole) {
+            if (defaultRole && !newEmployee.roleId) {
               setNewEmployee(prev => ({
                 ...prev,
                 roleId: defaultRole._id || defaultRole.id,
                 role: defaultRole.roleCode,
-                designation: defaultRole.roleName,
-                department: 'Office Staff',
-                baseSalary: '25000'
+                designation: defaultRole.roleName
               }));
             }
           }
@@ -236,11 +237,46 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
           setRolesLoading(false);
         }
       };
+
+      const fetchDepts = async () => {
+        try {
+          setDepartmentsLoading(true);
+          const res = await getDepartments();
+          let deptList = [];
+          if (res && res.success && Array.isArray(res.departments)) {
+            deptList = res.departments;
+          } else if (Array.isArray(res)) {
+            deptList = res;
+          } else if (res && Array.isArray(res.departments)) {
+            deptList = res.departments;
+          }
+          setDepartments(deptList);
+        } catch (err) {
+          console.error("Failed to load departments from backend API:", err);
+        } finally {
+          setDepartmentsLoading(false);
+        }
+      };
+
       fetchRoles();
+      fetchDepts();
     }
   }, [showAddModal, showEditModal]);
 
   const handleAddEmployee = () => {
+    setNewEmployee({
+      name: '',
+      email: '',
+      password: '',
+      phone: '',
+      roleId: '',
+      role: '',
+      department: '',
+      designation: '',
+      baseSalary: '',
+      deviceId: 'GUID-MACHINE-123'
+    });
+    setCreateError('');
     setShowAddModal(true);
   };
 
@@ -257,8 +293,28 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
       return;
     }
 
+    if (/[A-Z]/.test(email)) {
+      setCreateError('Email address must contain only lowercase letters (no capital letters allowed, e.g. john@nirman.com).');
+      setCreateLoading(false);
+      return;
+    }
+
     if (phone.length !== 10) {
       setCreateError('Phone number must be exactly 10 digits.');
+      setCreateLoading(false);
+      return;
+    }
+
+    const isPassValid = 
+      password.length >= 8 &&
+      password.length <= 15 &&
+      /[A-Z]/.test(password) &&
+      /[a-z]/.test(password) &&
+      /[0-9]/.test(password) &&
+      /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+
+    if (!isPassValid) {
+      setCreateError('Password must be 8-15 characters long and contain at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character (@,#,$,etc.).');
       setCreateLoading(false);
       return;
     }
@@ -469,6 +525,7 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
             onSelectEmployee={setSelectedEmployee}
             onAddEmployeeClick={handleAddEmployee}
             onEditEmployeeClick={handleEditEmployee}
+            onRefresh={loadData}
           />
         )}
 
@@ -502,73 +559,134 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
             )}
 
             {/* Form */}
-            <form onSubmit={handleCreateEmployeeSubmit} className="space-y-4">
+            <form onSubmit={handleCreateEmployeeSubmit} autoComplete="off" className="space-y-4">
               
               {/* Full Name field */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Full Name</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">
+                  Full Name <span className="text-rose-500 font-bold">*</span>
+                </label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input 
                     type="text" 
                     required
+                    autoComplete="off"
                     value={newEmployee.name}
                     onChange={(e) => setNewEmployee(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Kadam Bhakti" 
-                    className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
+                    placeholder="e.g. John Doe" 
+                    className={`w-full pl-9 pr-4 py-2 text-xs border rounded-xl bg-white focus:outline-none font-semibold text-slate-800 ${
+                      newEmployee.name && newEmployee.name.trim().length < 2 ? 'border-rose-400' : 'border-slate-200 focus:border-brand-secondary'
+                    }`}
                   />
                 </div>
+                {newEmployee.name && newEmployee.name.trim().length < 2 && (
+                  <p className="text-rose-500 text-[10px] font-bold mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    <span>Full Name must be at least 2 characters</span>
+                  </p>
+                )}
               </div>
 
               {/* Email & Phone number row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                
+                {/* Email Address with Inline Lowercase & Format Validation Error */}
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Email Address</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">
+                    Email Address <span className="text-rose-500 font-bold">*</span>
+                  </label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
                       type="email" 
                       required
+                      autoComplete="off"
                       value={newEmployee.email}
                       onChange={(e) => setNewEmployee(prev => ({ ...prev, email: e.target.value }))}
-                      placeholder="kadambhakti@gmail.com" 
-                      className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
+                      placeholder="e.g. john@nirman.com" 
+                      className={`w-full pl-9 pr-4 py-2 text-xs border rounded-xl bg-white focus:outline-none font-semibold text-slate-800 ${
+                        newEmployee.email && (/[A-Z]/.test(newEmployee.email) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmployee.email))
+                          ? 'border-rose-400' 
+                          : 'border-slate-200 focus:border-brand-secondary'
+                      }`}
                     />
                   </div>
+                  {newEmployee.email && /[A-Z]/.test(newEmployee.email) ? (
+                    <p className="text-rose-500 text-[10px] font-bold mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      <span>Email address must contain only lowercase letters (no capital letters allowed, e.g. john@nirman.com)</span>
+                    </p>
+                  ) : newEmployee.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmployee.email) ? (
+                    <p className="text-rose-500 text-[10px] font-bold mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      <span>Please enter a valid email address (e.g. user@nirman.com)</span>
+                    </p>
+                  ) : null}
                 </div>
 
+                {/* Phone Number Field */}
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Phone Number (10 Digits)</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">
+                    Phone Number (10 Digits) <span className="text-rose-500 font-bold">*</span>
+                  </label>
                   <div className="relative">
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
                       type="tel" 
                       required
+                      autoComplete="off"
                       maxLength={10}
                       value={newEmployee.phone}
                       onChange={(e) => {
                         const val = e.target.value.replace(/\D/g, '').slice(0, 10);
                         setNewEmployee(prev => ({ ...prev, phone: val }));
                       }}
-                      placeholder="9876543210" 
-                      className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/20 font-semibold text-slate-800 font-mono"
+                      placeholder="e.g. 9876543210" 
+                      className={`w-full pl-9 pr-4 py-2 text-xs border rounded-xl bg-white focus:outline-none font-semibold text-slate-800 font-mono ${
+                        newEmployee.phone && newEmployee.phone.length < 10 ? 'border-rose-400' : 'border-slate-200 focus:border-brand-secondary'
+                      }`}
                     />
                   </div>
+                  {newEmployee.phone && newEmployee.phone.length < 10 && (
+                    <p className="text-rose-500 text-[10px] font-bold mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      <span>Phone number must be exactly 10 digits ({newEmployee.phone.length}/10)</span>
+                    </p>
+                  )}
                 </div>
               </div>
 
-              {/* Password Field */}
+              {/* Password Field with Live Password Policy Indicators */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Password</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">
+                  Password (8-15 Chars, Uppercase, Lowercase, Number & Special Char) <span className="text-rose-500 font-bold">*</span>
+                </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input 
                     type={showCreatePass ? 'text' : 'password'} 
                     required
+                    autoComplete="new-password"
+                    minLength={8}
+                    maxLength={15}
                     value={newEmployee.password}
                     onChange={(e) => setNewEmployee(prev => ({ ...prev, password: e.target.value }))}
-                    placeholder="••••••••••••" 
-                    className="w-full pl-9 pr-10 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/20 font-semibold text-slate-800"
+                    placeholder="e.g. Nirman@2026" 
+                    className={`w-full pl-9 pr-10 py-2 text-xs border rounded-xl bg-white focus:outline-none font-semibold text-slate-800 ${
+                      newEmployee.password
+                        ? (
+                            newEmployee.password.length >= 8 &&
+                            newEmployee.password.length <= 15 &&
+                            /[A-Z]/.test(newEmployee.password) &&
+                            /[a-z]/.test(newEmployee.password) &&
+                            /[0-9]/.test(newEmployee.password) &&
+                            /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newEmployee.password)
+                              ? 'border-emerald-500'
+                              : 'border-rose-400'
+                          )
+                        : 'border-slate-200 focus:border-brand-secondary'
+                    }`}
                   />
                   <button
                     type="button"
@@ -579,12 +697,62 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
                     {showCreatePass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+
+                {/* Password Requirements Live Badges */}
+                {newEmployee.password && (
+                  <div className="pt-1.5 flex flex-wrap items-center gap-1.5 text-[9px] font-extrabold">
+                    <span className={`px-2 py-0.5 rounded-md border flex items-center gap-1 ${
+                      newEmployee.password.length >= 8 && newEmployee.password.length <= 15
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-rose-50 text-rose-600 border-rose-200'
+                    }`}>
+                      {newEmployee.password.length >= 8 && newEmployee.password.length <= 15 ? <Check className="w-3 h-3 text-emerald-600" /> : <X className="w-3 h-3 text-rose-500" />}
+                      8-15 Chars ({newEmployee.password.length})
+                    </span>
+
+                    <span className={`px-2 py-0.5 rounded-md border flex items-center gap-1 ${
+                      /[A-Z]/.test(newEmployee.password)
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-rose-50 text-rose-600 border-rose-200'
+                    }`}>
+                      {/[A-Z]/.test(newEmployee.password) ? <Check className="w-3 h-3 text-emerald-600" /> : <X className="w-3 h-3 text-rose-500" />}
+                      Uppercase (A-Z)
+                    </span>
+
+                    <span className={`px-2 py-0.5 rounded-md border flex items-center gap-1 ${
+                      /[a-z]/.test(newEmployee.password)
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-rose-50 text-rose-600 border-rose-200'
+                    }`}>
+                      {/[a-z]/.test(newEmployee.password) ? <Check className="w-3 h-3 text-emerald-600" /> : <X className="w-3 h-3 text-rose-500" />}
+                      Lowercase (a-z)
+                    </span>
+
+                    <span className={`px-2 py-0.5 rounded-md border flex items-center gap-1 ${
+                      /[0-9]/.test(newEmployee.password)
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-rose-50 text-rose-600 border-rose-200'
+                    }`}>
+                      {/[0-9]/.test(newEmployee.password) ? <Check className="w-3 h-3 text-emerald-600" /> : <X className="w-3 h-3 text-rose-500" />}
+                      Number (0-9)
+                    </span>
+
+                    <span className={`px-2 py-0.5 rounded-md border flex items-center gap-1 ${
+                      /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newEmployee.password)
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-rose-50 text-rose-600 border-rose-200'
+                    }`}>
+                      {/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newEmployee.password) ? <Check className="w-3 h-3 text-emerald-600" /> : <X className="w-3 h-3 text-rose-500" />}
+                      Special Char (@,#,$,etc.)
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Role dropdown loaded from API */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">
-                  Assign System Role {rolesLoading && '(Loading roles...)'}
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">
+                  Assign System Role <span className="text-rose-500 font-bold">*</span> {rolesLoading && '(Loading roles...)'}
                 </label>
                 <div className="relative">
                   <Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -603,7 +771,7 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
                         }));
                       }
                     }}
-                    className="w-full pl-9 pr-4 py-2.5 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
+                    className="w-full pl-9 pr-4 py-2.5 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-800"
                   >
                     {roles.map(r => {
                       const val = typeof r === 'object' ? (r._id || r.id || r.roleCode) : r;
@@ -624,22 +792,38 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
               {/* Department & Designation row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Department</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">
+                    Department <span className="text-rose-500 font-bold">*</span>
+                  </label>
                   <div className="relative">
-                    <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input 
-                      type="text" 
+                    <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none z-10" />
+                    <select 
                       required
                       value={newEmployee.department}
                       onChange={(e) => setNewEmployee(prev => ({ ...prev, department: e.target.value }))}
-                      placeholder="e.g. Office Staff / Architecture" 
-                      className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
-                    />
+                      className="w-full pl-9 pr-4 py-2.5 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-brand-secondary font-semibold text-slate-800 cursor-pointer"
+                    >
+                      <option value="">Select Department *</option>
+                      {departmentsLoading ? (
+                        <option value="" disabled>Loading departments from API...</option>
+                      ) : (
+                        departments.map((d, idx) => {
+                          const deptName = typeof d === 'string' ? d : (d.name || d.departmentName || d.title || 'Department');
+                          return (
+                            <option key={d._id || d.id || idx} value={deptName}>
+                              {deptName}
+                            </option>
+                          );
+                        })
+                      )}
+                    </select>
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Designation</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">
+                    Designation <span className="text-rose-500 font-bold">*</span>
+                  </label>
                   <div className="relative">
                     <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
@@ -648,7 +832,7 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
                       value={newEmployee.designation}
                       onChange={(e) => setNewEmployee(prev => ({ ...prev, designation: e.target.value }))}
                       placeholder="e.g. Employee / Senior Architect" 
-                      className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
+                      className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-800"
                     />
                   </div>
                 </div>
@@ -657,7 +841,9 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
               {/* Base Salary & Hardware Device ID (GUI) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Base Salary (INR)</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">
+                    Base Salary (INR) <span className="text-rose-500 font-bold">*</span>
+                  </label>
                   <div className="relative">
                     <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
@@ -666,13 +852,15 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
                       value={newEmployee.baseSalary}
                       onChange={(e) => setNewEmployee(prev => ({ ...prev, baseSalary: e.target.value }))}
                       placeholder="25000" 
-                      className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
+                      className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-800"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Hardware Device ID (GUID)</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">
+                    Hardware Device ID (GUID) <span className="text-rose-500 font-bold">*</span>
+                  </label>
                   <div className="relative">
                     <Laptop className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
@@ -681,7 +869,7 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
                       value={newEmployee.deviceId}
                       onChange={(e) => setNewEmployee(prev => ({ ...prev, deviceId: e.target.value }))}
                       placeholder="GUID-MACHINE-123" 
-                      className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
+                      className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-800"
                     />
                   </div>
                 </div>
@@ -836,17 +1024,29 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
                 {/* Department & Designation row */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-405 uppercase tracking-wider block">Department</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Department</label>
                     <div className="relative">
-                      <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input 
-                        type="text" 
+                      <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none z-10" />
+                      <select 
                         required
                         value={editEmployeeData.department}
                         onChange={(e) => setEditEmployeeData(prev => ({ ...prev, department: e.target.value }))}
-                        placeholder="e.g. Office Staff / Architecture" 
-                        className="w-full pl-9 pr-4 py-2 text-xs border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-semibold text-slate-755"
-                      />
+                        className="w-full pl-9 pr-4 py-2.5 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-brand-secondary font-semibold text-slate-800 cursor-pointer"
+                      >
+                        <option value="">Select Department *</option>
+                        {departmentsLoading ? (
+                          <option value="" disabled>Loading departments from API...</option>
+                        ) : (
+                          departments.map((d, idx) => {
+                            const deptName = typeof d === 'string' ? d : (d.name || d.departmentName || d.title || 'Department');
+                            return (
+                              <option key={d._id || d.id || idx} value={deptName}>
+                                {deptName}
+                              </option>
+                            );
+                          })
+                        )}
+                      </select>
                     </div>
                   </div>
 

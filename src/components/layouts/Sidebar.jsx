@@ -6,22 +6,10 @@ import logoImg from '../../assets/images/logo.png';
 const SIDEBAR_ITEMS = {
   Admin: [
     { label: "Dashboard", path: "/admin", icon: "LayoutDashboard" },
-    { category: "Project Operations" },
-    {
-      label: "Projects",
-      path: "/admin/projects",
-      icon: "Building2"
-    },
-    {
-      label: "Tasks",
-      path: "/admin/tasks",
-      icon: "CheckSquare"
-    },
-    {
-      label: "Drawings & GFC",
-      path: "/admin/drawings",
-      icon: "PenTool"
-    },
+    { category: "PROJECT OPERATIONS" },
+    { label: "Projects", path: "/admin/projects", icon: "Building2" },
+    { label: "Tasks", path: "/admin/tasks", icon: "CheckSquare" },
+    { label: "Drawings & GFC", path: "/admin/drawings", icon: "PenTool" },
     {
       label: "Documents",
       icon: "FolderOpen",
@@ -30,17 +18,13 @@ const SIDEBAR_ITEMS = {
         { label: "Storage Analytics", path: "/admin/docs/global" }
       ]
     },
-    { category: "Workforce Group" },
-    {
-      label: "Attendance",
-      icon: "CalendarRange",
-      subItems: [
-        { label: "Attendance Operations", path: "/admin/attendance/office" },
-        { label: "App Usage Tracking", path: "/admin/app-usage" },
-        { label: "Employees Directory", path: "/admin/employees" },
-        { label: "Device Approvals", path: "/admin/attendance/devices" }
-      ]
-    },
+    { category: "WORKFORCE" },
+    { label: "Attendance", path: "/admin/attendance/office", icon: "CalendarDays" },
+    { label: "Employees Directory", path: "/admin/employees", icon: "Users" },
+    { label: "Departments", path: "/admin/departments", icon: "Building" },
+    { label: "Work Locations", path: "/admin/work-locations", icon: "MapPin" },
+    { label: "Role Master", path: "/admin/roles", icon: "Shield" },
+    { category: "HR & PAYROLL" },
     {
       label: "HR & Payroll",
       icon: "Briefcase",
@@ -51,7 +35,7 @@ const SIDEBAR_ITEMS = {
         { label: "Performance Score", path: "/admin/hr/performance" }
       ]
     },
-    { category: "Client Relations" },
+    { category: "CLIENT RELATIONS" },
     {
       label: "Clients & CRM",
       icon: "BadgeAlert",
@@ -60,10 +44,10 @@ const SIDEBAR_ITEMS = {
         { label: "Client Directory", path: "/admin/crm/clients" }
       ]
     },
-    { category: "Communication" },
+    { category: "COMMUNICATION" },
     { label: "Internal Chat", path: "/internal-chat", icon: "MessageSquare" },
     { label: "Client Chat", path: "/client-chat", icon: "Building2" },
-    { category: "Analytics & System" },
+    { category: "ANALYTICS & SYSTEM" },
     {
       label: "Analytics & Reports",
       icon: "BarChart3",
@@ -80,93 +64,93 @@ const SIDEBAR_ITEMS = {
   ],
   HR: [
     { label: "Dashboard", path: "/hr", icon: "LayoutDashboard" },
-    { category: "Staff Management" },
-    { label: "Employees", path: "/hr/employees", icon: "Users" },
+    { category: "WORKFORCE" },
+    { label: "Attendance", path: "/hr/attendance/overview", icon: "CalendarDays" },
+    { label: "Employees Directory", path: "/hr/employees", icon: "Users" },
+    { label: "Departments", path: "/hr/departments", icon: "Building" },
+    { label: "Work Locations", path: "/hr/work-locations", icon: "MapPin" },
+    { category: "LEAVES & HOLIDAYS" },
     {
-      label: "Attendance",
-      icon: "CalendarRange",
-      subItems: [
-        { label: "Attendance Overview", path: "/hr/attendance/overview" },
-        { label: "App Usage Tracking", path: "/hr/app-usage" },
-        { label: "Daily Punch Logs", path: "/hr/attendance/daily" },
-        { label: "Monthly Summaries", path: "/hr/attendance/monthly" },
-        { label: "Late & Exceptions", path: "/hr/attendance/exceptions" }
-      ]
-    },
-    {
-      label: "Leaves & Holidays",
+      label: "Leaves",
       icon: "Calendar",
       subItems: [
         { label: "Company Approvals", path: "/hr/leaves/company" },
         { label: "My Personal Leaves", path: "/hr/leaves/personal" }
       ]
     },
-    { category: "Operations & Communication" },
+    { label: "Payroll", path: "/hr/payroll", icon: "Briefcase" },
+    { label: "Performance", path: "/hr/reviews", icon: "Award" },
+    { category: "COMMUNICATION" },
     { label: "Internal Chat", path: "/internal-chat", icon: "MessageSquare" },
     { label: "Client Chat", path: "/client-chat", icon: "Building2" },
-    { label: "Payroll", path: "/hr/payroll", icon: "Briefcase" },
-    { label: "Performance", path: "/hr/performance", icon: "Award" },
     { label: "Notifications", path: "/hr/notifications", icon: "Bell" }
   ],
   ProjectManager: [
     { label: "Dashboard", path: "/project-manager", icon: "LayoutDashboard" },
-    { category: "Project Operations" },
+    { category: "PROJECT OPERATIONS" },
     { label: "Projects Directory", path: "/project-manager/projects", icon: "Building2" },
     { label: "Task Board", path: "/project-manager/tasks", icon: "CheckSquare" },
     { label: "Drawings & GFC", path: "/project-manager/drawings", icon: "PenTool" },
+    { category: "TEAM & WORKFORCE" },
+    { label: "Teams Management", path: "/project-manager/team", icon: "Users" },
     { label: "Shift Attendance", path: "/project-manager/attendance", icon: "Fingerprint" },
+    { label: "Work Locations", path: "/project-manager/work-locations", icon: "MapPin" },
     { label: "Leaves Approvals", path: "/project-manager/leaves", icon: "Calendar" },
-    { category: "Team & Communication" },
+    { category: "COMMUNICATION" },
     { label: "Internal Chat", path: "/internal-chat", icon: "MessageSquare" },
     { label: "Client Chat", path: "/client-chat", icon: "Building2" },
-    { label: "Teams Management", path: "/project-manager/team", icon: "Users" },
     { label: "Reports & Audits", path: "/project-manager/reports", icon: "BarChart3" }
   ],
   Architect: [
     { label: "Dashboard", path: "/architect", icon: "LayoutDashboard" },
-    { category: "Design Studio" },
+    { category: "DESIGN STUDIO" },
     { label: "My Projects", path: "/architect/projects", icon: "Building2" },
     { label: "Drawings & GFC", path: "/architect/drawings", icon: "PenTool" },
     { label: "Time Tracking", path: "/architect/time", icon: "Clock3" },
+    { category: "WORKFORCE" },
     { label: "Shift Attendance", path: "/architect/attendance", icon: "Fingerprint" },
     { label: "Leaves Portal", path: "/architect/leaves", icon: "Calendar" },
-    { category: "Communication" },
+    { label: "Documents", path: "/architect/docs", icon: "FolderOpen" },
+    { category: "COMMUNICATION" },
     { label: "Internal Chat", path: "/internal-chat", icon: "MessageSquare" },
     { label: "Client Chat", path: "/client-chat", icon: "Building2" },
-    { label: "Documents", path: "/architect/docs", icon: "FolderOpen" },
     { label: "Notifications", path: "/architect/notifications", icon: "Bell" }
   ],
   SiteEngineer: [
     { label: "Dashboard", path: "/site-engineer", icon: "LayoutDashboard" },
-    { category: "Construction Site" },
+    { category: "CONSTRUCTION SITE" },
     { label: "Active Sites", path: "/site-engineer/sites", icon: "HardHat" },
     { label: "Site Attendance", path: "/site-engineer/attendance", icon: "CalendarRange" },
-    { label: "Leaves Portal", path: "/site-engineer/leaves", icon: "Calendar" },
     { label: "Photos & Issues", path: "/site-engineer/photos", icon: "Camera" },
+    { label: "Leaves Portal", path: "/site-engineer/leaves", icon: "Calendar" },
+    { category: "COMMUNICATION" },
     { label: "Internal Chat", path: "/internal-chat", icon: "MessageSquare" },
     { label: "Client Chat", path: "/client-chat", icon: "Building2" },
     { label: "Notifications", path: "/site-engineer/notifications", icon: "Bell" }
   ],
   Employee: [
     { label: "Dashboard", path: "/employee", icon: "LayoutDashboard" },
-    { category: "Office Terminal" },
-    { label: "Shift Attendance", path: "/employee/attendance", icon: "Fingerprint" },
-    { label: "Leaves Portal", path: "/employee/leaves", icon: "Calendar" },
+    { category: "MY WORKSPACE" },
     { label: "My Tasks", path: "/employee/tasks", icon: "CheckSquare" },
     { label: "Drawings & GFC", path: "/employee/drawings", icon: "PenTool" },
     { label: "Documents", path: "/employee/docs", icon: "FolderOpen" },
+    { category: "WORKFORCE" },
+    { label: "Shift Attendance", path: "/employee/attendance", icon: "Fingerprint" },
+    { label: "Leaves Portal", path: "/employee/leaves", icon: "Calendar" },
+    { category: "COMMUNICATION" },
     { label: "Internal Chat", path: "/internal-chat", icon: "MessageSquare" },
     { label: "Client Chat", path: "/client-chat", icon: "Building2" },
     { label: "Notifications", path: "/employee/notifications", icon: "Bell" }
   ],
   Customer: [
     { label: "Dashboard", path: "/customer", icon: "LayoutDashboard" },
-    { category: "Client Portal" },
+    { category: "CLIENT PORTAL" },
     { label: "Project Timeline", path: "/customer/timeline", icon: "Milestone" },
     { label: "Photos & 3D Views", path: "/customer/views", icon: "Sparkles" },
+    { label: "Project History", path: "/customer/history", icon: "History" },
+    { category: "COMMUNICATION" },
     { label: "Client Chat", path: "/client-chat", icon: "Building2" },
-    { label: "Notifications", path: "/customer/notifications", icon: "Bell" },
-    { label: "Project History", path: "/customer/history", icon: "History" }
+    { label: "Notifications", path: "/customer/notifications", icon: "Bell" }
   ]
 };
 
@@ -257,7 +241,7 @@ export default function Sidebar({ role, onClose }) {
 
   const renderIcon = (name) => {
     const IconComponent = Icons[name] || Icons.HelpCircle;
-    return <IconComponent className="w-5 h-5 flex-shrink-0" />;
+    return <IconComponent className="w-4.5 h-4.5 flex-shrink-0" />;
   };
 
   return (
@@ -278,7 +262,7 @@ export default function Sidebar({ role, onClose }) {
           </Link>
         ) : (
           <Link to="/" className="flex items-center justify-center p-1" title="Nirman Architects">
-            <div className="w-9 h-9 rounded-xl bg-brand-tint text-brand-dark border border-slate-200 font-black text-xs flex items-center justify-center shadow-3xs">
+            <div className="w-9 h-9 rounded-xl bg-brand-primary text-brand-dark border border-brand-secondary font-black text-xs flex items-center justify-center shadow-3xs">
               N
             </div>
           </Link>
@@ -310,13 +294,13 @@ export default function Sidebar({ role, onClose }) {
         </div>
       </div>
 
-      {/* 2. Navigation List using original global brand colors */}
-      <nav className={`flex-1 overflow-y-auto space-y-2 scrollbar-thin ${isCollapsed ? 'px-2 pt-4 pb-16' : 'px-4 pt-5 pb-20'
+      {/* 2. Navigation List with Clean Professional SaaS Layout */}
+      <nav className={`flex-1 overflow-y-auto space-y-1 scrollbar-thin ${isCollapsed ? 'px-2 pt-4 pb-16' : 'px-3.5 pt-4 pb-20'
         }`}>
         {items.map((item, idx) => {
           if (item.category) {
             return !isCollapsed ? (
-              <div key={`cat-${idx}`} className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-5 mb-2.5 px-4 block">
+              <div key={`cat-${idx}`} className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-4 mb-1.5 px-3 block">
                 {item.category}
               </div>
             ) : (
@@ -334,23 +318,27 @@ export default function Sidebar({ role, onClose }) {
             );
 
             return (
-              <div key={idx} className="space-y-1">
+              <div key={idx} className="space-y-0.5">
                 <button
                   onClick={() => toggleMenu(idx)}
                   title={isCollapsed ? item.label : undefined}
-                  className={`w-full flex items-center rounded-xl text-xs font-bold transition-all ${isCollapsed ? 'justify-center p-3' : 'justify-between px-4 py-2.5'
+                  className={`w-full flex items-center rounded-xl text-xs font-bold transition-all cursor-pointer ${isCollapsed ? 'justify-center p-3' : 'justify-between px-3 py-2.5'
                     } ${hasActiveSub
-                      ? 'bg-brand-tint text-slate-900 font-extrabold border-l-4 border-brand-primary'
-                      : 'hover:bg-slate-50 hover:text-slate-900 text-slate-550'
+                      ? 'bg-gradient-to-r from-brand-primary/50 to-brand-secondary/40 text-brand-dark font-extrabold border-l-4 border-brand-secondary shadow-2xs'
+                      : 'hover:bg-brand-soft/60 hover:text-slate-900 text-slate-650 font-semibold'
                     }`}
                 >
-                  <div className="flex items-center gap-3">
-                    {renderIcon(item.icon)}
-                    {!isCollapsed && <span>{item.label}</span>}
+                  <div className="flex items-center gap-2.5">
+                    <div className={`${hasActiveSub ? 'text-slate-900' : 'text-slate-500'}`}>
+                      {renderIcon(item.icon)}
+                    </div>
+                    {!isCollapsed && (
+                      <span className="text-slate-800 font-bold">{item.label}</span>
+                    )}
                   </div>
                   {!isCollapsed && (
                     isExpanded ? (
-                      <Icons.ChevronDown className="w-3.5 h-3.5 transition-transform text-slate-400" />
+                      <Icons.ChevronDown className="w-3.5 h-3.5 transition-transform text-slate-500" />
                     ) : (
                       <Icons.ChevronRight className="w-3.5 h-3.5 transition-transform text-slate-400" />
                     )
@@ -358,7 +346,7 @@ export default function Sidebar({ role, onClose }) {
                 </button>
 
                 {isExpanded && !isCollapsed && (
-                  <div className="pl-3.5 pr-1 py-1 space-y-1 border-l border-slate-100 ml-5">
+                  <div className="pl-3.5 pr-1 py-1 space-y-1 border-l-2 border-brand-secondary ml-4 my-0.5">
                     {item.subItems.map((sub, sIdx) => {
                       const isSubActive = hasExactSubMatch
                         ? location.pathname === sub.path
@@ -370,9 +358,9 @@ export default function Sidebar({ role, onClose }) {
                           onClick={() => {
                             if (onClose) onClose();
                           }}
-                          className={`block px-3 py-2 rounded-lg text-[11px] font-semibold transition-all ${isSubActive
-                              ? 'bg-slate-50 text-slate-900 font-bold border-l-2 border-brand-primary/50'
-                              : 'hover:bg-slate-50/50 hover:text-slate-900 text-slate-450'
+                          className={`block px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${isSubActive
+                            ? 'bg-brand-primary/40 text-brand-dark font-extrabold border-l-2 border-brand-secondary'
+                            : 'hover:bg-brand-soft/80 hover:text-slate-900 text-slate-650'
                             }`}
                         >
                           {sub.label}
@@ -397,25 +385,27 @@ export default function Sidebar({ role, onClose }) {
               onClick={() => {
                 if (onClose) onClose();
               }}
-              className={`flex items-center rounded-xl text-xs font-bold transition-all ${isCollapsed ? 'justify-center p-3' : 'gap-3 px-4 py-2.5'
+              className={`flex items-center rounded-xl text-xs font-bold transition-all ${isCollapsed ? 'justify-center p-3' : 'gap-2.5 px-3 py-2.5'
                 } ${isActive
-                  ? 'bg-brand-tint text-slate-900 font-extrabold border-l-4 border-brand-primary shadow-xs'
-                  : 'hover:bg-slate-50 hover:text-slate-900 text-slate-550'
+                  ? 'bg-gradient-to-r from-brand-primary/50 to-brand-secondary/40 text-brand-dark font-extrabold border-l-4 border-brand-secondary shadow-2xs'
+                  : 'hover:bg-brand-soft/60 hover:text-slate-900 text-slate-650 font-semibold'
                 }`}
             >
-              {renderIcon(item.icon)}
+              <div className={`${isActive ? 'text-brand-dark' : 'text-slate-500'}`}>
+                {renderIcon(item.icon)}
+              </div>
               {!isCollapsed && <span>{item.label}</span>}
             </Link>
           );
         })}
       </nav>
 
-      {/* 3. Sidebar Footer using original brand colors */}
+      {/* 3. Sidebar Footer */}
       <div className={`border-t border-slate-200/80 bg-white flex shrink-0 transition-all ${isCollapsed ? 'p-2 flex-col items-center gap-2' : 'p-4 items-center justify-between gap-3'
         }`}>
         <div className={`flex items-center gap-3 overflow-hidden ${isCollapsed ? 'justify-center' : ''}`}>
           <div
-            className="w-9 h-9 bg-brand-tint text-brand-dark rounded-xl flex items-center justify-center font-black text-[11px] shadow-xs border border-white flex-shrink-0"
+            className="w-9 h-9 bg-brand-primary text-brand-dark rounded-xl flex items-center justify-center font-black text-[11px] shadow-xs border border-brand-secondary flex-shrink-0"
             title={isCollapsed ? `${name} (${roleLabel})` : undefined}
           >
             {initials}

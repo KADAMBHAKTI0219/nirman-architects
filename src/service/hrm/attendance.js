@@ -6,8 +6,7 @@ const updateLocalAttendanceState = (isClockedIn, customTime = null) => {
     const nowIso = customTime || new Date().toISOString();
     const todayStr = new Date().toISOString().split('T')[0];
 
-    const currentSessionRaw = localStorage.getItem('nirman_active_attendance_session');
-    let session = currentSessionRaw ? JSON.parse(currentSessionRaw) : {};
+    let session = window._activeAttendanceSession || {};
 
     if (isClockedIn) {
       session = {
@@ -36,11 +35,9 @@ const updateLocalAttendanceState = (isClockedIn, customTime = null) => {
       };
     }
 
-    localStorage.setItem('nirman_active_attendance_session', JSON.stringify(session));
+    window._activeAttendanceSession = session;
 
-    // Also push to nirman_attendance_logs
-    const logsRaw = localStorage.getItem('nirman_attendance_logs');
-    let logs = logsRaw ? JSON.parse(logsRaw) : [];
+    let logs = window._attendanceLogs || [];
     if (!Array.isArray(logs)) logs = [];
 
     const existingIdx = logs.findIndex(l => (l.date === todayStr || (l.clockInTime && l.clockInTime.startsWith(todayStr))));
@@ -49,7 +46,7 @@ const updateLocalAttendanceState = (isClockedIn, customTime = null) => {
     } else {
       logs.unshift(session);
     }
-    localStorage.setItem('nirman_attendance_logs', JSON.stringify(logs));
+    window._attendanceLogs = logs;
 
     return session;
   } catch (e) {

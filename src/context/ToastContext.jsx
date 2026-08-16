@@ -16,12 +16,12 @@ export function ToastProvider({ children }) {
 
   const showToast = useCallback((message, type = 'success', title = '', triggerWebPush = true) => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
-    
+
     // Auto-generate title if omitted
     const formattedTitle = title || (
       type === 'success' ? 'Success' :
-      type === 'error' ? 'Action Failed' :
-      type === 'warning' ? 'Attention Required' : 'Notice'
+        type === 'error' ? 'Action Failed' :
+          type === 'warning' ? 'Attention Required' : 'Notice'
     );
 
     const newToast = { id, message, type, title: formattedTitle };
@@ -31,7 +31,7 @@ export function ToastProvider({ children }) {
     // Auto dismiss after 4.5s
     setTimeout(() => {
       removeToast(id);
-    }, 4500);
+    }, 1500);
 
     // Trigger Desktop Web Push Notification via ServiceWorker if permission granted
     if (triggerWebPush && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
@@ -62,23 +62,21 @@ export function ToastProvider({ children }) {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`pointer-events-auto p-4 rounded-2xl border shadow-xl flex items-start gap-3 transition-all duration-300 transform animate-in slide-in-from-top-4 fade-in ${
-              toast.type === 'success'
-                ? 'bg-white border-emerald-200 text-slate-800 shadow-emerald-500/10'
-                : toast.type === 'error'
+            className={`pointer-events-auto p-4 rounded-2xl border shadow-xl flex items-start gap-3 transition-all duration-300 transform animate-in slide-in-from-top-4 fade-in ${toast.type === 'success'
+              ? 'bg-white border-emerald-200 text-slate-800 shadow-emerald-500/10'
+              : toast.type === 'error'
                 ? 'bg-white border-rose-200 text-slate-800 shadow-rose-500/10'
                 : toast.type === 'warning'
-                ? 'bg-white border-amber-200 text-slate-800 shadow-amber-500/10'
-                : 'bg-white border-brand-secondary/60 text-slate-800 shadow-blue-500/10'
-            }`}
+                  ? 'bg-white border-amber-200 text-slate-800 shadow-amber-500/10'
+                  : 'bg-white border-brand-secondary/60 text-slate-800 shadow-blue-500/10'
+              }`}
           >
             {/* Icon Avatar */}
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-2xs ${
-              toast.type === 'success' ? 'bg-emerald-100 text-emerald-600' :
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-2xs ${toast.type === 'success' ? 'bg-emerald-100 text-emerald-600' :
               toast.type === 'error' ? 'bg-rose-100 text-rose-600' :
-              toast.type === 'warning' ? 'bg-amber-100 text-amber-600' :
-              'bg-brand-soft text-brand-dark'
-            }`}>
+                toast.type === 'warning' ? 'bg-amber-100 text-amber-600' :
+                  'bg-brand-soft text-brand-dark'
+              }`}>
               {toast.type === 'success' && <CheckCircle2 className="w-5 h-5" />}
               {toast.type === 'error' && <XCircle className="w-5 h-5" />}
               {toast.type === 'warning' && <AlertTriangle className="w-5 h-5" />}
@@ -87,12 +85,11 @@ export function ToastProvider({ children }) {
 
             {/* Content Body */}
             <div className="min-w-0 flex-1">
-              <h4 className={`text-xs font-black leading-tight ${
-                toast.type === 'success' ? 'text-emerald-800' :
+              <h4 className={`text-xs font-black leading-tight ${toast.type === 'success' ? 'text-emerald-800' :
                 toast.type === 'error' ? 'text-rose-800' :
-                toast.type === 'warning' ? 'text-amber-800' :
-                'text-slate-900'
-              }`}>
+                  toast.type === 'warning' ? 'text-amber-800' :
+                    'text-slate-900'
+                }`}>
                 {toast.title}
               </h4>
               <p className="text-xs text-slate-600 font-medium mt-0.5 leading-normal break-words">
@@ -124,7 +121,7 @@ export function useToast() {
     // Fallback safe dummy function if used outside provider
     return {
       showToast: (msg, type = 'info') => console.log(`[Toast ${type}]: ${msg}`),
-      removeToast: () => {}
+      removeToast: () => { }
     };
   }
   return context;

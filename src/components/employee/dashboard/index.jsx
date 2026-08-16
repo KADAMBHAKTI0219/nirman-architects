@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   CheckCircle, Clock, AlertCircle, Fingerprint, Calendar, ArrowRight, 
   MapPin, CheckSquare, Plus, Send, Play, Coffee, FileText, Download, Eye, 
-  Layers, MessageSquare, FolderOpen, Bell, CheckCheck, RefreshCw, AlertTriangle
+  Layers, MessageSquare, FolderOpen, Bell, CheckCheck, RefreshCw, AlertTriangle, Check, X, Upload
 } from 'lucide-react';
 import Card from '../../common/Card';
 import DrawingViewer from '../../common/DrawingViewer';
 import { getTodayAttendance, getMyAttendance } from '../../../service/hrm/attendance';
 import { getTasks, updateTaskStatus } from '../../../service/task';
 import { getMyNotifications } from '../../../service/notification';
-import { getProjectDocuments } from '../../../service/document';
+import { getProjectDocuments, uploadDocument } from '../../../service/document';
 import { getInternalProjectChat, sendInternalChatMessage } from '../../../service/chat';
 import { getDrawings } from '../../../service/drawing';
 import { useToast } from '../../../context/ToastContext';
@@ -58,8 +58,48 @@ export default function EmployeeDashboard() {
   const [chats, setChats] = useState([]);
   const [chatInput, setChatInput] = useState('');
 
-  // Dynamic Compliance Documents
+  // Dynamic Compliance Documents & File Upload Ref
   const [documents, setDocuments] = useState([]);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const fetchDocuments = async () => {
+    try {
+      const docRes = await getProjectDocuments('proj-1');
+      if (docRes) {
+        const list = docRes.allDocuments || docRes.documents || (Array.isArray(docRes) ? docRes : []);
+        setDocuments(list);
+      }
+    } catch (e) {
+      console.warn("Documents fetch notice:", e);
+    }
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingDoc(true);
+    try {
+      const ext = file.name.split('.').pop().toUpperCase();
+      await uploadDocument({
+        projectId: 'proj-1',
+        documentName: file.name,
+        fileName: file.name,
+        fileType: ext,
+        category: 'Compliance & Verification',
+        filePath: URL.createObjectURL(file)
+      });
+      showToast(`Document "${file.name}" uploaded successfully!`, 'success');
+      await fetchDocuments();
+    } catch (err) {
+      console.error("Document upload error:", err);
+      showToast(err.message || "Failed to upload document", "error");
+    } finally {
+      setUploadingDoc(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   // Fetch Attendance Session
   const fetchAttendanceSession = async () => {
@@ -225,40 +265,58 @@ export default function EmployeeDashboard() {
   const completedTasksCount = tasks.filter(t => t.completed || t.status === 'COMPLETED' || t.status === 'Completed').length;
 
   // Build 5-day Mon-Fri weekly streak dynamically from real logs
-  const weeklyStreak = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((dayName, idx) => {
-    const d = new Date();
-    const currentDay = d.getDay();
+  const weeklyStreak = useMemo(() => {
+    const todayObj = new Date();
+    const todayStr = todayObj.toISOString().split('T')[0];
+    const currentDay = todayObj.getDay();
     const distanceToMon = (currentDay === 0 ? -6 : 1) - currentDay;
-    const targetDateObj = new Date(d);
-    targetDateObj.setDate(d.getDate() + distanceToMon + idx);
-    const dateStr = targetDateObj.toISOString().split('T')[0];
 
-    const matchedLog = myAttendanceLogs.find(l => {
-      const lDate = l.date || (l.clockInTime ? l.clockInTime.split('T')[0] : null);
-      return lDate === dateStr;
-    });
+    const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
-    let code = '-';
-    let color = 'bg-slate-100 text-slate-400 border-slate-200';
+    return days.map((dayLabel, idx) => {
+      const dayDateObj = new Date(todayObj);
+      dayDateObj.setDate(todayObj.getDate() + distanceToMon + idx);
+      const dayDateStr = dayDateObj.toISOString().split('T')[0];
 
-    if (matchedLog) {
-      if (matchedLog.status === 'AUTO_CLOSED' || matchedLog.autoClosed) {
-        code = 'AC';
-        color = 'bg-amber-500 text-white shadow-xs';
+      const matchedLog = myAttendanceLogs.find(l => {
+        const lDate = l.date || (l.clockInTime ? l.clockInTime.split('T')[0] : (l.createdAt ? l.createdAt.split('T')[0] : null));
+        return lDate === dayDateStr;
+      });
+
+      const isToday = (dayDateStr === todayStr);
+      const isPast = (dayDateStr < todayStr);
+
+      let statusType = 'FUTURE';
+
+      if (isToday) {
+        if (isCheckedIn || todaySession?.clockInTime || todaySession?.clockIn || (matchedLog && (matchedLog.clockInTime || matchedLog.status === 'PRESENT'))) {
+          statusType = 'PRESENT';
+        } else {
+          statusType = 'TODAY_PENDING';
+        }
+      } else if (matchedLog) {
+        const st = (matchedLog.status || matchedLog.attendanceStatus || '').toUpperCase();
+        if (st === 'ABSENT') {
+          statusType = 'ABSENT';
+        } else if (st === 'LEAVE' || st === 'ON_LEAVE') {
+          statusType = 'LEAVE';
+        } else {
+          statusType = 'PRESENT';
+        }
+      } else if (isPast) {
+        statusType = 'ABSENT';
       } else {
-        code = 'P';
-        color = 'bg-emerald-500 text-white shadow-xs';
+        statusType = 'FUTURE';
       }
-    } else if (targetDateObj > new Date()) {
-      code = '-';
-      color = 'bg-slate-100 text-slate-400 border-slate-200';
-    } else {
-      code = 'A';
-      color = 'bg-rose-500 text-white shadow-xs';
-    }
 
-    return { dayName, code, color, dateStr };
-  });
+      return {
+        label: dayLabel,
+        dateStr: dayDateStr,
+        statusType,
+        isToday
+      };
+    });
+  }, [myAttendanceLogs, todaySession, isCheckedIn]);
 
   const handleSendChannelUpdate = async (e) => {
     e.preventDefault();
@@ -403,20 +461,43 @@ export default function EmployeeDashboard() {
         <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-2xs flex flex-col justify-between">
           <div>
             <h3 className="text-xs font-black text-slate-900 uppercase tracking-wide">Attendance Streak</h3>
-            <p className="text-[10px] text-slate-400 font-medium mt-0.5">Consistent weekly check-in logs history</p>
+            <p className="text-[10px] text-slate-400 font-medium mt-0.5">Live weekly check-in & attendance history</p>
           </div>
           <div className="flex items-center justify-between gap-2 pt-3">
-            {['MON', 'TUE', 'WED', 'THU', 'FRI'].map((day, idx) => {
-              const isPassed = idx < 4;
+            {weeklyStreak.map((item) => {
+              let icon = null;
+              let badgeStyle = 'bg-slate-50 border border-slate-200 text-slate-300';
+              let title = item.label;
+
+              if (item.statusType === 'PRESENT') {
+                icon = <Check className="w-3.5 h-3.5 stroke-[3]" />;
+                badgeStyle = 'bg-emerald-100 text-emerald-700 border border-emerald-300 shadow-2xs';
+                title = `${item.label}: Present`;
+              } else if (item.statusType === 'ABSENT') {
+                icon = <X className="w-3.5 h-3.5 stroke-[3]" />;
+                badgeStyle = 'bg-rose-100 text-rose-700 border border-rose-300 shadow-2xs';
+                title = `${item.label}: Absent`;
+              } else if (item.statusType === 'LEAVE') {
+                icon = <span className="font-extrabold text-[10px]">L</span>;
+                badgeStyle = 'bg-amber-100 text-amber-700 border border-amber-300 shadow-2xs';
+                title = `${item.label}: On Leave`;
+              } else if (item.statusType === 'TODAY_PENDING') {
+                icon = <Clock className="w-3 h-3 text-sky-500 animate-pulse" />;
+                badgeStyle = 'bg-sky-50 text-sky-600 border border-sky-300 border-dashed';
+                title = `${item.label}: Pending Check-In`;
+              } else {
+                icon = null;
+                badgeStyle = 'bg-slate-50 border border-slate-200 text-slate-300';
+                title = `${item.label}: Upcoming`;
+              }
+
               return (
-                <div key={day} className="flex flex-col items-center gap-1.5 flex-1">
-                  <span className="text-[9px] font-black text-slate-400 uppercase">{day}</span>
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
-                    isPassed 
-                      ? 'bg-emerald-100 text-emerald-600 border border-emerald-300' 
-                      : 'bg-white border border-slate-200 text-slate-300'
-                  }`}>
-                    {isPassed ? '✓' : ''}
+                <div key={item.label} className="flex flex-col items-center gap-1.5 flex-1" title={title}>
+                  <span className={`text-[9px] font-black uppercase ${item.isToday ? 'text-brand-dark underline font-extrabold' : 'text-slate-400'}`}>
+                    {item.label}
+                  </span>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${badgeStyle}`}>
+                    {icon}
                   </div>
                 </div>
               );
@@ -426,18 +507,19 @@ export default function EmployeeDashboard() {
 
       </div>
 
-      {/* 2. TWO COLUMN ACTION CENTER LAYOUT */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* 2. MAIN WORKSPACE LAYOUT (TASKS & BLUEPRINTS) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* LEFT COLUMN: TASKS & BLUEPRINTS (2/3 width) */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          {/* Today's Tasks checklist */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-150 shadow-2xs space-y-4">
+        {/* Today's Tasks checklist */}
+        <div className="bg-white p-6 rounded-3xl border border-slate-150 shadow-2xs space-y-4 flex flex-col justify-between">
+          <div>
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Today's Tasks</h3>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">Dynamic checklist synced with real-time manager review</p>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide flex items-center gap-2">
+                  <CheckSquare className="w-4 h-4 text-brand-dark" />
+                  <span>Today's Tasks</span>
+                </h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">Assigned checklist & real-time task status update</p>
               </div>
               <button 
                 onClick={() => navigate('/admin/tasks')}
@@ -448,13 +530,27 @@ export default function EmployeeDashboard() {
               </button>
             </div>
 
+            {/* Task completion progress bar */}
+            <div className="pt-3 pb-1">
+              <div className="flex items-center justify-between text-[11px] font-extrabold text-slate-600 mb-1.5">
+                <span>Task Progress</span>
+                <span className="text-brand-dark font-black">{completedTasksCount} / {tasks.length} Completed</span>
+              </div>
+              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                <div 
+                  className="bg-brand-primary h-full transition-all duration-300 rounded-full"
+                  style={{ width: `${tasks.length > 0 ? (completedTasksCount / tasks.length) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+
             {loadingTasks ? (
               <div className="flex items-center justify-center py-8 text-xs font-bold text-slate-400">
                 <RefreshCw className="w-5 h-5 animate-spin text-brand-dark mr-2" />
                 <span>Loading assigned tasks...</span>
               </div>
             ) : tasks.length === 0 ? (
-              <div className="space-y-2.5 pt-1">
+              <div className="space-y-2.5 pt-2">
                 {[
                   { id: 't-1', title: 'Foundation Structural Load Analysis', priority: 'HIGH', completed: false },
                   { id: 't-2', title: 'Site Inspection Report Handoff', priority: 'MEDIUM', completed: false }
@@ -473,7 +569,7 @@ export default function EmployeeDashboard() {
                 ))}
               </div>
             ) : (
-              <div className="space-y-2.5 pt-1">
+              <div className="space-y-2.5 pt-2 max-h-[340px] overflow-y-auto pr-1 scrollbar-none">
                 {tasks.map(t => {
                   const isCompleted = t.completed || t.status === 'COMPLETED' || t.status === 'Completed';
                   return (
@@ -481,7 +577,7 @@ export default function EmployeeDashboard() {
                       key={t.id || t._id}
                       onClick={() => handleToggleTaskStatus(t)}
                       className={`p-3.5 border rounded-2xl flex items-center justify-between gap-3 hover:border-brand-primary transition-all cursor-pointer ${
-                        isCompleted ? 'border-slate-100 bg-slate-50/40 opacity-75' : 'border-slate-200 bg-white'
+                        isCompleted ? 'border-slate-100 bg-slate-50/40 opacity-75' : 'border-slate-200 bg-white shadow-3xs'
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
@@ -498,6 +594,11 @@ export default function EmployeeDashboard() {
                           <span className={`text-xs font-bold block leading-snug ${isCompleted ? 'line-through text-slate-400' : 'text-slate-800'}`}>
                             {t.title || t.taskName || 'Assigned Workspace Task'}
                           </span>
+                          {t.dueDate && (
+                            <span className="text-[9px] text-slate-400 font-semibold block mt-0.5">
+                              Due: {new Date(t.dueDate).toLocaleDateString()}
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -514,9 +615,11 @@ export default function EmployeeDashboard() {
               </div>
             )}
           </div>
+        </div>
 
-          {/* Blueprints Workspace */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-150 shadow-2xs space-y-4">
+        {/* Blueprints Workspace */}
+        <div className="bg-white p-6 rounded-3xl border border-slate-150 shadow-2xs space-y-4 flex flex-col justify-between">
+          <div>
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Blueprints Workspace</h3>
@@ -543,21 +646,21 @@ export default function EmployeeDashboard() {
                 <span className="text-[11px] text-slate-400 font-medium block mt-0.5">Assigned architectural drawings will appear here.</span>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              <div className="space-y-3 pt-2 max-h-[380px] overflow-y-auto pr-1 scrollbar-none">
                 {drawings.map(d => (
                   <div key={d.id || d._id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex justify-between items-center gap-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-600">
-                        <FileText className="w-4 h-4" />
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 shrink-0">
+                        <FileText className="w-4 h-4 text-brand-dark" />
                       </div>
-                      <div>
-                        <strong className="text-slate-850 block text-xs leading-none">{d.name || d.title}</strong>
+                      <div className="min-w-0">
+                        <strong className="text-slate-850 block text-xs truncate leading-none">{d.name || d.title}</strong>
                         <span className="text-[9px] text-slate-400 block mt-1.5 font-bold uppercase">{d.category || 'Working Drawings'} &bull; {d.version || 'V1.0'}</span>
                       </div>
                     </div>
                     <button
                       onClick={() => setSelectedDrawing(d)}
-                      className="px-3 py-1.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-[11px] rounded-xl border border-brand-secondary/40 flex items-center gap-1 cursor-pointer"
+                      className="px-3 py-1.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-[11px] rounded-xl border border-brand-secondary/40 flex items-center gap-1 cursor-pointer shrink-0"
                     >
                       <Eye className="w-3.5 h-3.5" />
                       <span>View</span>
@@ -567,112 +670,17 @@ export default function EmployeeDashboard() {
               </div>
             )}
           </div>
-
-          {/* Drawing Viewer Overlay */}
-          {selectedDrawing && (
-            <DrawingViewer 
-              drawing={selectedDrawing}
-              onClose={() => setSelectedDrawing(null)}
-              userPermissionLevel="MEMBER"
-              initialMarkupMode={true}
-            />
-          )}
-
         </div>
 
-        {/* RIGHT COLUMN: CHAT, STREAKS, AND DOCS PREVIEW (1/3 width) */}
-        <div className="space-y-6">
-          
-          {/* Team Chat Stream */}
-          <div className="bg-white p-5 rounded-3xl border border-slate-150 shadow-2xs flex flex-col justify-between h-[300px]">
-            <div className="border-b border-slate-100 pb-2">
-              <span className="text-xs font-black text-slate-900 uppercase tracking-wide block">Team Chat Stream</span>
-              <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">Coordination & project updates</span>
-            </div>
-
-            <div className="flex-1 overflow-y-auto space-y-3 my-3 pr-1 scrollbar-none text-xs">
-              {chats.length === 0 ? (
-                <div className="text-center text-slate-400 font-medium py-12 text-xs">
-                  <p>No messages yet.</p>
-                  <span className="text-[10px] text-slate-400 font-normal">Start a conversation with your team.</span>
-                </div>
-              ) : (
-                chats.map((c, i) => (
-                  <div 
-                    key={c.id || i} 
-                    className={`p-2.5 rounded-2xl space-y-1 ${
-                      (c.author || '').includes('You') 
-                        ? 'bg-blue-50 border border-blue-100 text-slate-800 ml-6 rounded-tr-none' 
-                        : 'bg-slate-50 text-slate-800 border border-slate-100 mr-6 rounded-tl-none'
-                    }`}
-                  >
-                    <strong className="font-black text-[9px] block uppercase opacity-85 text-slate-500">{c.author || c.senderName || 'Team Member'}</strong>
-                    <p className="font-semibold leading-normal">{c.message || c.content}</p>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <form onSubmit={handleSendChannelUpdate} className="flex gap-2 border-t border-slate-100 pt-2.5">
-              <input 
-                type="text" 
-                placeholder="Type a message..." 
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                className="flex-1 px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-xs font-medium bg-slate-50/50"
-              />
-              <button 
-                type="submit"
-                className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-black text-xs rounded-xl transition-all cursor-pointer shadow-2xs border border-brand-secondary/40"
-              >
-                Send
-              </button>
-            </form>
-          </div>
-
-          {/* Compliance Documents preview */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-150 shadow-2xs space-y-4">
-            <div className="border-b border-slate-100 pb-3">
-              <h3 className="text-xs font-black text-slate-900 uppercase tracking-wide">Compliance Documents</h3>
-              <p className="text-[10px] text-slate-400 font-medium mt-0.5">Track document verification status</p>
-            </div>
-
-            {documents.length === 0 ? (
-              <div className="py-8 text-center bg-slate-50/60 rounded-2xl border border-dashed border-slate-200 space-y-3">
-                <FileText className="w-8 h-8 text-brand-secondary/80 mx-auto" />
-                <div>
-                  <strong className="text-xs font-black text-slate-800 block">No documents uploaded</strong>
-                  <span className="text-[10px] text-slate-400 font-medium block mt-0.5">Upload compliance documents to get started.</span>
-                </div>
-                <button
-                  onClick={() => navigate('/admin/documents')}
-                  className="px-3.5 py-2 bg-white hover:bg-slate-50 text-brand-dark font-extrabold text-xs rounded-xl border border-slate-200 shadow-2xs transition-all cursor-pointer inline-flex items-center gap-1.5"
-                >
-                  <Plus className="w-3.5 h-3.5 text-brand-dark" />
-                  <span>Upload Document</span>
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {documents.map((doc, idx) => (
-                  <div key={doc.name || idx} className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex justify-between items-center gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <FolderOpen className="w-4 h-4 text-slate-400 shrink-0" />
-                      <div className="min-w-0">
-                        <strong className="text-slate-800 block truncate text-xs">{doc.name || doc.title}</strong>
-                        <span className="text-[9px] text-slate-400 block font-semibold">Expires: {doc.expiry || '2027-12-31'}</span>
-                      </div>
-                    </div>
-                    <span className="text-[8px] bg-emerald-50 text-emerald-600 border border-emerald-100 px-2 py-0.5 rounded font-black uppercase">
-                      Valid
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-        </div>
+        {/* Drawing Viewer Overlay */}
+        {selectedDrawing && (
+          <DrawingViewer 
+            drawing={selectedDrawing}
+            onClose={() => setSelectedDrawing(null)}
+            userPermissionLevel="MEMBER"
+            initialMarkupMode={true}
+          />
+        )}
 
       </div>
 

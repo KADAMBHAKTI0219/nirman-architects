@@ -5,6 +5,9 @@ import BrandLoader from '../components/common/BrandLoader';
 
 const HRDashboard = lazy(() => import('../components/hr/dashboard/index'));
 const HREmployees = lazy(() => import('../components/hr/employees/index'));
+const HRDepartments = lazy(() => import('../components/admin/departments/index'));
+const HRDesignations = lazy(() => import('../components/admin/designations/index'));
+const HRWorkLocations = lazy(() => import('../components/admin/work-locations/index'));
 const HRAttendance = lazy(() => import('../components/hr/attendance/index'));
 const HRLeaves = lazy(() => import('../components/hr/leaves-holidays/index'));
 const HRPayroll = lazy(() => import('../components/hr/payroll-data/index'));
@@ -32,8 +35,23 @@ export default function getHrRoutes(handleRoleChange) {
         </DashboardLayout>
       } />
       <Route path="/hr/employees" element={
-        <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Employees">
+        <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Employees Directory">
           <LazyWrap><HREmployees /></LazyWrap>
+        </DashboardLayout>
+      } />
+      <Route path="/hr/users" element={
+        <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="User Management">
+          <LazyWrap><HREmployees /></LazyWrap>
+        </DashboardLayout>
+      } />
+      <Route path="/hr/departments" element={
+        <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Departments">
+          <LazyWrap><HRDepartments /></LazyWrap>
+        </DashboardLayout>
+      } />
+      <Route path="/hr/work-locations" element={
+        <DashboardLayout role="HR" onChangeRole={handleRoleChange} title="Work Locations">
+          <LazyWrap><HRWorkLocations /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/hr/attendance/overview" element={

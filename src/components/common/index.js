@@ -13,3 +13,6 @@ export { default as LeavesPortal } from './LeavesPortal';
 export { default as AttendanceCalendar } from './AttendanceCalendar';
 export { default as TaskBoard } from './TaskBoard';
 export { default as EmptyState } from './EmptyState';
+export { default as RoleSelect } from './RoleSelect';
+export { default as DepartmentSelect } from './DepartmentSelect';
+export { default as EmployeeSelect } from './EmployeeSelect';

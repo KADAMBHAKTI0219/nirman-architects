@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   Search, Eye, Clock, MapPin, Laptop, ShieldCheck, Smartphone,
   Download, ArrowRight, UserCheck, AlertTriangle, Users, Calendar,
-  Filter, CheckCircle2, XCircle, ChevronLeft, ChevronRight, X,
+  Filter, CheckCircle2, XCircle, ChevronLeft, ChevronRight, ChevronDown, X,
   RotateCcw, SlidersHorizontal, History, User, TrendingUp, Coffee,
   CheckCircle, AlertCircle, RefreshCw
 } from 'lucide-react';
@@ -33,7 +33,57 @@ export default function AttendanceOps({
   const [statusFilter, setStatusFilter] = useState('All'); // All | Present | Late | Absent | On Leave
   const [modeFilter, setModeFilter] = useState('All'); // All | Office | Site
   const [departmentFilter, setDepartmentFilter] = useState('All');
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  // Current-Year Month & Date-Only Calendar Filter states
+  const todaySystemDateObj = useMemo(() => new Date(), []);
+  const currentYear = todaySystemDateObj.getFullYear(); // Locked to Current Year (2026)
+  const todaySystemDateStr = useMemo(() => {
+    const y = todaySystemDateObj.getFullYear();
+    const m = String(todaySystemDateObj.getMonth() + 1).padStart(2, '0');
+    const d = String(todaySystemDateObj.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }, [todaySystemDateObj]);
+
+  const [selectedDate, setSelectedDate] = useState(todaySystemDateStr);
+  const [showDatePopover, setShowDatePopover] = useState(false);
+  const [showMonthView, setShowMonthView] = useState(false);
+  const [pickerMonth, setPickerMonth] = useState(todaySystemDateObj.getMonth()); // 0-11
+
+  const monthNames = useMemo(() => [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ], []);
+
+  const monthShortNames = useMemo(() => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], []);
+
+  const calendarGridDays = useMemo(() => {
+    const totalDays = new Date(currentYear, pickerMonth + 1, 0).getDate();
+    const firstDayIdx = new Date(currentYear, pickerMonth, 1).getDay(); // 0 = Sun
+    const adjustedFirstDayIdx = firstDayIdx === 0 ? 6 : firstDayIdx - 1; // Mon=0...Sun=6
+
+    const daysArr = [];
+    for (let i = 0; i < adjustedFirstDayIdx; i++) {
+      daysArr.push(null);
+    }
+    for (let day = 1; day <= totalDays; day++) {
+      const dateStr = `${currentYear}-${String(pickerMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const isFuture = dateStr > todaySystemDateStr;
+      const isToday = dateStr === todaySystemDateStr;
+      const isSelected = dateStr === selectedDate;
+      daysArr.push({ day, dateStr, isFuture, isToday, isSelected });
+    }
+    return daysArr;
+  }, [currentYear, pickerMonth, todaySystemDateStr, selectedDate]);
+
+  const formattedSelectedDateLabel = useMemo(() => {
+    if (!selectedDate) return 'Select Date';
+    const [y, m, d] = selectedDate.split('-');
+    const mIdx = parseInt(m, 10) - 1;
+    const monthStr = monthShortNames[mIdx] || '';
+    if (selectedDate === todaySystemDateStr) {
+      return `Today (${d} ${monthStr} ${y})`;
+    }
+    return `${d} ${monthStr} ${y}`;
+  }, [selectedDate, todaySystemDateStr, monthShortNames]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -122,6 +172,11 @@ export default function AttendanceOps({
       }
     };
     fetchRealAttendance();
+    const pollInterval = setInterval(() => {
+      fetchRealAttendance();
+    }, 20000);
+
+    return () => clearInterval(pollInterval);
   }, []);
 
   // Employee attendance list from real backend logs
@@ -373,155 +428,362 @@ export default function AttendanceOps({
         />
       )}
 
-      {/* 2. TOP STAT CARDS (5 METRIC CARDS MATCHING APP-USAGE STYLE) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
+      {/* 2. TOP STAT CARDS (CLEAN & UN-CLUSTERED RESPONSIVE GRID) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+        
+        {/* Card 1: Total Scheduled */}
+        <div 
+          onClick={() => { setStatusFilter('All'); setModeFilter('All'); setCurrentPage(1); }}
+          className={`p-4 rounded-2xl border transition-all flex flex-col justify-between cursor-pointer ${
+            statusFilter === 'All' && modeFilter === 'All'
+              ? 'bg-white border-brand-secondary ring-2 ring-brand-primary/60 shadow-xs scale-[1.01]'
+              : 'bg-white border-slate-200/80 shadow-2xs hover:shadow-xs hover:border-slate-300'
+          }`}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-slate-500 font-semibold text-xs">Total Scheduled</span>
-            <div className="w-8 h-8 rounded-xl bg-brand-soft text-brand-dark flex items-center justify-center font-semibold border border-brand-secondary">
+            <span className="text-slate-400 font-extrabold text-[10px] uppercase tracking-wider">Total Scheduled</span>
+            <div className="w-8 h-8 rounded-xl bg-brand-soft text-[#3B82F6] flex items-center justify-center border border-brand-primary/40">
               <Users className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-xl sm:text-2xl font-bold text-slate-800">{metrics.total} Staff</div>
-            <div className="mt-2 flex items-center gap-1 text-xs text-emerald-600 font-medium">
+          <div className="mt-2.5">
+            <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">{metrics.total} Staff</div>
+            <div className="mt-1.5 flex items-center gap-1 text-[11px] text-emerald-600 font-bold">
               <TrendingUp className="w-3.5 h-3.5" />
               <span>100% Assigned</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
+        {/* Card 2: Present / Auto-Closed */}
+        <div 
+          onClick={() => { setStatusFilter('Present'); setModeFilter('All'); setCurrentPage(1); }}
+          className={`p-4 rounded-2xl border transition-all flex flex-col justify-between cursor-pointer ${
+            statusFilter === 'Present' && modeFilter === 'All'
+              ? 'bg-emerald-50/50 border-emerald-500 ring-2 ring-emerald-500/40 shadow-xs scale-[1.01]'
+              : 'bg-white border-slate-200/80 shadow-2xs hover:shadow-xs hover:border-emerald-200'
+          }`}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-slate-500 font-semibold text-xs">Present / Auto-Closed</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-100/80 text-emerald-600 flex items-center justify-center border border-emerald-200">
+            <span className="text-slate-400 font-extrabold text-[10px] uppercase tracking-wider">Present / Auto-Closed</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200">
               <UserCheck className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-xl sm:text-2xl font-bold text-slate-800">{metrics.present} Staff</div>
-            <div className="mt-2 flex items-center gap-1 text-xs text-emerald-600 font-medium">
+          <div className="mt-2.5">
+            <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">{metrics.present} Staff</div>
+            <div className="mt-1.5 flex items-center gap-1 text-[11px] text-emerald-600 font-bold">
               <TrendingUp className="w-3.5 h-3.5" />
-              <span>92% Attendance Rate</span>
+              <span>{metrics.total > 0 ? Math.round((metrics.present / metrics.total) * 100) : 0}% Attendance Rate</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
+        {/* Card 3: Late Arrivals */}
+        <div 
+          onClick={() => { setStatusFilter('Late'); setModeFilter('All'); setCurrentPage(1); }}
+          className={`p-4 rounded-2xl border transition-all flex flex-col justify-between cursor-pointer ${
+            statusFilter === 'Late' && modeFilter === 'All'
+              ? 'bg-amber-50/50 border-amber-500 ring-2 ring-amber-500/40 shadow-xs scale-[1.01]'
+              : 'bg-white border-slate-200/80 shadow-2xs hover:shadow-xs hover:border-amber-200'
+          }`}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-slate-500 font-semibold text-xs">Late Arrivals</span>
-            <div className="w-8 h-8 rounded-xl bg-amber-100/80 text-amber-600 flex items-center justify-center border border-amber-200">
+            <span className="text-slate-400 font-extrabold text-[10px] uppercase tracking-wider">Late Arrivals</span>
+            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-200">
               <Clock className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-xl sm:text-2xl font-bold text-slate-800">{metrics.late} Staff</div>
-            <div className="mt-2 flex items-center gap-1 text-xs text-amber-600 font-medium">
+          <div className="mt-2.5">
+            <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">{metrics.late} Staff</div>
+            <div className="mt-1.5 flex items-center gap-1 text-[11px] text-amber-600 font-bold">
               <AlertCircle className="w-3.5 h-3.5" />
-              <span>Grace period applied</span>
+              <span>{metrics.late > 0 ? `${metrics.late} Late Logged` : 'Grace period applied'}</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
+        {/* Card 4: Absent / Leave */}
+        <div 
+          onClick={() => { 
+            setModeFilter('All'); 
+            setStatusFilter(prev => prev === 'Absent' ? 'On Leave' : (prev === 'On Leave' ? 'All' : 'Absent')); 
+            setCurrentPage(1); 
+          }}
+          className={`p-4 rounded-2xl border transition-all flex flex-col justify-between cursor-pointer ${
+            (statusFilter === 'Absent' || statusFilter === 'On Leave') && modeFilter === 'All'
+              ? 'bg-rose-50/50 border-rose-500 ring-2 ring-rose-500/40 shadow-xs scale-[1.01]'
+              : 'bg-white border-slate-200/80 shadow-2xs hover:shadow-xs hover:border-rose-200'
+          }`}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-slate-500 font-semibold text-xs">Absent / Leave</span>
-            <div className="w-8 h-8 rounded-xl bg-rose-100/80 text-rose-600 flex items-center justify-center border border-rose-200">
+            <span className="text-slate-400 font-extrabold text-[10px] uppercase tracking-wider">Absent / Leave</span>
+            <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-200">
               <XCircle className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-xl sm:text-2xl font-bold text-slate-800">{metrics.absent + metrics.onLeave} Staff</div>
-            <div className="mt-2 flex items-center gap-1 text-xs text-slate-500 font-medium">
+          <div className="mt-2.5">
+            <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">{metrics.absent + metrics.onLeave} Staff</div>
+            <div className="mt-1.5 flex items-center gap-1 text-[11px] text-slate-500 font-bold">
               <span>{metrics.absent} Absent · {metrics.onLeave} On Leave</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
+        {/* Card 5: Check-In Mode */}
+        <div 
+          onClick={() => { 
+            setStatusFilter('All');
+            setModeFilter(prev => prev === 'Office' ? 'Site' : (prev === 'Site' ? 'All' : 'Office'));
+            setCurrentPage(1); 
+          }}
+          className={`p-4 rounded-2xl border transition-all flex flex-col justify-between cursor-pointer ${
+            modeFilter !== 'All' && statusFilter === 'All'
+              ? 'bg-brand-soft/40 border-brand-secondary ring-2 ring-brand-primary/60 shadow-xs scale-[1.01]'
+              : 'bg-white border-slate-200/80 shadow-2xs hover:shadow-xs hover:border-slate-300'
+          }`}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-slate-500 font-semibold text-xs">Check-In Mode</span>
-            <div className="w-8 h-8 rounded-xl bg-brand-soft text-brand-dark flex items-center justify-center font-semibold border border-brand-secondary">
+            <span className="text-slate-400 font-extrabold text-[10px] uppercase tracking-wider">Check-In Mode</span>
+            <div className="w-8 h-8 rounded-xl bg-brand-soft text-[#3B82F6] flex items-center justify-center border border-brand-primary/40">
               <Laptop className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-xl sm:text-2xl font-bold text-slate-800">{metrics.officeCount} / {metrics.siteCount}</div>
-            <div className="mt-2 flex items-center gap-1 text-xs text-slate-500 font-medium">
-              <span>Laptop vs Mobile GPS</span>
+          <div className="mt-2.5">
+            <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">{metrics.officeCount} / {metrics.siteCount}</div>
+            <div className="mt-1.5 flex items-center gap-1 text-[11px] text-slate-500 font-bold">
+              <span>{metrics.officeCount} Laptop vs {metrics.siteCount} Mobile</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 3. FILTERS BAR WITH DATE SELECTOR */}
-      <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200/90 shadow-2xs flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
-          {/* Search input */}
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+      {/* 3. CLEAN RESPONSIVE FILTER BAR */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
+          
+          {/* Search Input */}
+          <div className="lg:col-span-4 relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search employee by name, role, department..."
+              placeholder="Search employee, role, department..."
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-              className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary bg-slate-50/50"
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-brand-secondary/30 focus:border-brand-secondary bg-slate-50/50"
             />
           </div>
 
-          {/* Date Picker Filter */}
-          <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 border border-slate-200 rounded-xl">
-            <Calendar className="w-4 h-4 text-brand-dark" />
-            <span className="text-xs font-bold text-slate-600">Date:</span>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => { setSelectedDate(e.target.value); setCurrentPage(1); }}
-              className="px-2 py-1 border-none text-xs font-bold text-slate-800 bg-transparent focus:outline-none cursor-pointer"
-            />
+          {/* Current-Year Month & Date-Only Calendar Filter Component */}
+          <div className="lg:col-span-3 relative">
+            <button
+              type="button"
+              onClick={() => setShowDatePopover(prev => !prev)}
+              className="w-full flex items-center justify-between gap-2 bg-slate-50/80 px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-secondary/30 focus:border-brand-secondary cursor-pointer transition-all hover:bg-slate-100/60"
+            >
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-[#3B82F6] shrink-0" />
+                <span className="text-xs font-bold text-slate-500 shrink-0">Date:</span>
+                <span className="text-xs font-black text-slate-900">{formattedSelectedDateLabel}</span>
+              </div>
+              <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${showDatePopover ? 'rotate-90 text-[#3B82F6]' : ''}`} />
+            </button>
+
+            {/* Popover Card (Ultra-Compact Zero-Scroll Design) */}
+            {showDatePopover && (
+              <div className="absolute top-full left-0 mt-1.5 z-50 w-72 bg-white rounded-2xl p-3.5 shadow-2xl border border-slate-200/90 space-y-2.5 animate-in fade-in duration-150 text-left">
+                
+                {/* Popover Header with Clickable Month Name & Current Year */}
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowMonthView(prev => !prev)}
+                    className="flex items-center gap-1.5 px-2 py-0.5 hover:bg-slate-100 rounded-lg transition-all cursor-pointer text-xs font-black text-slate-900 group"
+                    title="Click to select month"
+                  >
+                    <span>{monthNames[pickerMonth]}</span>
+                    <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 font-mono font-bold text-[10px] rounded-md border border-slate-200">
+                      {currentYear}
+                    </span>
+                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 group-hover:text-[#3B82F6] transition-transform ${showMonthView ? 'rotate-180 text-[#3B82F6]' : ''}`} />
+                  </button>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={pickerMonth === 0}
+                      onClick={() => setPickerMonth(prev => Math.max(0, prev - 1))}
+                      className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-100 rounded-lg cursor-pointer transition-all"
+                      title="Previous Month"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={pickerMonth === 11}
+                      onClick={() => setPickerMonth(prev => Math.min(11, prev + 1))}
+                      className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-100 rounded-lg cursor-pointer transition-all"
+                      title="Next Month"
+                    >
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* CONDITIONAL VIEW: 1. MONTH SELECTOR GRID */}
+                {showMonthView ? (
+                  <div className="py-1 space-y-2">
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider px-1">
+                      Select Month ({currentYear})
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {monthShortNames.map((mName, idx) => (
+                        <button
+                          key={mName}
+                          type="button"
+                          onClick={() => {
+                            setPickerMonth(idx);
+                            setShowMonthView(false);
+                          }}
+                          className={`py-1.5 px-2 rounded-lg text-xs font-black transition-all cursor-pointer text-center ${
+                            pickerMonth === idx
+                              ? 'bg-brand-secondary text-slate-900 border border-brand-secondary/60 shadow-3xs'
+                              : 'bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-slate-900'
+                          }`}
+                        >
+                          {mName}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  /* CONDITIONAL VIEW: 2. CALENDAR DAYS GRID (Compact Zero-Scroll View) */
+                  <div className="space-y-2">
+                    {/* Days Header */}
+                    <div className="grid grid-cols-7 gap-1 text-center">
+                      {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
+                        <div key={d} className="text-[9px] font-black text-slate-400 uppercase tracking-wider">
+                          {d}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Days Selection Grid */}
+                    <div className="grid grid-cols-7 gap-1 text-center">
+                      {calendarGridDays.map((item, idx) => {
+                        if (!item) {
+                          return <div key={`empty-${idx}`} className="w-7 h-7" />;
+                        }
+                        return (
+                          <button
+                            key={item.dateStr}
+                            type="button"
+                            disabled={item.isFuture}
+                            onClick={() => {
+                              setSelectedDate(item.dateStr);
+                              setCurrentPage(1);
+                              setShowDatePopover(false);
+                            }}
+                            className={`w-7 h-7 rounded-lg text-[11px] font-bold transition-all cursor-pointer relative flex items-center justify-center ${
+                              item.isSelected
+                                ? 'bg-gradient-to-r from-brand-primary to-brand-secondary text-slate-900 shadow-xs border border-brand-secondary/60 font-black'
+                                : item.isToday
+                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 font-black'
+                                : item.isFuture
+                                ? 'opacity-30 cursor-not-allowed text-slate-400'
+                                : 'hover:bg-slate-100 text-slate-700 hover:text-slate-900'
+                            }`}
+                          >
+                            {item.day}
+                            {item.isToday && !item.isSelected && (
+                              <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Footer: Quick Action [ Today ] Button */}
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedDate(todaySystemDateStr);
+                      setPickerMonth(todaySystemDateObj.getMonth());
+                      setShowMonthView(false);
+                      setCurrentPage(1);
+                      setShowDatePopover(false);
+                    }}
+                    className="px-2.5 py-1 bg-gradient-to-r from-brand-primary/40 to-brand-secondary/40 hover:from-brand-primary hover:to-brand-secondary text-slate-900 font-black text-[11px] rounded-lg border border-brand-secondary/50 cursor-pointer transition-all shadow-3xs"
+                  >
+                    Today ({todaySystemDateStr.split('-').reverse().join('-')})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowDatePopover(false);
+                      setShowMonthView(false);
+                    }}
+                    className="text-[11px] font-bold text-slate-400 hover:text-slate-700 cursor-pointer px-1.5 py-0.5"
+                  >
+                    Close
+                  </button>
+                </div>
+
+              </div>
+            )}
           </div>
 
           {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-            className="px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary cursor-pointer"
-          >
-            <option value="All">All Statuses</option>
-            <option value="Present">Present</option>
-            <option value="AUTO_CLOSED">Auto Closed</option>
-            <option value="Late">Late Arrival</option>
-            <option value="Absent">Absent</option>
-            <option value="On Leave">On Leave</option>
-          </select>
+          <div className="lg:col-span-2">
+            <select
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-secondary/40 cursor-pointer"
+            >
+              <option value="All">All Statuses</option>
+              <option value="Present">Present</option>
+              <option value="AUTO_CLOSED">Auto Closed</option>
+              <option value="Late">Late Arrival</option>
+              <option value="Absent">Absent</option>
+              <option value="On Leave">On Leave</option>
+            </select>
+          </div>
 
           {/* Mode Filter */}
-          <select
-            value={modeFilter}
-            onChange={(e) => { setModeFilter(e.target.value); setCurrentPage(1); }}
-            className="px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary cursor-pointer"
-          >
-            <option value="All">All Modes</option>
-            <option value="Office">Office Laptop</option>
-            <option value="Site">Site Mobile GPS</option>
-          </select>
-        </div>
+          <div className="lg:col-span-2">
+            <select
+              value={modeFilter}
+              onChange={(e) => { setModeFilter(e.target.value); setCurrentPage(1); }}
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-secondary/40 cursor-pointer"
+            >
+              <option value="All">All Modes</option>
+              <option value="Office">Office Laptop</option>
+              <option value="Site">Site Mobile GPS</option>
+            </select>
+          </div>
 
-        {/* Reset Filters */}
-        <button
-          onClick={() => {
-            setSearchQuery('');
-            setStatusFilter('All');
-            setModeFilter('All');
-            setDepartmentFilter('All');
-            setSelectedDate(new Date().toISOString().split('T')[0]);
-            setCurrentPage(1);
-          }}
-          className="px-3 py-2 text-slate-500 hover:text-slate-800 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-        >
-          <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
-          Reset Filters
-        </button>
+          {/* Reset Filters */}
+          <div className="lg:col-span-1 flex justify-end">
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setStatusFilter('All');
+                setModeFilter('All');
+                setDepartmentFilter('All');
+                setSelectedDate(new Date().toISOString().split('T')[0]);
+                setCurrentPage(1);
+              }}
+              title="Reset All Filters"
+              className="p-2.5 text-slate-500 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer flex items-center justify-center w-full font-bold text-xs"
+            >
+              <RotateCcw className="w-4 h-4 shrink-0" />
+            </button>
+          </div>
+
+        </div>
       </div>
 
       {/* 4. MAIN DAILY EMPLOYEE ATTENDANCE SUMMARY TABLE */}

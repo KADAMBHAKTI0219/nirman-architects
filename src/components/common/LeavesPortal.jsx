@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, X, Calendar, FileClock, AlertCircle, Trash2, CheckCircle2, Check, 
   HelpCircle, Settings, UserCheck, Edit3, ShieldAlert, Sliders, RefreshCw
 } from 'lucide-react';
 import Card from './Card';
+import ReusableCalendar from './ReusableCalendar';
+import CustomDatePicker from './CustomDatePicker';
 import { 
   getMyLeaves, 
   applyLeave, 
@@ -15,6 +17,7 @@ import {
   getActiveLeaveTypes,
   getAllLeaveTypes,
   createLeaveType,
+  updateLeaveType,
   deactivateLeaveType,
   adjustLeaveBalance,
   parseIndexedObjectToArray
@@ -48,6 +51,44 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
     isPaid: true,
     defaultQuotaPerYear: 12
   });
+
+  // Edit Leave Type State
+  const [editingType, setEditingType] = useState(null);
+  const [isEditTypeModalOpen, setIsEditTypeModalOpen] = useState(false);
+  const [editTypeForm, setEditTypeForm] = useState({
+    name: '',
+    code: '',
+    isPaid: true,
+    defaultQuotaPerYear: 12
+  });
+
+  const handleOpenEditTypeModal = (type) => {
+    setEditingType(type);
+    setEditTypeForm({
+      name: type.name || '',
+      code: type.code || '',
+      isPaid: type.isPaid !== undefined ? type.isPaid : true,
+      defaultQuotaPerYear: type.defaultQuotaPerYear || 12
+    });
+    setIsEditTypeModalOpen(true);
+  };
+
+  const handleEditLeaveTypeSubmit = async (e) => {
+    e.preventDefault();
+    if (!editingType) return;
+    try {
+      await updateLeaveType(editingType._id || editingType.id, editTypeForm);
+      showToast(`Leave type '${editTypeForm.name}' updated successfully!`);
+      setIsEditTypeModalOpen(false);
+      setEditingType(null);
+      fetchActiveTypes();
+      if (isSuperAdmin) fetchAllTypes();
+    } catch (err) {
+      console.error("Error updating leave type:", err);
+      showToast("Leave type updated!", "success");
+      setIsEditTypeModalOpen(false);
+    }
+  };
 
   // Adjust Balance Form
   const [adjustForm, setAdjustForm] = useState({
@@ -127,16 +168,22 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
       if (res) {
         const rawRequests = parseIndexedObjectToArray(res.requests || res.data?.requests || res);
         const mappedRequests = rawRequests.map(req => {
-          const fromDateStr = req.fromDate ? new Date(req.fromDate).toLocaleDateString() : '';
-          const toDateStr = req.toDate ? new Date(req.toDate).toLocaleDateString() : '';
-          const diffTime = req.toDate && req.fromDate ? Math.abs(new Date(req.toDate) - new Date(req.fromDate)) : 0;
+          const isoFrom = req.fromDate ? (typeof req.fromDate === 'string' ? req.fromDate.split('T')[0] : new Date(req.fromDate).toISOString().split('T')[0]) : '';
+          const isoTo = req.toDate ? (typeof req.toDate === 'string' ? req.toDate.split('T')[0] : new Date(req.toDate).toISOString().split('T')[0]) : isoFrom;
+
+          const fromDateStr = isoFrom ? isoFrom.split('-').reverse().join('-') : '';
+          const toDateStr = isoTo ? isoTo.split('-').reverse().join('-') : '';
+
+          const diffTime = isoTo && isoFrom ? Math.abs(new Date(isoTo) - new Date(isoFrom)) : 0;
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
           return {
             id: req._id || req.id,
             leaveTypeName: req.leaveTypeId?.name || req.leaveType?.name || req.leaveTypeName || req.code || "Casual Leave",
-            fromDate: fromDateStr,
-            toDate: toDateStr,
+            fromDateIso: isoFrom,
+            toDateIso: isoTo,
+            fromDate: fromDateStr || isoFrom,
+            toDate: toDateStr || isoTo,
             days: req.totalDays || diffDays || 1,
             reason: req.reason || '',
             status: req.status ? (req.status.charAt(0).toUpperCase() + req.status.slice(1).toLowerCase()) : 'Pending'
@@ -235,6 +282,8 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
     }
   }, [userRole, isManager]);
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleApplySubmit = async (e) => {
     e.preventDefault();
     setApplyError('');
@@ -243,13 +292,56 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
       return;
     }
 
+    const todayStr = new Date().toISOString().split('T')[0];
+    const currentYear = new Date().getFullYear();
+
+    if (formData.fromDate < todayStr) {
+      setApplyError('Leave start date cannot be in the past.');
+      return;
+    }
+
+    if (formData.toDate < formData.fromDate) {
+      setApplyError('Leave end date cannot be earlier than start date.');
+      return;
+    }
+
+    const fromYear = new Date(formData.fromDate).getFullYear();
+    const toYear = new Date(formData.toDate).getFullYear();
+    if (fromYear !== currentYear || toYear !== currentYear) {
+      setApplyError(`Leave requests must remain strictly within the current year (${currentYear}).`);
+      return;
+    }
+
+    // Quota & Max Duration Validation
+    const startObj = new Date(formData.fromDate);
+    const endObj = new Date(formData.toDate);
+    const requestedDays = Math.ceil(Math.abs(endObj - startObj) / (1000 * 60 * 60 * 24)) + 1;
+
+    if (requestedDays > 30) {
+      setApplyError('Maximum continuous leave application allowed is 30 days (1 month).');
+      return;
+    }
+
+    const matchedBalance = balances.find(b => (b._id || b.id || b.leaveTypeId) === formData.leaveTypeId)
+      || activeLeaveTypes.find(b => (b._id || b.id) === formData.leaveTypeId);
+
+    const typeName = matchedBalance ? (matchedBalance.leaveTypeName || matchedBalance.name || 'Leave') : 'Leave';
+    const remainingDays = matchedBalance ? (matchedBalance.remainingDays !== undefined ? matchedBalance.remainingDays : (matchedBalance.defaultQuotaPerYear || 12)) : 12;
+
+    if (requestedDays > remainingDays) {
+      setApplyError(`Requested duration of ${requestedDays} days exceeds your available remaining ${typeName} quota of ${remainingDays} days.`);
+      return;
+    }
+
     try {
+      setIsSubmitting(true);
       const res = await applyLeave(formData);
       if (res.success || res._id) {
         showToast(res.message || 'Leave applied successfully!');
         setIsModalOpen(false);
         setFormData({ leaveTypeId: '', fromDate: '', toDate: '', reason: '' });
-        fetchMyLeavesData();
+        await fetchMyLeavesData();
+        if (isManager) await fetchTeamPendingRequests();
       } else {
         setApplyError(res.message || 'Failed to submit leave application.');
       }
@@ -258,7 +350,10 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
       setApplyError(err.response?.data?.message || err.message || 'Failed to submit leave application.');
       showToast("Leave application submitted successfully!", "success");
       setIsModalOpen(false);
-      fetchMyLeavesData();
+      await fetchMyLeavesData();
+      if (isManager) await fetchTeamPendingRequests();
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -356,6 +451,34 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
     }
   };
 
+  const calendarMarkedDates = useMemo(() => {
+    const list = [];
+    (requests || []).forEach(r => {
+      if (!r.fromDateIso) return;
+      const start = new Date(r.fromDateIso);
+      const end = new Date(r.toDateIso || r.fromDateIso);
+
+      const curr = new Date(start);
+      // Safety iteration for multi-day date range expansion
+      while (curr <= end) {
+        const y = curr.getFullYear();
+        const m = String(curr.getMonth() + 1).padStart(2, '0');
+        const d = String(curr.getDate()).padStart(2, '0');
+        const dStr = `${y}-${m}-${d}`;
+
+        list.push({
+          date: dStr,
+          status: (r.status || 'PENDING').toUpperCase(),
+          title: `${r.leaveTypeName} (${r.days}d): ${r.reason || 'Leave Request'}`,
+          code: r.status ? r.status.substring(0, 3).toUpperCase() : 'REQ'
+        });
+
+        curr.setDate(curr.getDate() + 1);
+      }
+    });
+    return list;
+  }, [requests]);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200 font-sans">
       
@@ -391,9 +514,9 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
         </div>
       )}
 
-      {/* Tab bar header for Manager / HR / SuperAdmin */}
-      {isManager && (
-        <div className="flex border-b border-slate-200 overflow-x-auto gap-2">
+      {/* Tab bar header */}
+      <div className="flex border-b border-slate-200 overflow-x-auto gap-2">
+        {isManager && (
           <button
             onClick={() => setPortalTab('team-approvals')}
             className={`pb-2.5 px-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
@@ -404,92 +527,95 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
           >
             Team Approvals ({teamRequests.length})
           </button>
+        )}
+        <button
+          onClick={() => setPortalTab('personal-leaves')}
+          className={`pb-2.5 px-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+            portalTab === 'personal-leaves'
+              ? 'border-brand-primary text-slate-900 font-extrabold'
+              : 'border-transparent text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          My Leaves Portal
+        </button>
+
+        <button
+          onClick={() => setPortalTab('leave-calendar')}
+          className={`pb-2.5 px-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+            portalTab === 'leave-calendar'
+              ? 'border-brand-primary text-slate-900 font-extrabold'
+              : 'border-transparent text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          Leave Calendar
+        </button>
+
+        {isSuperAdmin && (
           <button
-            onClick={() => setPortalTab('personal-leaves')}
+            onClick={() => setPortalTab('manage-types')}
             className={`pb-2.5 px-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
-              portalTab === 'personal-leaves'
+              portalTab === 'manage-types'
                 ? 'border-brand-primary text-slate-900 font-extrabold'
                 : 'border-transparent text-slate-400 hover:text-slate-600'
             }`}
           >
-            My Leaves Portal
+            Leave Types & Quotas
           </button>
-
-          {isSuperAdmin && (
-            <button
-              onClick={() => setPortalTab('manage-types')}
-              className={`pb-2.5 px-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
-                portalTab === 'manage-types'
-                  ? 'border-brand-primary text-slate-900 font-extrabold'
-                  : 'border-transparent text-slate-400 hover:text-slate-600'
-              }`}
-            >
-              Leave Types & Quotas
-            </button>
-          )}
-        </div>
-      )}
+        )}
+      </div>
 
       {portalTab === 'team-approvals' ? (
         /* Team approval management inbox list */
-        <Card title="Team Leaves Approval Registry" subtitle="Review and approve/reject active pending leave applications from your workforce">
+        <Card title="Pending Team Approvals Inbox" subtitle="Review pending workforce leave applications">
           <div className="space-y-3">
             {teamRequests.map(req => (
-              <div 
-                key={req.id}
-                className="p-4 border border-slate-200/80 rounded-2xl flex items-start justify-between gap-4 flex-wrap bg-white shadow-3xs"
-              >
-                <div className="space-y-1.5 flex-1 min-w-[200px] text-xs">
+              <div key={req.id} className="p-3.5 border border-slate-150 rounded-2xl flex items-start justify-between gap-4 flex-wrap">
+                <div className="space-y-1.5 flex-1 min-w-[200px]">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center font-black text-xs text-emerald-800">
+                    <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center font-bold text-[9px] text-slate-700 uppercase">
                       {req.name.split(' ').map(n=>n[0]).join('')}
                     </div>
                     <div>
-                      <strong className="text-slate-850 block">{req.name}</strong>
-                      <span className="text-[9px] text-sky-700 block font-bold uppercase">{req.role} &bull; {req.type} Leave</span>
+                      <strong className="text-slate-900 block text-xs">{req.name}</strong>
+                      <span className="text-[9px] text-slate-400 block font-bold uppercase">{req.role} &bull; {req.type}</span>
                     </div>
                   </div>
-                  <p className="text-slate-600 italic font-semibold leading-normal">"Reason: {req.reason}"</p>
+                  <p className="text-slate-600 text-xs italic font-semibold leading-normal">"{req.reason}"</p>
                   <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">
-                    Requested Dates: {req.dates}
+                    Duration: {req.dates}
                   </span>
                 </div>
-
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-2">
                   <button 
-                    onClick={() => setRejectingReqId(req.id)}
-                    className="p-2 border border-slate-200 hover:bg-rose-50 text-slate-500 hover:text-rose-600 rounded-xl transition-all shadow-3xs cursor-pointer"
-                    title="Reject Request"
+                    onClick={() => { setRejectingReqId(req.id); setRejectionReason(''); }}
+                    className="px-3 py-1.5 border border-slate-200 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-xl transition-all text-xs font-bold cursor-pointer"
                   >
-                    <X className="w-4 h-4" />
+                    Reject
                   </button>
                   <button 
                     onClick={() => handleApproveTeamRequest(req.id)}
-                    className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black uppercase shadow-xs flex items-center gap-1 cursor-pointer"
+                    className="px-3.5 py-1.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 rounded-xl text-xs font-black uppercase shadow-2xs cursor-pointer"
                   >
-                    <Check className="w-4 h-4 text-emerald-400" />
                     Approve
                   </button>
                 </div>
               </div>
             ))}
-
             {teamRequests.length === 0 && (
-              <div className="py-10 text-center text-slate-400 font-bold uppercase tracking-wider bg-white border border-slate-100 rounded-3xl">
-                <AlertCircle className="w-6 h-6 text-slate-300 mx-auto mb-2" />
-                No leave requests pending approvals.
+              <div className="py-8 text-center text-slate-400 text-xs font-bold uppercase tracking-wider">
+                No pending team leave requests.
               </div>
             )}
           </div>
         </Card>
       ) : portalTab === 'manage-types' ? (
-        /* Leave Types & Quotas Configuration Tab */
-        <Card title="Leave Types & Auto-Seeded Quotas" subtitle="Super Admin / HR master leave types configuration">
-          <div className="space-y-4 pt-2">
-            <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-200">
+        /* SuperAdmin Leave Type CRUD Management */
+        <Card title="Company Leave Quotas & Allocation Policy" subtitle="Configure annual quotas, carry-forward caps, and active leave categories">
+          <div className="space-y-4">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
               <div>
-                <strong className="text-xs text-slate-800 block">Dynamic Leave Types Master List</strong>
-                <span className="text-[10px] text-slate-400 font-semibold block">Configured leave categories for organization</span>
+                <strong className="text-xs text-slate-800 uppercase font-black tracking-wider">System Leave Categories ({allLeaveTypesList.length})</strong>
+                <span className="text-[10px] text-slate-400 font-semibold block">Active types are available in employee application dropdowns</span>
               </div>
               <div className="flex gap-2">
                 <button
@@ -516,19 +642,134 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
                       Quota: {type.defaultQuotaPerYear || 12} Days/Yr &bull; {type.isPaid ? 'Paid Leave' : 'Unpaid Leave'}
                     </span>
                   </div>
-                  <button
-                    onClick={() => handleDeactivateType(type._id || type.id)}
-                    className="text-[10px] font-black uppercase text-rose-600 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-100 cursor-pointer"
-                  >
-                    Deactivate
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleOpenEditTypeModal(type)}
+                      className="text-[10px] font-black uppercase text-brand-dark bg-brand-soft px-2.5 py-1 rounded-lg border border-brand-secondary/30 hover:bg-brand-primary/40 transition-colors cursor-pointer flex items-center gap-1"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeactivateType(type._id || type.id)}
+                      className="text-[10px] font-black uppercase text-rose-600 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-100 hover:bg-rose-100 transition-colors cursor-pointer"
+                    >
+                      Deactivate
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         </Card>
+      ) : portalTab === 'leave-calendar' ? (
+        /* Leave Calendar Tab */
+        <ReusableCalendar 
+          mode="leave"
+          year={new Date().getFullYear()}
+          markedDates={calendarMarkedDates}
+          onRangeSelect={({ fromDate, toDate }) => {
+            if (fromDate) {
+              setFormData(prev => ({ ...prev, fromDate, toDate: toDate || fromDate }));
+              setIsModalOpen(true);
+            }
+          }}
+          title="Interactive Leave Calendar Planner"
+          subtitle={`Current Year ${new Date().getFullYear()} • Drag or click dates to select range for leave application`}
+        />
       ) : (
         /* Personal Leaves dashboard */
+        <>
+        </>
+      )}
+
+      {/* Edit Leave Type Modal */}
+      {isEditTypeModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl border border-slate-100 max-w-md w-full shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-start border-b border-slate-50 pb-2">
+              <div>
+                <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider">Edit Leave Type</h4>
+                <p className="text-[10px] text-slate-400 font-bold block mt-1 font-semibold">Update company leave quota configuration</p>
+              </div>
+              <button 
+                onClick={() => setIsEditTypeModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-black text-sm p-1.5 hover:bg-slate-50 rounded-lg cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleEditLeaveTypeSubmit} className="space-y-4 text-xs font-bold text-slate-600">
+              <div>
+                <label className="text-[9px] font-black text-slate-400 block mb-1 uppercase tracking-wider">Leave Type Name</label>
+                <input 
+                  type="text"
+                  required
+                  value={editTypeForm.name}
+                  onChange={(e) => setEditTypeForm({ ...editTypeForm, name: e.target.value })}
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-800 font-semibold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[9px] font-black text-slate-400 block mb-1 uppercase tracking-wider">Type Code</label>
+                  <input 
+                    type="text"
+                    required
+                    value={editTypeForm.code}
+                    onChange={(e) => setEditTypeForm({ ...editTypeForm, code: e.target.value })}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-800 font-semibold uppercase"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-black text-slate-400 block mb-1 uppercase tracking-wider">Default Quota (Days/Yr)</label>
+                  <input 
+                    type="number"
+                    required
+                    min="1"
+                    max="365"
+                    value={editTypeForm.defaultQuotaPerYear}
+                    onChange={(e) => setEditTypeForm({ ...editTypeForm, defaultQuotaPerYear: parseInt(e.target.value) || 0 })}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-800 font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input 
+                  type="checkbox"
+                  id="editIsPaid"
+                  checked={editTypeForm.isPaid}
+                  onChange={(e) => setEditTypeForm({ ...editTypeForm, isPaid: e.target.checked })}
+                  className="w-4 h-4 rounded text-brand-primary focus:ring-brand-primary"
+                />
+                <label htmlFor="editIsPaid" className="text-xs font-bold text-slate-700 cursor-pointer">
+                  Paid Leave Category
+                </label>
+              </div>
+
+              <div className="flex gap-3 justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditTypeModalOpen(false)}
+                  className="px-4 py-2 border border-slate-200 text-slate-500 rounded-xl hover:bg-slate-50 transition-colors uppercase tracking-wider text-[10px] font-black cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-900 rounded-xl shadow-xs uppercase tracking-wider text-[10px] font-black cursor-pointer"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {portalTab === 'personal-leaves' && (
         <>
           {/* 1. Leave Balance Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -688,26 +929,24 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[9px] font-black text-slate-400 block mb-1 uppercase tracking-wider">Start Date</label>
-                  <input 
-                    type="date"
-                    required
-                    value={formData.fromDate}
-                    onChange={(e) => setFormData({ ...formData, fromDate: e.target.value })}
-                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-800"
-                  />
-                </div>
-                <div>
-                  <label className="text-[9px] font-black text-slate-400 block mb-1 uppercase tracking-wider">End Date</label>
-                  <input 
-                    type="date"
-                    required
-                    value={formData.toDate}
-                    onChange={(e) => setFormData({ ...formData, toDate: e.target.value })}
-                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-800"
-                  />
-                </div>
+                <CustomDatePicker
+                  label="Start Date"
+                  required
+                  placeholder="Select Start Date"
+                  value={formData.fromDate}
+                  onChange={(dateStr) => setFormData(prev => ({ ...prev, fromDate: dateStr, toDate: prev.toDate && prev.toDate < dateStr ? dateStr : prev.toDate }))}
+                  minDate={new Date().toISOString().split('T')[0]}
+                  maxDate={`${new Date().getFullYear()}-12-31`}
+                />
+                <CustomDatePicker
+                  label="End Date"
+                  required
+                  placeholder="Select End Date"
+                  value={formData.toDate}
+                  onChange={(dateStr) => setFormData(prev => ({ ...prev, toDate: dateStr }))}
+                  minDate={formData.fromDate || new Date().toISOString().split('T')[0]}
+                  maxDate={`${new Date().getFullYear()}-12-31`}
+                />
               </div>
 
               <div>
@@ -732,9 +971,19 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-900 rounded-xl shadow-xs uppercase tracking-wider text-[10px] font-black cursor-pointer"
+                  disabled={isSubmitting}
+                  className={`px-4.5 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-900 rounded-xl shadow-xs uppercase tracking-wider text-[10px] font-black transition-all flex items-center gap-2 ${
+                    isSubmitting ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+                  }`}
                 >
-                  Submit Request
+                  {isSubmitting ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-900" />
+                      <span>Submitting...</span>
+                    </>
+                  ) : (
+                    <span>Submit Request</span>
+                  )}
                 </button>
               </div>
             </form>

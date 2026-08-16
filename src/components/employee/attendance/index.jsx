@@ -52,19 +52,29 @@ export default function Attendance() {
   };
 
   // 1. Fetch Today's Attendance Session
+  // 1. Fetch Today's Attendance Session
   const fetchTodaySession = async () => {
     try {
       setLoadingToday(true);
       const res = await getTodayAttendance();
       if (res) {
-        setClockedIn(Boolean(res.clockedIn));
         const sess = res.session || res.data || (res["0"] ? res["0"] : null);
         setTodaySession(sess);
 
         const clockInIso = sess?.clockInTime || sess?.clockIn || sess?.clientClockIn;
-        if (res.clockedIn && clockInIso) {
+        const clockOutIso = sess?.clockOutTime || sess?.clockOut || sess?.clientClockOut;
+        const isSessionClosed = Boolean(clockOutIso || sess?.status === 'CLOCKED_OUT' || sess?.status === 'COMPLETED' || sess?.status === 'CLOSED' || sess?.autoClosed);
+
+        // If clock out time exists, user is NO LONGER clocked in!
+        const isCurrentlyActive = Boolean(res.clockedIn) && !isSessionClosed && Boolean(clockInIso);
+        setClockedIn(isCurrentlyActive);
+
+        if (isCurrentlyActive && clockInIso) {
           const elapsed = Math.floor((Date.now() - new Date(clockInIso).getTime()) / 1000);
           setSecondsWorked(elapsed > 0 ? elapsed : 0);
+        } else if (clockInIso && clockOutIso) {
+          const totalSecs = Math.floor((new Date(clockOutIso).getTime() - new Date(clockInIso).getTime()) / 1000);
+          setSecondsWorked(totalSecs > 0 ? totalSecs : 0);
         } else if (sess && sess.workingHours) {
           setSecondsWorked(Math.floor(sess.workingHours * 3600));
         } else {
@@ -112,13 +122,16 @@ export default function Attendance() {
     fetchLogs();
   }, []);
 
-  // 3. Live Working Timer Effect (Real-time elapsed calculation)
+  // 3. Live Working Timer Effect (Real-time elapsed calculation; stops immediately when clocked out)
   useEffect(() => {
     let interval = null;
 
-    if (clockedIn) {
-      const clockInIso = todaySession?.clockInTime || todaySession?.clockIn || todaySession?.clientClockIn;
-      const clockInMs = clockInIso ? new Date(clockInIso).getTime() : (Date.now() - (secondsWorked * 1000));
+    const clockInIso = todaySession?.clockInTime || todaySession?.clockIn || todaySession?.clientClockIn;
+    const clockOutIso = todaySession?.clockOutTime || todaySession?.clockOut || todaySession?.clientClockOut;
+    const isSessionClosed = Boolean(clockOutIso || todaySession?.status === 'CLOCKED_OUT' || todaySession?.status === 'COMPLETED' || todaySession?.status === 'CLOSED' || todaySession?.autoClosed);
+
+    if (clockedIn && !isSessionClosed && clockInIso) {
+      const clockInMs = new Date(clockInIso).getTime();
 
       const tickTimer = () => {
         const nowMs = Date.now();
@@ -128,21 +141,65 @@ export default function Attendance() {
 
       tickTimer(); // Run once immediately
       interval = setInterval(tickTimer, 1000);
+    } else if (clockInIso && clockOutIso) {
+      const inMs = new Date(clockInIso).getTime();
+      const outMs = new Date(clockOutIso).getTime();
+      const totalSecs = Math.max(0, Math.floor((outMs - inMs) / 1000));
+      setSecondsWorked(totalSecs);
     }
 
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [clockedIn, todaySession?.clockInTime, todaySession?.clockIn, todaySession?.clientClockIn]);
+  }, [clockedIn, todaySession]);
 
-  // Handle Clock In Action
+  // Handle Clock In Action (Supports Browser GPS & SITE_MOBILE mode)
   const handleClockIn = async () => {
     try {
       setClockActionLoading(true);
+      const nowIso = new Date().toISOString();
       const deviceGuid = todaySession?.deviceId || user?.registeredDeviceId || user?.deviceId || 'C5DBDD5F-E416-479B-AA77-12C661C48BCB';
-      await clockInAttendance({ clientTime: new Date().toISOString(), deviceId: deviceGuid });
+      
+      let gpsCoords = null;
+      if (navigator.geolocation) {
+        try {
+          gpsCoords = await new Promise((resolve) => {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+              (err) => resolve(null),
+              { enableHighAccuracy: true, timeout: 7000 }
+            );
+          });
+        } catch (e) {
+          console.warn("Geolocation error:", e);
+        }
+      }
+
+      const payload = {
+        clientTime: nowIso,
+        deviceId: deviceGuid,
+        mode: gpsCoords ? 'SITE_MOBILE' : 'OFFICE_AUTO',
+        ...(gpsCoords ? { lat: gpsCoords.lat, lng: gpsCoords.lng } : {})
+      };
+
+      // Reset timer and set active clock-in state immediately
+      setSecondsWorked(0);
       setClockedIn(true);
-      showToast("Successfully clocked in attendance session!", "success");
+      setTodaySession({
+        clockInTime: nowIso,
+        clockIn: nowIso,
+        clientClockIn: nowIso,
+        clockOutTime: null,
+        clockOut: null,
+        status: 'ACTIVE'
+      });
+
+      await clockInAttendance(payload);
+      if (gpsCoords) {
+        showToast(`Clocked in via GPS (${gpsCoords.lat.toFixed(4)}, ${gpsCoords.lng.toFixed(4)}) - SITE_MOBILE!`, "success");
+      } else {
+        showToast("Successfully clocked in attendance session!", "success");
+      }
       await fetchTodaySession();
       await fetchLogs();
     } catch (err) {
@@ -160,9 +217,25 @@ export default function Attendance() {
   const handleClockOut = async () => {
     try {
       setClockActionLoading(true);
+      const nowIso = new Date().toISOString();
       const deviceGuid = todaySession?.deviceId || user?.registeredDeviceId || user?.deviceId || 'C5DBDD5F-E416-479B-AA77-12C661C48BCB';
-      await clockOutAttendance({ clientTime: new Date().toISOString(), deviceId: deviceGuid });
+      
+      const clockInIso = todaySession?.clockInTime || todaySession?.clockIn || todaySession?.clientClockIn;
+      const finalSecs = clockInIso ? Math.max(0, Math.floor((new Date(nowIso).getTime() - new Date(clockInIso).getTime()) / 1000)) : secondsWorked;
+
+      // Stop timer and freeze clocked out state immediately
       setClockedIn(false);
+      setSecondsWorked(finalSecs);
+      setTodaySession(prev => ({
+        ...prev,
+        clockOutTime: nowIso,
+        clockOut: nowIso,
+        clientClockOut: nowIso,
+        status: 'CLOCKED_OUT',
+        workingHours: Number((finalSecs / 3600).toFixed(2))
+      }));
+
+      await clockOutAttendance({ clientTime: nowIso, deviceId: deviceGuid });
       showToast("Successfully clocked out session!", "success");
       await fetchTodaySession();
       await fetchLogs();
@@ -342,19 +415,19 @@ export default function Attendance() {
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase block">Clock-In Timestamp</span>
                 <span className="font-bold font-mono text-slate-800 text-xs">
-                  {todaySession?.clockInTime ? new Date(todaySession.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--'}
+                  {todaySession?.clockInTime || todaySession?.clockIn ? new Date(todaySession.clockInTime || todaySession.clockIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--'}
                 </span>
               </div>
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase block">Clock-Out Timestamp</span>
                 <span className="font-bold font-mono text-slate-800 text-xs">
-                  {todaySession?.clockOutTime ? new Date(todaySession.clockOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (clockedIn ? 'In Progress' : '--')}
+                  {todaySession?.clockOutTime || todaySession?.clockOut ? new Date(todaySession.clockOutTime || todaySession.clockOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (clockedIn ? 'In Progress' : '--')}
                 </span>
               </div>
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase block">Working Hours</span>
                 <span className="font-bold text-slate-800 text-xs">
-                  {todaySession?.workingHours ? `${todaySession.workingHours} hrs` : '--'}
+                  {todaySession?.workingHours ? `${todaySession.workingHours} hrs` : (secondsWorked > 0 ? `${(secondsWorked / 3600).toFixed(2)} hrs` : '--')}
                 </span>
               </div>
             </div>

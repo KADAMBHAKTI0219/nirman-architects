@@ -14,18 +14,21 @@ import {
 import { parseIndexedObjectToArray } from '../../../service/hrm/leave';
 import { getEmployeeScreenshots, downloadAllScreenshots } from '../../../service/hrm/screenshot';
 import { deleteUser, changeUserPassword, getUserById } from '../../../service/auth';
+import { getDepartments, getCleanDepartmentName } from '../../../service/departments';
 
 export default function EmployeesHR({
   employees,
   selectedEmployee: propSelectedEmployee,
   onSelectEmployee,
   onAddEmployeeClick,
-  onEditEmployeeClick
+  onEditEmployeeClick,
+  onRefresh
 }) {
   const [localEmployees, setLocalEmployees] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState('All');
   const [viewMode, setViewMode] = useState('table');
+  const [apiDepartments, setApiDepartments] = useState([]);
 
   // Modals state
   const [selectedEmployee, setSelectedEmployee] = useState(null);
@@ -66,7 +69,39 @@ export default function EmployeesHR({
   });
   const [activeScreenshotIdx, setActiveScreenshotIdx] = useState(0);
 
-  const departments = ['All', 'Architecture', 'Engineering', 'Project Management', 'HR'];
+  // Fetch real departments from backend API
+  useEffect(() => {
+    const fetchDepts = async () => {
+      try {
+        const res = await getDepartments();
+        if (res && res.success && Array.isArray(res.departments)) {
+          setApiDepartments(res.departments);
+        } else if (Array.isArray(res)) {
+          setApiDepartments(res);
+        }
+      } catch (e) {
+        console.warn("Failed to load departments in EmployeesHR:", e);
+      }
+    };
+    fetchDepts();
+  }, []);
+
+  const departments = useMemo(() => {
+    const list = ['All'];
+    apiDepartments.forEach(d => {
+      const name = getCleanDepartmentName(d);
+      if (name && !list.includes(name)) {
+        list.push(name);
+      }
+    });
+    localEmployees.forEach(emp => {
+      const name = getCleanDepartmentName(emp.department);
+      if (name && !list.includes(name)) {
+        list.push(name);
+      }
+    });
+    return list;
+  }, [apiDepartments, localEmployees]);
 
   useEffect(() => {
     // Inject email if not present
@@ -209,7 +244,7 @@ export default function EmployeesHR({
         setLocalEmployees(prev => prev.filter(e => e.id !== emp.id));
         showToast(response.message || `${emp.name} has been deleted successfully.`, 'success');
         setEmployeeToDelete(null);
-        if (onRefresh) {
+        if (typeof onRefresh === 'function') {
           onRefresh();
         }
       } else {
@@ -291,14 +326,41 @@ export default function EmployeesHR({
     }
   };
 
+  const [activeKpiFilter, setActiveKpiFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   // Filtered employees
   const filteredEmployees = localEmployees.filter(emp => {
     const matchesSearch = emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       emp.designation.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (emp.email || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDept = selectedDept === 'All' || emp.department === selectedDept;
-    return matchesSearch && matchesDept;
+
+    let matchesKpi = true;
+    if (activeKpiFilter === 'active') {
+      const status = (emp.status || emp.attendanceStatus || '').toUpperCase();
+      matchesKpi = status === 'PRESENT' || status === 'ACTIVE' || emp.isOnline === true || Boolean(emp.clockInTime);
+    } else if (activeKpiFilter === 'leave') {
+      const status = (emp.status || emp.attendanceStatus || '').toUpperCase();
+      matchesKpi = status === 'LEAVE' || status === 'ABSENT' || emp.isOnLeave === true;
+    } else if (activeKpiFilter === 'new') {
+      const joinDate = emp.joiningDate || emp.createdAt;
+      if (!joinDate) matchesKpi = false;
+      else {
+        const timeDiff = Date.now() - new Date(joinDate).getTime();
+        matchesKpi = timeDiff >= 0 && timeDiff <= (30 * 24 * 60 * 60 * 1000);
+      }
+    } else if (activeKpiFilter === 'resigned') {
+      const status = (emp.status || emp.employmentStatus || '').toUpperCase();
+      matchesKpi = status === 'RESIGNED' || status === 'INACTIVE' || emp.isActive === false;
+    }
+
+    return matchesSearch && matchesDept && matchesKpi;
   });
+
+  const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage) || 1;
+  const paginatedEmployees = filteredEmployees.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   // Dynamic KPI Stats calculation from real employees list
   const kpiStats = useMemo(() => {
@@ -365,28 +427,68 @@ export default function EmployeesHR({
 
       </div>
 
-      {/* 1. KPIs - 100% DYNAMIC */}
+      {/* 1. KPIs - 100% DYNAMIC & CLICKABLE FILTERS */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs text-center">
+        <div 
+          onClick={() => { setActiveKpiFilter('all'); setCurrentPage(1); }}
+          className={`p-4 rounded-2xl border transition-all cursor-pointer text-center ${
+            activeKpiFilter === 'all' 
+              ? 'bg-white border-[#3B82F6] ring-2 ring-[#3B82F6]/20 shadow-xs' 
+              : 'bg-white border-slate-100 shadow-3xs hover:border-slate-300'
+          }`}
+        >
           <span className="text-[9px] font-bold text-slate-400 uppercase block">Total Employees</span>
           <strong className="text-base font-black text-slate-800 block mt-1">{kpiStats.total} Staff</strong>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs text-center">
+
+        <div 
+          onClick={() => { setActiveKpiFilter('active'); setCurrentPage(1); }}
+          className={`p-4 rounded-2xl border transition-all cursor-pointer text-center ${
+            activeKpiFilter === 'active' 
+              ? 'bg-emerald-50/50 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs' 
+              : 'bg-white border-slate-100 shadow-3xs hover:border-emerald-200'
+          }`}
+        >
           <span className="text-[9px] font-bold text-slate-400 uppercase block">Active Shift</span>
           <strong className="text-base font-black text-emerald-600 block mt-1">{kpiStats.active} Active</strong>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-105 shadow-3xs text-center">
+
+        <div 
+          onClick={() => { setActiveKpiFilter('leave'); setCurrentPage(1); }}
+          className={`p-4 rounded-2xl border transition-all cursor-pointer text-center ${
+            activeKpiFilter === 'leave' 
+              ? 'bg-rose-50/50 border-rose-500 ring-2 ring-rose-500/20 shadow-xs' 
+              : 'bg-white border-slate-100 shadow-3xs hover:border-rose-200'
+          }`}
+        >
           <span className="text-[9px] font-bold text-slate-400 uppercase block">On Leave</span>
           <strong className="text-base font-black text-rose-600 block mt-1">{kpiStats.leave} Leave</strong>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs text-center">
+
+        <div 
+          onClick={() => { setActiveKpiFilter('new'); setCurrentPage(1); }}
+          className={`p-4 rounded-2xl border transition-all cursor-pointer text-center ${
+            activeKpiFilter === 'new' 
+              ? 'bg-sky-50/50 border-sky-500 ring-2 ring-sky-500/20 shadow-xs' 
+              : 'bg-white border-slate-100 shadow-3xs hover:border-sky-200'
+          }`}
+        >
           <span className="text-[9px] font-bold text-slate-400 uppercase block">New Joiners</span>
           <strong className="text-base font-black text-sky-500 block mt-1">{kpiStats.newJoiners} New</strong>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs text-center">
+
+        <div 
+          onClick={() => { setActiveKpiFilter('resigned'); setCurrentPage(1); }}
+          className={`p-4 rounded-2xl border transition-all cursor-pointer text-center ${
+            activeKpiFilter === 'resigned' 
+              ? 'bg-slate-100 border-slate-400 ring-2 ring-slate-400/20 shadow-xs' 
+              : 'bg-white border-slate-100 shadow-3xs hover:border-slate-300'
+          }`}
+        >
           <span className="text-[9px] font-bold text-slate-400 uppercase block">Resigned</span>
           <strong className="text-base font-black text-slate-500 block mt-1">{kpiStats.resigned} Staff</strong>
         </div>
+
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-3xs text-center">
           <span className="text-[9px] font-bold text-slate-400 uppercase block">Departments</span>
           <strong className="text-base font-black text-brand-dark block mt-1">{kpiStats.departments} Groups</strong>
@@ -414,10 +516,10 @@ export default function EmployeesHR({
               <select
                 value={selectedDept}
                 onChange={(e) => setSelectedDept(e.target.value)}
-                className="px-3 py-2 text-xs border border-slate-205 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-700 bg-white font-semibold cursor-pointer"
+                className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-brand-secondary text-slate-700 bg-white font-semibold cursor-pointer"
               >
                 {departments.map(dept => (
-                  <option key={dept} value={dept}>{dept === 'All' ? 'All Departments' : `${dept} Department`}</option>
+                  <option key={dept} value={dept}>{dept === 'All' ? 'All Departments' : dept}</option>
                 ))}
               </select>
 
@@ -558,104 +660,190 @@ export default function EmployeesHR({
           ) : (
             <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-2xs">
               <div className="overflow-x-auto">
-                <table className="w-full text-xs text-left table-auto">
+                <table className="w-full text-xs table-auto">
                   <thead>
                     <tr className="border-b border-slate-100 bg-slate-50/50">
-                      <th className="px-5 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Employee Name</th>
-                      <th className="px-5 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Email Address</th>
-                      <th className="px-5 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Department</th>
-                      <th className="px-5 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                      <th className="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">EMPLOYEE NAME</th>
+                      <th className="px-5 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">EMAIL ADDRESS</th>
+                      <th className="px-5 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">DEPARTMENT</th>
+                      <th className="px-5 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {filteredEmployees.map(emp => (
+                    {paginatedEmployees.map(emp => (
                       <tr
                         key={emp.id}
                         className="hover:bg-slate-50/40 transition-colors"
                       >
-                        <td className="px-5 py-4 align-middle">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-9 h-9 rounded-full bg-brand-primary/10 border border-brand-primary/20 flex items-center justify-center font-black text-slate-805 text-xs shrink-0">
-                              {emp.name.split(' ').map(n => n[0]).join('')}
+                        {/* FIRST COLUMN: EMPLOYEE NAME & AVATAR (LEFT-ALIGNED AS PER SPEC) */}
+                        <td className="px-6 py-4 align-middle text-left">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-600 text-xs shrink-0 shadow-3xs">
+                              {emp.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                             </div>
                             <div>
-                              <strong className="text-slate-850 block text-xs">{emp.name}</strong>
-                              <span className="text-[9px] text-slate-400 block font-semibold">{emp.designation}</span>
+                              <strong className="text-slate-850 block text-xs font-black tracking-tight">{emp.name}</strong>
+                              <span className="text-[10px] text-slate-400 block font-bold mt-0.5">{emp.designation || 'Employee'}</span>
                             </div>
                           </div>
                         </td>
-                        <td className="px-5 py-4 text-slate-600 font-semibold align-middle">{emp.email}</td>
-                        <td className="px-5 py-4 text-slate-500 font-bold align-middle">{emp.department}</td>
-                        <td className="px-5 py-4 text-right align-middle">
-                          <div className="flex justify-end gap-2">
-                            {/* VIEW PROFILE BUTTON */}
-                            <button
-                              onClick={() => handleOpenViewModal(emp)}
-                              className="p-2.5 bg-blue-55 hover:bg-blue-100 text-blue-650 border border-blue-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold cursor-pointer"
-                              title="View Profile"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
 
-                            {/* EDIT PROFILE BUTTON */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onEditEmployeeClick(emp);
-                              }}
-                              className="p-2.5 bg-amber-55 hover:bg-amber-100 text-amber-650 border border-amber-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold cursor-pointer"
-                              title="Edit Details"
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </button>
+                        {/* OTHER COLUMNS: CENTER-ALIGNED */}
+                        <td className="px-5 py-4 text-slate-600 font-semibold align-middle text-center">{emp.email}</td>
+                        <td className="px-5 py-4 text-slate-500 font-bold align-middle text-center">{emp.department}</td>
+                        <td className="px-5 py-4 text-center align-middle">
+                          <div className="flex justify-center items-center gap-2">
+                            
+                            {/* VIEW PROFILE BUTTON WITH MATCHING BLUE TOOLTIP BADGE */}
+                            <div className="relative group">
+                              <button
+                                onClick={() => handleOpenViewModal(emp)}
+                                className="p-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold cursor-pointer"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              <div className="absolute -top-10 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-30 pointer-events-none transition-all">
+                                <span className="px-3 py-1 bg-blue-600 text-white text-[10px] font-extrabold rounded-lg whitespace-nowrap shadow-md">
+                                  View Profile
+                                </span>
+                                <div className="w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-blue-600"></div>
+                              </div>
+                            </div>
 
-                            {/* CHANGE PASSWORD BUTTON */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setTargetPasswordUser(emp);
-                                setNewPassword('');
-                                setConfirmPassword('');
-                                setPasswordError('');
-                                setShowPasswordModal(true);
-                              }}
-                              className="p-2.5 bg-purple-55 hover:bg-purple-100 text-purple-650 border border-purple-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold cursor-pointer"
-                              title="Change Password"
-                            >
-                              <Key className="w-4 h-4" />
-                            </button>
+                            {/* EDIT PROFILE BUTTON WITH MATCHING AMBER TOOLTIP BADGE */}
+                            <div className="relative group">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onEditEmployeeClick(emp);
+                                }}
+                                className="p-2.5 bg-amber-50 hover:bg-amber-100 text-amber-600 border border-amber-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold cursor-pointer"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <div className="absolute -top-10 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-30 pointer-events-none transition-all">
+                                <span className="px-3 py-1 bg-amber-600 text-white text-[10px] font-extrabold rounded-lg whitespace-nowrap shadow-md">
+                                  Edit Employee
+                                </span>
+                                <div className="w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-amber-600"></div>
+                              </div>
+                            </div>
 
-                            {/* DELETE EMPLOYEE BUTTON */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEmployeeToDelete(emp);
-                              }}
-                              className="p-2.5 bg-rose-55 hover:bg-rose-100 text-rose-655 border border-rose-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold cursor-pointer"
-                              title="Delete Employee"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {/* CHANGE PASSWORD BUTTON WITH MATCHING PURPLE TOOLTIP BADGE */}
+                            <div className="relative group">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setTargetPasswordUser(emp);
+                                  setNewPassword('');
+                                  setConfirmPassword('');
+                                  setPasswordError('');
+                                  setShowPasswordModal(true);
+                                }}
+                                className="p-2.5 bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold cursor-pointer"
+                              >
+                                <Key className="w-4 h-4" />
+                              </button>
+                              <div className="absolute -top-10 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-30 pointer-events-none transition-all">
+                                <span className="px-3 py-1 bg-purple-600 text-white text-[10px] font-extrabold rounded-lg whitespace-nowrap shadow-md">
+                                  Change Password
+                                </span>
+                                <div className="w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-purple-600"></div>
+                              </div>
+                            </div>
 
-                            {/* VIEW SCREENSHOTS BUTTON */}
-                            <button
-                              onClick={() => {
-                                setSelectedEmployee(emp);
-                                setSelectedScreenshotDate(new Date().toISOString().split('T')[0]);
-                                setShowScreenshotsModal(true);
-                              }}
-                              className="p-2.5 bg-emerald-55 hover:bg-emerald-100 text-emerald-650 border border-emerald-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold cursor-pointer"
-                              title="View Desktop Screenshots"
-                            >
-                              <Laptop className="w-4 h-4" />
-                            </button>
+                            {/* DELETE EMPLOYEE BUTTON WITH MATCHING ROSE TOOLTIP BADGE */}
+                            <div className="relative group">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEmployeeToDelete(emp);
+                                }}
+                                className="p-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold cursor-pointer"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                              <div className="absolute -top-10 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-30 pointer-events-none transition-all">
+                                <span className="px-3 py-1 bg-rose-600 text-white text-[10px] font-extrabold rounded-lg whitespace-nowrap shadow-md">
+                                  Delete Employee
+                                </span>
+                                <div className="w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-rose-600"></div>
+                              </div>
+                            </div>
+
+                            {/* VIEW SCREENSHOTS BUTTON WITH MATCHING EMERALD TOOLTIP BADGE */}
+                            <div className="relative group">
+                              <button
+                                onClick={() => {
+                                  setSelectedEmployee(emp);
+                                  setSelectedScreenshotDate(new Date().toISOString().split('T')[0]);
+                                  setShowScreenshotsModal(true);
+                                }}
+                                className="p-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100 rounded-xl transition-all shadow-4xs flex items-center justify-center font-bold cursor-pointer"
+                              >
+                                <Laptop className="w-4 h-4" />
+                              </button>
+                              <div className="absolute -top-10 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-30 pointer-events-none transition-all">
+                                <span className="px-3 py-1 bg-emerald-600 text-white text-[10px] font-extrabold rounded-lg whitespace-nowrap shadow-md">
+                                  View Screenshots
+                                </span>
+                                <div className="w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-emerald-600"></div>
+                              </div>
+                            </div>
                           </div>
                         </td>
                       </tr>
                     ))}
+                    {filteredEmployees.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="py-12 text-center text-slate-400 font-medium">
+                          No matching employees found in directory.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
+
+              {/* PAGINATION CONTROLS */}
+              {filteredEmployees.length > 0 && (
+                <div className="px-6 py-4 bg-slate-50/60 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-semibold text-slate-600">
+                  <div>
+                    Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredEmployees.length)} of {filteredEmployees.length} employees
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all font-bold text-slate-700 cursor-pointer"
+                    >
+                      Previous
+                    </button>
+
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`w-8 h-8 rounded-xl font-black text-xs transition-all cursor-pointer ${
+                          currentPage === page
+                            ? 'bg-[#3B82F6] text-white shadow-xs'
+                            : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+
+                    <button
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all font-bold text-slate-700 cursor-pointer"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

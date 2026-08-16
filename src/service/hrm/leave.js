@@ -87,14 +87,19 @@ export const deactivateLeaveType = async (id) => {
   }
 };
 
-// 6.6 POST /api/leave/apply
+// 6.6 POST /api/leave/request (or /api/leave/apply)
 export const applyLeave = async (payload) => {
   if (isMockSession()) return await mockApi.applyLeave(payload);
   try {
-    const response = await api.post('/leave/apply', payload);
+    const response = await api.post('/leave/request', payload);
     return response.data;
   } catch (err) {
-    return await mockApi.applyLeave(payload);
+    try {
+      const response = await api.post('/leave/apply', payload);
+      return response.data;
+    } catch (e) {
+      return await mockApi.applyLeave(payload);
+    }
   }
 };
 
@@ -106,6 +111,18 @@ export const getMyLeaves = async (year) => {
     return response.data;
   } catch (err) {
     return await mockApi.getMyLeaves(year);
+  }
+};
+
+// 6.7.1 PUT /api/leave/:id/update
+export const updatePendingLeave = async (leaveRequestId, payload) => {
+  if (isMockSession()) return { success: true, message: 'Leave updated' };
+  try {
+    const response = await api.put(`/leave/${leaveRequestId}/update`, payload);
+    return response.data;
+  } catch (err) {
+    console.warn("Update leave request error:", err);
+    throw err;
   }
 };
 
@@ -131,25 +148,35 @@ export const getPendingLeaveRequests = async () => {
   }
 };
 
-// 6.10 POST /api/leave/approve
+// 6.10 PUT /api/leave/:id/approve (or POST /api/leave/approve)
 export const approveLeaveRequest = async (leaveRequestId) => {
   if (isMockSession()) return await mockApi.approveLeaveRequest(leaveRequestId);
   try {
-    const response = await api.post('/leave/approve', { leaveRequestId });
+    const response = await api.put(`/leave/${leaveRequestId}/approve`);
     return response.data;
   } catch (err) {
-    return await mockApi.approveLeaveRequest(leaveRequestId);
+    try {
+      const response = await api.post('/leave/approve', { leaveRequestId });
+      return response.data;
+    } catch (e) {
+      return await mockApi.approveLeaveRequest(leaveRequestId);
+    }
   }
 };
 
-// 6.11 POST /api/leave/reject
+// 6.11 PUT /api/leave/:id/reject (or POST /api/leave/reject)
 export const rejectLeaveRequest = async (leaveRequestId, rejectionReason = '') => {
   if (isMockSession()) return await mockApi.rejectLeaveRequest(leaveRequestId, rejectionReason);
   try {
-    const response = await api.post('/leave/reject', { leaveRequestId, rejectionReason });
+    const response = await api.put(`/leave/${leaveRequestId}/reject`, { rejectionReason });
     return response.data;
   } catch (err) {
-    return await mockApi.rejectLeaveRequest(leaveRequestId, rejectionReason);
+    try {
+      const response = await api.post('/leave/reject', { leaveRequestId, rejectionReason });
+      return response.data;
+    } catch (e) {
+      return await mockApi.rejectLeaveRequest(leaveRequestId, rejectionReason);
+    }
   }
 };
 

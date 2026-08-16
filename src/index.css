@@ -382,3 +382,65 @@ button:has(> svg.lucide-x) svg.lucide-x {
   border-radius: 0.5rem !important;
   border: 1px solid #E2E8F0 !important;
 }
+
+/* Clean Native Date Picker Input Reset */
+input[type="date"] {
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: opacity(0.75);
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+  padding: 0 !important;
+}
+
+input[type="date"]::-webkit-datetime-edit {
+  padding: 0 !important;
+}
+
+/* ==========================================================================
+   CLEAN BORDER-ONLY FOCUS STYLING (NO GLOW RINGS / NO SHADOWS)
+   ========================================================================== */
+input,
+select,
+textarea {
+  transition: border-color 0.15s ease-in-out !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none !important;
+  border-color: #8FC9FF !important;
+  box-shadow: none !important;
+}
+
+/* ==========================================================================
+   PREVENT BROWSER AUTOFILL BLUE BACKGROUND SHADOW & TEXT TINT
+   ========================================================================== */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #FFFFFF inset !important;
+  -webkit-text-fill-color: #0F172A !important;
+  caret-color: #0F172A !important;
+  transition: background-color 50000s ease-in-out 0s !important;
+}

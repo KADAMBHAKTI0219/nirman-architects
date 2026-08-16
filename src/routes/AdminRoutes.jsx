@@ -9,7 +9,11 @@ const AdminProjects = lazy(() => import('../components/admin/projects/index'));
 const AdminTasks = lazy(() => import('../components/admin/tasks/index'));
 const AdminDrawings = lazy(() => import('../components/admin/drawings/index'));
 const AdminEmployees = lazy(() => import('../components/admin/employees/index'));
-const AdminAttendance = lazy(() => import('../components/admin/attendance/index'));
+const AdminDepartments = lazy(() => import('../components/admin/departments/index'));
+const AdminDesignations = lazy(() => import('../components/admin/designations/index'));
+const AdminWorkLocations = lazy(() => import('../components/admin/work-locations/index'));
+const AdminRoles = lazy(() => import('../components/admin/roles/index'));
+const AdminAttendance = lazy(() => import('../components/admin/workforce/WorkforceCommandCenter'));
 const AdminHRPayroll = lazy(() => import('../components/admin/hr-payroll/index'));
 const AdminCRM = lazy(() => import('../components/admin/crm/index'));
 const AdminDocs = lazy(() => import('../components/admin/documents/index'));
@@ -79,13 +83,28 @@ export default function getAdminRoutes(handleRoleChange) {
         </DashboardLayout>
       } />
       <Route path="/admin/employees" element={
-        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Employees">
+        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Employees Directory">
           <LazyWrap><AdminEmployees /></LazyWrap>
         </DashboardLayout>
       } />
-      <Route path="/admin/employees/departments" element={
-        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Employees">
+      <Route path="/admin/users" element={
+        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="User Management">
           <LazyWrap><AdminEmployees /></LazyWrap>
+        </DashboardLayout>
+      } />
+      <Route path="/admin/departments" element={
+        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Departments">
+          <LazyWrap><AdminDepartments /></LazyWrap>
+        </DashboardLayout>
+      } />
+      <Route path="/admin/work-locations" element={
+        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Work Locations">
+          <LazyWrap><AdminWorkLocations /></LazyWrap>
+        </DashboardLayout>
+      } />
+      <Route path="/admin/roles" element={
+        <DashboardLayout role="Admin" onChangeRole={handleRoleChange} title="Role Master">
+          <LazyWrap><AdminRoles /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/admin/attendance/office" element={
