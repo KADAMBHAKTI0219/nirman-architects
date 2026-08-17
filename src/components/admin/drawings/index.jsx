@@ -45,17 +45,23 @@ export default function AdminDrawings({ defaultTab = 'vault' }) {
     const currentVerNumber = d.currentVersion || (vers.length > 0 ? vers[vers.length - 1].versionNumber : 1);
     const primaryFileUrl = cachedUrl || d.fileUrl || d.filePath || (vers.length > 0 ? vers[vers.length - 1].fileUrl : null) || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80";
 
-    let mappedStatus = 'Designer Uploaded';
+    let mappedStatus = d.status || 'DESIGNER_UPLOADED';
     if (d.status === 'GFC Locked' || d.status === 'GFC_LOCKED' || d.isGFCLocked || d.locked) {
-      mappedStatus = 'GFC Locked';
-    } else if (d.status === 'APPROVED' || d.status === 'Approved') {
-      mappedStatus = 'Approved';
+      mappedStatus = 'GFC_LOCKED';
+    } else if (d.status === 'APPROVED' || d.status === 'Approved' || d.status === 'CLIENT_APPROVED') {
+      mappedStatus = 'APPROVED';
     } else if (d.status === 'PM_APPROVED' || d.status === 'PM Approved') {
-      mappedStatus = 'PM Approved';
+      mappedStatus = 'PM_APPROVED';
+    } else if (d.status === 'PM_REJECTED' || d.status === 'PM Rejected') {
+      mappedStatus = 'PM_REJECTED';
+    } else if (d.status === 'ADMIN_REJECTED' || d.status === 'Admin Rejected') {
+      mappedStatus = 'ADMIN_REJECTED';
     } else if (d.status === 'PENDING_CLIENT_APPROVAL' || d.status === 'Pending Client Approval') {
-      mappedStatus = 'Pending Client Approval';
-    } else if (d.status === 'CHANGES_REQUESTED' || d.status === 'PM_REJECTED' || d.status === 'ADMIN_REJECTED' || d.status === 'Revisions Required') {
-      mappedStatus = 'Revisions Required';
+      mappedStatus = 'PENDING_CLIENT_APPROVAL';
+    } else if (d.status === 'CHANGES_REQUESTED' || d.status === 'Changes Requested' || d.status === 'Revisions Required') {
+      mappedStatus = 'CHANGES_REQUESTED';
+    } else if (d.status === 'DESIGNER_UPLOADED' || d.status === 'Designer Uploaded') {
+      mappedStatus = 'DESIGNER_UPLOADED';
     }
 
     return {

@@ -19,6 +19,7 @@ import DrawingVersionModal from './DrawingVersionModal';
 import DrawingEditModal from './DrawingEditModal';
 import { detectFileType, getCleanFileUrl } from '../../../utils/fileTypeDetector';
 import { getBlueprintSvgDataUrl } from '../markup/sampleAssets';
+import { getDrawingStatusBadge } from './DrawingList';
 import { useToast } from '../../../context/ToastContext';
 
 export default function DrawingDetails({
@@ -52,7 +53,13 @@ export default function DrawingDetails({
   const userRole = currentUser.roleCode || currentUser.role || 'Admin';
   const isSuperAdmin = userRole === 'SUPER_ADMIN' || userRole === 'SuperAdmin';
   const isAdmin = isSuperAdmin || userRole === 'ADMIN' || userRole === 'Admin';
-  const isPM = isAdmin || userRole === 'PROJECT_MANAGER' || userRole === 'ProjectManager' || userRole === 'PM';
+  const isPMOnly = (userRole === 'PROJECT_MANAGER' || userRole === 'ProjectManager' || userRole === 'PM') && !isAdmin;
+  const isPM = isPMOnly || userRole === 'PROJECT_MANAGER' || userRole === 'ProjectManager' || userRole === 'PM';
+
+  const currentStatusStr = String(liveDrawing?.status || drawing?.status || 'DESIGNER_UPLOADED').toUpperCase();
+  const isPmPending = currentStatusStr.includes('DESIGNER') || currentStatusStr.includes('PM_REJECTED') || currentStatusStr.includes('PM REJECTED') || currentStatusStr.includes('PENDING_PM');
+  const isPmApproved = currentStatusStr.includes('PM_APPROVED') || currentStatusStr.includes('PM APPROVED') || currentStatusStr.includes('PENDING_CLIENT') || currentStatusStr.includes('APPROVED') || currentStatusStr.includes('GFC');
+  const isAdminApproved = currentStatusStr.includes('PENDING_CLIENT') || currentStatusStr.includes('APPROVED') || currentStatusStr.includes('GFC');
 
   const drawingId = liveDrawing ? (liveDrawing._id || liveDrawing.id) : null;
 
@@ -326,6 +333,8 @@ export default function DrawingDetails({
   const displayCategory = liveDrawing?.category || liveDrawing?.categoryName || drawing?.category || drawing?.categoryName || 'Working Drawings';
   const rawStatus = String(liveDrawing?.status || drawing?.status || 'DESIGNER_UPLOADED').toUpperCase();
   const formattedStatus = rawStatus.replace(/_/g, ' ');
+  const versionsList = (versionHistoryList && versionHistoryList.length > 0) ? versionHistoryList : (liveDrawing?.versions || drawing?.versions || []);
+  const hasVersions = Array.isArray(versionsList) && versionsList.length > 0;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200 font-sans text-slate-800">
@@ -348,17 +357,14 @@ export default function DrawingDetails({
               <span className="text-[10px] bg-brand-soft font-extrabold text-slate-800 border border-brand-secondary/40 px-2.5 py-0.5 rounded-lg shrink-0">
                 {displayCategory}
               </span>
-              <span className={`text-[9px] px-2.5 py-0.5 rounded-lg font-black uppercase tracking-wider border shrink-0 ${
-                liveDrawing?.locked || drawing?.locked || rawStatus.includes('LOCKED') || rawStatus.includes('GFC')
-                  ? 'bg-slate-900 text-amber-300 border-slate-800'
-                  : rawStatus.includes('APPROV')
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  : rawStatus.includes('PENDING')
-                  ? 'bg-sky-50 text-sky-700 border-sky-200'
-                  : 'bg-amber-50 text-amber-800 border-amber-200'
-              }`}>
-                {formattedStatus}
-              </span>
+              {(() => {
+                const info = getDrawingStatusBadge(liveDrawing?.status || drawing?.status, Boolean(liveDrawing?.locked || drawing?.locked || liveDrawing?.isGFCLocked || drawing?.isGFCLocked));
+                return (
+                  <span className={`text-[9px] px-2.5 py-0.5 rounded-lg uppercase tracking-wider border shrink-0 ${info.className}`}>
+                    {info.label}
+                  </span>
+                );
+              })()}
             </div>
             <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight leading-tight truncate">
               {displayName}
@@ -367,6 +373,14 @@ export default function DrawingDetails({
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+          <button
+            onClick={() => setIsVersionModalOpen(true)}
+            className="px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer border border-brand-secondary/40 whitespace-nowrap"
+          >
+            <Plus className="w-4 h-4 text-brand-dark shrink-0" />
+            <span>Upload New Version</span>
+          </button>
+
           <button
             onClick={() => setIsEditModalOpen(true)}
             className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer border border-slate-700 whitespace-nowrap"
@@ -377,10 +391,10 @@ export default function DrawingDetails({
 
           <button
             onClick={() => setIsFullMarkupMode(true)}
-            className="px-4 py-2.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer border border-brand-secondary/40 whitespace-nowrap"
+            className="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-800 font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer border border-slate-200 whitespace-nowrap"
           >
-            <PenTool className="w-4 h-4 text-brand-dark shrink-0" />
-            <span>Open Canvas Markup Editor</span>
+            <PenTool className="w-4 h-4 text-slate-700 shrink-0" />
+            <span>Canvas Markup</span>
           </button>
 
           <button
@@ -559,79 +573,89 @@ export default function DrawingDetails({
 
           </div>
 
-          {/* Revision Version timeline history */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-2xs space-y-4">
-            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-              <div>
-                <h3 className="text-base font-black text-slate-900">Revision & Version History</h3>
-                <p className="text-xs text-slate-500 font-medium">All historical version iterations & uploaded blueprint revisions</p>
+          {/* Revision Version timeline history - Only shown if versions exist */}
+          {hasVersions && (
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-2xs space-y-4">
+              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                <div>
+                  <h3 className="text-base font-black text-slate-900">Revision & Version History</h3>
+                  <p className="text-xs text-slate-500 font-medium">All historical version iterations & uploaded blueprint revisions</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsVersionModalOpen(true)}
+                  className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer border border-brand-secondary/40"
+                >
+                  <Plus className="w-4 h-4 text-brand-dark" />
+                  <span>Upload New Version</span>
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsVersionModalOpen(true)}
-                className="px-4 py-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer border border-brand-secondary/40"
-              >
-                <Plus className="w-4 h-4 text-brand-dark" />
-                <span>Upload New Version</span>
-              </button>
-            </div>
 
-            <div className="space-y-3">
-              {(versionHistoryList.length > 0 ? versionHistoryList : (liveDrawing.versions || [])).map((ver, idx) => {
-                const vNum = ver.versionNumber ? `V${ver.versionNumber}.0` : (ver.version || `V${idx + 1}.0`);
-                const fileTarget = ver.filePath || ver.fileUrl || liveDrawing.fileUrl || '';
-                const uploaderName = typeof ver.uploadedBy === 'object' ? (ver.uploadedBy?.name || ver.uploadedBy?.email) : (ver.uploadedBy || 'Bhakti Kadam');
-                const notesStr = ver.changeLog || ver.notes || 'Initial design blueprint upload';
-                const dateStr = ver.uploadDate ? new Date(ver.uploadDate).toLocaleDateString() : (ver.uploadedAt ? new Date(ver.uploadedAt).toLocaleDateString() : '2026-08-10');
-                const isSelected = selectedVersion ? (selectedVersion._id === ver._id || selectedVersion.versionNumber === ver.versionNumber) : idx === 0;
+              <div className="space-y-3">
+                {versionsList.map((ver, idx) => {
+                  const vNum = ver.versionNumber ? `V${ver.versionNumber}.0` : (ver.version || `V${idx + 1}.0`);
+                  const fileTarget = ver.filePath || ver.fileUrl || liveDrawing.fileUrl || '';
+                  const uploaderName = typeof ver.uploadedBy === 'object' ? (ver.uploadedBy?.name || ver.uploadedBy?.email) : (ver.uploadedBy || 'Bhakti Kadam');
+                  const notesStr = ver.changeLog || ver.notes || 'Initial design blueprint upload';
+                  const dateStr = ver.uploadDate ? new Date(ver.uploadDate).toLocaleDateString() : (ver.uploadedAt ? new Date(ver.uploadedAt).toLocaleDateString() : '2026-08-10');
+                  
+                  const isSelected = selectedVersion
+                    ? (
+                        (selectedVersion._id && ver._id && selectedVersion._id === ver._id) ||
+                        (selectedVersion.id && ver.id && selectedVersion.id === ver.id) ||
+                        (selectedVersion.versionNumber && ver.versionNumber && selectedVersion.versionNumber === ver.versionNumber) ||
+                        (selectedVersion.version && ver.version && selectedVersion.version === ver.version)
+                      )
+                    : idx === 0;
 
-                return (
-                  <div
-                    key={ver._id || idx}
-                    onClick={() => setSelectedVersion(ver)}
-                    className={`flex justify-between items-center p-4 rounded-2xl text-xs flex-wrap gap-3 cursor-pointer transition-all ${
-                      isSelected
-                        ? 'bg-amber-50/90 border-2 border-amber-500 shadow-xs'
-                        : 'bg-slate-50/80 border border-slate-200/80 hover:bg-slate-100/60'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3.5">
-                      <span className={`px-3 py-1.5 rounded-xl font-black text-xs shadow-3xs ${
-                        isSelected ? 'bg-amber-500 text-white' : 'bg-brand-soft border border-brand-secondary/60 text-slate-900'
-                      }`}>
-                        {vNum}
-                      </span>
-                      <div>
-                        <strong className="text-slate-900 block font-bold text-xs">Notes: {notesStr}</strong>
-                        <span className="text-[11px] text-slate-500 mt-0.5 block font-medium">
-                          Uploaded by {uploaderName} on {dateStr}
+                  return (
+                    <div
+                      key={ver._id || ver.id || idx}
+                      onClick={() => setSelectedVersion(ver)}
+                      className={`flex justify-between items-center p-4 rounded-2xl text-xs flex-wrap gap-3 cursor-pointer transition-all ${
+                        isSelected
+                          ? 'bg-amber-50/90 border-2 border-amber-500 shadow-xs'
+                          : 'bg-slate-50/80 border border-slate-200/80 hover:bg-slate-100/60'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3.5">
+                        <span className={`px-3 py-1.5 rounded-xl font-black text-xs shadow-3xs ${
+                          isSelected ? 'bg-amber-500 text-white' : 'bg-brand-soft border border-brand-secondary/60 text-slate-900'
+                        }`}>
+                          {vNum}
                         </span>
+                        <div>
+                          <strong className="text-slate-900 block font-bold text-xs">Notes: {notesStr}</strong>
+                          <span className="text-[11px] text-slate-500 mt-0.5 block font-medium">
+                            Uploaded by {uploaderName} on {dateStr}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isSelected && (
+                          <span className="px-2.5 py-1 bg-amber-100 text-amber-800 font-extrabold text-[10px] uppercase rounded-lg">
+                            Active Version
+                          </span>
+                        )}
+                        {fileTarget && (
+                          <a
+                            href={fileTarget}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 rounded-xl text-xs font-bold transition-all shadow-3xs cursor-pointer flex items-center gap-1.5"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-slate-500" />
+                            <span>View File</span>
+                          </a>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {isSelected && (
-                        <span className="px-2.5 py-1 bg-amber-100 text-amber-800 font-extrabold text-[10px] uppercase rounded-lg">
-                          Active Version
-                        </span>
-                      )}
-                      {fileTarget && (
-                        <a
-                          href={fileTarget}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 rounded-xl text-xs font-bold transition-all shadow-3xs cursor-pointer flex items-center gap-1.5"
-                        >
-                          <FileText className="w-3.5 h-3.5 text-slate-500" />
-                          <span>View File</span>
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Client Approval Audit Log */}
           <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-2xs space-y-4">
@@ -707,63 +731,102 @@ export default function DrawingDetails({
 
             <div className="space-y-3.5">
 
-              {/* PM Review Gate - Only show when drawing version history exists */}
-              {isPM && ((versionHistoryList && versionHistoryList.length > 0) || (drawing?.versions && drawing.versions.length > 0) || !!drawing?.currentVersionId) && (drawing.status === 'Designer Uploaded' || drawing.status === 'DESIGNER_UPLOADED' || drawing.status === 'PM Rejected' || drawing.status === 'PM_REJECTED') && (
-                <div className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-2xl space-y-2.5">
-                  <div className="flex items-center gap-2 text-amber-900 font-extrabold text-xs">
-                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span>Step 1: Project Manager Technical Review</span>
+              {/* Step 1: Project Manager Technical Review Gate */}
+              {isPmPending ? (
+                (isPMOnly || isAdmin) && (
+                  <div className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-2xl space-y-2.5">
+                    <div className="flex items-center gap-2 text-amber-900 font-extrabold text-xs">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>Step 1: Project Manager Technical Review</span>
+                    </div>
+                    <p className="text-[11px] text-amber-800 font-medium leading-relaxed">
+                      Mandatory PM technical verification before client release.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <button
+                        disabled={actionLoading}
+                        onClick={() => handlePmReviewAction('APPROVE')}
+                        className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase cursor-pointer transition-all shadow-xs"
+                      >
+                        PM Approve
+                      </button>
+                      <button
+                        disabled={actionLoading}
+                        onClick={() => setReviewModalType('PM_REJECT')}
+                        className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-black uppercase cursor-pointer transition-all"
+                      >
+                        PM Reject
+                      </button>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <button
-                      disabled={actionLoading}
-                      onClick={() => handlePmReviewAction('APPROVE')}
-                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase cursor-pointer transition-all shadow-xs"
-                    >
-                      PM Approve
-                    </button>
-                    <button
-                      disabled={actionLoading}
-                      onClick={() => setReviewModalType('PM_REJECT')}
-                      className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-black uppercase cursor-pointer transition-all"
-                    >
-                      PM Reject
-                    </button>
+                )
+              ) : (
+                <div className="p-3.5 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-emerald-900 font-extrabold text-xs">
+                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Step 1: PM Technical Review</span>
                   </div>
+                  <span className="px-2.5 py-1 bg-emerald-600 text-white text-[10px] font-black uppercase rounded-lg shadow-3xs">
+                    Approved
+                  </span>
                 </div>
               )}
 
-              {/* Admin Review Gate */}
-              {isAdmin && (drawing.status === 'PM Approved' || drawing.status === 'PM_APPROVED' || drawing.status === 'Designer Uploaded' || drawing.status === 'DESIGNER_UPLOADED') && (
-                <div className="p-4 bg-brand-soft/80 border border-brand-secondary/60 rounded-2xl space-y-2.5">
-                  <div className="flex items-center gap-2 text-slate-900 font-extrabold text-xs">
-                    <ShieldAlert className="w-4 h-4 text-slate-800 shrink-0" />
-                    <span>Step 2: Executive Approval & Client Release</span>
+              {/* Step 2: Executive Approval & Client Release (Admin Only) */}
+              {isAdmin && (
+                isPmApproved ? (
+                  !isAdminApproved ? (
+                    <div className="p-4 bg-brand-soft/80 border border-brand-secondary/60 rounded-2xl space-y-2.5">
+                      <div className="flex items-center gap-2 text-slate-900 font-extrabold text-xs">
+                        <ShieldAlert className="w-4 h-4 text-slate-800 shrink-0" />
+                        <span>Step 2: Executive Approval & Client Release</span>
+                      </div>
+                      <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                        Approval publishes blueprint to Client Portal for client verification and site sign-off.
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <button
+                          disabled={actionLoading}
+                          onClick={() => handleAdminReviewAction('APPROVE')}
+                          className="w-full py-2.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold rounded-xl text-xs uppercase cursor-pointer shadow-xs transition-all border border-brand-secondary/40"
+                        >
+                          Approve & Release
+                        </button>
+                        <button
+                          disabled={actionLoading}
+                          onClick={() => setReviewModalType('ADMIN_REJECT')}
+                          className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-black uppercase cursor-pointer transition-all"
+                        >
+                          Admin Reject
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3.5 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-emerald-900 font-extrabold text-xs">
+                        <ShieldAlert className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>Step 2: Executive Approval</span>
+                      </div>
+                      <span className="px-2.5 py-1 bg-emerald-600 text-white text-[10px] font-black uppercase rounded-lg shadow-3xs">
+                        Approved & Published
+                      </span>
+                    </div>
+                  )
+                ) : (
+                  <div className="p-3.5 bg-slate-50 border border-slate-200/90 rounded-2xl flex items-center justify-between opacity-75">
+                    <div className="flex items-center gap-2 text-slate-600 font-bold text-xs">
+                      <ShieldAlert className="w-4 h-4 text-slate-400 shrink-0" />
+                      <span>Step 2: Executive Approval</span>
+                    </div>
+                    <span className="text-[10px] font-extrabold text-slate-400 uppercase">
+                      Awaiting PM Review
+                    </span>
                   </div>
-                  <p className="text-xs text-slate-600 font-medium leading-relaxed">
-                    Approval publishes blueprint to Client Portal for client verification and site sign-off.
-                  </p>
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <button
-                      disabled={actionLoading}
-                      onClick={() => handleAdminReviewAction('APPROVE')}
-                      className="w-full py-2.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold rounded-xl text-xs uppercase cursor-pointer shadow-xs transition-all border border-brand-secondary/40"
-                    >
-                      Approve & Release
-                    </button>
-                    <button
-                      disabled={actionLoading}
-                      onClick={() => setReviewModalType('ADMIN_REJECT')}
-                      className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-black uppercase cursor-pointer transition-all"
-                    >
-                      Admin Reject
-                    </button>
-                  </div>
-                </div>
+                )
               )}
 
-              {/* 25.7 Promote to GFC */}
-              {isAdmin && !drawing.locked && drawing.status !== 'GFC Locked' && drawing.status !== 'GFC_LOCKED' && (
+              {/* Step 3: Promote to GFC Locked (Admin Only when Approved) */}
+              {isAdmin && !drawing.locked && currentStatusStr !== 'GFC LOCKED' && currentStatusStr !== 'GFC Locked' && (
                 <button
                   disabled={actionLoading}
                   onClick={handlePromoteGFC}
@@ -774,8 +837,8 @@ export default function DrawingDetails({
                 </button>
               )}
 
-              {/* 25.7 Unlock GFC (Super Admin Only) */}
-              {(drawing.locked || drawing.status === 'GFC Locked' || drawing.status === 'GFC_LOCKED') && (
+              {/* GFC Locked Status & Super Admin Unlock */}
+              {(drawing.locked || currentStatusStr === 'GFC LOCKED' || currentStatusStr === 'GFC Locked') && (
                 <div className="space-y-2.5">
                   <div className="p-4 bg-amber-50 border border-amber-200/90 rounded-2xl flex items-start gap-2.5">
                     <CheckCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
@@ -784,7 +847,7 @@ export default function DrawingDetails({
                     </p>
                   </div>
 
-                  {isAdmin && (
+                  {isSuperAdmin && (
                     <button
                       disabled={actionLoading}
                       onClick={() => setReviewModalType('GFC_UNLOCK')}

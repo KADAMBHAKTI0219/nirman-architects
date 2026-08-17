@@ -224,10 +224,12 @@ export default function DrawingEditModal({
                 className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-900 bg-white cursor-pointer font-bold"
               >
                 <option value="DESIGNER_UPLOADED">Designer Uploaded</option>
-                <option value="PENDING_CLIENT_APPROVAL">Pending Review</option>
                 <option value="PM_APPROVED">PM Approved</option>
-                <option value="APPROVED">Approved</option>
-                <option value="CHANGES_REQUESTED">Revisions Required</option>
+                <option value="PM_REJECTED">PM Rejected</option>
+                <option value="ADMIN_REJECTED">Admin Rejected</option>
+                <option value="PENDING_CLIENT_APPROVAL">Pending Client Approval</option>
+                <option value="APPROVED">Client Approved</option>
+                <option value="CHANGES_REQUESTED">Changes Requested</option>
                 <option value="GFC_LOCKED">GFC Locked</option>
               </select>
             </div>

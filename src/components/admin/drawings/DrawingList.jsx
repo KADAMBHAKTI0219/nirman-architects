@@ -5,7 +5,65 @@ import {
   LayoutGrid, LayoutList, File, Edit3
 } from 'lucide-react';
 import { getActiveDrawingCategories } from '../../../service/drawing';
-import { getProjects } from '../../../service/project';
+export const getDrawingStatusBadge = (rawStatus, isGFCLocked = false) => {
+  if (isGFCLocked || String(rawStatus).toUpperCase() === 'GFC_LOCKED' || String(rawStatus).toUpperCase() === 'GFC LOCKED') {
+    return {
+      label: 'GFC Locked',
+      className: 'bg-slate-900 text-amber-300 border-slate-800 font-extrabold'
+    };
+  }
+
+  const s = String(rawStatus || 'DESIGNER_UPLOADED').toUpperCase().trim();
+
+  switch (s) {
+    case 'PM_APPROVED':
+    case 'PM APPROVED':
+      return {
+        label: 'PM Approved',
+        className: 'bg-[#E0F2FE] text-[#0369A1] border-[#BAE6FD] font-extrabold'
+      };
+    case 'PM_REJECTED':
+    case 'PM REJECTED':
+      return {
+        label: 'PM Rejected',
+        className: 'bg-[#FFE4E6] text-[#E11D48] border-[#FECDD3] font-extrabold'
+      };
+    case 'ADMIN_REJECTED':
+    case 'ADMIN REJECTED':
+      return {
+        label: 'Admin Rejected',
+        className: 'bg-[#FEE2E2] text-[#DC2626] border-[#FCA5A5] font-extrabold'
+      };
+    case 'PENDING_CLIENT_APPROVAL':
+    case 'PENDING CLIENT APPROVAL':
+    case 'PENDING_CLIENT':
+      return {
+        label: 'Pending Client Approval',
+        className: 'bg-[#FEF3C7] text-[#B45309] border-[#FDE68A] font-extrabold'
+      };
+    case 'APPROVED':
+    case 'CLIENT APPROVED':
+    case 'CLIENT_APPROVED':
+      return {
+        label: 'Client Approved',
+        className: 'bg-[#D1FAE5] text-[#047857] border-[#A7F3D0] font-black'
+      };
+    case 'CHANGES_REQUESTED':
+    case 'CHANGES REQUESTED':
+    case 'REVISIONS REQUIRED':
+      return {
+        label: 'Changes Requested',
+        className: 'bg-[#FFEDD5] text-[#C2410C] border-[#FED7AA] font-extrabold'
+      };
+    case 'DESIGNER_UPLOADED':
+    case 'DESIGNER UPLOADED':
+    default:
+      return {
+        label: 'Designer Uploaded',
+        className: 'bg-[#F0F9FF] text-[#0284C7] border-[#E0F2FE] font-extrabold'
+      };
+  }
+};
 
 export default function DrawingList({
   drawings = [],
@@ -61,12 +119,14 @@ export default function DrawingList({
     const matchesStatus = !statusFilter || statusFilter === 'All' || 
       d.status === statusFilter || 
       d.rawStatus === statusFilter ||
-      (statusFilter === 'Designer Uploaded' && (d.status === 'Designer Uploaded' || d.rawStatus === 'DESIGNER_UPLOADED')) ||
-      (statusFilter === 'PM Approved' && (d.status === 'PM Approved' || d.rawStatus === 'PM_APPROVED')) ||
-      (statusFilter === 'Pending Client Approval' && (d.status === 'Pending Client Approval' || d.status === 'Pending Review' || d.rawStatus === 'PENDING_CLIENT_APPROVAL')) ||
-      (statusFilter === 'Approved' && (d.status === 'Approved' || d.rawStatus === 'APPROVED')) ||
-      (statusFilter === 'Revisions Required' && (d.status === 'Revisions Required' || d.rawStatus === 'CHANGES_REQUESTED' || d.rawStatus === 'ADMIN_REJECTED')) ||
-      (statusFilter === 'GFC Locked' && (d.status === 'GFC Locked' || d.rawStatus === 'GFC_LOCKED' || Boolean(d.locked)));
+      (statusFilter === 'DESIGNER_UPLOADED' && (d.status === 'DESIGNER_UPLOADED' || d.status === 'Designer Uploaded')) ||
+      (statusFilter === 'PM_APPROVED' && (d.status === 'PM_APPROVED' || d.status === 'PM Approved')) ||
+      (statusFilter === 'PM_REJECTED' && (d.status === 'PM_REJECTED' || d.status === 'PM Rejected')) ||
+      (statusFilter === 'ADMIN_REJECTED' && (d.status === 'ADMIN_REJECTED' || d.status === 'Admin Rejected')) ||
+      (statusFilter === 'PENDING_CLIENT_APPROVAL' && (d.status === 'PENDING_CLIENT_APPROVAL' || d.status === 'Pending Client Approval')) ||
+      (statusFilter === 'APPROVED' && (d.status === 'APPROVED' || d.status === 'Approved')) ||
+      (statusFilter === 'CHANGES_REQUESTED' && (d.status === 'CHANGES_REQUESTED' || d.status === 'Changes Requested' || d.status === 'Revisions Required')) ||
+      (statusFilter === 'GFC_LOCKED' && (d.status === 'GFC_LOCKED' || d.status === 'GFC Locked' || Boolean(d.locked) || Boolean(d.isGFCLocked)));
     return matchesSearch && matchesCategory && matchesProject && matchesStatus;
   });
 
@@ -250,12 +310,14 @@ export default function DrawingList({
               className="appearance-none pl-4 pr-9 py-2.5 text-xs border border-slate-150 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-700 bg-white font-semibold cursor-pointer shadow-3xs"
             >
               <option value="All">All Statuses</option>
-              <option value="Designer Uploaded">Designer Uploaded</option>
-              <option value="PM Approved">PM Approved</option>
-              <option value="Pending Client Approval">Pending Client Approval</option>
-              <option value="Approved">Approved</option>
-              <option value="Revisions Required">Revisions Required</option>
-              <option value="GFC Locked">GFC Locked</option>
+              <option value="DESIGNER_UPLOADED">Designer Uploaded</option>
+              <option value="PM_APPROVED">PM Approved</option>
+              <option value="PM_REJECTED">PM Rejected</option>
+              <option value="ADMIN_REJECTED">Admin Rejected</option>
+              <option value="PENDING_CLIENT_APPROVAL">Pending Client Approval</option>
+              <option value="APPROVED">Client Approved</option>
+              <option value="CHANGES_REQUESTED">Changes Requested</option>
+              <option value="GFC_LOCKED">GFC Locked</option>
             </select>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
@@ -326,20 +388,12 @@ export default function DrawingList({
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-[9px] font-normal text-slate-400 uppercase tracking-wider">Status</span>
                   {(() => {
-                    const s = String(d.status || 'DESIGNER_UPLOADED').toUpperCase();
-                    if (s.includes('GFC') || s.includes('LOCKED')) {
-                      return <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-755 border border-indigo-200 font-bold text-[9px] uppercase tracking-wider rounded-full">GFC LOCKED</span>;
-                    }
-                    if (s.includes('APPROV') && !s.includes('PENDING')) {
-                      return <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-755 border border-emerald-200 font-bold text-[9px] uppercase tracking-wider rounded-full">APPROVED</span>;
-                    }
-                    if (s.includes('PENDING') || s.includes('REVIEW')) {
-                      return <span className="px-2.5 py-0.5 bg-amber-50 text-amber-755 border border-amber-200 font-bold text-[9px] uppercase tracking-wider rounded-full">PENDING REVIEW</span>;
-                    }
-                    if (s.includes('REVISION') || s.includes('REJECT') || s.includes('CHANGE')) {
-                      return <span className="px-2.5 py-0.5 bg-rose-50 text-rose-755 border border-rose-200 font-bold text-[9px] uppercase tracking-wider rounded-full">REVISIONS REQUIRED</span>;
-                    }
-                    return <span className="px-2.5 py-0.5 bg-sky-50 text-sky-755 border border-sky-200 font-bold text-[9px] uppercase tracking-wider rounded-full">DESIGNER UPLOADED</span>;
+                    const info = getDrawingStatusBadge(d.status, Boolean(d.locked || d.isGFCLocked));
+                    return (
+                      <span className={`px-2.5 py-0.5 text-[9px] uppercase tracking-wider rounded-full border inline-block ${info.className}`}>
+                        {info.label}
+                      </span>
+                    );
                   })()}
                 </div>
               </div>
@@ -463,20 +517,12 @@ export default function DrawingList({
                     {/* STATUS */}
                     <td className="px-6 py-5 align-middle">
                       {(() => {
-                        const s = String(d.status || 'DESIGNER_UPLOADED').toUpperCase();
-                        if (s.includes('GFC') || s.includes('LOCKED')) {
-                          return <span className="px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 font-extrabold text-[10px] uppercase tracking-wider rounded-full inline-block">GFC LOCKED</span>;
-                        }
-                        if (s.includes('APPROV') && !s.includes('PENDING')) {
-                          return <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 font-extrabold text-[10px] uppercase tracking-wider rounded-full inline-block">APPROVED</span>;
-                        }
-                        if (s.includes('PENDING') || s.includes('REVIEW')) {
-                          return <span className="px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200 font-extrabold text-[10px] uppercase tracking-wider rounded-full inline-block">PENDING REVIEW</span>;
-                        }
-                        if (s.includes('REVISION') || s.includes('REJECT') || s.includes('CHANGE')) {
-                          return <span className="px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 font-extrabold text-[10px] uppercase tracking-wider rounded-full inline-block">REVISIONS REQUIRED</span>;
-                        }
-                        return <span className="px-3 py-1 bg-sky-50 text-sky-700 border border-sky-200 font-extrabold text-[10px] uppercase tracking-wider rounded-full inline-block">DESIGNER UPLOADED</span>;
+                        const info = getDrawingStatusBadge(d.status, Boolean(d.locked || d.isGFCLocked));
+                        return (
+                          <span className={`px-3 py-1 text-[10px] uppercase tracking-wider rounded-full border inline-block ${info.className}`}>
+                            {info.label}
+                          </span>
+                        );
                       })()}
                     </td>
 

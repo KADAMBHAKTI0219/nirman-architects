@@ -435,15 +435,50 @@ export default function TaskCreateModal({
                 }`}
               >
                 <option value="" disabled>Select assigned employee...</option>
-                {usersList.map(u => {
-                  const nameStr = typeof u.name === 'string' ? u.name : (typeof u.fullName === 'string' ? u.fullName : (typeof u.email === 'string' ? u.email : 'Employee'));
-                  const roleStr = typeof u.role === 'string' ? u.role : (u.role?.roleName || 'Staff');
-                  return (
-                    <option key={u._id || u.id} value={u._id || u.id}>
-                      {nameStr} ({roleStr})
-                    </option>
-                  );
-                })}
+                {usersList
+                  .filter(u => {
+                    if (!u) return false;
+                    const roleStr = String(
+                      typeof u.role === 'string'
+                        ? u.role
+                        : (u.role?.roleName || u.roleCode || u.userType || '')
+                    ).toLowerCase().trim();
+
+                    // Disallow HR, Site Engineer, and Super Admin
+                    if (
+                      roleStr.includes('hr') ||
+                      roleStr.includes('site') ||
+                      roleStr.includes('engineer') ||
+                      roleStr.includes('super admin') ||
+                      roleStr.includes('super_admin') ||
+                      roleStr.includes('admin')
+                    ) {
+                      if (roleStr.includes('architect') || roleStr === 'project manager' || roleStr === 'pm') {
+                        return true;
+                      }
+                      return false;
+                    }
+
+                    // Allowed: Architect, Employee/Staff/Designer, Project Manager
+                    return (
+                      roleStr.includes('architect') ||
+                      roleStr.includes('project manager') ||
+                      roleStr.includes('pm') ||
+                      roleStr.includes('employee') ||
+                      roleStr.includes('staff') ||
+                      roleStr.includes('designer') ||
+                      roleStr.includes('drafter')
+                    );
+                  })
+                  .map(u => {
+                    const nameStr = typeof u.name === 'string' ? u.name : (typeof u.fullName === 'string' ? u.fullName : (typeof u.email === 'string' ? u.email : 'Employee'));
+                    const roleStr = typeof u.role === 'string' ? u.role : (u.role?.roleName || 'Staff');
+                    return (
+                      <option key={u._id || u.id} value={u._id || u.id}>
+                        {nameStr} ({roleStr})
+                      </option>
+                    );
+                  })}
               </select>
               {fieldErrors.assignedEmployee && (
                 <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1">
