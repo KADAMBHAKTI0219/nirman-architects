@@ -243,7 +243,8 @@ export default function DrawingCreateModal({
           </div>
           <button 
             onClick={onClose}
-            className="p-1.5 hover:bg-slate-200 text-slate-500 rounded-lg transition-all font-bold cursor-pointer"
+            className="w-8 h-8 flex items-center justify-center hover:bg-slate-200 text-slate-500 rounded-xl transition-all font-bold cursor-pointer shrink-0"
+            title="Close Modal"
           >
             <X className="w-4 h-4" />
           </button>

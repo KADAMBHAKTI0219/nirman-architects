@@ -68,6 +68,9 @@ export default function ProjectDetails({
     loggedInUser.roleCode === 'HR'
   );
 
+  const userRoleCode = String(loggedInUser?.roleCode || loggedInUser?.role || '').toUpperCase();
+  const canManageMilestones = ['ADMIN', 'SUPER_ADMIN', 'PROJECT_MANAGER', 'PM'].includes(userRoleCode) || userRoleCode.includes('ADMIN') || userRoleCode.includes('PM');
+
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A';
     try {
@@ -1940,15 +1943,20 @@ export default function ProjectDetails({
 
       {/* ADD MILESTONE MODAL */}
       {showAddMilestone && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl border border-slate-100 p-6 space-y-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-100 p-6 space-y-4 animate-in fade-in duration-200 overflow-visible relative">
             <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-              <h3 className="text-sm font-semibold text-slate-900 uppercase">Add Project Milestone</h3>
-              <button onClick={() => setShowAddMilestone(false)} className="p-1 hover:bg-slate-100 text-slate-500 rounded-lg">
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Add Project Milestone</h3>
+              <button 
+                type="button" 
+                onClick={() => setShowAddMilestone(false)} 
+                className="w-8 h-8 flex items-center justify-center hover:bg-slate-100 text-slate-500 rounded-xl transition-all cursor-pointer shrink-0"
+                title="Close Modal"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <form onSubmit={handleAddMilestoneSubmit} className="space-y-4 text-xs">
+            <form onSubmit={handleAddMilestoneSubmit} className="space-y-4 text-xs font-medium">
               <div>
                 <label className="block text-slate-700 font-semibold mb-1">
                   Milestone Name <span className="text-red-500 font-bold ml-0.5">*</span>
@@ -1959,10 +1967,10 @@ export default function ProjectDetails({
                   value={milestoneForm.name}
                   onChange={(e) => setMilestoneForm({ ...milestoneForm, name: e.target.value })}
                   placeholder="e.g. Interior Fitouts Signoff"
-                  className="w-full p-2.5 border border-slate-200 rounded-xl"
+                  className="w-full p-2.5 border border-slate-200 rounded-xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 bg-white"
                 />
               </div>
-              <div>
+              <div className="relative">
                 <CalendarDatePicker
                   label="Target Completion Date"
                   required
@@ -1970,6 +1978,7 @@ export default function ProjectDetails({
                   onChange={(val) => setMilestoneForm({ ...milestoneForm, targetDate: val })}
                   placeholder="dd-mm-yyyy"
                   disablePast={true}
+                  positionUp={true}
                 />
               </div>
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">

@@ -249,10 +249,10 @@ export default function DrawingViewer({
         <div className="flex items-center gap-4">
           <button 
             onClick={onClose}
-            className="p-2 hover:bg-slate-800 text-slate-300 rounded-full transition-all cursor-pointer"
-            title="Back to Vault"
+            className="w-8 h-8 flex items-center justify-center hover:bg-slate-800 text-slate-300 rounded-xl transition-all cursor-pointer shrink-0"
+            title="Close Viewer"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </button>
 
           <div className="flex items-center gap-2.5">

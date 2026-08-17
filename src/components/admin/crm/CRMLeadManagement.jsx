@@ -1716,8 +1716,12 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
                 <BarChart2 className="w-5 h-5 text-indigo-600" />
                 CRM Pipeline Analytics & Insights
               </h3>
-              <button onClick={() => setShowAnalyticsModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
+              <button 
+                onClick={() => setShowAnalyticsModal(false)} 
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer shrink-0"
+                title="Close Modal"
+              >
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -1851,10 +1855,10 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
                 </div>
                 <button 
                   onClick={() => { setSelectedLead(null); setIsEditingLead(false); }} 
-                  className="w-9 h-9 rounded-2xl bg-slate-55 hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-all cursor-pointer shadow-3xs"
+                  className="w-8 h-8 rounded-xl bg-slate-100/80 hover:bg-slate-200 border border-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-all cursor-pointer shrink-0"
                   title="Close Profile"
                 >
-                  <X className="w-5 h-5 stroke-[2.5]" />
+                  <X className="w-4 h-4 stroke-[2.5]" />
                 </button>
               </div>
 
@@ -2236,9 +2240,10 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
               </div>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition-colors"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-all cursor-pointer shrink-0"
+                title="Close Modal"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -2463,8 +2468,12 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
           <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 space-y-4 text-xs">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-extrabold text-slate-900 text-sm">Update Lifecycle Status</h3>
-              <button onClick={() => setStatusChangeModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
+              <button 
+                onClick={() => setStatusChangeModal(false)} 
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer shrink-0"
+                title="Close Modal"
+              >
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -2538,9 +2547,10 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
                 </div>
                 <button
                   onClick={() => setShowDueDrawer(false)}
-                  className="w-9 h-9 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-all cursor-pointer shadow-3xs"
+                  className="w-8 h-8 rounded-xl bg-slate-100/80 hover:bg-slate-200 border border-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-all cursor-pointer shrink-0"
+                  title="Close Drawer"
                 >
-                  <X className="w-5 h-5 stroke-[2.5]" />
+                  <X className="w-4 h-4 stroke-[2.5]" />
                 </button>
               </div>
 
@@ -2626,9 +2636,10 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
               </div>
               <button 
                 onClick={() => setShowClientCreateModal(false)}
-                className="text-slate-400 hover:text-slate-650 p-1.5 rounded-xl hover:bg-slate-100"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-650 rounded-xl hover:bg-slate-100 transition-all cursor-pointer shrink-0"
+                title="Close Modal"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 

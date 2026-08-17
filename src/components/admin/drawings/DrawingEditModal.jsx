@@ -126,7 +126,8 @@ export default function DrawingEditModal({
           </div>
           <button 
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 rounded-xl transition-all cursor-pointer"
+            className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 rounded-xl transition-all cursor-pointer shrink-0"
+            title="Close Modal"
           >
             <X className="w-4 h-4" />
           </button>

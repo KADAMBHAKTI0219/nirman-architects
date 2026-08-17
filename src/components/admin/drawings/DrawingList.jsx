@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Search, Lock, Unlock, Eye, CheckCircle, Clock, 
+import {
+  Search, Lock, Unlock, Eye, CheckCircle, Clock,
   AlertCircle, BarChart2, FolderOpen, ChevronLeft, ChevronRight, ChevronDown, Plus,
   LayoutGrid, LayoutList, File, Edit3
 } from 'lucide-react';
 import { getActiveDrawingCategories } from '../../../service/drawing';
-import { getProjects } from '../../../service/project';
 export const getDrawingStatusBadge = (rawStatus, isGFCLocked = false) => {
   if (isGFCLocked || String(rawStatus).toUpperCase() === 'GFC_LOCKED' || String(rawStatus).toUpperCase() === 'GFC LOCKED') {
     return {
@@ -117,8 +116,8 @@ export default function DrawingList({
     const matchesSearch = nameStr.includes(queryStr) || idStr.includes(queryStr);
     const matchesCategory = !selectedCategory || selectedCategory === 'All' || d.category === selectedCategory;
     const matchesProject = !projectFilter || projectFilter === 'All' || d.project === projectFilter;
-    const matchesStatus = !statusFilter || statusFilter === 'All' || 
-      d.status === statusFilter || 
+    const matchesStatus = !statusFilter || statusFilter === 'All' ||
+      d.status === statusFilter ||
       d.rawStatus === statusFilter ||
       (statusFilter === 'DESIGNER_UPLOADED' && (d.status === 'DESIGNER_UPLOADED' || d.status === 'Designer Uploaded')) ||
       (statusFilter === 'PM_APPROVED' && (d.status === 'PM_APPROVED' || d.status === 'PM Approved')) ||
@@ -143,10 +142,11 @@ export default function DrawingList({
 
   return (
     <div className="space-y-6 font-sans text-slate-800 pb-12 w-full">
-      
+
       {/* 0. TOP PAGE HEADER */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
         <div>
+
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
             Drawings Vault Management
           </h1>
@@ -189,7 +189,7 @@ export default function DrawingList({
             <FolderOpen className="w-5 h-5" />
           </div>
         </div>
-        
+
         {/* Card 2: PENDING REVIEW */}
         <div className="bg-white p-5 rounded-3xl border border-slate-100/90 shadow-2xs hover:shadow-xs transition-all flex items-center justify-between">
           <div className="space-y-1">
@@ -244,7 +244,7 @@ export default function DrawingList({
         {/* Search Input */}
         <div className="relative flex-1 w-full">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input 
+          <input
             type="text"
             placeholder="Search drawings by title or ID..."
             value={searchQuery}
@@ -327,9 +327,8 @@ export default function DrawingList({
           <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200/60 shadow-3xs">
             <button
               onClick={() => setViewMode('table')}
-              className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                viewMode === 'table' ? 'bg-white text-slate-800 shadow-3xs' : 'text-slate-400 hover:text-slate-700'
-              }`}
+              className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${viewMode === 'table' ? 'bg-white text-slate-800 shadow-3xs' : 'text-slate-400 hover:text-slate-700'
+                }`}
               title="Table List View"
             >
               <LayoutList className="w-3.5 h-3.5" />
@@ -337,9 +336,8 @@ export default function DrawingList({
             </button>
             <button
               onClick={() => setViewMode('cards')}
-              className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                viewMode === 'cards' ? 'bg-white text-slate-800 shadow-3xs' : 'text-slate-400 hover:text-slate-700'
-              }`}
+              className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${viewMode === 'cards' ? 'bg-white text-slate-800 shadow-3xs' : 'text-slate-400 hover:text-slate-700'
+                }`}
               title="Card Grid View"
             >
               <LayoutGrid className="w-3.5 h-3.5" />
@@ -353,7 +351,7 @@ export default function DrawingList({
       {viewMode === 'cards' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
           {filteredDrawings.map((d, idx) => (
-            <div 
+            <div
               key={d._id ? `${d._id}-${idx}` : `${d.id || d.drawingNumber || 'dwg'}-${idx}`}
               className="bg-white rounded-3xl border border-slate-100 p-5 shadow-2xs space-y-4 hover:shadow-md hover:border-slate-200 transition-all duration-200 cursor-pointer flex flex-col justify-between"
               onClick={() => onSelectDrawing(d)}
@@ -402,7 +400,7 @@ export default function DrawingList({
               <div className="flex items-center justify-between pt-3 border-t border-slate-100/60">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 font-bold text-[9px] flex items-center justify-center border border-slate-200">
-                    {d.uploadedBy ? d.uploadedBy.split(' ').map(n=>n[0]).join('').toUpperCase() : 'U'}
+                    {d.uploadedBy ? d.uploadedBy.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
                   </div>
                   <div>
                     <span className="text-[9px] text-slate-600 font-semibold block">{d.uploadedBy}</span>
@@ -421,11 +419,10 @@ export default function DrawingList({
 
                   <button
                     onClick={() => onLockToggle(d.id)}
-                    className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all shadow-3xs ${
-                      d.locked
-                        ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
-                        : 'bg-white border-slate-200 text-slate-400 hover:text-slate-650 hover:bg-slate-50'
-                    }`}
+                    className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all shadow-3xs ${d.locked
+                      ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
+                      : 'bg-white border-slate-200 text-slate-400 hover:text-slate-650 hover:bg-slate-50'
+                      }`}
                     title={d.locked ? "Unlock edits" : "Lock GFC Version"}
                   >
                     {d.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
@@ -469,8 +466,8 @@ export default function DrawingList({
               </thead>
               <tbody className="divide-y divide-slate-100/80">
                 {filteredDrawings.map((d, idx) => (
-                  <tr 
-                    key={d._id ? `${d._id}-${idx}` : `${d.id || d.drawingNumber || 'dwg'}-${idx}`} 
+                  <tr
+                    key={d._id ? `${d._id}-${idx}` : `${d.id || d.drawingNumber || 'dwg'}-${idx}`}
                     className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
                     onClick={() => onSelectDrawing(d)}
                   >
@@ -548,11 +545,10 @@ export default function DrawingList({
 
                         <button
                           onClick={() => onLockToggle(d.id)}
-                          className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all shadow-3xs ${
-                            d.locked
-                              ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
-                              : 'bg-white border-slate-200 text-slate-400 hover:text-slate-650 hover:bg-slate-50'
-                          }`}
+                          className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all shadow-3xs ${d.locked
+                            ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
+                            : 'bg-white border-slate-200 text-slate-400 hover:text-slate-650 hover:bg-slate-50'
+                            }`}
                           title={d.locked ? "Unlock edits" : "Lock GFC Version"}
                         >
                           {d.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
@@ -576,49 +572,49 @@ export default function DrawingList({
         </div>
       )}
 
-        {/* PAGINATION FOOTER */}
-        <div className="px-6 py-4 bg-white border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-500">
-          <div>
-            Showing 1 to {filteredDrawings.length} of {filteredDrawings.length} results
+      {/* PAGINATION FOOTER */}
+      <div className="px-6 py-4 bg-white border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-500">
+        <div>
+          Showing 1 to {filteredDrawings.length} of {filteredDrawings.length} results
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <select
+              value={itemsPerPage}
+              onChange={(e) => setItemsPerPage(Number(e.target.value))}
+              className="appearance-none pl-3 pr-7 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold text-slate-700 cursor-pointer focus:outline-none pagination-select"
+            >
+              <option value={10}>10 per page</option>
+              <option value={20}>20 per page</option>
+              <option value={50}>50 per page</option>
+            </select>
+            <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <select
-                value={itemsPerPage}
-                onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                className="appearance-none pl-3 pr-7 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold text-slate-700 cursor-pointer focus:outline-none pagination-select"
-              >
-                <option value={10}>10 per page</option>
-                <option value={20}>20 per page</option>
-                <option value={50}>50 per page</option>
-              </select>
-              <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-
-            <div className="flex items-center gap-1">
-              <button 
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-600 disabled:opacity-40 transition-all"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button 
-                className="w-7 h-7 rounded-lg bg-brand-soft border border-brand-secondary text-slate-900 font-black flex items-center justify-center text-xs shadow-3xs"
-              >
-                1
-              </button>
-              <button 
-                disabled={true}
-                onClick={() => setCurrentPage(p => p + 1)}
-                className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-600 disabled:opacity-40 transition-all"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+          <div className="flex items-center gap-1">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-600 disabled:opacity-40 transition-all"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              className="w-7 h-7 rounded-lg bg-brand-soft border border-brand-secondary text-slate-900 font-black flex items-center justify-center text-xs shadow-3xs"
+            >
+              1
+            </button>
+            <button
+              disabled={true}
+              onClick={() => setCurrentPage(p => p + 1)}
+              className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-600 disabled:opacity-40 transition-all"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
+      </div>
 
     </div>
   );
