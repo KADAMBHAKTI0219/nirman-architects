@@ -251,7 +251,7 @@ export default function CalendarDatePicker({
 
       {/* Calendar Popover */}
       {isOpen && (
-        <div className={`absolute left-0 ${positionUp ? 'bottom-full mb-2' : 'top-full mt-2'} z-[9999] w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 animate-in fade-in zoom-in-95 duration-150`}>
+        <div className={`absolute left-0 ${positionUp ? 'bottom-full mb-2' : 'top-full mt-2'} z-[9999] w-72 max-w-[calc(100vw-2.5rem)] bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 animate-in fade-in zoom-in-95 duration-150`}>
           {/* Header Month / Year Selector */}
           <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
             <div className="flex items-center gap-1">

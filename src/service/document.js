@@ -262,7 +262,8 @@ export const getClientEngagementSummary = async (clientId = '', projectId = '') 
   const cleanClientId = String(clientId || '').trim();
   const cleanProjectId = String(projectId || '').trim();
 
-  if (!cleanClientId || cleanClientId === 'undefined' || cleanClientId === 'null') {
+  const isValidMongoId = /^[0-9a-fA-F]{24}$/.test(cleanClientId);
+  if (!cleanClientId || !isValidMongoId || cleanClientId === 'undefined' || cleanClientId === 'null') {
     return { success: true, summary: null, engagement: null };
   }
 

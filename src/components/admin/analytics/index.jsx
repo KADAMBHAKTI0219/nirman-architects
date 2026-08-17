@@ -259,8 +259,7 @@ export default function Analytics({ defaultTab = 'projects' }) {
     { id: 'projects', label: 'Project Progress' },
     { id: 'productivity', label: 'Productivity Logs' },
     { id: 'drawings', label: 'Drawing Status' },
-    { id: 'attendance', label: 'Attendance Registry' },
-    { id: 'leaves', label: 'Leave Summary Reports' }
+    { id: 'attendance', label: 'Attendance Registry' }
   ];
 
   // Total Summary Stats
@@ -311,7 +310,6 @@ export default function Analytics({ defaultTab = 'projects' }) {
                 else if (tab.id === 'productivity') navigate('/admin/reports/productivity');
                 else if (tab.id === 'drawings') navigate('/admin/reports/drawings');
                 else if (tab.id === 'attendance') navigate('/admin/reports/attendance');
-                else if (tab.id === 'leaves') navigate('/admin/reports/leaves');
               }}
               className={`pb-2 text-xs font-bold tracking-wide transition-all relative cursor-pointer ${
                 activeReportTab === tab.id
@@ -590,52 +588,7 @@ export default function Analytics({ defaultTab = 'projects' }) {
         </div>
       )}
 
-      {activeReportTab === 'leaves' && (
-        <div className="space-y-6 animate-in fade-in duration-200">
-          <Card title="Leave Utilization Report Dataset" subtitle="Company-wide dataset for leave planning, resource load balancing and auditing">
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left table-auto">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/50">
-                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Employee Name</th>
-                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Department</th>
-                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Leave Type</th>
-                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Duration (Days)</th>
-                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Reason / Notes</th>
-                    <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50 font-medium">
-                  {leaveReportList.map((row, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/40">
-                      <td className="px-4 py-3.5 font-bold text-slate-900">{row.name || row.employeeName}</td>
-                      <td className="px-4 py-3.5 text-slate-500 font-bold uppercase text-[9px] align-middle">{row.department || "Staff"}</td>
-                      <td className="px-4 py-3.5 text-slate-700 font-bold align-middle">{row.type}</td>
-                      <td className="px-4 py-3.5 text-slate-600 font-extrabold align-middle">{row.days} Days</td>
-                      <td className="px-4 py-3.5 text-slate-500 italic align-middle max-w-xs truncate">"{row.reason}"</td>
-                      <td className="px-4 py-3.5 text-right align-middle">
-                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border leading-none ${
-                          row.status === 'Approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                          row.status === 'Rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' :
-                          'bg-amber-50 text-amber-600 border-amber-100'
-                        }`}>{row.status}</span>
-                      </td>
-                    </tr>
-                  ))}
 
-                  {leaveReportList.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="py-8 text-center text-slate-400 font-bold uppercase">
-                        No leave records found in the report dataset.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </div>
-      )}
 
     </div>
   );

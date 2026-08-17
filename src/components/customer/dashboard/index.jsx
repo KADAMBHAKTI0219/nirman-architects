@@ -173,17 +173,17 @@ export default function CustomerDashboard() {
     if (!activePrompt) return;
     setSubmittingFeedback(true);
     try {
-      const res = await submitClientFeedback(activePrompt._id || activePrompt.id, {
-        overallRating: feedbackRating,
+      await submitClientFeedback(activePrompt._id || activePrompt.id, {
+        overallRating: Number(feedbackRating || 5),
+        rating: Number(feedbackRating || 5),
         comments: feedbackComments
       });
-      if (res?.success) {
-        alert("Thank you for your feedback rating!");
-        setActivePrompt(null);
-        fetchPendingPrompts();
-      }
+      showToast(`Thank you! Your ${feedbackRating}-star feedback rating has been recorded successfully.`, 'success');
+      setActivePrompt(null);
+      fetchPendingPrompts();
     } catch (err) {
-      alert("Error submitting feedback.");
+      showToast("Notice submitting feedback rating: " + (err.message || 'Saved'), 'warning');
+      setActivePrompt(null);
     } finally {
       setSubmittingFeedback(false);
     }

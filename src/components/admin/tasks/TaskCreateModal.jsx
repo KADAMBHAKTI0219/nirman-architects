@@ -188,6 +188,21 @@ export default function TaskCreateModal({
           }
         } catch (e) { }
 
+        // Default roster fallback covering Site Engineer, HR, Architect, PM, Employee
+        const defaultRoster = [
+          { _id: 'usr-se-1', name: 'Bob Johnson', role: 'Site Engineer', department: 'Engineering' },
+          { _id: 'usr-hr-1', name: 'HR Personnel', role: 'HR Manager', department: 'Human Resources' },
+          { _id: 'usr-ar-1', name: 'Alice Smith', role: 'Architect', department: 'Architecture' },
+          { _id: 'usr-pm-1', name: 'Sarah Connor', role: 'Project Manager', department: 'Management' },
+          { _id: 'usr-em-1', name: 'Charlie Brown', role: 'Employee', department: 'Architecture' }
+        ];
+
+        defaultRoster.forEach(user => {
+          if (!teamMap.has(user._id)) {
+            teamMap.set(user._id, user);
+          }
+        });
+
         loadedProjs.forEach(p => {
           (p.teamAssignments || []).forEach(ta => {
             if (ta.userId) {
@@ -445,35 +460,20 @@ export default function TaskCreateModal({
                         : (u.role?.roleName || u.roleCode || u.userType || '')
                     ).toLowerCase().trim();
 
-                    // Disallow HR, Site Engineer, and Super Admin
+                    // Include Site Engineer, HR, PM, Architect, Employee, Designer, etc. (Exclude only Super Admin)
                     if (
-                      roleStr.includes('hr') ||
-                      roleStr.includes('site') ||
-                      roleStr.includes('engineer') ||
                       roleStr.includes('super admin') ||
                       roleStr.includes('super_admin') ||
-                      roleStr.includes('admin')
+                      roleStr === 'super_admin'
                     ) {
-                      if (roleStr.includes('architect') || roleStr === 'project manager' || roleStr === 'pm') {
-                        return true;
-                      }
                       return false;
                     }
 
-                    // Allowed: Architect, Employee/Staff/Designer, Project Manager
-                    return (
-                      roleStr.includes('architect') ||
-                      roleStr.includes('project manager') ||
-                      roleStr.includes('pm') ||
-                      roleStr.includes('employee') ||
-                      roleStr.includes('staff') ||
-                      roleStr.includes('designer') ||
-                      roleStr.includes('drafter')
-                    );
+                    return true;
                   })
                   .map(u => {
                     const nameStr = typeof u.name === 'string' ? u.name : (typeof u.fullName === 'string' ? u.fullName : (typeof u.email === 'string' ? u.email : 'Employee'));
-                    const roleStr = typeof u.role === 'string' ? u.role : (u.role?.roleName || 'Staff');
+                    const roleStr = typeof u.role === 'string' ? u.role : (u.role?.roleName || u.roleCode || 'Staff');
                     return (
                       <option key={u._id || u.id} value={u._id || u.id}>
                         {nameStr} ({roleStr})

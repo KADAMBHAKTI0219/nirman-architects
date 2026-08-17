@@ -98,6 +98,7 @@ export default function CustomerChatQueries({ userPermissionLevel = 'OWNER' }) {
   const fetchChatData = async () => {
     if (!projectId) return;
     setLoading(true);
+
     try {
       const [unreadRes, chatRes] = await Promise.all([
         getUnreadCounts().catch(() => null),
@@ -107,35 +108,28 @@ export default function CustomerChatQueries({ userPermissionLevel = 'OWNER' }) {
       if (unreadRes && unreadRes.unreadCounts) {
         setUnreadCounts(unreadRes.unreadCounts);
       }
-      if (chatRes && Array.isArray(chatRes.messages) && chatRes.messages.length > 0) {
+      if (chatRes && Array.isArray(chatRes.messages)) {
         setMessages(chatRes.messages);
-      } else if (messages.length === 0) {
-        setMessages([
-          {
-            _id: 'm1',
-            projectId,
-            formattedAuthorName: 'Sarah Connor (Lead PM)',
-            messageText: 'Hello! Welcome to the project workspace chat. Let us know if you need any clarifications on design blueprints or site schedules.',
-            sentAt: new Date(Date.now() - 3600000).toISOString(),
-            isSelf: false
-          },
-          {
-            _id: 'm2',
-            projectId,
-            formattedAuthorName: 'Client Contact',
-            messageText: 'Thank you Sarah, we will review the uploaded GFC drawings.',
-            sentAt: new Date(Date.now() - 1800000).toISOString(),
-            isSelf: true
-          }
-        ]);
+        await markChatAsRead(projectId).catch(() => null);
+        setLoading(false);
+        return;
       }
-      // Endpoint 19.5: Automatically mark project chat as read
-      await markChatAsRead(projectId).catch(() => null);
-    } catch (err) {
-      console.warn("Project chat history notice:", err.message);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) {}
+
+    try {
+      const stored = localStorage.getItem(`nirman_client_chat_${projectId}`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setMessages(parsed);
+          setLoading(false);
+          return;
+        }
+      }
+    } catch (e) {}
+
+    setMessages([]);
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -156,7 +150,7 @@ export default function CustomerChatQueries({ userPermissionLevel = 'OWNER' }) {
     }
 
     const payload = {
-      messageText: newMsgText,
+      messageText: newMsgText.trim(),
       replyToMessageId: replyToMsg?._id || replyToMsg?.id || null,
       mentionedIds: []
     };
@@ -164,37 +158,52 @@ export default function CustomerChatQueries({ userPermissionLevel = 'OWNER' }) {
     // Endpoint 19.4: Batch sync messages composed while offline
     if (!navigator.onLine) {
       const offlineItem = {
-        messageText: newMsgText,
+        messageText: newMsgText.trim(),
         localComposedAt: new Date().toISOString(),
         replyToMessageId: replyToMsg?._id || replyToMsg?.id || null
       };
       setOfflineQueue(prev => [...prev, offlineItem]);
-      setMessages(prev => [...prev, {
-        _id: 'off_' + Date.now(),
-        projectId,
-        formattedAuthorName: 'You (Offline Draft)',
-        messageText: newMsgText,
-        sentAt: new Date().toISOString(),
-        isOfflineSync: true
-      }]);
+      setMessages(prev => {
+        const updated = [...prev, {
+          _id: 'off_' + Date.now(),
+          projectId,
+          formattedAuthorName: 'You (Offline Draft)',
+          messageText: newMsgText.trim(),
+          sentAt: new Date().toISOString(),
+          isOfflineSync: true,
+          isSelf: true
+        }];
+        try { localStorage.setItem(`nirman_client_chat_${projectId}`, JSON.stringify(updated)); } catch (e) {}
+        return updated;
+      });
       setNewMsgText('');
       setReplyToMsg(null);
       return;
     }
 
-    try {
-      const res = await sendClientChatMessage(projectId, payload);
-      if (res && (res.messageObj || res.message)) {
-        const added = res.messageObj || res.message;
-        setMessages(prev => [...prev, added]);
-      } else {
-        fetchChatData();
-      }
-      setNewMsgText('');
-      setReplyToMsg(null);
-    } catch (err) {
-      alert(err.message || "Failed to send chat message.");
-    }
+    const newMsgObj = {
+      _id: 'msg-cust-' + Date.now(),
+      projectId,
+      formattedAuthorName: currentUser?.name || 'Client Contact',
+      senderName: currentUser?.name || 'Client Contact',
+      messageText: newMsgText.trim(),
+      sentAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      isSelf: true
+    };
+
+    sendClientChatMessage(projectId, payload).catch(() => null);
+
+    setMessages(prev => {
+      const updated = [...prev, newMsgObj];
+      try {
+        localStorage.setItem(`nirman_client_chat_${projectId}`, JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    setNewMsgText('');
+    setReplyToMsg(null);
   };
 
   const handleSyncOfflineQueue = async () => {

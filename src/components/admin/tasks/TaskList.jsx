@@ -60,7 +60,7 @@ export default function TaskList({
   });
 
   return (
-    <div className="space-y-6 font-sans text-slate-800 pb-16 animate-in fade-in duration-200 w-full">
+    <div className="space-y-6 font-sans text-slate-800 pb-16 animate-in fade-in duration-200 w-full max-w-full overflow-x-hidden">
 
       {/* 1. TOP HEADER */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

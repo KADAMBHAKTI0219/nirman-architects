@@ -8,63 +8,93 @@ import { getActiveDrawingCategories, deleteDrawing } from '../../../service/draw
 import { getProjects } from '../../../service/project';
 
 export const getDrawingStatusBadge = (rawStatus, isGFCLocked = false) => {
-  if (isGFCLocked || String(rawStatus).toUpperCase() === 'GFC_LOCKED' || String(rawStatus).toUpperCase() === 'GFC LOCKED') {
+  let statusVal = rawStatus;
+  if (typeof rawStatus === 'object' && rawStatus !== null) {
+    statusVal = rawStatus.status || rawStatus.name || rawStatus.label || rawStatus.title || '';
+  }
+
+  const str = String(statusVal || '').toUpperCase().trim();
+
+  if (isGFCLocked || str === 'GFC_LOCKED' || str === 'GFC LOCKED' || str.includes('GFC')) {
     return {
       label: 'GFC Locked',
       className: 'bg-slate-900 text-amber-300 border-slate-800 font-extrabold'
     };
   }
 
-  const s = String(rawStatus || 'DESIGNER_UPLOADED').toUpperCase().trim();
-
-  switch (s) {
-    case 'PM_APPROVED':
-    case 'PM APPROVED':
-      return {
-        label: 'PM Approved',
-        className: 'bg-[#E0F2FE] text-[#0369A1] border-[#BAE6FD] font-extrabold'
-      };
-    case 'PM_REJECTED':
-    case 'PM REJECTED':
-      return {
-        label: 'PM Rejected',
-        className: 'bg-[#FFE4E6] text-[#E11D48] border-[#FECDD3] font-extrabold'
-      };
-    case 'ADMIN_REJECTED':
-    case 'ADMIN REJECTED':
-      return {
-        label: 'Admin Rejected',
-        className: 'bg-[#FEE2E2] text-[#DC2626] border-[#FCA5A5] font-extrabold'
-      };
-    case 'PENDING_CLIENT_APPROVAL':
-    case 'PENDING CLIENT APPROVAL':
-    case 'PENDING_CLIENT':
-      return {
-        label: 'Pending Client Approval',
-        className: 'bg-[#FEF3C7] text-[#B45309] border-[#FDE68A] font-extrabold'
-      };
-    case 'APPROVED':
-    case 'CLIENT APPROVED':
-    case 'CLIENT_APPROVED':
-      return {
-        label: 'Client Approved',
-        className: 'bg-[#D1FAE5] text-[#047857] border-[#A7F3D0] font-black'
-      };
-    case 'CHANGES_REQUESTED':
-    case 'CHANGES REQUESTED':
-    case 'REVISIONS REQUIRED':
-      return {
-        label: 'Changes Requested',
-        className: 'bg-[#FFEDD5] text-[#C2410C] border-[#FED7AA] font-extrabold'
-      };
-    case 'DESIGNER_UPLOADED':
-    case 'DESIGNER UPLOADED':
-    default:
-      return {
-        label: 'Designer Uploaded',
-        className: 'bg-[#F0F9FF] text-[#0284C7] border-[#E0F2FE] font-extrabold'
-      };
+  if (!statusVal || statusVal === 'undefined' || statusVal === 'null') {
+    return {
+      label: 'Pending',
+      className: 'bg-amber-50 text-amber-700 border-amber-200 font-extrabold'
+    };
   }
+
+  if (str === 'PM_APPROVED' || str === 'PM APPROVED' || str.includes('PM APPROVED')) {
+    return {
+      label: 'PM Approved',
+      className: 'bg-[#E0F2FE] text-[#0369A1] border-[#BAE6FD] font-extrabold'
+    };
+  }
+
+  if (str === 'PM_REJECTED' || str === 'PM REJECTED' || str.includes('PM REJECTED')) {
+    return {
+      label: 'PM Rejected',
+      className: 'bg-[#FFE4E6] text-[#E11D48] border-[#FECDD3] font-extrabold'
+    };
+  }
+
+  if (str === 'ADMIN_REJECTED' || str === 'ADMIN REJECTED' || str.includes('ADMIN REJECTED')) {
+    return {
+      label: 'Admin Rejected',
+      className: 'bg-[#FEE2E2] text-[#DC2626] border-[#FCA5A5] font-extrabold'
+    };
+  }
+
+  if (str === 'PENDING_CLIENT_APPROVAL' || str === 'PENDING CLIENT APPROVAL' || str === 'PENDING_CLIENT' || str.includes('PENDING CLIENT')) {
+    return {
+      label: 'Pending Client Approval',
+      className: 'bg-[#FEF3C7] text-[#B45309] border-[#FDE68A] font-extrabold'
+    };
+  }
+
+  if (str === 'APPROVED' || str === 'CLIENT APPROVED' || str === 'CLIENT_APPROVED' || str.includes('APPROVED')) {
+    return {
+      label: 'Client Approved',
+      className: 'bg-[#D1FAE5] text-[#047857] border-[#A7F3D0] font-black'
+    };
+  }
+
+  if (str === 'CHANGES_REQUESTED' || str === 'CHANGES REQUESTED' || str === 'REVISIONS REQUIRED' || str.includes('CHANGES') || str.includes('REVISION')) {
+    return {
+      label: 'Changes Requested',
+      className: 'bg-[#FFEDD5] text-[#C2410C] border-[#FED7AA] font-extrabold'
+    };
+  }
+
+  if (str === 'DESIGNER_UPLOADED' || str === 'DESIGNER UPLOADED' || str.includes('DESIGNER')) {
+    return {
+      label: 'Designer Uploaded',
+      className: 'bg-[#F0F9FF] text-[#0284C7] border-[#E0F2FE] font-extrabold'
+    };
+  }
+
+  if (str.includes('REVIEW') || str.includes('PENDING')) {
+    return {
+      label: 'Under Review',
+      className: 'bg-purple-50 text-purple-700 border-purple-200 font-extrabold'
+    };
+  }
+
+  // Format any custom string dynamically
+  const formattedLabel = String(statusVal)
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, l => l.toUpperCase());
+
+  return {
+    label: formattedLabel,
+    className: 'bg-sky-50 text-sky-700 border-sky-200 font-extrabold'
+  };
 };
 
 export default function DrawingList({
@@ -533,7 +563,8 @@ export default function DrawingList({
                     {/* STATUS */}
                     <td className="px-6 py-5 align-middle">
                       {(() => {
-                        const info = getDrawingStatusBadge(d.status, Boolean(d.locked || d.isGFCLocked));
+                        const statusProp = d.status || d.drawingStatus || d.approvalStatus || d.currentStatus || d.rawStatus || d.state;
+                        const info = getDrawingStatusBadge(statusProp, Boolean(d.locked || d.isGFCLocked));
                         return (
                           <span className={`px-3 py-1 text-[10px] uppercase tracking-wider rounded-full border inline-block ${info.className}`}>
                             {info.label}

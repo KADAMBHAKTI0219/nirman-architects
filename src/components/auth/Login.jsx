@@ -97,7 +97,7 @@ export default function Login({ onLogin }) {
     }
   };
 
-  const recordFailedAttempt = (msg = 'Invalid email or password', retrySeconds = 900) => {
+  const recordFailedAttempt = (msg = 'Invalid email or password') => {
     const nextCount = failedCount + 1;
     setFailedCount(nextCount);
     localStorage.setItem('login_failed_count', String(nextCount));
@@ -105,15 +105,12 @@ export default function Login({ onLogin }) {
     const newLog = {
       attempt: nextCount,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-      message: nextCount >= 5 ? `${msg} (5/5 - Security Locked)` : `${msg} (Attempt ${nextCount}/5)`
+      message: `${msg} (Attempt ${nextCount})`
     };
     const updatedLogs = [...failedLogs, newLog].slice(-5);
     setFailedLogs(updatedLogs);
     localStorage.setItem('login_failed_logs', JSON.stringify(updatedLogs));
 
-    if (nextCount >= 5) {
-      triggerAccountLock(retrySeconds, updatedLogs);
-    }
     return updatedLogs;
   };
 
@@ -136,29 +133,11 @@ export default function Login({ onLogin }) {
     return '';
   };
 
-  // Toast-Only Password Validation with Complexity Rules (Min 8, Max 15, Upper, Lower, Number, Special)
+  // Toast-Only Password Validation for Login Form
   const validatePassword = (val) => {
-    const cleanPassword = String(val || ''); // DO NOT TRIM PASSWORD
+    const cleanPassword = String(val || '');
     if (!cleanPassword) {
       return 'Password is required';
-    }
-    if (cleanPassword.length < 8) {
-      return `Password must be at least 8 characters (${cleanPassword.length}/8)`;
-    }
-    if (cleanPassword.length > 15) {
-      return 'Password must not exceed 15 characters';
-    }
-    if (!/[A-Z]/.test(cleanPassword)) {
-      return 'Password must contain at least one uppercase letter (A-Z)';
-    }
-    if (!/[a-z]/.test(cleanPassword)) {
-      return 'Password must contain at least one lowercase letter (a-z)';
-    }
-    if (!/[0-9]/.test(cleanPassword)) {
-      return 'Password must contain at least one number (0-9)';
-    }
-    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(cleanPassword)) {
-      return 'Password must contain at least one special character (!@#$%^&*)';
     }
     return '';
   };
@@ -210,7 +189,7 @@ export default function Login({ onLogin }) {
 
   const handleSuccessfulAuth = (userData, token) => {
     const isClientMode = loginTab === 'client' || userData.isClientPortal || userData.role === 'Customer' || userData.roleCode === 'Customer';
-    const matchedRole = normalizeRole(userData.role || userData.roleCode) || (isClientMode ? 'Customer' : 'Admin');
+    const matchedRole = isClientMode ? 'Customer' : (normalizeRole(userData.role || userData.roleCode) || 'Admin');
 
     const sessionExpiresAt = Date.now() + (15 * 60 * 1000); // 15 Minutes Token & Session Validity
 
@@ -224,10 +203,12 @@ export default function Login({ onLogin }) {
 
     if (rememberMe) {
       localStorage.setItem('token', token);
+      localStorage.setItem('clientToken', token);
       localStorage.setItem('user', JSON.stringify(finalUser));
       localStorage.setItem('session_expires_at', String(sessionExpiresAt));
     } else {
       sessionStorage.setItem('token', token);
+      sessionStorage.setItem('clientToken', token);
       sessionStorage.setItem('user', JSON.stringify(finalUser));
       sessionStorage.setItem('session_expires_at', String(sessionExpiresAt));
     }
@@ -282,17 +263,27 @@ export default function Login({ onLogin }) {
 
     try {
       let res;
-      let isClientAuth = false;
+      let isClientAuth = loginTab === 'client';
 
-      // Try Staff/Admin login first (/auth/login)
-      res = await loginUser(cleanEmail, cleanPassword, 'staff');
-
-      // If staff login fails with 401 / error / not staff, try Client Portal login (/client-auth/login)
-      if (!res || !res.success || res.status === 401) {
-        const clientRes = await clientLogin({ email: cleanEmail, password: cleanPassword });
-        if (clientRes && (clientRes.token || clientRes.success)) {
-          res = clientRes;
+      if (loginTab === 'client') {
+        res = await clientLogin({ email: cleanEmail, password: cleanPassword });
+        if (res && (res.token || res.clientToken || res.success)) {
           isClientAuth = true;
+        } else {
+          const clientAuthRes = await loginUser(cleanEmail, cleanPassword, 'client');
+          if (clientAuthRes && (clientAuthRes.token || clientAuthRes.clientToken || clientAuthRes.success)) {
+            res = clientAuthRes;
+            isClientAuth = true;
+          }
+        }
+      } else {
+        res = await loginUser(cleanEmail, cleanPassword, 'staff');
+        if (!res || !res.success) {
+          const clientTry = await clientLogin({ email: cleanEmail, password: cleanPassword });
+          if (clientTry && (clientTry.token || clientTry.success)) {
+            res = clientTry;
+            isClientAuth = true;
+          }
         }
       }
 
@@ -346,29 +337,37 @@ export default function Login({ onLogin }) {
       } else {
         const normalizedMsg = normalizeBackendError(res, null);
         showToast(normalizedMsg, 'error');
-        const retryAfter = parseInt(
-          res?.retryAfter || res?.headers?.['retry-after'] || res?.data?.retryAfter || 900,
-          10
+
+        const isBackendRateLimited = Boolean(
+          res?.isRateLimited ||
+          res?.status === 429 ||
+          res?.code === 429
         );
 
-        const updatedLogs = recordFailedAttempt(normalizedMsg, retryAfter);
-        if (res?.isRateLimited || res?.status === 429 || failedCount + 1 >= 5) {
+        const updatedLogs = recordFailedAttempt(normalizedMsg);
+
+        if (isBackendRateLimited) {
+          const retryAfter = parseInt(
+            res?.retryAfter || res?.headers?.['retry-after'] || res?.data?.retryAfter || 900,
+            10
+          );
           triggerAccountLock(retryAfter, updatedLogs);
         }
       }
     } catch (err) {
       console.error("Login error:", err);
+      const isBackendRateLimited = Boolean(err.response?.status === 429);
       const normalizedMsg = normalizeBackendError(null, err);
       showToast(normalizedMsg, 'error');
 
-      const retryHeader = err.response?.headers?.['retry-after'];
-      const retryAfter = parseInt(
-        retryHeader || err.response?.data?.retryAfter || err.response?.data?.retrySecs || 900,
-        10
-      );
+      const updatedLogs = recordFailedAttempt(normalizedMsg);
 
-      const updatedLogs = recordFailedAttempt(normalizedMsg, retryAfter);
-      if (err.response?.status === 429 || failedCount + 1 >= 5) {
+      if (isBackendRateLimited) {
+        const retryHeader = err.response?.headers?.['retry-after'];
+        const retryAfter = parseInt(
+          retryHeader || err.response?.data?.retryAfter || err.response?.data?.retrySecs || 900,
+          10
+        );
         triggerAccountLock(retryAfter, updatedLogs);
       }
     } finally {

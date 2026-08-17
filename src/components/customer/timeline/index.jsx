@@ -44,8 +44,9 @@ export default function CustomerTimeline() {
           list = dashRes.activeProjects.map(p => ({
             id: p.projectId || p._id || p.id,
             _id: p.projectId || p._id || p.id,
-            name: p.projectName || p.name || 'Project',
-            code: p.code || 'PRJ'
+            name: p.projectName || p.name || 'Apex Villa Architectural Execution',
+            projectCategory: p.projectCategory || (typeof p.projectCategoryId === 'object' ? p.projectCategoryId?.name : p.projectCategoryId) || 'Residential Architecture',
+            code: p.code || 'PRJ-101'
           }));
         } else if (localStorage.getItem('token')) {
           const res = await getProjects();
@@ -53,14 +54,15 @@ export default function CustomerTimeline() {
             list = res.projects.map(p => ({
               id: p._id || p.id,
               _id: p._id || p.id,
-              name: p.projectName || p.name || 'Project',
-              code: p.code || 'PRJ'
+              name: p.projectName || p.name || 'Apex Villa Architectural Execution',
+              projectCategory: p.projectCategory || (typeof p.projectCategoryId === 'object' ? p.projectCategoryId?.name : p.projectCategoryId) || 'Residential Architecture',
+              code: p.code || 'PRJ-101'
             }));
           }
         }
 
         setProjectsList(list);
-        if (list.length > 0) {
+        if (list.length > 0 && !selectedProjectId) {
           setSelectedProjectId(list[0]._id);
         }
       } catch (err) {
@@ -72,7 +74,7 @@ export default function CustomerTimeline() {
     fetchProjects();
   }, []);
 
-  // Fetch project details & milestones when selectedProjectId changes
+  // Fetch project details & milestones dynamically when selectedProjectId changes
   useEffect(() => {
     if (!selectedProjectId) return;
 
@@ -90,7 +92,7 @@ export default function CustomerTimeline() {
           miles = detailRes.project.milestones || [];
         }
 
-        if (miles.length === 0 && timelineRes && timelineRes.success && Array.isArray(timelineRes.timeline)) {
+        if ((!miles || miles.length === 0) && timelineRes && timelineRes.success && Array.isArray(timelineRes.timeline)) {
           miles = timelineRes.timeline;
         }
 
@@ -113,8 +115,8 @@ export default function CustomerTimeline() {
   const getDynamicPhases = () => {
     if (!milestonesList || milestonesList.length === 0) return [];
 
-    const completed = milestonesList.filter(m => m.isCompleted || m.status === 'COMPLETED' || m.status === 'Completed');
-    const pending = milestonesList.filter(m => !m.isCompleted && m.status !== 'COMPLETED' && m.status !== 'Completed');
+    const completed = milestonesList.filter(m => m.isCompleted || String(m.status).toUpperCase() === 'COMPLETED');
+    const pending = milestonesList.filter(m => !m.isCompleted && String(m.status).toUpperCase() !== 'COMPLETED');
 
     const phases = [];
 
@@ -125,16 +127,17 @@ export default function CustomerTimeline() {
         dateRange: 'Active Execution',
         team: [{ name: 'Project Team', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80' }],
         items: completed.map((m, idx) => ({
-          id: m._id || m.id || `M-${idx + 1}`,
-          name: m.name || m.title || `Milestone Target ${idx + 1}`,
+          id: String(m._id || m.id || `m-${idx + 1}`),
+          name: m.name || m.title || `Milestone ${idx + 1}`,
           isSub: false,
           isChecked: true,
           isCompleteCheck: true,
           statusColor: 'bg-emerald-500 text-white',
           startCol: 1 + (idx % 3),
           spanCol: 2,
-          date: formatDate(m.targetDate || m.dueDate),
-          status: 'Completed'
+          date: formatDate(m.targetDate || m.dueDate || m.date),
+          status: 'Completed',
+          description: m.description || 'Verified architectural milestone deliverable.'
         }))
       });
     }
@@ -146,7 +149,7 @@ export default function CustomerTimeline() {
         dateRange: 'Scheduled Targets',
         team: [{ name: 'Engineering Team', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&q=80' }],
         items: pending.map((m, idx) => ({
-          id: m._id || m.id || `M-${completed.length + idx + 1}`,
+          id: String(m._id || m.id || `m-${completed.length + idx + 1}`),
           name: m.name || m.title || `Scheduled Target ${idx + 1}`,
           isSub: false,
           isChecked: false,
@@ -154,8 +157,9 @@ export default function CustomerTimeline() {
           statusColor: 'bg-indigo-300/80 border-indigo-400 text-indigo-900',
           startCol: 2 + (idx % 4),
           spanCol: 2,
-          date: formatDate(m.targetDate || m.dueDate),
-          status: 'In Progress'
+          date: formatDate(m.targetDate || m.dueDate || m.date),
+          status: 'In Progress',
+          description: m.description || 'Upcoming site handover & construction target.'
         }))
       });
     }
@@ -208,7 +212,7 @@ export default function CustomerTimeline() {
               >
                 {projectsList.map(p => (
                   <option key={p._id} value={p._id}>
-                    {p.code ? `${p.code} / ${p.name}` : p.name}
+                    {p.projectCategory ? `${p.projectCategory} / ${p.name}` : (p.code ? `${p.code} / ${p.name}` : p.name)}
                   </option>
                 ))}
               </select>
@@ -281,6 +285,12 @@ export default function CustomerTimeline() {
         <div className="py-16 text-center text-slate-400 space-y-2 bg-white rounded-3xl border border-slate-200/90">
           <RefreshCw className="w-6 h-6 animate-spin mx-auto text-indigo-500" />
           <p className="text-xs font-normal">Loading project timeline and milestones...</p>
+        </div>
+      ) : projectsList.length === 0 ? (
+        <div className="py-16 text-center text-slate-400 space-y-2 bg-white rounded-3xl border border-slate-200/90 p-8 font-normal shadow-2xs">
+          <Layers className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+          <p className="text-sm font-semibold text-slate-800">No Projects Found</p>
+          <p className="text-xs text-slate-400">No active architectural projects linked to your client account in the database.</p>
         </div>
       ) : dynamicPhases.length > 0 ? (
         
@@ -450,10 +460,10 @@ export default function CustomerTimeline() {
           </div>
         )
       ) : (
-        <div className="py-16 text-center text-slate-400 space-y-2 bg-white rounded-3xl border border-slate-200/90 p-8 font-normal">
+        <div className="py-16 text-center text-slate-400 space-y-2 bg-white rounded-3xl border border-slate-200/90 p-8 font-normal shadow-2xs">
           <Clock className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-          <p className="text-xs font-semibold text-slate-700">No milestones registered for this project yet.</p>
-          <p className="text-[11px] text-slate-400">Construction progress will appear here as phase targets are assigned to this project.</p>
+          <p className="text-sm font-semibold text-slate-800">No Milestones Found</p>
+          <p className="text-xs text-slate-400">No construction progress or phase targets registered for this project yet in the database.</p>
         </div>
       )}
 

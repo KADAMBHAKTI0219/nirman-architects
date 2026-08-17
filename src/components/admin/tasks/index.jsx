@@ -249,14 +249,18 @@ export default function Tasks({ filter = 'all' }) {
     const taskTitle = target?.title || target?.taskName || 'Task';
     if (!window.confirm(`Are you sure you want to delete task "${taskTitle}"?`)) return;
     try {
-      await deleteTask(taskId);
-      setTasks(prev => prev.filter(t => t.id !== taskId && t._id !== taskId));
-      showToast(`Task "${taskTitle}" deleted successfully!`, "warning", "Task Deleted", true);
-      if (selectedTask && (selectedTask.id === taskId || selectedTask._id === taskId)) {
-        setSelectedTask(null);
+      const res = await deleteTask(taskId);
+      if (res && res.success !== false) {
+        setTasks(prev => prev.filter(t => t.id !== taskId && t._id !== taskId));
+        showToast(`Task "${taskTitle}" deleted successfully!`, "warning", "Task Deleted", true);
+        if (selectedTask && (selectedTask.id === taskId || selectedTask._id === taskId)) {
+          setSelectedTask(null);
+        }
+      } else {
+        showToast(res?.message || "Failed to delete task.", "error");
       }
     } catch (err) {
-      showToast(err.message || "Failed to delete task", "error");
+      showToast(err.message || "Failed to delete task.", "error");
     }
   };
 

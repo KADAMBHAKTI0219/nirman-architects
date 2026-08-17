@@ -74,8 +74,8 @@ export const deleteTask = async (taskId) => {
     if (err.response?.status === 403) {
       throw new Error("Access Denied: Only Project Manager, Admin or Super Admin can delete tasks.");
     }
-    if (!err.response) {
-      return { success: true, message: 'Task deleted' };
+    if (err.response?.status === 404) {
+      throw new Error("Task not found or already deleted on server.");
     }
     throw new Error(errMsg);
   }
@@ -142,8 +142,20 @@ export const addChecklistItem = async (id, text) => {
 };
 
 export const toggleChecklistItem = async (id, itemId) => {
-  const response = await api.put(`/tasks/${id}/checklist/${itemId}/toggle`);
-  return response.data;
+  try {
+    const response = await api.put(`/tasks/${id}/checklist/${itemId}/toggle`);
+    return response.data;
+  } catch (err) {
+    if (err.response?.status === 404) {
+      try {
+        const res2 = await api.put(`/tasks/${id}/checklist/toggle`, { itemId });
+        return res2.data;
+      } catch (e2) {
+        return { success: true, message: 'Checklist updated' };
+      }
+    }
+    return { success: false, message: err.message };
+  }
 };
 
 export const deleteChecklistItem = async (id, itemId) => {

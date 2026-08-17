@@ -94,21 +94,22 @@ export const createSiteLocation = async (siteData) => {
  * GET /site-locations
  */
 export const getSiteLocations = async () => {
+  const localList = getLocalSiteLocations();
   try {
     const userStr = localStorage.getItem('user');
     if (userStr) {
       try {
         const userObj = JSON.parse(userStr);
-        const role = userObj.role || userObj.userType;
-        if (role === 'Client' || role === 'Customer') {
-          return { success: true, locations: [] };
+        const role = String(userObj.role || userObj.roleCode || userObj.userType || '').toLowerCase();
+        if (role.includes('client') || role.includes('customer')) {
+          return { success: true, locations: localList };
         }
       } catch (e) {}
     }
 
     let backendLocations = [];
     try {
-      const response = await api.get('/site-locations', { validateStatus: () => true });
+      const response = await api.get('/site-locations', { validateStatus: status => status === 200 });
       if (response?.status === 200 && response.data) {
         const resData = response.data;
         if (Array.isArray(resData.locations)) {
@@ -123,7 +124,6 @@ export const getSiteLocations = async () => {
       }
     } catch (e) {}
 
-    const localList = getLocalSiteLocations();
     const combinedMap = new Map();
     [...backendLocations, ...localList].forEach(loc => {
       const key = loc._id || loc.id || loc.projectName;
@@ -133,7 +133,6 @@ export const getSiteLocations = async () => {
     const locations = Array.from(combinedMap.values());
     return { success: true, locations };
   } catch (error) {
-    const localList = getLocalSiteLocations();
     return { success: true, locations: localList };
   }
 };

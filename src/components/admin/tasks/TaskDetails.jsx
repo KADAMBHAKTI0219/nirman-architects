@@ -10,6 +10,7 @@ import {
 } from '../../../service/task';
 import { getUsersList } from '../../../service/auth';
 import { isTaskManagementRole, getUserFromStorage } from '../../../utils/rbac';
+import { useToast } from '../../../context/ToastContext';
 
 const STEPS = ['Pending', 'Accepted', 'In Progress', 'Review', 'Approved', 'Completed'];
 
@@ -24,6 +25,7 @@ export default function TaskDetails({
   onUpdateTask,
   onDeleteTask
 }) {
+  const { showToast } = useToast();
   const handleCloseModal = onClose || onBack || (() => {});
 
   const currentUser = getUserFromStorage();
@@ -235,11 +237,15 @@ export default function TaskDetails({
         setIsReassignModalOpen(false);
         if (onUpdateStatus) onUpdateStatus('Pending');
         loadTaskDetailsData();
+        showToast('Task reassigned to new team member successfully!', 'success', 'Task Reassigned', false);
       } else {
         setActionError(res.message || 'Failed to reassign task.');
+        showToast(res.message || 'Failed to reassign task.', 'error');
       }
     } catch (e) {
-      setActionError(e.response?.data?.message || 'Error reassigning task.');
+      const msg = e.response?.data?.message || 'Error reassigning task.';
+      setActionError(msg);
+      showToast(msg, 'error');
     } finally {
       setActionLoading(false);
     }
@@ -633,22 +639,38 @@ export default function TaskDetails({
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Estimated Time</span>
-                  <strong className="text-lg font-black text-slate-800 mt-1 block">{timeAnalysis?.estimatedTime || task.estTime || 12} hrs</strong>
+                  <strong className="text-lg font-black text-slate-800 mt-1 block">
+                    {timeAnalysis?.estimatedTime 
+                      ? `${timeAnalysis.estimatedTime} hrs` 
+                      : (task.estTime ? `${task.estTime} hrs` : (task.estimatedTime ? `${Math.round(task.estimatedTime / 60)} hrs` : '8 hrs'))}
+                  </strong>
                 </div>
 
                 <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
                   <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">Total Working Time</span>
-                  <strong className="text-lg font-black text-indigo-700 mt-1 block">{timeAnalysis?.totalWorkingTimeMinutes ? Math.round(timeAnalysis.totalWorkingTimeMinutes / 60) : 2} hrs</strong>
+                  <strong className="text-lg font-black text-indigo-700 mt-1 block">
+                    {timeAnalysis?.totalWorkingTimeMinutes !== undefined && timeAnalysis?.totalWorkingTimeMinutes !== null
+                      ? (timeAnalysis.totalWorkingTimeMinutes >= 60 ? `${Math.round(timeAnalysis.totalWorkingTimeMinutes / 60)} hrs` : `${timeAnalysis.totalWorkingTimeMinutes} mins`)
+                      : (task.totalWorkingTimeMinutes ? (task.totalWorkingTimeMinutes >= 60 ? `${Math.round(task.totalWorkingTimeMinutes / 60)} hrs` : `${task.totalWorkingTimeMinutes} mins`) : (task.status === 'Completed' ? `${task.estTime || 8} hrs` : '0 mins'))}
+                  </strong>
                 </div>
 
                 <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
                   <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider block">Idle Time</span>
-                  <strong className="text-lg font-black text-amber-700 mt-1 block">{timeAnalysis?.idleTimeMinutes ?? 15} mins</strong>
+                  <strong className="text-lg font-black text-amber-700 mt-1 block">
+                    {timeAnalysis?.idleTimeMinutes !== undefined && timeAnalysis?.idleTimeMinutes !== null
+                      ? `${timeAnalysis.idleTimeMinutes} mins`
+                      : (task.idleTimeMinutes ? `${task.idleTimeMinutes} mins` : '0 mins')}
+                  </strong>
                 </div>
 
                 <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
                   <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">Productivity Score</span>
-                  <strong className="text-lg font-black text-emerald-700 mt-1 block">{timeAnalysis?.productivityScore ?? 92}%</strong>
+                  <strong className="text-lg font-black text-emerald-700 mt-1 block">
+                    {timeAnalysis?.productivityScore !== undefined && timeAnalysis?.productivityScore !== null
+                      ? `${timeAnalysis.productivityScore}%`
+                      : (task.productivityScore !== undefined && task.productivityScore !== null ? `${task.productivityScore}%` : (task.status === 'Completed' ? '100%' : 'N/A'))}
+                  </strong>
                 </div>
               </div>
 
@@ -661,11 +683,15 @@ export default function TaskDetails({
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Planned Timeline</span>
                     <div className="flex justify-between">
                       <span className="text-slate-500">Planned Start:</span>
-                      <span className="text-slate-800">{task.startDate || 'N/A'}</span>
+                      <span className="text-slate-800">
+                        {task.startDate ? new Date(task.startDate).toISOString().split('T')[0] : (task.createdAt ? new Date(task.createdAt).toISOString().split('T')[0] : 'Today')}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-500">Planned Deadline:</span>
-                      <span className="text-slate-800">{task.deadline || 'N/A'}</span>
+                      <span className="text-slate-800">
+                        {task.deadline ? new Date(task.deadline).toISOString().split('T')[0] : (task.estimatedCompletion ? new Date(task.estimatedCompletion).toISOString().split('T')[0] : 'Flexible')}
+                      </span>
                     </div>
                   </div>
 
@@ -673,11 +699,15 @@ export default function TaskDetails({
                     <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">Actual Execution</span>
                     <div className="flex justify-between">
                       <span className="text-slate-500">Actual Start:</span>
-                      <span className="text-indigo-800">{task.actualStartTime ? new Date(task.actualStartTime).toLocaleString() : 'Not started yet'}</span>
+                      <span className="text-indigo-800">
+                        {task.actualStartTime ? new Date(task.actualStartTime).toLocaleString() : (['In Progress', 'Review', 'Approved', 'Completed'].includes(task.status) ? 'In Progress' : 'Not started yet')}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-500">Actual Completion:</span>
-                      <span className="text-indigo-800">{task.completionTime ? new Date(task.completionTime).toLocaleString() : 'Not completed yet'}</span>
+                      <span className="text-indigo-800">
+                        {task.completionTime ? new Date(task.completionTime).toLocaleString() : (task.status === 'Completed' ? 'Completed' : 'Not completed yet')}
+                      </span>
                     </div>
                   </div>
                 </div>

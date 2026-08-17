@@ -57,8 +57,7 @@ const SIDEBAR_ITEMS = {
       subItems: [
         { label: "Project Progress", path: "/admin/reports/projects" },
         { label: "Productivity Logs", path: "/admin/reports/productivity" },
-        { label: "Attendance Registry", path: "/admin/reports/attendance" },
-        { label: "Leave Summaries", path: "/admin/reports/leaves" }
+        { label: "Attendance Registry", path: "/admin/reports/attendance" }
       ]
     },
     { label: "Notifications", path: "/admin/notifications", icon: "BellRing" },

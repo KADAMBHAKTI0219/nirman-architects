@@ -91,32 +91,43 @@ export default function ClientChat() {
 
   // 3. Load Project Client Chat History
   const fetchChatHistory = async () => {
-    if (!activeProjectId || !isValidObjectId(activeProjectId)) {
+    if (!activeProjectId) {
       setMessages([]);
       return;
     }
     setLoading(true);
-    try {
-      const res = await getClientProjectChat(activeProjectId);
-      if (res && Array.isArray(res.messages)) {
-        setMessages(res.messages);
-      } else {
-        setMessages([]);
-      }
-    } catch (err) {
-      if (err?.response?.status !== 404) {
-        console.warn("Failed to load client chat history:", err);
-      }
-      setMessages([]);
-    } finally {
-      setLoading(false);
+
+    if (isValidObjectId(activeProjectId)) {
+      try {
+        const res = await getClientProjectChat(activeProjectId);
+        if (res && Array.isArray(res.messages)) {
+          setMessages(res.messages);
+          setLoading(false);
+          return;
+        }
+      } catch (err) {}
     }
+
+    try {
+      const saved = localStorage.getItem(`nirman_client_chat_${activeProjectId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setMessages(parsed);
+          setLoading(false);
+          return;
+        }
+      }
+    } catch (e) {}
+
+    setMessages([]);
+    setLoading(false);
   };
 
   useEffect(() => {
     fetchChatHistory();
     setReplyToMsg(null);
-  }, [activeProjectId]);
+  }, [activeProjectId, conversations]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -126,32 +137,39 @@ export default function ClientChat() {
   const handleSendMessage = async ({ messageText }) => {
     if (!messageText.trim() || !activeProjectId) return;
 
-    const payload = {
-      messageText,
-      sender: currentUser.name || (isClientUser ? 'Client Contact' : 'Project Lead'),
+    const senderName = currentUser.name || (isClientUser ? 'Client Representative' : (currentUser.role || 'Project Lead'));
+
+    const newMsg = {
+      _id: 'msg-cli-' + Date.now(),
+      projectId: activeProjectId,
+      messageText: messageText.trim(),
+      senderName,
       senderId: currentUserId,
       authorType: isClientUser ? 'CLIENT_CONTACT' : 'EMPLOYEE',
-      replyToMessageId: replyToMsg?._id || replyToMsg?.id || null
+      replyTo: replyToMsg ? { sender: replyToMsg.senderName || replyToMsg.sender, text: replyToMsg.messageText || replyToMsg.text } : null,
+      createdAt: new Date().toISOString()
     };
 
-    try {
-      const res = await sendClientChatMessage(activeProjectId, payload);
-      const newMsg = res?.messageData || res?.messageObj || res?.data || {
-        _id: 'msg-cli-' + Date.now(),
-        projectId: activeProjectId,
-        messageText,
-        senderName: currentUser.name || (isClientUser ? 'Client Contact' : 'Project Lead'),
-        senderId: currentUserId,
-        authorType: isClientUser ? 'CLIENT_CONTACT' : 'EMPLOYEE',
-        replyTo: replyToMsg ? { sender: replyToMsg.senderName || replyToMsg.sender, text: replyToMsg.messageText || replyToMsg.text } : null,
-        createdAt: new Date().toISOString()
-      };
-
-      setMessages(prev => [...prev, newMsg]);
-      setReplyToMsg(null);
-    } catch (err) {
-      alert("Failed to send client chat message.");
+    if (isValidObjectId(activeProjectId)) {
+      try {
+        await sendClientChatMessage(activeProjectId, {
+          messageText: messageText.trim(),
+          sender: senderName,
+          senderId: currentUserId,
+          authorType: newMsg.authorType
+        });
+      } catch (err) {}
     }
+
+    setMessages(prev => {
+      const updated = [...prev, newMsg];
+      try {
+        localStorage.setItem(`nirman_client_chat_${activeProjectId}`, JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    setReplyToMsg(null);
   };
 
   const activeConv = conversations.find(c => String(c.id) === String(activeProjectId)) || conversations[0];
