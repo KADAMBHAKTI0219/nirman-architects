@@ -5,6 +5,7 @@ import {
   User, Building, RefreshCw, ChevronRight, AlertCircle, ArrowUpRight, Sparkles
 } from 'lucide-react';
 import Pagination from '../../common/Pagination';
+import { handleKanbanAutoScroll } from '../../../utils/kanbanAutoScroll';
 
 const STATUS_COLUMNS = [
   { id: 'Pending', label: 'Pending', dotColor: 'bg-slate-400', badgeStyle: 'bg-slate-100 text-slate-700 border-slate-200' },
@@ -246,6 +247,7 @@ export default function TaskList({
                   onDragOver={(e) => {
                     e.preventDefault();
                     e.dataTransfer.dropEffect = 'move';
+                    handleKanbanAutoScroll(e);
                     if (dragOverCol !== col.id) setDragOverCol(col.id);
                   }}
                   onDragLeave={(e) => {

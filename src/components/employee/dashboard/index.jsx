@@ -517,11 +517,11 @@ export default function EmployeeDashboard() {
 
       </div>
 
-      {/* 2. MAIN WORKSPACE LAYOUT (TASKS & BLUEPRINTS) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* 2. MAIN WORKSPACE LAYOUT (TASKS) */}
+      <div className="w-full">
         
         {/* Today's Tasks checklist */}
-        <div className="bg-white p-6 rounded-3xl border border-slate-150 shadow-2xs space-y-4 flex flex-col justify-between">
+        <div className="bg-white p-6 rounded-3xl border border-slate-150 shadow-2xs space-y-4 flex flex-col justify-between w-full">
           <div>
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <div>
@@ -567,7 +567,6 @@ export default function EmployeeDashboard() {
                 ].map(t => (
                   <div key={t.id} className="p-3.5 border border-slate-200 rounded-2xl flex items-center justify-between gap-3 hover:border-brand-primary transition-all">
                     <div className="flex items-center gap-3">
-                      <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-brand-dark focus:ring-brand-primary" />
                       <span className="text-xs font-extrabold text-slate-800">{t.title}</span>
                     </div>
                     <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
@@ -585,31 +584,19 @@ export default function EmployeeDashboard() {
                   return (
                     <div 
                       key={t.id || t._id}
-                      onClick={() => handleToggleTaskStatus(t)}
-                      className={`p-3.5 border rounded-2xl flex items-center justify-between gap-3 hover:border-brand-primary transition-all cursor-pointer ${
+                      className={`p-3.5 border rounded-2xl flex items-center justify-between gap-3 transition-all ${
                         isCompleted ? 'border-slate-100 bg-slate-50/40 opacity-75' : 'border-slate-200 bg-white shadow-3xs'
                       }`}
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <input 
-                          type="checkbox"
-                          checked={isCompleted}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            handleToggleTaskStatus(t);
-                          }}
-                          className="w-4 h-4 accent-brand-dark rounded border-slate-300 cursor-pointer flex-shrink-0"
-                        />
-                        <div className="min-w-0">
-                          <span className={`text-xs font-bold block leading-snug ${isCompleted ? 'line-through text-slate-400' : 'text-slate-800'}`}>
-                            {t.title || t.taskName || 'Assigned Workspace Task'}
+                      <div className="min-w-0">
+                        <span className={`text-xs font-bold block leading-snug ${isCompleted ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                          {t.title || t.taskName || 'Assigned Workspace Task'}
+                        </span>
+                        {t.dueDate && (
+                          <span className="text-[9px] text-slate-400 font-semibold block mt-0.5">
+                            Due: {new Date(t.dueDate).toLocaleDateString()}
                           </span>
-                          {t.dueDate && (
-                            <span className="text-[9px] text-slate-400 font-semibold block mt-0.5">
-                              Due: {new Date(t.dueDate).toLocaleDateString()}
-                            </span>
-                          )}
-                        </div>
+                        )}
                       </div>
 
                       <span className={`text-[8px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded flex-shrink-0 ${
@@ -622,61 +609,6 @@ export default function EmployeeDashboard() {
                     </div>
                   );
                 })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Blueprints Workspace */}
-        <div className="bg-white p-6 rounded-3xl border border-slate-150 shadow-2xs space-y-4 flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Blueprints Workspace</h3>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">Verify version tags and CAD status marks</p>
-              </div>
-              <button 
-                onClick={() => navigate('/admin/drawings')}
-                className="px-3.5 py-2 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-xs rounded-xl shadow-2xs border border-brand-secondary/40 flex items-center gap-1.5 cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Upload Blueprint</span>
-              </button>
-            </div>
-
-            {loadingDrawings ? (
-              <div className="flex items-center justify-center py-8 text-xs font-bold text-slate-400">
-                <RefreshCw className="w-5 h-5 animate-spin text-purple-600 mr-2" />
-                <span>Loading drawings...</span>
-              </div>
-            ) : drawings.length === 0 ? (
-              <div className="py-12 text-center bg-slate-50/60 rounded-2xl border border-dashed border-slate-200">
-                <FileText className="w-10 h-10 text-brand-secondary/80 mx-auto mb-2" />
-                <strong className="text-xs font-black text-slate-800 block">No blueprints assigned</strong>
-                <span className="text-[11px] text-slate-400 font-medium block mt-0.5">Assigned architectural drawings will appear here.</span>
-              </div>
-            ) : (
-              <div className="space-y-3 pt-2 max-h-[380px] overflow-y-auto pr-1 scrollbar-none">
-                {drawings.map(d => (
-                  <div key={d.id || d._id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex justify-between items-center gap-3">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 shrink-0">
-                        <FileText className="w-4 h-4 text-brand-dark" />
-                      </div>
-                      <div className="min-w-0">
-                        <strong className="text-slate-850 block text-xs truncate leading-none">{d.name || d.title}</strong>
-                        <span className="text-[9px] text-slate-400 block mt-1.5 font-bold uppercase">{d.category || 'Working Drawings'} &bull; {d.version || 'V1.0'}</span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setSelectedDrawing(d)}
-                      className="px-3 py-1.5 bg-brand-primary hover:bg-brand-secondary text-brand-dark font-extrabold text-[11px] rounded-xl border border-brand-secondary/40 flex items-center gap-1 cursor-pointer shrink-0"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>View</span>
-                    </button>
-                  </div>
-                ))}
               </div>
             )}
           </div>

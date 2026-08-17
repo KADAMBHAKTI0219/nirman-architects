@@ -21,6 +21,7 @@ import {
 } from '../../../service/crm/lead';
 import { createClient } from '../../../service/crm/client';
 import { getUsersList } from '../../../service/auth';
+import { handleKanbanAutoScroll } from '../../../utils/kanbanAutoScroll';
 import useSEO from '../../../hooks/useSEO';
 import StatusBadge from '../../common/StatusBadge';
 import CalendarDatePicker from '../../common/CalendarDatePicker';
@@ -556,6 +557,7 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
   const handleDragOver = (e, statusKey) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
+    handleKanbanAutoScroll(e);
     if (dragOverStatus !== statusKey) {
       setDragOverStatus(statusKey);
     }

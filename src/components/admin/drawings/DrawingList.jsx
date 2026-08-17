@@ -5,6 +5,7 @@ import {
   LayoutGrid, LayoutList, File, Edit3
 } from 'lucide-react';
 import { getActiveDrawingCategories } from '../../../service/drawing';
+import { getProjects } from '../../../service/project';
 export const getDrawingStatusBadge = (rawStatus, isGFCLocked = false) => {
   if (isGFCLocked || String(rawStatus).toUpperCase() === 'GFC_LOCKED' || String(rawStatus).toUpperCase() === 'GFC LOCKED') {
     return {

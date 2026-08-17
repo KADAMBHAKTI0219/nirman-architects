@@ -7,9 +7,10 @@ import Card from '../../common/Card';
 import { SearchFilterBar, StatusBadge } from '../../common';
 import { 
   getTasks, acceptTask, startTask, submitTaskForReview, completeTask, 
-  addTaskComment 
+  addTaskComment, updateTaskStatus 
 } from '../../../service/task';
 import { getProjects } from '../../../service/project';
+import { handleKanbanAutoScroll } from '../../../utils/kanbanAutoScroll';
 
 export default function EmployeeTasks() {
   const [viewMode, setViewMode] = useState('list'); // list, kanban
@@ -18,6 +19,8 @@ export default function EmployeeTasks() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [commentInput, setCommentInput] = useState('');
+  const [draggedTask, setDraggedTask] = useState(null);
+  const [dragOverLane, setDragOverLane] = useState(null);
 
   const lanes = ['Pending', 'Accepted', 'In Progress', 'Review', 'Completed'];
 
@@ -366,8 +369,43 @@ export default function EmployeeTasks() {
           <div className="flex gap-4.5 items-start min-w-max">
             {lanes.map(lane => {
               const laneTasks = filteredTasks.filter(t => t.status === lane);
+              const isHoveredOver = dragOverLane === lane;
+
               return (
-                <div key={lane} className="w-[300px] min-w-[280px] max-w-[320px] flex-shrink-0 p-4 rounded-3xl flex flex-col min-h-[580px] max-h-[calc(100vh-250px)] bg-slate-50/90 border border-slate-200/90 shadow-2xs">
+                <div 
+                  key={lane} 
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    handleKanbanAutoScroll(e);
+                    if (dragOverLane !== lane) setDragOverLane(lane);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    if (dragOverLane === lane) setDragOverLane(null);
+                  }}
+                  onDrop={async (e) => {
+                    e.preventDefault();
+                    setDragOverLane(null);
+                    if (!draggedTask) return;
+                    const taskId = draggedTask._id || draggedTask.id;
+                    if (draggedTask.status === lane) return;
+
+                    setTasks(prev => prev.map(t => (t._id === taskId || t.id === taskId) ? { ...t, status: lane } : t));
+                    setDraggedTask(null);
+
+                    try {
+                      await updateTaskStatus(taskId, lane);
+                    } catch (err) {
+                      console.warn("Notice updating drag task status:", err);
+                    }
+                  }}
+                  className={`w-[300px] min-w-[280px] max-w-[320px] flex-shrink-0 p-4 rounded-3xl flex flex-col min-h-[580px] max-h-[calc(100vh-250px)] border transition-all duration-200 ${
+                    isHoveredOver 
+                      ? 'bg-indigo-50/90 border-indigo-400 ring-2 ring-indigo-400/30 scale-[1.01] shadow-md' 
+                      : 'bg-slate-50/90 border-slate-200/90 shadow-2xs'
+                  }`}
+                >
                   <div className="flex justify-between items-center px-1 mb-3 pb-2.5 border-b border-slate-200/80">
                     <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">{lane}</h3>
                     <span className="px-2.5 py-0.5 bg-white text-slate-700 text-[10px] font-mono font-black rounded-full border border-slate-200">
@@ -379,8 +417,14 @@ export default function EmployeeTasks() {
                     {laneTasks.map((t, idx) => (
                       <div 
                         key={t._id ? `emp-card-${lane}-${t._id}` : `emp-card-${lane}-${t.id}-${idx}`}
+                        draggable={true}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('text/plain', t.id || t._id);
+                          e.dataTransfer.effectAllowed = 'move';
+                          setDraggedTask(t);
+                        }}
                         onClick={() => setSelectedTask(t)}
-                        className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-indigo-400 transition-all cursor-pointer flex flex-col justify-between gap-3 group"
+                        className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-indigo-400 transition-all cursor-grab active:cursor-grabbing flex flex-col justify-between gap-3 group"
                       >
                         <div className="space-y-2.5">
                           <div className="flex justify-between items-center gap-2">
@@ -418,7 +462,9 @@ export default function EmployeeTasks() {
 
                     {laneTasks.length === 0 && (
                       <div className="py-14 text-center text-slate-400 bg-white/70 rounded-2xl border border-dashed border-slate-200/90 flex flex-col items-center justify-center space-y-1">
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider">No tasks in stage</span>
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider">
+                          {isHoveredOver ? 'Drop Task Here' : 'No tasks in stage'}
+                        </span>
                       </div>
                     )}
                   </div>
