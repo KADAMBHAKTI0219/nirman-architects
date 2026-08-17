@@ -5,8 +5,30 @@ import api from '../auth';
 // ==========================================
 
 export const createClient = async (payload) => {
-  const response = await api.post('/clients/create', payload);
-  return response.data;
+  const formattedPayload = {
+    name: payload.name || payload.clientName,
+    companyName: payload.companyName || payload.name,
+    email: payload.email || payload.primaryContactEmail,
+    phone: payload.phone || payload.primaryContactPhone,
+    primaryContactName: payload.primaryContactName || payload.name,
+    primaryContactEmail: payload.primaryContactEmail || payload.email,
+    primaryContactPhone: payload.primaryContactPhone || payload.phone,
+    billingAddress: payload.billingAddress || payload.address || '',
+    siteAddresses: payload.siteAddresses || (payload.siteAddress ? [payload.siteAddress] : [])
+  };
+
+  try {
+    const response = await api.post('/clients', formattedPayload);
+    return response.data;
+  } catch (error) {
+    try {
+      const response = await api.post('/clients/create', formattedPayload);
+      return response.data;
+    } catch (e2) {
+      const msg = e2.response?.data?.message || error.response?.data?.message || error.message || 'Failed to create client';
+      throw new Error(msg);
+    }
+  }
 };
 
 export const getClients = async (params = {}) => {

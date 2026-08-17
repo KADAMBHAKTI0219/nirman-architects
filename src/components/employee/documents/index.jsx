@@ -155,14 +155,21 @@ export default function EmployeeDocs() {
 
   // 4. Fetch Client Engagement Summary (API 28.5 GET /api/documents/client/:clientId/engagement-summary)
   const fetchEngagement = async (pId = selectedProjectId) => {
+    if (!pId || !String(pId).trim()) {
+      setEngagementSummary(null);
+      return;
+    }
     setLoadingEngagement(true);
     try {
-      const res = await getClientEngagementSummary('client-1', pId || '');
+      const res = await getClientEngagementSummary('client-1', pId);
       if (res && res.summary) {
         setEngagementSummary(res.summary);
+      } else {
+        setEngagementSummary(null);
       }
     } catch (err) {
       console.warn("Engagement summary load notice:", err);
+      setEngagementSummary(null);
     } finally {
       setLoadingEngagement(false);
     }

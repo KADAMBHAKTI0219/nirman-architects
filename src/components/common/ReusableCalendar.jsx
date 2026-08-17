@@ -1,24 +1,19 @@
 import React, { useState, useMemo } from 'react';
 import { 
-  Calendar as CalendarIcon, ChevronLeft, ChevronRight, CheckCircle2, Clock, XCircle, AlertCircle, Info, Sparkles 
+  Calendar as CalendarIcon, ChevronLeft, ChevronRight, CheckCircle2, Clock, XCircle, AlertCircle, Info, Sparkles, X
 } from 'lucide-react';
 
 /**
  * ReusableCalendar — Unified Calendar Engine for Nirman Architects
- * Handles both Attendance (mode="attendance") and Leave (mode="leave")
- *
- * Requirements:
- * 1. Current Year Only (e.g. 2026) — No year dropdown, no prev/next year navigation.
- * 2. Leave mode: Past dates disabled for selection; today & future dates in current year enabled;
- *    future months in current year selectable.
- * 3. Attendance mode: Past dates enabled for logs inspection; future attendance selection disabled.
- * 4. Marked dates: APPROVED (Emerald), PENDING (Amber), REJECTED (Rose), CANCELLED (Gray), HOLIDAY (Purple).
+ * Handles Attendance (mode="attendance"), Leave Application (mode="leave"), and Leave Viewer (allowSelection=false)
  */
 export default function ReusableCalendar({
   mode = 'leave', // 'leave' | 'attendance'
+  allowSelection = false, // If false, calendar is read-only / interactive detail inspector (no range selection)
+  showStats = true,
   year = new Date().getFullYear(),
   initialMonth = new Date().getMonth(),
-  markedDates = [], // [{ date: 'YYYY-MM-DD', status: 'APPROVED'|'PENDING'|'HOLIDAY', title: 'Casual Leave' }]
+  markedDates = [], // [{ date: 'YYYY-MM-DD', status: 'APPROVED'|'PENDING'|'REJECTED'|'HOLIDAY', title: 'Description' }]
   onRangeSelect,
   onDateClick,
   title,
@@ -28,10 +23,9 @@ export default function ReusableCalendar({
   const currentYear = year || new Date().getFullYear();
   const [currentMonth, setCurrentMonth] = useState(initialMonth);
 
-  // Range Selection State for Leave Mode
+  // Range Selection State (only active when allowSelection is true)
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
-  const [hoverDate, setHoverDate] = useState(null);
   const [selectedDayDetail, setSelectedDayDetail] = useState(null);
 
   const todayObj = new Date();
@@ -54,6 +48,40 @@ export default function ReusableCalendar({
     if (canNextMonth) setCurrentMonth(prev => prev + 1);
   };
 
+  // Yearly Stats Summary derived safely from markedDates and past workdays
+  const yearStats = useMemo(() => {
+    let approved = 0;
+    let pending = 0;
+    let rejected = 0;
+    let holiday = 0;
+
+    const processedDates = new Set();
+
+    markedDates.forEach(m => {
+      if (m.date) processedDates.add(m.date);
+      const st = (m.status || '').toUpperCase();
+      if (st === 'APPROVED' || st === 'PRESENT') approved++;
+      else if (st === 'PENDING') pending++;
+      else if (st === 'REJECTED' || st === 'ABSENT') rejected++;
+      else if (st === 'HOLIDAY' || st === 'FESTIVAL' || st === 'OUTING') holiday++;
+    });
+
+    // Auto-count past workdays in current month that have no attendance/leave log as ABSENT
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    for (let i = 1; i <= daysInMonth; i++) {
+      const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+      if (dateStr < todayStr) {
+        const dateObj = new Date(currentYear, currentMonth, i);
+        const dayOfWeek = dateObj.getDay();
+        if (dayOfWeek !== 0 && !processedDates.has(dateStr)) {
+          rejected++;
+        }
+      }
+    }
+
+    return { approved, pending, rejected, holiday };
+  }, [markedDates, currentYear, currentMonth, todayStr]);
+
   // Generate calendar grid days for currentMonth & currentYear
   const calendarGrid = useMemo(() => {
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
@@ -69,12 +97,11 @@ export default function ReusableCalendar({
       const isPast = (dateStr < todayStr);
       const isFuture = (dateStr > todayStr);
 
-      // Check if day is disabled for selection in current mode
+      // Check if day is disabled for selection
       let isDisabled = false;
-      if (mode === 'leave') {
-        isDisabled = isPast; // Past dates disabled for new leave requests
-      } else if (mode === 'attendance') {
-        isDisabled = isFuture; // Future dates disabled for attendance log entry
+      if (allowSelection) {
+        if (mode === 'leave') isDisabled = isPast;
+        else if (mode === 'attendance') isDisabled = isFuture;
       }
 
       // Find any matched leave / attendance / holiday log
@@ -94,21 +121,20 @@ export default function ReusableCalendar({
     }
 
     return { firstDayIndex, days };
-  }, [currentYear, currentMonth, todayStr, mode, markedDates]);
+  }, [currentYear, currentMonth, todayStr, mode, allowSelection, markedDates]);
 
-  // Handle Day Click for Leave Range Selection
+  // Handle Day Click
   const handleDayClick = (dayItem) => {
     if (onDateClick) onDateClick(dayItem);
     setSelectedDayDetail(dayItem);
 
-    if (mode === 'leave' && !dayItem.isDisabled) {
+    if (allowSelection && mode === 'leave' && !dayItem.isDisabled) {
       if (!startDate || (startDate && endDate)) {
         setStartDate(dayItem.dateStr);
         setEndDate(null);
         if (onRangeSelect) onRangeSelect({ fromDate: dayItem.dateStr, toDate: '' });
       } else if (startDate && !endDate) {
         if (dayItem.dateStr < startDate) {
-          // If clicked date is before start date, reset start date
           setStartDate(dayItem.dateStr);
           setEndDate(null);
           if (onRangeSelect) onRangeSelect({ fromDate: dayItem.dateStr, toDate: '' });
@@ -134,10 +160,10 @@ export default function ReusableCalendar({
         <div>
           <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide flex items-center gap-2">
             <CalendarIcon className="w-4 h-4 text-brand-dark" />
-            <span>{title || (mode === 'leave' ? 'Leave Application Calendar' : 'Attendance & Presence Calendar')}</span>
+            <span>{title || 'Leave & Holiday Calendar Planner'}</span>
           </h3>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
-            {subtitle || (mode === 'leave' ? `Current Year ${currentYear} • Select dates for leave application` : `Current Year ${currentYear} • Work logs & attendance presence`)}
+            {subtitle || `Current Year ${currentYear} • Interactive leave tracking, company holidays, festivals & outings`}
           </p>
         </div>
 
@@ -175,8 +201,30 @@ export default function ReusableCalendar({
         </div>
       </div>
 
-      {/* 2. LEAVE SELECTION PREVIEW BANNER (IF LEAVE MODE) */}
-      {mode === 'leave' && (startDate || endDate) && (
+      {/* 1.5 TOP STATS KPI CARDS (IF showStats IS TRUE) */}
+      {showStats && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+          <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl">
+            <span className="text-[9px] font-black text-emerald-700 uppercase tracking-wider block">Approved Leaves</span>
+            <strong className="text-lg font-black text-emerald-900 block mt-0.5">{yearStats.approved} Days</strong>
+          </div>
+          <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-2xl">
+            <span className="text-[9px] font-black text-amber-700 uppercase tracking-wider block">Pending Requests</span>
+            <strong className="text-lg font-black text-amber-900 block mt-0.5">{yearStats.pending} Days</strong>
+          </div>
+          <div className="p-3 bg-rose-50/70 border border-rose-200/80 rounded-2xl">
+            <span className="text-[9px] font-black text-rose-700 uppercase tracking-wider block">Rejected / Absent</span>
+            <strong className="text-lg font-black text-rose-900 block mt-0.5">{yearStats.rejected} Days</strong>
+          </div>
+          <div className="p-3 bg-purple-50/70 border border-purple-200/80 rounded-2xl">
+            <span className="text-[9px] font-black text-purple-700 uppercase tracking-wider block">Holidays & Outings</span>
+            <strong className="text-lg font-black text-purple-900 block mt-0.5">{yearStats.holiday} Days</strong>
+          </div>
+        </div>
+      )}
+
+      {/* 2. LEAVE SELECTION PREVIEW BANNER (ONLY IF allowSelection IS TRUE) */}
+      {allowSelection && mode === 'leave' && (startDate || endDate) && (
         <div className="p-3 bg-brand-soft border border-brand-secondary/40 rounded-2xl flex items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-brand-dark shrink-0" />
@@ -224,27 +272,39 @@ export default function ReusableCalendar({
 
         {/* Actual Month Days */}
         {calendarGrid.days.map((item) => {
-          const isStart = startDate === item.dateStr;
-          const isEnd = endDate === item.dateStr;
-          const isInRange = startDate && endDate && item.dateStr >= startDate && item.dateStr <= endDate;
+          const isStart = allowSelection && startDate === item.dateStr;
+          const isEnd = allowSelection && endDate === item.dateStr;
+          const isInRange = allowSelection && startDate && endDate && item.dateStr >= startDate && item.dateStr <= endDate;
 
           // Status badges styling
           const primaryLog = item.matchedLogs[0];
-          let statusBg = 'bg-white border-slate-200 text-slate-800 hover:border-brand-primary';
-          
+          let statusBg = 'bg-white border-slate-200 text-slate-800 hover:border-brand-primary hover:shadow-xs';
+          let isAbsent = false;
+          let badgeText = null;
+
           if (primaryLog) {
             const st = (primaryLog.status || '').toUpperCase();
             if (st === 'APPROVED' || st === 'PRESENT') {
-              statusBg = 'bg-emerald-50 text-emerald-800 border-emerald-300';
+              statusBg = 'bg-emerald-50 text-emerald-900 border-emerald-300 font-extrabold hover:bg-emerald-100 shadow-2xs';
+              badgeText = primaryLog.code || 'LEAVE';
             } else if (st === 'PENDING') {
-              statusBg = 'bg-amber-50 text-amber-800 border-amber-300';
+              statusBg = 'bg-amber-50 text-amber-900 border-amber-300 font-extrabold hover:bg-amber-100 shadow-2xs';
+              badgeText = 'PENDING';
             } else if (st === 'REJECTED' || st === 'ABSENT') {
-              statusBg = 'bg-rose-50 text-rose-800 border-rose-300';
+              statusBg = 'bg-rose-50 text-rose-900 border-rose-300 font-extrabold hover:bg-rose-100 shadow-2xs';
+              badgeText = 'ABSENT';
+              isAbsent = true;
             } else if (st === 'CANCELLED') {
-              statusBg = 'bg-slate-100 text-slate-500 border-slate-300';
-            } else if (st === 'HOLIDAY') {
-              statusBg = 'bg-purple-50 text-purple-800 border-purple-300';
+              statusBg = 'bg-slate-100 text-slate-600 border-slate-300';
+            } else if (st === 'HOLIDAY' || st === 'FESTIVAL' || st === 'OUTING') {
+              statusBg = 'bg-purple-50 text-purple-900 border-purple-300 font-extrabold hover:bg-purple-100 shadow-2xs';
+              badgeText = st;
             }
+          } else if (item.isPast && item.dayOfWeek !== 0) {
+            // Past workday prior to today with no approved leave/holiday log = ABSENT (Red Mark)
+            statusBg = 'bg-rose-50/70 text-rose-900 border-rose-250 font-extrabold hover:bg-rose-100/80 shadow-2xs';
+            badgeText = 'ABSENT';
+            isAbsent = true;
           }
 
           if (item.isDisabled) {
@@ -266,7 +326,7 @@ export default function ReusableCalendar({
               className={`${compact ? 'h-12 p-1' : 'h-16 p-1.5'} rounded-2xl border flex flex-col justify-between text-left transition-all cursor-pointer ${statusBg} ${
                 item.isToday ? 'ring-2 ring-brand-dark' : ''
               }`}
-              title={primaryLog ? `${item.dateStr}: ${primaryLog.title || primaryLog.status}` : item.dateStr}
+              title={primaryLog ? `${item.dateStr}: ${primaryLog.title || primaryLog.status}` : (isAbsent ? `${item.dateStr}: Unpunched / Absent Workday` : item.dateStr)}
             >
               <div className="flex justify-between items-center">
                 <span className={`text-xs font-black ${item.isToday ? 'text-brand-dark underline' : ''}`}>
@@ -281,9 +341,12 @@ export default function ReusableCalendar({
 
               {/* Status / Log Badges */}
               <div className="truncate">
-                {primaryLog ? (
-                  <span className="text-[8px] font-extrabold uppercase truncate block leading-none">
-                    {primaryLog.code || primaryLog.status || 'Marked'}
+                {badgeText ? (
+                  <span className={`text-[8px] font-extrabold uppercase truncate block leading-none flex items-center gap-1 ${
+                    isAbsent ? 'text-rose-700' : ''
+                  }`}>
+                    {isAbsent && <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block shrink-0"></span>}
+                    <span>{badgeText}</span>
                   </span>
                 ) : item.dayOfWeek === 0 ? (
                   <span className="text-[8px] font-bold text-rose-400 block leading-none">OFF</span>
@@ -293,6 +356,7 @@ export default function ReusableCalendar({
           );
         })}
       </div>
+
 
       {/* 4. LEGEND FOOTER */}
       <div className="flex items-center justify-between pt-3 border-t border-slate-100 flex-wrap gap-2 text-[10px] font-bold text-slate-600">
@@ -310,13 +374,72 @@ export default function ReusableCalendar({
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
-          <span>Company Holiday</span>
+          <span>Company Holiday / Festival / Outing</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-brand-primary border border-brand-dark"></span>
-          <span>Selected Range</span>
-        </div>
+        {allowSelection && (
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-brand-primary border border-brand-dark"></span>
+            <span>Selected Range</span>
+          </div>
+        )}
       </div>
+
+      {/* 5. DAY DETAILS INSPECTOR MODAL */}
+      {selectedDayDetail && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-[99999] animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl border border-slate-100 max-w-sm w-full shadow-2xl p-5 space-y-4 animate-in zoom-in-95">
+            <div className="flex justify-between items-start border-b border-slate-100 pb-2.5">
+              <div>
+                <h4 className="text-sm font-black text-slate-900">
+                  {new Date(selectedDayDetail.dateStr).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
+                </h4>
+                <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
+                  {selectedDayDetail.dayOfWeek === 0 ? 'Sunday Weekend OFF' : 'Standard Working Day'}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedDayDetail(null)}
+                className="text-slate-400 hover:text-slate-600 font-black text-sm p-1 hover:bg-slate-100 rounded-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2.5 text-xs font-semibold">
+              {selectedDayDetail.matchedLogs.length > 0 ? (
+                selectedDayDetail.matchedLogs.map((log, idx) => {
+                  const st = (log.status || '').toUpperCase();
+                  let badgeStyle = 'bg-purple-50 text-purple-900 border-purple-200';
+                  if (st === 'APPROVED' || st === 'PRESENT') badgeStyle = 'bg-emerald-50 text-emerald-900 border-emerald-200';
+                  else if (st === 'PENDING') badgeStyle = 'bg-amber-50 text-amber-900 border-amber-200';
+                  else if (st === 'REJECTED' || st === 'ABSENT') badgeStyle = 'bg-rose-50 text-rose-900 border-rose-200';
+
+                  return (
+                    <div key={idx} className={`p-3 rounded-2xl border ${badgeStyle} space-y-1`}>
+                      <div className="flex justify-between items-center text-[9px] font-black uppercase">
+                        <span>{log.code || log.status}</span>
+                        <span>{st}</span>
+                      </div>
+                      <p className="text-xs font-extrabold leading-snug">{log.title || 'Marked Event'}</p>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-150 text-center text-slate-500 text-xs font-medium">
+                  {selectedDayDetail.dayOfWeek === 0 ? 'Weekly Sunday OFF' : 'Regular Work Day (No leaves or company holidays scheduled)'}
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => setSelectedDayDetail(null)}
+              className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase rounded-xl cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

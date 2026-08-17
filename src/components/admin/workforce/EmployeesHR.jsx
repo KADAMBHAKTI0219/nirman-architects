@@ -15,6 +15,7 @@ import { parseIndexedObjectToArray } from '../../../service/hrm/leave';
 import { getEmployeeScreenshots, downloadAllScreenshots } from '../../../service/hrm/screenshot';
 import { deleteUser, changeUserPassword, getUserById } from '../../../service/auth';
 import { getDepartments, getCleanDepartmentName } from '../../../service/departments';
+import CalendarDatePicker from '../../common/CalendarDatePicker';
 
 export default function EmployeesHR({
   employees,
@@ -1179,15 +1180,11 @@ export default function EmployeesHR({
                       <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200 pb-2">Filter & Actions</h4>
 
                       <div className="space-y-3.5">
-                        <div>
-                          <span className="text-[10px] font-extrabold text-slate-500 uppercase block mb-1.5">Target Date</span>
-                          <input
-                            type="date"
-                            value={selectedScreenshotDate}
-                            onChange={(e) => setSelectedScreenshotDate(e.target.value)}
-                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                          />
-                        </div>
+                        <CalendarDatePicker
+                          label="Target Date"
+                          value={selectedScreenshotDate}
+                          onChange={(val) => setSelectedScreenshotDate(val)}
+                        />
 
                         <button
                           onClick={handleDownloadZip}
@@ -1339,16 +1336,12 @@ export default function EmployeesHR({
                 />
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Official Joining Date</label>
-                <input
-                  type="date"
-                  value={regenJoiningDate}
-                  onChange={(e) => setRegenJoiningDate(e.target.value)}
-                  required
-                  className="w-full px-3 py-2 border border-slate-205 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-xs font-semibold bg-white text-slate-805"
-                />
-              </div>
+              <CalendarDatePicker
+                label="Official Joining Date"
+                required
+                value={regenJoiningDate}
+                onChange={(val) => setRegenJoiningDate(val)}
+              />
             </div>
 
             <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex gap-2 justify-end">

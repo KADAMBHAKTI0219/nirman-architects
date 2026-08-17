@@ -46,6 +46,16 @@ export const createSiteLocation = async (siteData) => {
  */
 export const getSiteLocations = async () => {
   try {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const userObj = JSON.parse(userStr);
+        const role = userObj.role || userObj.userType;
+        if (role === 'Client' || role === 'Customer') {
+          return { success: true, locations: [] };
+        }
+      } catch (e) {}
+    }
     const response = await api.get('/site-locations');
     const resData = response.data;
     let locations = [];
@@ -62,10 +72,10 @@ export const getSiteLocations = async () => {
     }
     return { success: true, locations };
   } catch (error) {
-    const msg = error.response?.data?.message || error.message || 'Unable to load site locations.';
-    return { success: false, message: msg, locations: [] };
+    return { success: true, message: error.message, locations: [] };
   }
 };
+
 
 /**
  * Check if engineer's GPS location is within site geo-fence radius

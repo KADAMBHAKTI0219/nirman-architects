@@ -4,6 +4,9 @@ import { getProjects } from '../../../service/project';
 import { getUsersList } from '../../../service/auth';
 import { getTasks } from '../../../service/task';
 import { getDepartments, parseDepartments, getCleanDepartmentName } from '../../../service/departments';
+import { useToast } from '../../../context/ToastContext';
+import { FieldError } from '../../../utils/validation';
+import CalendarDatePicker from '../../common/CalendarDatePicker';
 
 export default function TaskCreateModal({
   isOpen,
@@ -45,6 +48,7 @@ export default function TaskCreateModal({
   const [selectedDependencies, setSelectedDependencies] = useState([]);
   const [attachments, setAttachments] = useState([]);
   const [newAttachmentUrl, setNewAttachmentUrl] = useState('');
+  const [attachmentError, setAttachmentError] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -122,10 +126,21 @@ export default function TaskCreateModal({
   };
 
   const handleAddAttachment = (e) => {
-    e.preventDefault();
-    if (!newAttachmentUrl.trim()) return;
-    setAttachments(prev => [...prev, newAttachmentUrl.trim()]);
+    if (e && e.preventDefault) e.preventDefault();
+    const val = newAttachmentUrl.trim();
+    if (!val) {
+      setAttachmentError('Please enter an attachment URL.');
+      return;
+    }
+    const urlPattern = /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/.*)?$/i;
+    if (!urlPattern.test(val)) {
+      setAttachmentError('Please enter a valid URL (e.g. https://domain.com/blueprint.pdf).');
+      return;
+    }
+    const formattedUrl = val.startsWith('http://') || val.startsWith('https://') ? val : `https://${val}`;
+    setAttachments(prev => [...prev, formattedUrl]);
     setNewAttachmentUrl('');
+    setAttachmentError('');
   };
 
   const handleRemoveAttachment = (indexToRemove) => {
@@ -254,16 +269,23 @@ export default function TaskCreateModal({
     }
   };
 
+  const { showToast } = useToast();
+
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    if (fieldErrors[field]) {
+      setFieldErrors(prev => ({ ...prev, [field]: null }));
+    }
   };
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     if (!formData.title.trim()) {
-      alert("Please enter a task title.");
+      setFieldErrors({ title: "Task title is required." });
+      showToast("Please enter a task title.", "error");
       return;
     }
+    setFieldErrors({});
     setSubmitting(true);
     try {
       const selectedProj = projectsList.find(p => (p._id || p.id) === formData.projectId) || projectsList[0];
@@ -346,7 +368,7 @@ export default function TaskCreateModal({
         </div>
 
         {/* Form fields */}
-        <form onSubmit={handleFormSubmit} className="p-6 overflow-y-auto max-h-[520px] space-y-4 text-xs font-medium text-slate-800">
+        <form noValidate onSubmit={handleFormSubmit} className="p-6 overflow-y-auto max-h-[520px] space-y-4 text-xs font-medium text-slate-800">
           
           {loadingData && (
             <div className="py-2 flex items-center gap-2 text-indigo-600 text-xs font-semibold">
@@ -483,22 +505,16 @@ export default function TaskCreateModal({
               )}
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                Deadline Date <span className="text-rose-500 font-bold ml-0.5">*</span>
-              </label>
-              <input 
-                type="date" 
+              <CalendarDatePicker
+                label="Deadline Date"
+                required
                 value={formData.deadline}
-                onChange={(e) => handleChange('deadline', e.target.value)}
-                className={`w-full px-3.5 py-2.5 text-xs border rounded-xl focus:outline-none focus:ring-2 text-slate-900 bg-white font-semibold cursor-pointer ${
-                  fieldErrors.deadline ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200 focus:ring-brand-primary/30'
-                }`}
+                onChange={(val) => handleChange('deadline', val)}
+                placeholder="dd-mm-yyyy"
+                error={fieldErrors.deadline}
+                disablePast={true}
               />
-              {fieldErrors.deadline && (
-                <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" /> {fieldErrors.deadline}
-                </p>
-              )}
+              <FieldError error={fieldErrors.deadline} id="task-deadline" />
             </div>
           </div>
 
@@ -608,11 +624,16 @@ export default function TaskCreateModal({
               )}
               <div className="flex gap-2">
                 <input 
-                  type="url" 
+                  type="text" 
                   value={newAttachmentUrl}
-                  onChange={(e) => setNewAttachmentUrl(e.target.value)}
+                  onChange={(e) => {
+                    setNewAttachmentUrl(e.target.value);
+                    if (attachmentError) setAttachmentError('');
+                  }}
                   placeholder="e.g. https://domain.com/blueprint.pdf"
-                  className="flex-1 px-3 py-1.5 border border-slate-250 rounded-lg text-[11px] font-semibold bg-white text-slate-900"
+                  className={`flex-1 px-3 py-1.5 border rounded-lg text-[11px] font-semibold bg-white text-slate-900 ${
+                    attachmentError ? 'border-rose-400 focus:ring-2 focus:ring-rose-400/20 bg-rose-50/20' : 'border-slate-250'
+                  }`}
                 />
                 <button 
                   type="button" 
@@ -622,6 +643,11 @@ export default function TaskCreateModal({
                   <Plus className="w-3.5 h-3.5" /> Add
                 </button>
               </div>
+              {attachmentError && (
+                <p className="text-[10px] text-rose-500 font-bold mt-1.5 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" /> {attachmentError}
+                </p>
+              )}
             </div>
           </div>
 

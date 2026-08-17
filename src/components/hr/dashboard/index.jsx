@@ -73,14 +73,10 @@ export default function HRDashboard() {
   }, []);
 
   // 2. Attendance Exceptions state
-  const [exceptions, setExceptions] = useState([
-    { id: 1, name: "John Wick", reason: "Late Check-in Exception", date: "2026-07-22", time: "11:05 AM" }
-  ]);
+  const [exceptions, setExceptions] = useState([]);
 
   // 3. Shift Swap requests state
-  const [swapRequests, setSwapRequests] = useState([
-    { id: 1, employee: "Alice Smith", requested: "Shift A -> Shift B", date: "2026-07-24" }
-  ]);
+  const [swapRequests, setSwapRequests] = useState([]);
 
   const handleApproveLeave = async (id) => {
     await approveLeaveRequest(id);

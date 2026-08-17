@@ -4,6 +4,9 @@ import { getActiveProjectCategories, createProjectCategory } from '../../../serv
 import { getUsersList } from '../../../service/auth';
 import { getClients } from '../../../service/crm/client';
 import { getDepartments, getCleanDepartmentName, parseDepartments } from '../../../service/departments';
+import { useToast } from '../../../context/ToastContext';
+import { FieldError } from '../../../utils/validation';
+import CalendarDatePicker from '../../common/CalendarDatePicker';
 
 
 const DEFAULT_DEPTS = [
@@ -26,6 +29,7 @@ export default function CreateProjectModal({
   newProject,
   setNewProject
 }) {
+  const { showToast } = useToast();
   const [categories, setCategories] = useState([]);
   const [usersList, setUsersList] = useState([]);
   const [clients, setClients] = useState([]);
@@ -33,9 +37,11 @@ export default function CreateProjectModal({
   const [showAddCatInput, setShowAddCatInput] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [catLoading, setCatLoading] = useState(false);
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     loadFormData();
+    setErrors({});
   }, [isOpen]);
 
   const loadFormData = async () => {
@@ -67,10 +73,12 @@ export default function CreateProjectModal({
     }
   };
 
-
   const handleCreateNewCategory = async (e) => {
     e.preventDefault();
-    if (!newCatName.trim()) return;
+    if (!newCatName.trim()) {
+      showToast("Please enter a category name.", "error");
+      return;
+    }
     setCatLoading(true);
     try {
       const res = await createProjectCategory({ name: newCatName.trim() });
@@ -79,12 +87,30 @@ export default function CreateProjectModal({
         setNewProject({ ...newProject, category: res.category.name, projectCategoryId: res.category._id });
         setNewCatName('');
         setShowAddCatInput(false);
+        showToast(`Category '${res.category.name}' created successfully.`, "success");
       }
     } catch (err) {
-      alert("Failed to create category");
+      showToast(err.response?.data?.message || err.message || "Failed to create category", "error");
     } finally {
       setCatLoading(false);
     }
+  };
+
+  const handleFormSubmit = (e) => {
+    e.preventDefault();
+    const newErrs = {};
+    if (!newProject.code?.trim()) newErrs.code = 'Project code is required.';
+    if (!(newProject.name || newProject.projectName)?.trim()) newErrs.name = 'Project name is required.';
+    if (!newProject.clientId) newErrs.clientId = 'Please select a client.';
+
+    if (Object.keys(newErrs).length > 0) {
+      setErrors(newErrs);
+      showToast("Please fill out all required fields marked with *", "error");
+      return;
+    }
+
+    setErrors({});
+    if (onSubmit) onSubmit(e);
   };
 
   if (!isOpen) return null;
@@ -108,7 +134,7 @@ export default function CreateProjectModal({
         </div>
 
         {/* Form fields */}
-        <form noValidate onSubmit={onSubmit} className="p-6 overflow-y-auto max-h-[460px] space-y-4 text-xs font-semibold">
+        <form noValidate onSubmit={handleFormSubmit} className="p-6 overflow-y-auto max-h-[460px] space-y-4 text-xs font-semibold">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
@@ -117,10 +143,16 @@ export default function CreateProjectModal({
               <input 
                 type="text" 
                 value={newProject.code || ''}
-                onChange={(e) => setNewProject({...newProject, code: e.target.value})}
+                onChange={(e) => {
+                  setNewProject({...newProject, code: e.target.value});
+                  if (errors.code) setErrors(prev => ({ ...prev, code: '' }));
+                }}
                 placeholder="PRJ-CP-104"
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium"
+                className={`w-full px-3.5 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-800 bg-white font-medium ${
+                  errors.code ? 'border-rose-400 focus:border-rose-500' : 'border-slate-200 focus:border-brand-primary'
+                }`}
               />
+              <FieldError error={errors.code} id="prj-code" />
             </div>
             <div>
               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
@@ -129,10 +161,16 @@ export default function CreateProjectModal({
               <input 
                 type="text" 
                 value={newProject.name || newProject.projectName || ''}
-                onChange={(e) => setNewProject({...newProject, name: e.target.value, projectName: e.target.value})}
+                onChange={(e) => {
+                  setNewProject({...newProject, name: e.target.value, projectName: e.target.value});
+                  if (errors.name) setErrors(prev => ({ ...prev, name: '' }));
+                }}
                 placeholder="Tower Phase 2"
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium"
+                className={`w-full px-3.5 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-800 bg-white font-medium ${
+                  errors.name ? 'border-rose-400 focus:border-rose-500' : 'border-slate-200 focus:border-brand-primary'
+                }`}
               />
+              <FieldError error={errors.name} id="prj-name" />
             </div>
           </div>
 
@@ -142,7 +180,6 @@ export default function CreateProjectModal({
                 Client <span className="text-red-500 font-bold ml-0.5">*</span>
               </label>
               <select 
-                required
                 value={newProject.clientId || ''}
                 onChange={(e) => {
                   const selectedId = e.target.value;
@@ -162,6 +199,8 @@ export default function CreateProjectModal({
                     }
                   }
 
+                  if (errors.clientId) setErrors(prev => ({ ...prev, clientId: '' }));
+
                   setNewProject({
                     ...newProject,
                     clientId: selectedId,
@@ -171,7 +210,9 @@ export default function CreateProjectModal({
                     address: addressVal
                   });
                 }}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium cursor-pointer"
+                className={`w-full px-3.5 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-800 bg-white font-medium cursor-pointer ${
+                  errors.clientId ? 'border-rose-400 focus:border-rose-500' : 'border-slate-200 focus:border-brand-primary'
+                }`}
               >
                 <option value="" disabled hidden>Select Client *</option>
                 {clients.map((c, idx) => {
@@ -183,6 +224,7 @@ export default function CreateProjectModal({
                   );
                 })}
               </select>
+              <FieldError error={errors.clientId} id="prj-client" />
             </div>
 
             <div>
@@ -317,26 +359,20 @@ export default function CreateProjectModal({
 
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Start Date</label>
-              <input 
-                type="date" 
-                required 
-                value={newProject.startDate || ''}
-                onChange={(e) => setNewProject({...newProject, startDate: e.target.value})}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Est Completion Date</label>
-              <input 
-                type="date" 
-                required 
-                value={newProject.estCompletion || newProject.estimatedCompletion || ''}
-                onChange={(e) => setNewProject({...newProject, estCompletion: e.target.value, estimatedCompletion: e.target.value})}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium"
-              />
-            </div>
+            <CalendarDatePicker
+              label="Start Date"
+              value={newProject.startDate || ''}
+              onChange={(val) => setNewProject({ ...newProject, startDate: val })}
+              placeholder="dd-mm-yyyy"
+              disablePast={true}
+            />
+            <CalendarDatePicker
+              label="Est Completion Date"
+              value={newProject.estCompletion || newProject.estimatedCompletion || ''}
+              onChange={(val) => setNewProject({ ...newProject, estCompletion: val, estimatedCompletion: val })}
+              placeholder="dd-mm-yyyy"
+              disablePast={true}
+            />
           </div>
 
           {/* Actions */}

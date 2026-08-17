@@ -3,6 +3,7 @@ import { X, FileText, Upload, Check, Plus } from 'lucide-react';
 import { getActiveDrawingCategories, createDrawingCategory } from '../../../service/drawing';
 import { getProjects } from '../../../service/project';
 import { useToast } from '../../../context/ToastContext';
+import { FieldError } from '../../../utils/validation';
 
 export default function DrawingCreateModal({
   isOpen,
@@ -263,9 +264,7 @@ export default function DrawingCreateModal({
                 fieldErrors.name ? 'border-red-500 focus:ring-red-500/20' : 'border-slate-200 focus:ring-indigo-500'
               }`}
             />
-            {fieldErrors.name && (
-              <span className="text-[11px] font-bold text-red-500 mt-1 block">{fieldErrors.name}</span>
-            )}
+            <FieldError error={fieldErrors.name} id="dwg-name" />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -303,9 +302,7 @@ export default function DrawingCreateModal({
                   <option value="">No Projects Available</option>
                 )}
               </select>
-              {fieldErrors.project && (
-                <span className="text-[11px] font-bold text-red-500 mt-1 block">{fieldErrors.project}</span>
-              )}
+              <FieldError error={fieldErrors.project} id="dwg-project" />
             </div>
 
             <div>
@@ -336,9 +333,7 @@ export default function DrawingCreateModal({
                       <option key={cat._id || cat.name} value={cat.name}>{cat.name}</option>
                     ))}
                   </select>
-                  {fieldErrors.category && (
-                    <span className="text-[11px] font-bold text-red-500 mt-1 block">{fieldErrors.category}</span>
-                  )}
+                  <FieldError error={fieldErrors.category} id="dwg-cat" />
                 </>
               ) : (
                 <div className="p-2.5 border border-indigo-200 bg-indigo-50/50 rounded-xl space-y-2">

@@ -267,31 +267,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 2. PROJECT SITE GEO-FENCING TOP BANNER (SOFT LIGHT SHADE) */}
-      <div className="bg-brand-soft/70 p-4.5 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-3xs border border-brand-secondary/30 relative overflow-hidden">
-        <div className="flex items-center gap-3.5 relative z-10">
-          <div className="w-11 h-11 rounded-2xl bg-brand-primary/40 border border-brand-secondary/60 flex items-center justify-center text-slate-900 shrink-0 shadow-3xs">
-            <Globe className="w-5.5 h-5.5 animate-pulse text-indigo-700" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-black text-sm text-slate-900 tracking-tight">Project Site Geo-Fencing System</h3>
-              <span className="px-2.5 py-0.5 bg-emerald-100/80 text-emerald-800 text-[9px] font-black rounded-full border border-emerald-200 uppercase">Active</span>
-            </div>
-            <p className="text-xs text-slate-700 font-semibold mt-0.5">
-              Configure GPS coordinates & allowed radius boundaries for automated site biometric punch-ins
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={() => setIsSiteLocationModalOpen(true)}
-          className="px-4.5 py-2.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 font-extrabold text-xs rounded-xl shadow-3xs transition-all flex items-center gap-2 cursor-pointer shrink-0 relative z-10 border border-brand-secondary/40"
-        >
-          <MapPin className="w-4 h-4 text-slate-900 stroke-[2.5]" />
-          <span>Configure Site Locations</span>
-        </button>
-      </div>
-
+      {/* 3. DYNAMIC METRIC KPI STATS */}
+      <Stats projectsList={projectsList} drawingsList={drawingQueue} pmAttendance={pmAttendance} />
 
       {/* 4. ACTIVE PROJECTS & TIMELINES */}
       <div>

@@ -138,9 +138,24 @@ export const getMyAttendance = async (params) => {
  * @param {object} params - { month, year, userId } (optional)
  */
 export const getAllAttendanceList = async (params) => {
-  const response = await api.get('/attendance/all', { params });
-  return response.data;
+  try {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const userObj = JSON.parse(userStr);
+        const role = userObj.role || userObj.userType;
+        if (role && !['SuperAdmin', 'Admin', 'HR', 'Super Admin'].includes(role)) {
+          return { success: true, logs: [] };
+        }
+      } catch (e) {}
+    }
+    const response = await api.get('/attendance/all', { params });
+    return response.data;
+  } catch (err) {
+    return { success: false, logs: [], message: err.message };
+  }
 };
+
 
 /**
  * Request attendance correction

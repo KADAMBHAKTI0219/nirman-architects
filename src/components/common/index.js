@@ -16,3 +16,4 @@ export { default as EmptyState } from './EmptyState';
 export { default as RoleSelect } from './RoleSelect';
 export { default as DepartmentSelect } from './DepartmentSelect';
 export { default as EmployeeSelect } from './EmployeeSelect';
+export { default as CalendarDatePicker } from './CalendarDatePicker';

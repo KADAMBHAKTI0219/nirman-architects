@@ -14,8 +14,10 @@ import {
   cancelClientTicket 
 } from '../../../service/crm/ticket';
 import { getClientDashboard } from '../../../service/crm/clientPortal';
+import { useToast } from '../../../context/ToastContext';
 
 export default function CustomerSupportQueries({ initialProjectId = null }) {
+  const { showToast } = useToast();
   const [tickets, setTickets] = useState([]);
   const [projectsList, setProjectsList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,7 +33,6 @@ export default function CustomerSupportQueries({ initialProjectId = null }) {
   // Raise Query Modal State
   const [isRaiseModalOpen, setIsRaiseModalOpen] = useState(false);
   const [submittingQuery, setSubmittingQuery] = useState(false);
-  const [raiseError, setRaiseError] = useState('');
   const [newQueryForm, setNewQueryForm] = useState({
     projectId: initialProjectId || '',
     category: 'Architecture',
@@ -44,7 +45,6 @@ export default function CustomerSupportQueries({ initialProjectId = null }) {
   // Reply State inside Detail View
   const [replyMessage, setReplyMessage] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
-  const [replySuccessMessage, setReplySuccessMessage] = useState('');
 
   // Reopen Modal State
   const [isReopenModalOpen, setIsReopenModalOpen] = useState(false);
@@ -136,9 +136,16 @@ export default function CustomerSupportQueries({ initialProjectId = null }) {
   // Handle Form Submit: Raise Support Query
   const handleRaiseSubmit = async (e) => {
     e.preventDefault();
-    setRaiseError('');
-    if (!newQueryForm.subject.trim() || !newQueryForm.description.trim()) {
-      setRaiseError('Please enter both a subject and a detailed description.');
+    if (!newQueryForm.projectId) {
+      showToast('Please select a project before submitting.', 'error');
+      return;
+    }
+    if (!newQueryForm.subject.trim()) {
+      showToast('Please enter a subject for your query.', 'error');
+      return;
+    }
+    if (!newQueryForm.description.trim()) {
+      showToast('Please enter a detailed description.', 'error');
       return;
     }
 
@@ -155,15 +162,16 @@ export default function CustomerSupportQueries({ initialProjectId = null }) {
           priority: 'Medium',
           attachments: []
         });
+        showToast('Support query raised successfully!', 'success');
         await fetchTickets();
         if (res.ticket) {
           handleOpenTicketDetail(res.ticket);
         }
       } else {
-        setRaiseError(res?.message || 'Failed to submit support query.');
+        showToast(res?.message || 'Failed to submit support query.', 'error');
       }
     } catch (err) {
-      setRaiseError(err.response?.data?.message || err.message || 'Error submitting query.');
+      showToast(err.response?.data?.message || err.message || 'Error submitting query.', 'error');
     } finally {
       setSubmittingQuery(false);
     }
@@ -172,22 +180,26 @@ export default function CustomerSupportQueries({ initialProjectId = null }) {
   // Handle Reply to Support
   const handleSendReply = async (e) => {
     e.preventDefault();
-    if (!replyMessage.trim() || !selectedTicket) return;
+    if (!replyMessage.trim()) {
+      showToast('Please enter a message before replying.', 'error');
+      return;
+    }
+    if (!selectedTicket) return;
 
     setSendingReply(true);
-    setReplySuccessMessage('');
     try {
       const ticketId = selectedTicket._id || selectedTicket.id;
       const res = await respondToClientTicket(ticketId, replyMessage.trim());
       if (res && res.success) {
         setReplyMessage('');
-        setReplySuccessMessage('Response sent to support team.');
-        setTimeout(() => setReplySuccessMessage(''), 3500);
+        showToast('Response sent to support team.', 'success');
         await handleOpenTicketDetail(selectedTicket);
         await fetchTickets();
+      } else {
+        showToast(res?.message || 'Failed to send response.', 'error');
       }
     } catch (err) {
-      alert("Notice sending reply: " + (err.message || 'Failed to send response'));
+      showToast(err.message || 'Failed to send response.', 'error');
     } finally {
       setSendingReply(false);
     }
@@ -204,11 +216,14 @@ export default function CustomerSupportQueries({ initialProjectId = null }) {
       if (res && res.success) {
         setIsReopenModalOpen(false);
         setReopenReason('');
+        showToast('Support query reopened successfully.', 'success');
         await handleOpenTicketDetail(selectedTicket);
         await fetchTickets();
+      } else {
+        showToast(res?.message || 'Failed to reopen query.', 'error');
       }
     } catch (err) {
-      alert("Failed to reopen ticket: " + err.message);
+      showToast('Failed to reopen ticket: ' + err.message, 'error');
     } finally {
       setReopening(false);
     }
@@ -222,11 +237,14 @@ export default function CustomerSupportQueries({ initialProjectId = null }) {
       const ticketId = selectedTicket._id || selectedTicket.id;
       const res = await cancelClientTicket(ticketId);
       if (res && res.success) {
+        showToast('Support query cancelled.', 'info');
         await handleOpenTicketDetail(selectedTicket);
         await fetchTickets();
+      } else {
+        showToast(res?.message || 'Failed to cancel query.', 'error');
       }
     } catch (err) {
-      alert("Failed to cancel query: " + err.message);
+      showToast('Failed to cancel query: ' + err.message, 'error');
     }
   };
 
@@ -641,16 +659,8 @@ export default function CustomerSupportQueries({ initialProjectId = null }) {
 
                   {/* REPLY COMPOSER FORM */}
                   {(selectedTicket.status || '').toUpperCase() !== 'CANCELLED' && (
-                    <form onSubmit={handleSendReply} className="space-y-3 pt-3 border-t border-slate-100">
-                      {replySuccessMessage && (
-                        <div className="p-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-2">
-                          <Check className="w-4 h-4" />
-                          <span>{replySuccessMessage}</span>
-                        </div>
-                      )}
-
+                    <form onSubmit={handleSendReply} noValidate className="space-y-3 pt-3 border-t border-slate-100">
                       <textarea
-                        required
                         placeholder="Write your reply or provide additional details..."
                         value={replyMessage}
                         onChange={(e) => setReplyMessage(e.target.value)}
@@ -733,20 +743,13 @@ export default function CustomerSupportQueries({ initialProjectId = null }) {
               </button>
             </div>
 
-            {raiseError && (
-              <div className="p-3 bg-rose-50 border border-rose-100 text-rose-600 rounded-xl text-xs font-bold">
-                {raiseError}
-              </div>
-            )}
-
-            <form onSubmit={handleRaiseSubmit} className="space-y-4 text-xs font-bold text-slate-700">
+            <form onSubmit={handleRaiseSubmit} noValidate className="space-y-4 text-xs font-bold text-slate-700">
               
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">
                   Select Project <span className="text-rose-500">*</span>
                 </label>
                 <select
-                  required
                   value={newQueryForm.projectId}
                   onChange={(e) => setNewQueryForm({ ...newQueryForm, projectId: e.target.value })}
                   className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-semibold text-slate-900 focus:outline-none focus:border-brand-primary"
@@ -799,7 +802,6 @@ export default function CustomerSupportQueries({ initialProjectId = null }) {
                 </label>
                 <input
                   type="text"
-                  required
                   placeholder="Briefly describe your issue (e.g. Clarification on Column C3 rebar drawing...)"
                   value={newQueryForm.subject}
                   onChange={(e) => setNewQueryForm({ ...newQueryForm, subject: e.target.value })}
@@ -812,7 +814,6 @@ export default function CustomerSupportQueries({ initialProjectId = null }) {
                   Detailed Description <span className="text-rose-500">*</span>
                 </label>
                 <textarea
-                  required
                   rows="4"
                   placeholder="Describe your query in detail..."
                   value={newQueryForm.description}
@@ -849,7 +850,7 @@ export default function CustomerSupportQueries({ initialProjectId = null }) {
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-[99999]">
           <div className="bg-white rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl border border-slate-100">
             <h3 className="text-sm font-black text-slate-900">Reopen Support Query</h3>
-            <form onSubmit={handleReopenSubmit} className="space-y-4 text-xs font-bold text-slate-700">
+            <form onSubmit={handleReopenSubmit} noValidate className="space-y-4 text-xs font-bold text-slate-700">
               <textarea
                 placeholder="Reason for reopening (optional)..."
                 value={reopenReason}

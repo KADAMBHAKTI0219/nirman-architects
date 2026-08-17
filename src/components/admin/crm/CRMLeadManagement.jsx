@@ -23,6 +23,7 @@ import { createClient } from '../../../service/crm/client';
 import { getUsersList } from '../../../service/auth';
 import useSEO from '../../../hooks/useSEO';
 import StatusBadge from '../../common/StatusBadge';
+import CalendarDatePicker from '../../common/CalendarDatePicker';
 
 // Order of all lifecycle statuses matching backend schema
 const ALL_STATUSES = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL_SENT', 'NEGOTIATION', 'WON', 'LOST'];
@@ -2409,15 +2410,13 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
                 </div>
               </div>
 
-              {/* Next Follow-up Date */}
               <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">Next Scheduled Follow-up Date (Today & Future Dates Only)</label>
-                <input
-                  type="date"
-                  min={new Date().toISOString().split('T')[0]}
+                <CalendarDatePicker
+                  label="Next Scheduled Follow-up Date"
                   value={newLeadForm.nextFollowUpDate}
-                  onChange={(e) => setNewLeadForm(prev => ({ ...prev, nextFollowUpDate: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary bg-slate-50/50 cursor-pointer"
+                  onChange={(val) => setNewLeadForm(prev => ({ ...prev, nextFollowUpDate: val }))}
+                  placeholder="dd-mm-yyyy"
+                  disablePast={true}
                 />
               </div>
 

@@ -71,11 +71,7 @@ export default function Dashboard() {
 
         setPendingApprovals(formatted);
       } else {
-        setPendingApprovals([
-          { id: 101, _id: 101, title: "Foundation Elevation Details V2.1", project: "Oceanic Luxury Villas", type: "STRUCTURAL DWG", uploader: "Sarah Connor (Architect)", status: "PENDING PM REVIEW", date: "2026-08-01" },
-          { id: 102, _id: 102, title: "HVAC Layout Schematic V1.0", project: "Smart City Mall", type: "SERVICE DWG", uploader: "Mike Tyson (Designer)", status: "PENDING CLIENT APPROVAL", date: "2026-08-01" },
-          { id: 103, _id: 103, title: "Plumbing Riser Diagram V1.2", project: "Central Office Tower", type: "GFC RELEASE", uploader: "Sarah Connor (Architect)", status: "PENDING ADMIN SIGNOFF", date: "2026-08-01" }
-        ]);
+        setPendingApprovals([]);
       }
     } catch (err) {
       console.warn("Failed to fetch drawings for approvals queue:", err);

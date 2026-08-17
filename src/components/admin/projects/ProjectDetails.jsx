@@ -6,6 +6,8 @@ import {
 import Card from '../../common/Card';
 import ClientCommunication from '../../project-manager/client-communication/index';
 import { useToast } from '../../../context/ToastContext';
+import { FieldError } from '../../../utils/validation';
+import CalendarDatePicker from '../../common/CalendarDatePicker';
 import { getCompanyLeaves } from '../../../service/hrm/leave';
 import { getUsersList } from '../../../service/auth';
 import {
@@ -1961,15 +1963,13 @@ export default function ProjectDetails({
                 />
               </div>
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">
-                  Target Completion Date <span className="text-red-500 font-bold ml-0.5">*</span>
-                </label>
-                <input
-                  type="date"
+                <CalendarDatePicker
+                  label="Target Completion Date"
                   required
                   value={milestoneForm.targetDate}
-                  onChange={(e) => setMilestoneForm({ ...milestoneForm, targetDate: e.target.value })}
-                  className="w-full p-2.5 border border-slate-200 rounded-xl"
+                  onChange={(val) => setMilestoneForm({ ...milestoneForm, targetDate: val })}
+                  placeholder="dd-mm-yyyy"
+                  disablePast={true}
                 />
               </div>
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">

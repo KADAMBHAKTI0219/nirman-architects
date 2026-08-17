@@ -9,6 +9,9 @@ const SiteAttendance = lazy(() => import('../components/site-engineer/attendance
 const SitePhotosIssues = lazy(() => import('../components/site-engineer/photos-issues/index'));
 const SiteUpdates = lazy(() => import('../components/site-engineer/client-updates/index'));
 const SiteNotifications = lazy(() => import('../components/site-engineer/notifications/index'));
+const SiteTasks = lazy(() => import('../components/employee/tasks/index'));
+const SiteDrawings = lazy(() => import('../components/employee/drawings/index'));
+const SiteDocs = lazy(() => import('../components/employee/documents/index'));
 const LeavesPortal = lazy(() => import('../components/common/LeavesPortal'));
 const AppUsageTracking = lazy(() => import('../components/admin/app-usage/AppUsageTracking'));
 
@@ -54,6 +57,21 @@ export default function getSiteEngineerRoutes(handleRoleChange) {
       <Route path="/site-engineer/updates" element={
         <DashboardLayout role="SiteEngineer" onChangeRole={handleRoleChange} title="Client Updates">
           <LazyWrap><SiteUpdates /></LazyWrap>
+        </DashboardLayout>
+      } />
+      <Route path="/site-engineer/tasks" element={
+        <DashboardLayout role="SiteEngineer" onChangeRole={handleRoleChange} title="Assigned Tasks">
+          <LazyWrap><SiteTasks /></LazyWrap>
+        </DashboardLayout>
+      } />
+      <Route path="/site-engineer/drawings" element={
+        <DashboardLayout role="SiteEngineer" onChangeRole={handleRoleChange} title="Drawings & GFC">
+          <LazyWrap><SiteDrawings /></LazyWrap>
+        </DashboardLayout>
+      } />
+      <Route path="/site-engineer/docs" element={
+        <DashboardLayout role="SiteEngineer" onChangeRole={handleRoleChange} title="Project Documents">
+          <LazyWrap><SiteDocs /></LazyWrap>
         </DashboardLayout>
       } />
       <Route path="/site-engineer/notifications" element={

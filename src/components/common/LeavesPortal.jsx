@@ -23,6 +23,27 @@ import {
   parseIndexedObjectToArray
 } from '../../service/hrm/leave';
 
+export const DEFAULT_COMPANY_HOLIDAYS_2026 = [
+  { date: '2026-01-26', status: 'HOLIDAY', title: 'Republic Day (National Holiday)', code: 'HOLIDAY' },
+  { date: '2026-03-04', status: 'HOLIDAY', title: 'Maha Shivratri', code: 'HOLIDAY' },
+  { date: '2026-03-25', status: 'HOLIDAY', title: 'Holi Festival', code: 'FESTIVAL' },
+  { date: '2026-04-10', status: 'HOLIDAY', title: 'Good Friday', code: 'HOLIDAY' },
+  { date: '2026-04-14', status: 'HOLIDAY', title: 'Dr. Ambedkar Jayanti', code: 'HOLIDAY' },
+  { date: '2026-05-01', status: 'HOLIDAY', title: 'May Day / Labour Day', code: 'HOLIDAY' },
+  { date: '2026-05-15', status: 'HOLIDAY', title: 'Annual Company Outing & Trip', code: 'OUTING' },
+  { date: '2026-05-16', status: 'HOLIDAY', title: 'Annual Company Outing & Trip', code: 'OUTING' },
+  { date: '2026-08-15', status: 'HOLIDAY', title: 'Independence Day (National Holiday)', code: 'HOLIDAY' },
+  { date: '2026-08-28', status: 'HOLIDAY', title: 'Raksha Bandhan', code: 'FESTIVAL' },
+  { date: '2026-09-05', status: 'HOLIDAY', title: 'Ganesh Chaturthi', code: 'FESTIVAL' },
+  { date: '2026-10-02', status: 'HOLIDAY', title: 'Gandhi Jayanti', code: 'HOLIDAY' },
+  { date: '2026-10-16', status: 'HOLIDAY', title: 'Company Team Beach Outing', code: 'OUTING' },
+  { date: '2026-10-20', status: 'HOLIDAY', title: 'Dussehra (Vijayadashami)', code: 'FESTIVAL' },
+  { date: '2026-11-08', status: 'HOLIDAY', title: 'Diwali (Deepavali Festival)', code: 'FESTIVAL' },
+  { date: '2026-11-09', status: 'HOLIDAY', title: 'Govardhan Puja', code: 'FESTIVAL' },
+  { date: '2026-11-10', status: 'HOLIDAY', title: 'Bhai Dooj', code: 'FESTIVAL' },
+  { date: '2026-12-25', status: 'HOLIDAY', title: 'Christmas Day', code: 'FESTIVAL' }
+];
+
 export default function LeavesPortal({ role = "Employee", hideHeader = false }) {
   const [balances, setBalances] = useState([]);
   const [requests, setRequests] = useState([]);
@@ -479,7 +500,8 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
   };
 
   const calendarMarkedDates = useMemo(() => {
-    const list = [];
+    const list = [...DEFAULT_COMPANY_HOLIDAYS_2026];
+
     (requests || []).forEach(r => {
       if (!r.fromDateIso) return;
       const start = new Date(r.fromDateIso);
@@ -493,16 +515,19 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
         const d = String(curr.getDate()).padStart(2, '0');
         const dStr = `${y}-${m}-${d}`;
 
+        const statusUpper = (r.status || 'PENDING').toUpperCase();
+
         list.push({
           date: dStr,
-          status: (r.status || 'PENDING').toUpperCase(),
+          status: statusUpper,
           title: `${r.leaveTypeName} (${r.days}d): ${r.reason || 'Leave Request'}`,
-          code: r.status ? r.status.substring(0, 3).toUpperCase() : 'REQ'
+          code: statusUpper === 'APPROVED' ? 'LEAVE' : statusUpper === 'PENDING' ? 'PENDING' : 'REJECTED'
         });
 
         curr.setDate(curr.getDate() + 1);
       }
     });
+
     return list;
   }, [requests]);
 
@@ -700,16 +725,12 @@ export default function LeavesPortal({ role = "Employee", hideHeader = false }) 
         /* Leave Calendar Tab */
         <ReusableCalendar 
           mode="leave"
+          allowSelection={false}
+          showStats={true}
           year={new Date().getFullYear()}
           markedDates={calendarMarkedDates}
-          onRangeSelect={({ fromDate, toDate }) => {
-            if (fromDate) {
-              setFormData(prev => ({ ...prev, fromDate, toDate: toDate || fromDate }));
-              setIsModalOpen(true);
-            }
-          }}
-          title="Interactive Leave Calendar Planner"
-          subtitle={`Current Year ${new Date().getFullYear()} • Drag or click dates to select range for leave application`}
+          title="Interactive Leave & Holiday Calendar"
+          subtitle={`Current Year ${new Date().getFullYear()} • Dynamic leave tracking, company holidays, festivals & outings`}
         />
       ) : (
         /* Personal Leaves dashboard */

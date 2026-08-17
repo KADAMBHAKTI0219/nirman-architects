@@ -5,8 +5,10 @@ import {
 import Card from '../../common/Card';
 import { getTasks, createTask, completeTask } from '../../../service/task';
 import { getProjects } from '../../../service/project';
+import { useToast } from '../../../context/ToastContext';
 
 export default function PhotosIssues() {
+  const { showToast } = useToast();
   const [photos, setPhotos] = useState([]);
   const [issues, setIssues] = useState([]);
   const [selectedIssue, setSelectedIssue] = useState(null);
@@ -71,7 +73,10 @@ export default function PhotosIssues() {
 
   const handleRaiseIssue = async (e) => {
     e.preventDefault();
-    if (!newTitle.trim()) return;
+    if (!newTitle.trim()) {
+      showToast("Please fill out the issue title field before submitting.", "error");
+      return;
+    }
     try {
       const res = await createTask({
         taskName: newTitle.trim(),
@@ -81,7 +86,7 @@ export default function PhotosIssues() {
       if (res?.success) {
         fetchSiteIssues();
         setNewTitle('');
-        alert("Site issue logged successfully!");
+        showToast("Site defect issue logged successfully!", "success");
       } else {
         const newIssueObj = {
           id: `ISS-${100 + issues.length + 1}`,
@@ -95,9 +100,10 @@ export default function PhotosIssues() {
         setIssues([newIssueObj, ...issues]);
         setSelectedIssue(newIssueObj);
         setNewTitle('');
+        showToast("Site defect issue logged successfully!", "success");
       }
     } catch (err) {
-      alert("Notice logging issue: " + err.message);
+      showToast(err.message || "Failed to log site defect", "error");
     }
   };
 
@@ -114,6 +120,7 @@ export default function PhotosIssues() {
     if (selectedIssue && (selectedIssue.id === issueId || selectedIssue._id === issueId)) {
       setSelectedIssue(prev => ({ ...prev, status: 'Resolved' }));
     }
+    showToast("Site defect issue resolved!", "success");
   };
 
   return (
@@ -152,7 +159,6 @@ export default function PhotosIssues() {
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50 text-slate-900 font-medium"
-              required
             />
           </div>
           <div>

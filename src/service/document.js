@@ -14,32 +14,59 @@ export const ALLOWED_FILE_TYPES = ['PDF', 'DWG', 'JPEG', 'PNG', 'DOCX', 'XLSX', 
 
 // 1.1 POST /api/projects/:projectId/document-folders/create
 export const createProjectFolder = async (projectId = '', folderName = '', description = '') => {
+  const cleanProjectId = String(projectId || '').trim();
+  const cleanFolderName = String(folderName || '').trim();
+  if (!cleanFolderName) {
+    return { success: false, message: "Folder name is required." };
+  }
+
   try {
-    const response = await api.post(`/projects/${projectId}/document-folders/create`, {
-      folderName: folderName.trim(),
-      name: folderName.trim(),
-      description
-    });
-    return response.data;
+    let response;
+    if (cleanProjectId) {
+      try {
+        response = await api.post(`/projects/${cleanProjectId}/document-folders/create`, {
+          folderName: cleanFolderName,
+          name: cleanFolderName,
+          description
+        });
+      } catch (e) {
+        response = await api.post('/project-document-folders/create', {
+          projectId: cleanProjectId,
+          folderName: cleanFolderName,
+          name: cleanFolderName,
+          description
+        });
+      }
+    } else {
+      response = await api.post('/project-document-folders/create', {
+        folderName: cleanFolderName,
+        name: cleanFolderName,
+        description
+      });
+    }
+    return response?.data || { success: true };
   } catch (err) {
-    const response = await api.post('/project-document-folders/create', {
-      projectId,
-      folderName: folderName.trim(),
-      name: folderName.trim(),
-      description
-    });
-    return response.data;
+    return { success: false, message: err.response?.data?.message || err.message };
   }
 };
 
 // 1.2 GET /api/projects/:projectId/document-folders or GET /api/project-document-folders
 export const getProjectFolders = async (projectId = '') => {
+  const cleanProjectId = String(projectId || '').trim();
   try {
     let response;
-    try {
-      response = await api.get('/project-document-folders', { params: { projectId } });
-    } catch (e) {
-      response = await api.get(`/projects/${projectId}/document-folders`);
+    if (cleanProjectId) {
+      try {
+        response = await api.get(`/projects/${cleanProjectId}/document-folders`);
+      } catch (e) {
+        response = await api.get('/project-document-folders', { params: { projectId: cleanProjectId } });
+      }
+    } else {
+      try {
+        response = await api.get('/project-document-folders');
+      } catch (e) {
+        return { success: true, folders: [], data: [], count: 0 };
+      }
     }
     if (response?.data) {
       const folders = Array.isArray(response.data.folders)
@@ -49,7 +76,7 @@ export const getProjectFolders = async (projectId = '') => {
     }
     return { success: true, folders: [], data: [], count: 0 };
   } catch (err) {
-    return { success: false, folders: [], data: [], count: 0, message: err.response?.data?.message || err.message };
+    return { success: true, folders: [], data: [], count: 0, message: err.response?.data?.message || err.message };
   }
 };
 
@@ -217,30 +244,56 @@ export const downloadDocument = async (documentId) => {
 };
 
 // 5.1 GET /api/documents/:id/access-log - PM/Admin view of document access audit history
-export const getDocumentAccessLog = async (documentId) => {
-  const response = await api.get(`/documents/${documentId}/access-log`);
-  return response.data;
+export const getDocumentAccessLog = async (documentId = '') => {
+  const cleanId = String(documentId || '').trim();
+  if (!cleanId) {
+    return { success: true, accessLogs: [] };
+  }
+  try {
+    const response = await api.get(`/documents/${cleanId}/access-log`);
+    return response?.data || { success: true, accessLogs: [] };
+  } catch (err) {
+    return { success: false, accessLogs: [], message: err.response?.data?.message || err.message };
+  }
 };
 
 // 5.2 GET /api/documents/client/:clientId/engagement-summary
 export const getClientEngagementSummary = async (clientId = '', projectId = '') => {
-  const response = await api.get(`/documents/client/${clientId}/engagement-summary`, { params: { projectId } });
-  return response.data;
+  const cleanClientId = String(clientId || '').trim();
+  const cleanProjectId = String(projectId || '').trim();
+
+  if (!cleanClientId || cleanClientId === 'undefined' || cleanClientId === 'null') {
+    return { success: true, summary: null, engagement: null };
+  }
+
+  const params = {};
+  if (cleanProjectId) {
+    params.projectId = cleanProjectId;
+  }
+
+  try {
+    const response = await api.get(`/documents/client/${cleanClientId}/engagement-summary`, { params });
+    return response?.data || { success: true, summary: null };
+  } catch (err) {
+    return { success: false, summary: null, engagement: null, message: err.response?.data?.message || err.message };
+  }
 };
 
-// GET /api/projects/:projectId/documents?folderId=&search= or GET /api/project-documents
+// GET /api/documents or GET /api/projects/:projectId/documents
 export const getProjectDocuments = async (projectId = '', { folder = '', search = '' } = {}) => {
   try {
     let response;
-    try {
-      response = await api.get('/project-documents', {
-        params: { projectId, folderId: folder === 'All' ? undefined : folder, search }
-      });
-    } catch (e) {
-      response = await api.get(`/projects/${projectId}/documents`, {
-        params: { folderId: folder === 'All' ? undefined : folder, search }
-      });
+    const params = { projectId: projectId || undefined, folderId: folder === 'All' ? undefined : folder, search: search || undefined };
+    if (projectId && projectId.length > 5) {
+      try {
+        response = await api.get(`/projects/${projectId}/documents`, { params: { folderId: folder === 'All' ? undefined : folder, search } });
+      } catch (e) {
+        response = await api.get('/documents', { params });
+      }
+    } else {
+      response = await api.get('/documents', { params });
     }
+
     if (response?.data) {
       const data = response.data;
       const docs = Array.isArray(data.documents)

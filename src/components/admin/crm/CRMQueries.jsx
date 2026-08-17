@@ -16,6 +16,8 @@ import {
 } from '../../../service/crm/ticket';
 import { getUsersList } from '../../../service/auth';
 import { getProjects } from '../../../service/project';
+import { useToast } from '../../../context/ToastContext';
+import { FieldError } from '../../../utils/validation';
 
 export default function CRMQueries() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -216,13 +218,21 @@ export default function CRMQueries() {
     }
   };
 
+  const { showToast } = useToast();
+
   const handleCreateTicketSubmit = async (e) => {
     e.preventDefault();
-    if (!newTicketForm.subject.trim() || !newTicketForm.description.trim()) {
-      alert("Please fill in the subject and description.");
+    const errs = {};
+    if (!newTicketForm.subject.trim()) errs.subject = 'Subject is required.';
+    if (!newTicketForm.description.trim()) errs.description = 'Description is required.';
+
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      showToast("Please fill in all required fields.", "error");
       return;
     }
 
+    setFieldErrors({});
     setCreateSubmitting(true);
     try {
       const res = await createClientTicket({
@@ -249,6 +259,7 @@ export default function CRMQueries() {
 
       setTickets(prev => [createdTicket, ...prev]);
       setIsCreateModalOpen(false);
+      showToast("Support ticket raised successfully!", "success");
       setNewTicketForm({
         subject: '',
         projectName: 'Central Office Tower',
@@ -259,8 +270,7 @@ export default function CRMQueries() {
 
       handleOpenTicketModal(createdTicket._id);
     } catch (err) {
-      console.error("Error creating ticket", err);
-      alert("Failed to raise ticket.");
+      showToast(err.message || "Failed to submit ticket.", "error");
     } finally {
       setCreateSubmitting(false);
     }

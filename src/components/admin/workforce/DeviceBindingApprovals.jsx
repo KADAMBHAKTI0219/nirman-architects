@@ -11,6 +11,8 @@ import {
   getDeviceStatus 
 } from '../../../service/hrm/device';
 import { getUsersList } from '../../../service/auth';
+import { useToast } from '../../../context/ToastContext';
+import { FieldError } from '../../../utils/validation';
 
 import PageHeader from '../../common/PageHeader';
 
@@ -59,15 +61,18 @@ export default function DeviceBindingApprovals({ employees = [], onRefresh }) {
     loadRequests();
   }, []);
 
-  const handleDeviceAction = async (requestId, action) => {
+  const { showToast } = useToast();
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const handleActionSubmit = async (requestId, action) => {
     try {
       const response = await approveDeviceRequest({ requestId, action });
-      alert(response.message || `Device request ${action.toLowerCase()}d successfully.`);
+      showToast(response.message || `Device request ${action.toLowerCase()}d successfully.`, 'success');
       setSelectedEmpDetails(null);
       loadRequests();
       if (onRefresh) onRefresh();
     } catch (err) {
-      alert(err.message || "Failed to process device action.");
+      showToast(err.message || "Failed to process device action.", 'error');
     }
   };
 
@@ -79,10 +84,10 @@ export default function DeviceBindingApprovals({ employees = [], onRefresh }) {
     try {
       if (reqId) {
         const response = await approveDeviceRequest({ requestId: reqId, action: 'APPROVE' });
-        alert(response.message || `Device request for ${emp.name} approved successfully.`);
+        showToast(response.message || `Device request for ${emp.name} approved successfully.`, 'success');
       } else {
         const response = await assignDeviceToUser({ targetUserId: userId, deviceId: deviceId, status: 'APPROVED' });
-        alert(response.message || `Device binding for ${emp.name} approved successfully.`);
+        showToast(response.message || `Device binding for ${emp.name} approved successfully.`, 'success');
       }
 
       emp.deviceStatus = 'APPROVED';
@@ -94,7 +99,7 @@ export default function DeviceBindingApprovals({ employees = [], onRefresh }) {
       loadRequests();
       if (onRefresh) onRefresh();
     } catch (err) {
-      alert(err.message || "Failed to approve device request.");
+      showToast(err.message || "Failed to approve device request.", 'error');
     }
   };
 
@@ -105,10 +110,10 @@ export default function DeviceBindingApprovals({ employees = [], onRefresh }) {
     try {
       if (reqId) {
         const response = await approveDeviceRequest({ requestId: reqId, action: 'REJECT' });
-        alert(response.message || `Device request for ${emp.name} rejected.`);
+        showToast(response.message || `Device request for ${emp.name} rejected.`, 'info');
       } else {
         const response = await assignDeviceToUser({ targetUserId: userId, deviceId: '', status: 'REJECTED' });
-        alert(response.message || `Device request for ${emp.name} rejected.`);
+        showToast(response.message || `Device request for ${emp.name} rejected.`, 'info');
       }
 
       emp.deviceStatus = 'REJECTED';
@@ -120,31 +125,37 @@ export default function DeviceBindingApprovals({ employees = [], onRefresh }) {
       loadRequests();
       if (onRefresh) onRefresh();
     } catch (err) {
-      alert(err.message || "Failed to reject device request.");
+      showToast(err.message || "Failed to reject device request.", 'error');
     }
   };
 
   const handleDirectAssignSubmit = async (e) => {
     e.preventDefault();
-    if (!targetUserId || !customDeviceId) {
-      alert("Please select a target user and enter a valid Device ID / Machine GUID.");
+    const errs = {};
+    if (!targetUserId) errs.targetUserId = "Please select a target user.";
+    if (!customDeviceId?.trim()) errs.customDeviceId = "Please enter a Device ID / Machine GUID.";
+
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      showToast("Please fill out all required fields.", 'error');
       return;
     }
 
+    setFieldErrors({});
     setAssignSubmitting(true);
     try {
-      const res = await assignDeviceToUser({ targetUserId, deviceId: customDeviceId });
+      const res = await assignDeviceToUser({ targetUserId, deviceId: customDeviceId.trim() });
       if (res?.success) {
-        alert(res.message || "Device binding request submitted successfully! Status is now PENDING until approved.");
+        showToast(res.message || "Device binding request submitted successfully!", 'success');
         setShowAssignModal(false);
         setCustomDeviceId('');
         loadRequests();
         if (onRefresh) onRefresh();
       } else {
-        alert(res?.message || "Failed to assign device.");
+        showToast(res?.message || "Failed to assign device.", 'error');
       }
     } catch (err) {
-      alert(err.message || "Error assigning device ID.");
+      showToast(err.message || "Error assigning device ID.", 'error');
     } finally {
       setAssignSubmitting(false);
     }

@@ -11,6 +11,8 @@ import {
   skipFeedbackPrompt, 
   getMyFeedbackHistory 
 } from '../../../service/crm/feedback';
+import { useToast } from '../../../context/ToastContext';
+import { FieldError } from '../../../utils/validation';
 
 export default function CustomerFeedback() {
   const [categories, setCategories] = useState([]);
@@ -60,10 +62,18 @@ export default function CustomerFeedback() {
     loadData();
   }, []);
 
+  const { showToast } = useToast();
+  const [fieldErrors, setFieldErrors] = useState({});
+
   const handleSubmitFeedback = async (e) => {
     e.preventDefault();
-    if (!comments.trim()) return;
+    if (!comments.trim()) {
+      setFieldErrors({ comments: 'Please enter your feedback comments before submitting.' });
+      showToast('Please enter your feedback comments before submitting.', 'error');
+      return;
+    }
 
+    setFieldErrors({});
     setSubmitting(true);
     setSubmitSuccess('');
     try {
@@ -76,6 +86,7 @@ export default function CustomerFeedback() {
 
       const res = await submitClientFeedback(promptId, payload);
       if (res && (res.success || res._id)) {
+        showToast('Thank you! Your feedback has been submitted successfully.', 'success');
         setSubmitSuccess('Thank you! Your feedback has been submitted successfully.');
         setComments('');
         setRating(5);
@@ -83,7 +94,7 @@ export default function CustomerFeedback() {
         await loadData();
       }
     } catch (err) {
-      alert(err.response?.data?.message || err.message || 'Failed to submit feedback.');
+      showToast(err.response?.data?.message || err.message || 'Failed to submit feedback.', 'error');
     } finally {
       setSubmitting(false);
     }

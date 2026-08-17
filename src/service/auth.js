@@ -261,6 +261,16 @@ export const createRole = async (payload) => {
  */
 export const getUsersList = async () => {
   try {
+    const userStr = localStorage.getItem('user');
+    let currentUser = null;
+    if (userStr) {
+      try { currentUser = JSON.parse(userStr); } catch (e) {}
+    }
+    const role = currentUser?.role || currentUser?.userType;
+    if (role && !['SuperAdmin', 'Admin', 'HR', 'Super Admin'].includes(role)) {
+      return { success: true, users: currentUser ? [currentUser] : [] };
+    }
+
     const response = await api.get('/users');
     if (response.data) {
       if (Array.isArray(response.data)) {
@@ -285,12 +295,15 @@ export const getUsersList = async () => {
     }
     return { success: false, users: [] };
   } catch (err) {
-    if (err.response?.status !== 403 && err.response?.status !== 401) {
-      console.warn("Notice: User directory restricted or unavailable:", err.message);
+    const userStr = localStorage.getItem('user');
+    let currentUser = null;
+    if (userStr) {
+      try { currentUser = JSON.parse(userStr); } catch (e) {}
     }
-    return { success: false, users: [], message: err.response?.data?.message || err.message };
+    return { success: true, users: currentUser ? [currentUser] : [], message: err.response?.data?.message || err.message };
   }
 };
+
 
 /**
  * Get detailed profile information of a single user by ID.

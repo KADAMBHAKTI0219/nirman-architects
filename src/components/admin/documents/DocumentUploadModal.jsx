@@ -3,6 +3,7 @@ import { X, Upload, FileText, CheckCircle2, AlertCircle, FileCode, Image, FileSp
 import { getProjects } from '../../../service/project';
 import { getProjectFolders, createProjectFolder } from '../../../service/document';
 import { useToast } from '../../../context/ToastContext';
+import { FieldError } from '../../../utils/validation';
 
 export default function DocumentUploadModal({
   isOpen,

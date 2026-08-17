@@ -4,8 +4,10 @@ import ProjectList from './ProjectList';
 import ProjectDetails from './ProjectDetails';
 import CreateProjectModal from './CreateProjectModal';
 import { getProjects, createProject } from '../../../service/project';
+import { useToast } from '../../../context/ToastContext';
 
 export default function Projects({ defaultTab = 'directory' }) {
+  const { showToast } = useToast();
   const location = useLocation();
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
@@ -63,14 +65,17 @@ export default function Projects({ defaultTab = 'directory' }) {
           try {
             const userObj = JSON.parse(userStr);
             const loggedInUid = userObj._id || userObj.id;
-            if (userObj.role === 'Architect' || userObj.role === 'SiteEngineer' || userObj.role === 'Employee') {
-              list = res.projects.filter(p => {
+            if (userObj.role === 'Architect' || userObj.role === 'SiteEngineer' || userObj.role === 'Employee' || userObj.role === 'ProjectManager') {
+              const userProjects = res.projects.filter(p => {
                 const team = Array.isArray(p.teamAssignments) ? p.teamAssignments : (Array.isArray(p.team) ? p.team : []);
                 return team.some(member => 
                   String(member.userId) === String(loggedInUid) ||
                   (member.name && userObj.name && member.name.toLowerCase() === userObj.name.toLowerCase())
-                );
+                ) || String(p.projectManagerId) === String(loggedInUid) || String(p.manager) === String(loggedInUid);
               });
+              if (userProjects.length > 0) {
+                list = userProjects;
+              }
             }
           } catch (e) {
             console.error("Failed to parse user in ProjectsMaster:", e);
@@ -134,10 +139,10 @@ export default function Projects({ defaultTab = 'directory' }) {
           startDate: '', estCompletion: '', estimatedCompletion: '', budget: '', manager: ''
         });
         fetchProjectsList();
-        alert("ERP Project created successfully!");
+        showToast("ERP Project created successfully!", "success");
       }
     } catch (err) {
-      alert("Failed to create project: " + (err.response?.data?.message || err.message));
+      showToast("Failed to create project: " + (err.response?.data?.message || err.message), "error");
     }
   };
 
@@ -158,7 +163,7 @@ export default function Projects({ defaultTab = 'directory' }) {
     };
     setSelectedProject(updated);
     setProjects(prev => prev.map(p => (p._id === selectedProject._id || p.code === selectedProject.code) ? updated : p));
-    alert(`Drawing ${dwgCode} approved successfully!`);
+    showToast(`Drawing ${dwgCode} approved successfully!`, "success");
   };
 
   return (

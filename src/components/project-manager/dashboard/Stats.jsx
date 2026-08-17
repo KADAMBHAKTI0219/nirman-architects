@@ -1,18 +1,36 @@
 import React from 'react';
 
-export default function Stats({ pmAttendance = [], widgets = null }) {
-  const presentCount = widgets?.onlineCount ?? widgets?.onlineTeamCount ?? (pmAttendance.length || 14);
-  const totalProjects = widgets?.assignedProjectsCount ?? widgets?.totalProjects ?? 8;
-  const totalTeam = widgets?.totalTeamMembers ?? widgets?.totalUsers ?? 18;
+export default function Stats({ projectsList = [], tasksList = [], drawingsList = [], pmAttendance = [], usersList = [] }) {
+  const totalProjects = projectsList.length;
+  const activeProjects = projectsList.filter(p => (p.status || '').toUpperCase() !== 'COMPLETED' && (p.status || '').toUpperCase() !== 'ARCHIVED').length;
+  const delayedProjects = projectsList.filter(p => p.delayFlag || (p.status || '').toUpperCase() === 'DELAYED').length;
+  
+  const pendingApprovals = drawingsList.filter(d => {
+    const s = (d.status || '').toUpperCase();
+    return s.includes('PENDING') || s.includes('AWAITING') || s === 'OPEN';
+  }).length;
+
+  const totalTeam = usersList.length || 1;
+  const presentCount = pmAttendance.filter(a => a.status === 'PRESENT' || a.clockInTime).length || Math.min(totalTeam, pmAttendance.length);
+
+  const now = new Date();
+  const overdueTasks = tasksList.filter(t => {
+    const isDone = (t.status || '').toUpperCase() === 'COMPLETED' || (t.status || '').toUpperCase() === 'DONE';
+    if (isDone) return false;
+    if (!t.deadline && !t.dueDate) return false;
+    return new Date(t.deadline || t.dueDate) < now;
+  }).length;
+
+  const drawingReviews = drawingsList.length;
 
   const stats = [
     { title: "Total Projects", value: `${totalProjects}`, sub: "Registered Master" },
-    { title: "Active Projects", value: `${totalProjects} Active`, sub: "Currently Ongoing" },
-    { title: "Delayed Projects", value: "1 Delayed", sub: "Milestone Flagged" },
-    { title: "Pending Approvals", value: "3 Approvals", sub: "Awaiting Actions" },
+    { title: "Active Projects", value: `${activeProjects} Active`, sub: "Currently Ongoing" },
+    { title: "Delayed Projects", value: `${delayedProjects} Delayed`, sub: "Milestone Flagged" },
+    { title: "Pending Approvals", value: `${pendingApprovals} Approvals`, sub: "Awaiting Actions" },
     { title: "Total Team", value: `${totalTeam} Members`, sub: "Assigned Project Team" },
-    { title: "Overdue Tasks", value: "2 Overdue", sub: "Escalated to PM" },
-    { title: "Drawing Reviews", value: "4 Reviews", sub: "Blueprints Uploads" },
+    { title: "Overdue Tasks", value: `${overdueTasks} Overdue`, sub: "Escalated to PM" },
+    { title: "Drawing Reviews", value: `${drawingReviews} Reviews`, sub: "Blueprints Uploads" },
     { title: "Team Checked-In", value: `${presentCount} Online`, sub: "Active Checked-In" }
   ];
 
@@ -31,4 +49,3 @@ export default function Stats({ pmAttendance = [], widgets = null }) {
     </div>
   );
 }
-

@@ -362,7 +362,7 @@ export default function WorkLocationsPage() {
               </button>
             </div>
 
-            <form onSubmit={handleFormSubmit} className="space-y-4 text-xs">
+            <form noValidate onSubmit={handleFormSubmit} className="space-y-4 text-xs">
               
               {/* Project Dropdown */}
               <div>

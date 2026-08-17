@@ -9,6 +9,7 @@ import { loginUser } from '../../service/auth';
 import { clientLogin, clientChangePassword, clientForgotPassword, clientResetPassword } from '../../service/crm/client';
 import BrandLoader from '../common/BrandLoader';
 import { useToast } from '../../context/ToastContext';
+import { FieldError } from '../../utils/validation';
 
 export default function Login({ onLogin }) {
   const { showToast } = useToast();
@@ -18,6 +19,7 @@ export default function Login({ onLogin }) {
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState({ email: '', password: '' });
 
   // Rate Limiting & Account Block State
   const [isBlocked, setIsBlocked] = useState(() => {
@@ -256,19 +258,22 @@ export default function Login({ onLogin }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrors({ email: '', password: '' });
 
     // 1. Email Frontend Validation
     const cleanEmail = String(email || '').trim();
     const emailValMsg = validateEmail(email);
     if (emailValMsg) {
+      setErrors(prev => ({ ...prev, email: emailValMsg }));
       showToast(emailValMsg, 'error');
       return;
     }
 
-    // 2. Password Frontend Validation (DO NOT TRIM PASSWORD)
+    // 2. Password Frontend Validation
     const cleanPassword = String(password || '');
     const passwordValMsg = validatePassword(password);
     if (passwordValMsg) {
+      setErrors(prev => ({ ...prev, password: passwordValMsg }));
       showToast(passwordValMsg, 'error');
       return;
     }
@@ -690,16 +695,23 @@ export default function Login({ onLogin }) {
                     </div>
                     <input
                       type="email"
+                      id="login-email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (errors.email) setErrors(prev => ({ ...prev, email: '' }));
+                      }}
                       onBlur={() => {
                         const err = validateEmail(email);
-                        if (err) showToast(err, 'error');
+                        if (err) setErrors(prev => ({ ...prev, email: err }));
                       }}
                       placeholder="Enter Your Email"
-                      className="w-full pl-12 pr-4 py-3 text-xs font-semibold rounded-2xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:border-brand-secondary transition-all placeholder:text-slate-400 shadow-2xs"
+                      className={`w-full pl-12 pr-4 py-3 text-xs font-semibold rounded-2xl border bg-white text-slate-900 focus:outline-none transition-all placeholder:text-slate-400 shadow-2xs ${
+                        errors.email ? 'border-rose-400 focus:border-rose-500' : 'border-slate-200 focus:border-brand-secondary'
+                      }`}
                     />
                   </div>
+                  <FieldError error={errors.email} id="login-email" />
                 </div>
 
                 {/* Password Input Field with Left Lock Icon Box & Right Toggle Eye */}
@@ -713,16 +725,22 @@ export default function Login({ onLogin }) {
                     </div>
                     <input
                       type={showPassword ? 'text' : 'password'}
+                      id="login-password"
                       value={password}
                       minLength={8}
                       maxLength={15}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (errors.password) setErrors(prev => ({ ...prev, password: '' }));
+                      }}
                       onBlur={() => {
                         const err = validatePassword(password);
-                        if (err) showToast(err, 'error');
+                        if (err) setErrors(prev => ({ ...prev, password: err }));
                       }}
                       placeholder="••••••••••••"
-                      className="w-full pl-12 pr-12 py-3 text-xs font-semibold rounded-2xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:border-brand-secondary transition-all placeholder:text-slate-400 shadow-2xs"
+                      className={`w-full pl-12 pr-12 py-3 text-xs font-semibold rounded-2xl border bg-white text-slate-900 focus:outline-none transition-all placeholder:text-slate-400 shadow-2xs ${
+                        errors.password ? 'border-rose-400 focus:border-rose-500' : 'border-slate-200 focus:border-brand-secondary'
+                      }`}
                     />
                     <button
                       type="button"
@@ -737,6 +755,7 @@ export default function Login({ onLogin }) {
                       )}
                     </button>
                   </div>
+                  <FieldError error={errors.password} id="login-password" />
                 </div>
 
                 {/* Remember Me Checkbox & Forgot Password Link */}
