@@ -14,6 +14,19 @@ import { getTasks } from '../../../service/task';
 import { getDrawings } from '../../../service/drawing';
 import { getUsersList } from '../../../service/auth';
 import { getCompanyLeaves } from '../../../service/hrm/leave';
+import { 
+  getCompanyWideSummary,
+  getProjectDashboardMetrics,
+  getEmployeeWiseAnalysis,
+  getDrawingWiseProgress,
+  getDepartmentWiseProgress
+} from '../../../service/analytics';
+import {
+  generateProjectReport,
+  generateProductivityReport,
+  generateDrawingReport,
+  generateAttendanceReport
+} from '../../../service/report';
 
 const COLORS = ['#34D399', '#8FC9FF', '#FBBF24', '#EF4444', '#818CF8'];
 
@@ -41,12 +54,13 @@ export default function Analytics({ defaultTab = 'projects' }) {
   const fetchAllReportsData = async () => {
     setLoading(true);
     try {
-      const [projRes, taskRes, dwgRes, userRes, leaveRes] = await Promise.all([
+      const [projRes, taskRes, dwgRes, userRes, leaveRes, companySummaryRes] = await Promise.all([
         getProjects().catch(() => null),
         getTasks().catch(() => null),
         getDrawings().catch(() => null),
         getUsersList().catch(() => null),
-        getCompanyLeaves().catch(() => null)
+        getCompanyLeaves().catch(() => null),
+        getCompanyWideSummary().catch(() => null)
       ]);
 
       // 1. Process Projects Report Dynamically

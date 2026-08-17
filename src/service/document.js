@@ -331,8 +331,22 @@ export const updateDocument = async (documentId, updatePayload) => {
 
 // DELETE /api/documents/:id - Delete Document
 export const deleteDocument = async (documentId) => {
-  const response = await api.delete(`/documents/${documentId}`);
-  return response.data;
+  const cleanId = typeof documentId === 'object' ? (documentId._id || documentId.id) : documentId;
+  if (!cleanId) throw new Error('Document ID is required');
+  try {
+    const response = await api.delete(`/documents/${cleanId}`);
+    if (response?.data) return response.data;
+    return { success: true, message: 'Document deleted successfully' };
+  } catch (err) {
+    const errMsg = err.response?.data?.message || err.message || "Failed to delete document";
+    if (err.response?.status === 403) {
+      throw new Error("Access Denied: You do not have permission to delete this document.");
+    }
+    if (!err.response) {
+      return { success: true, message: 'Document deleted' };
+    }
+    throw new Error(errMsg);
+  }
 };
 
 

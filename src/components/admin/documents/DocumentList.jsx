@@ -368,7 +368,7 @@ export default function DocumentList({
                     {doc.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
                   </button>
                   <button
-                    onClick={() => onDeleteFile(doc.id)}
+                    onClick={() => onDeleteFile(doc._id || doc.id)}
                     className="p-1.5 text-slate-400 hover:text-rose-600 border border-slate-205 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
                     title="Delete"
                   >
@@ -468,7 +468,7 @@ export default function DocumentList({
                           {doc.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
                         </button>
                         <button
-                          onClick={() => onDeleteFile(doc.id)}
+                          onClick={() => onDeleteFile(doc._id || doc.id)}
                           className="p-1.5 text-slate-400 hover:text-rose-600 border border-slate-205 hover:bg-rose-50 hover:border-rose-100 rounded-xl shadow-3xs transition-all cursor-pointer"
                           title="Delete document"
                         >

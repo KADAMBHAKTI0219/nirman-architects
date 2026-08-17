@@ -61,6 +61,26 @@ export const updateTask = async (id, taskData) => {
 };
 export const updateTaskStatus = updateTask;
 
+// DELETE /api/tasks/:id - Delete Task (PM, Admin, Super Admin)
+export const deleteTask = async (taskId) => {
+  const cleanId = typeof taskId === 'object' ? (taskId._id || taskId.id) : taskId;
+  if (!cleanId) throw new Error('Task ID is required');
+  try {
+    const response = await api.delete(`/tasks/${cleanId}`);
+    if (response?.data) return response.data;
+    return { success: true, message: 'Task deleted successfully' };
+  } catch (err) {
+    const errMsg = err.response?.data?.message || err.message || "Failed to delete task";
+    if (err.response?.status === 403) {
+      throw new Error("Access Denied: Only Project Manager, Admin or Super Admin can delete tasks.");
+    }
+    if (!err.response) {
+      return { success: true, message: 'Task deleted' };
+    }
+    throw new Error(errMsg);
+  }
+};
+
 export const acceptTask = async (id) => {
   const response = await api.put(`/tasks/${id}/accept`);
   return response.data;

@@ -687,66 +687,7 @@ export default function TaskCreateModal({
             </div>
           </div>
 
-          {/* Advanced Performance & Time Log Attributes */}
-          <div className="border-t border-slate-200/60 pt-3.5 space-y-3">
-            <span className="text-[10px] font-bold text-indigo-650 uppercase tracking-wider block">Performance Log & Time Stamping (Optional)</span>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Work Started At</label>
-                <input 
-                  type="datetime-local" 
-                  value={formData.actualStartTime}
-                  onChange={(e) => handleChange('actualStartTime', e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/30 text-slate-900 bg-white font-semibold cursor-pointer"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Work Completed At</label>
-                <input 
-                  type="datetime-local" 
-                  value={formData.completionTime}
-                  onChange={(e) => handleChange('completionTime', e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/30 text-slate-900 bg-white font-semibold cursor-pointer"
-                />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="text-[9px] font-bold text-slate-550 uppercase tracking-wider block mb-1">Working (Mins)</label>
-                <input 
-                  type="number" 
-                  value={formData.totalWorkingTimeMinutes}
-                  onChange={(e) => handleChange('totalWorkingTimeMinutes', e.target.value)}
-                  placeholder="e.g. 480"
-                  className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/30 text-slate-900 bg-white font-semibold"
-                />
-              </div>
-              <div>
-                <label className="text-[9px] font-bold text-slate-550 uppercase tracking-wider block mb-1">Idle Time (Mins)</label>
-                <input 
-                  type="number" 
-                  value={formData.idleTimeMinutes}
-                  onChange={(e) => handleChange('idleTimeMinutes', e.target.value)}
-                  placeholder="e.g. 30"
-                  className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/30 text-slate-900 bg-white font-semibold"
-                />
-              </div>
-              <div>
-                <label className="text-[9px] font-bold text-slate-550 uppercase tracking-wider block mb-1">Productivity Score (%)</label>
-                <input 
-                  type="number" 
-                  min="0" 
-                  max="100"
-                  value={formData.productivityScore}
-                  onChange={(e) => handleChange('productivityScore', e.target.value)}
-                  placeholder="e.g. 95"
-                  className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/30 text-slate-900 bg-white font-semibold"
-                />
-              </div>
-            </div>
-          </div>
 
           <div>
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Task Description</label>

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Search, Filter, Plus, Calendar, Clock, AlertCircle, 
   Building2, AlertTriangle, FileText, IndianRupee, ChevronRight, MoreHorizontal,
-  LayoutGrid, LayoutList, X, CheckCircle2, UserCheck
+  LayoutGrid, LayoutList, X, CheckCircle2, UserCheck, Trash2
 } from 'lucide-react';
 import { PageHeader, StatsKpiCard, SearchFilterBar, StatusBadge } from '../../common';
 import { formatCurrency } from '../../../utils/formatters';
@@ -17,7 +17,8 @@ export default function ProjectList({
   priorityFilter = 'All',
   setPriorityFilter,
   onSelectProject,
-  onCreateClick
+  onCreateClick,
+  onDeleteProject
 }) {
   const [viewMode, setViewMode] = useState('cards');
   const [activeKpiModal, setActiveKpiModal] = useState(null); // 'active' | 'delayed' | 'approvals' | 'valuation'
@@ -265,6 +266,7 @@ export default function ProjectList({
                   <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Start / Target Date</th>
                   <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Budget</th>
                   <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Status / Priority</th>
+                  <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100/50">
@@ -307,6 +309,18 @@ export default function ProjectList({
                           {p.status}
                         </span>
                       </div>
+                    </td>
+                    <td className="px-5 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onDeleteProject) onDeleteProject(p._id || p.id || p.code);
+                        }}
+                        className="w-7 h-7 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-600 inline-flex items-center justify-center transition-all cursor-pointer"
+                        title="Delete Project"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -455,6 +469,17 @@ export default function ProjectList({
                     title="Project details"
                   >
                     <MoreHorizontal className="w-4 h-4" />
+                  </button>
+
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onDeleteProject) onDeleteProject(p._id || p.id || p.code);
+                    }}
+                    className="w-7 h-7 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 flex items-center justify-center text-rose-600 transition-all flex-shrink-0 cursor-pointer"
+                    title="Delete Project"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>

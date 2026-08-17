@@ -47,6 +47,7 @@ export default function ProjectDetails({
   onBack,
   onUpdateProject,
   onApproveDrawing,
+  onDeleteProject,
   defaultTab = 'timeline'
 }) {
   const userStr = localStorage.getItem('user');
@@ -768,6 +769,17 @@ export default function ProjectDetails({
               <span className={`w-2 h-2 rounded-full ${project.delayFlag ? 'bg-rose-500 animate-ping' : 'bg-emerald-500'}`}></span>
               {project.delayFlag ? 'At Risk / Delayed' : 'Active / On Schedule'}
             </span>
+
+            <button
+              onClick={() => {
+                if (onDeleteProject) onDeleteProject(project._id || project.id || project.code);
+              }}
+              className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-full font-bold text-[11px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-3xs cursor-pointer"
+              title="Delete Project"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+              <span>Delete Project</span>
+            </button>
           </div>
         </div>
 

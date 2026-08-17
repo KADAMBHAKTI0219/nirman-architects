@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   X, User, Clock, FileText, CheckCircle2, ChevronRight, Send, 
-  Paperclip, Activity, FileCheck, Layers, ClipboardList, Plus, Lock, AlertTriangle, AlertCircle, RefreshCw, UserCheck
+  Paperclip, Activity, FileCheck, Layers, ClipboardList, Plus, Lock, AlertTriangle, AlertCircle, RefreshCw, UserCheck, Trash2
 } from 'lucide-react';
 import { 
   acceptTask, rejectTask, startTask, submitTaskForReview, approveTask, completeTask, reassignTask,
@@ -21,12 +21,24 @@ export default function TaskDetails({
   onUpdateProgress,
   onAddComment,
   onToggleChecklist,
-  onUpdateTask
+  onUpdateTask,
+  onDeleteTask
 }) {
   const handleCloseModal = onClose || onBack || (() => {});
 
   const currentUser = getUserFromStorage();
   const canManageTasks = isTaskManagementRole(currentUser);
+
+  const currentUserId = currentUser?._id || currentUser?.id;
+  const currentUserName = currentUser?.name || currentUser?.fullName || currentUser?.email || '';
+
+  const isAssignedEmployee = Boolean(
+    currentUserId && (
+      (task?.assignedEmployee && typeof task.assignedEmployee === 'object' && String(task.assignedEmployee._id || task.assignedEmployee.id) === String(currentUserId)) ||
+      (task?.assignedEmployee && typeof task.assignedEmployee === 'string' && String(task.assignedEmployee) === String(currentUserId)) ||
+      (task?.assignee && (String(task.assignee) === String(currentUserId) || String(task.assignee).toLowerCase() === String(currentUserName).toLowerCase()))
+    )
+  );
 
   // Active Tab: 'overview' | 'checklist' | 'comments' | 'analysis' | 'history'
   const [activeTab, setActiveTab] = useState('overview');
@@ -235,6 +247,10 @@ export default function TaskDetails({
 
   // Toggle checklist checkbox
   const handleToggleCheck = async (itemId) => {
+    if (!isAssignedEmployee) {
+      setActionError("Checklist completion is restricted to the assigned employee.");
+      return;
+    }
     try {
       await toggleChecklistItem(taskId, itemId);
     } catch (e) {}
@@ -245,6 +261,10 @@ export default function TaskDetails({
   // Add checklist item
   const handleAddCheckItem = async (e) => {
     e.preventDefault();
+    if (!isAssignedEmployee) {
+      setActionError("Adding checklist items is restricted to the assigned employee.");
+      return;
+    }
     if (!newCheckItem.trim()) return;
     try {
       const res = await addChecklistItem(taskId, newCheckItem.trim());
@@ -300,12 +320,25 @@ export default function TaskDetails({
             </div>
           </div>
           
-          <button 
-            onClick={handleCloseModal}
-            className="p-2 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-xl transition-all cursor-pointer border border-transparent hover:border-slate-200"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {canManageTasks && (
+              <button
+                onClick={() => {
+                  if (onDeleteTask) onDeleteTask(task._id || task.id);
+                }}
+                className="p-2 hover:bg-rose-50 text-rose-500 hover:text-rose-700 rounded-xl transition-all cursor-pointer border border-rose-200"
+                title="Delete Task"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+            <button 
+              onClick={handleCloseModal}
+              className="p-2 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-xl transition-all cursor-pointer border border-transparent hover:border-slate-200"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Navigation Tabs */}
@@ -367,7 +400,7 @@ export default function TaskDetails({
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
-                  {statusStr === 'Pending' && (
+                  {!canManageTasks && statusStr === 'Pending' && (
                     <>
                       <button 
                         onClick={handleAccept}
@@ -386,7 +419,7 @@ export default function TaskDetails({
                     </>
                   )}
 
-                  {statusStr === 'Accepted' && (
+                  {!canManageTasks && statusStr === 'Accepted' && (
                     <button 
                       onClick={handleStart}
                       disabled={actionLoading}
@@ -396,7 +429,7 @@ export default function TaskDetails({
                     </button>
                   )}
 
-                  {statusStr === 'In Progress' && (
+                  {!canManageTasks && statusStr === 'In Progress' && (
                     <button 
                       onClick={handleSubmitReview}
                       disabled={actionLoading}
@@ -416,7 +449,7 @@ export default function TaskDetails({
                     </button>
                   )}
 
-                  {statusStr === 'Approved' && (
+                  {statusStr === 'Approved' && canManageTasks && (
                     <button 
                       onClick={handleComplete}
                       disabled={actionLoading}
@@ -504,14 +537,27 @@ export default function TaskDetails({
                 <span className="text-xs font-bold text-indigo-600">{checklistData.filter(c => c.isCompleted || c.checked).length} of {checklistData.length} completed</span>
               </div>
 
+              {!isAssignedEmployee && (
+                <div className="px-3.5 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs font-semibold text-amber-800 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Checklist completion is restricted to assigned employee (Assignee: <strong>{task.assignee || task.assignedEmployee?.name || 'Staff'}</strong>)</span>
+                  </div>
+                  <span className="text-[10px] uppercase tracking-wider font-extrabold px-2 py-0.5 bg-amber-100 rounded-md text-amber-900 shrink-0">View Only</span>
+                </div>
+              )}
+
               <div className="space-y-2 max-h-[300px] overflow-y-auto">
                 {checklistData.map((item, idx) => (
-                  <label key={item._id || item.id || idx} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200/60 text-xs text-slate-700 cursor-pointer font-semibold hover:bg-slate-100/60 transition-all">
+                  <label key={item._id || item.id || idx} className={`flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200/60 text-xs text-slate-700 font-semibold transition-all ${
+                    isAssignedEmployee ? 'cursor-pointer hover:bg-slate-100/60' : 'cursor-not-allowed opacity-80'
+                  }`}>
                     <input 
                       type="checkbox"
+                      disabled={!isAssignedEmployee}
                       checked={item.checked || item.isCompleted || false}
                       onChange={() => handleToggleCheck(item._id || item.id || idx)}
-                      className="w-4 h-4 text-emerald-600 rounded border-slate-300 cursor-pointer"
+                      className={`w-4 h-4 text-emerald-600 rounded border-slate-300 ${isAssignedEmployee ? 'cursor-pointer' : 'cursor-not-allowed'}`}
                     />
                     <span className={(item.checked || item.isCompleted) ? 'line-through text-slate-400' : 'text-slate-800'}>
                       {item.text}
@@ -520,21 +566,23 @@ export default function TaskDetails({
                 ))}
               </div>
 
-              <form onSubmit={handleAddCheckItem} className="flex gap-2 pt-2 border-t border-slate-100">
-                <input 
-                  type="text" 
-                  placeholder="Add new checklist item..."
-                  value={newCheckItem}
-                  onChange={(e) => setNewCheckItem(e.target.value)}
-                  className="flex-1 px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 text-xs font-semibold bg-white text-slate-900"
-                />
-                <button 
-                  type="submit"
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1 cursor-pointer transition-all"
-                >
-                  <Plus className="w-4 h-4" /> Add Item
-                </button>
-              </form>
+              {isAssignedEmployee && (
+                <form onSubmit={handleAddCheckItem} className="flex gap-2 pt-2 border-t border-slate-100">
+                  <input 
+                    type="text" 
+                    placeholder="Add new checklist item..."
+                    value={newCheckItem}
+                    onChange={(e) => setNewCheckItem(e.target.value)}
+                    className="flex-1 px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 text-xs font-semibold bg-white text-slate-900"
+                  />
+                  <button 
+                    type="submit"
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1 cursor-pointer transition-all"
+                  >
+                    <Plus className="w-4 h-4" /> Add Item
+                  </button>
+                </form>
+              )}
             </div>
           )}
 

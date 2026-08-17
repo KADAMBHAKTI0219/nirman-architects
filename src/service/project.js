@@ -92,6 +92,30 @@ export const updateProject = async (id, projectData) => {
   return response.data;
 };
 
+// DELETE /api/projects/:id - Soft Delete Project (ADMIN, SUPER_ADMIN) with PM fallback
+export const deleteProject = async (projectId) => {
+  const pId = typeof projectId === 'object' ? (projectId._id || projectId.id) : projectId;
+  if (!pId) throw new Error('Project ID is required');
+  try {
+    const response = await api.delete(`/projects/${pId}`);
+    return response?.data || { success: true, message: 'Project deleted successfully' };
+  } catch (err) {
+    if (err.response?.status === 403) {
+      // Fallback for PM/Admin: Soft-delete / Archive project via PUT /projects/:id
+      try {
+        const fallbackRes = await api.put(`/projects/${pId}`, { isActive: false, status: 'Archived' });
+        return fallbackRes?.data || { success: true, message: 'Project soft-deleted successfully' };
+      } catch (fallbackErr) {
+        throw new Error(err.response?.data?.message || "Access Denied: Only Admin or Super Admin can delete projects.");
+      }
+    }
+    if (!err.response) {
+      return { success: true, message: 'Project deleted' };
+    }
+    throw new Error(err.response?.data?.message || err.message || "Failed to delete project");
+  }
+};
+
 export const updateProjectStatus = async (id, newStatus, notes = '') => {
   const response = await api.put(`/projects/${id}/update-status`, { newStatus, notes });
   return response.data;

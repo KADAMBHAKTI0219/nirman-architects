@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Edit3, Check, AlertCircle } from 'lucide-react';
-import { updateDrawing, getActiveDrawingCategories } from '../../../service/drawing';
+import { X, Edit3, Check, AlertCircle, Trash2 } from 'lucide-react';
+import { updateDrawing, getActiveDrawingCategories, deleteDrawing } from '../../../service/drawing';
 import { getProjects } from '../../../service/project';
 import { useToast } from '../../../context/ToastContext';
 
@@ -65,6 +65,26 @@ export default function DrawingEditModal({
 
   const drawingId = drawing._id || drawing.id;
 
+  const handleChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (fieldErrors[field]) setFieldErrors(prev => ({ ...prev, [field]: null }));
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Are you sure you want to delete drawing "${formData.drawingName}"?`)) return;
+    setLoading(true);
+    try {
+      await deleteDrawing(drawingId);
+      showToast(`Drawing "${formData.drawingName}" deleted successfully!`, "warning", "Drawing Deleted", true);
+      if (onSuccess) onSuccess({ _id: drawingId, id: drawingId, isDeleted: true });
+      onClose();
+    } catch (err) {
+      showToast(err.message || "Failed to delete drawing", "error", "Delete Error", false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const errors = {};
@@ -118,10 +138,8 @@ export default function DrawingEditModal({
               <Edit3 className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-black text-slate-900">Edit Drawing Master</h3>
-              <p className="text-[10px] text-slate-500 font-bold">
-                ID: {drawingId} • Update details & category classification
-              </p>
+              <h3 className="text-base font-extrabold text-slate-900 leading-tight">Edit Drawing Metadata</h3>
+              <p className="text-xs text-slate-500 font-medium">Update title, category, project link & client portal visibility</p>
             </div>
           </div>
           <button 

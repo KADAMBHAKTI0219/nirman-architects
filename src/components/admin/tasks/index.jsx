@@ -8,13 +8,15 @@ import {
   getTasks, createTask, approveTask, completeTask, 
   acceptTask, rejectTask, startTask, submitTaskForReview,
   addChecklistItem, toggleChecklistItem as apiToggleChecklist,
-  addTaskComment, getTaskComments
+  addTaskComment, getTaskComments, deleteTask
 } from '../../../service/task';
+import { useToast } from '../../../context/ToastContext';
 
 export default function Tasks({ filter = 'all' }) {
+  const { showToast } = useToast();
   const [tasks, setTasks] = useState([]);
   const [selectedTask, setSelectedTask] = useState(null);
-  const [viewMode, setViewMode] = useState('kanban'); // kanban, table, reports
+  const [viewMode, setViewMode] = useState('cards'); // cards, table, reports
   const [loading, setLoading] = useState(true);
 
   // Filtering list states
@@ -242,6 +244,22 @@ export default function Tasks({ filter = 'all' }) {
     }
   };
 
+  const handleDeleteTask = async (taskId) => {
+    const target = tasks.find(t => t.id === taskId || t._id === taskId);
+    const taskTitle = target?.title || target?.taskName || 'Task';
+    if (!window.confirm(`Are you sure you want to delete task "${taskTitle}"?`)) return;
+    try {
+      await deleteTask(taskId);
+      setTasks(prev => prev.filter(t => t.id !== taskId && t._id !== taskId));
+      showToast(`Task "${taskTitle}" deleted successfully!`, "warning", "Task Deleted", true);
+      if (selectedTask && (selectedTask.id === taskId || selectedTask._id === taskId)) {
+        setSelectedTask(null);
+      }
+    } catch (err) {
+      showToast(err.message || "Failed to delete task", "error");
+    }
+  };
+
   const displayTasks = tasks.filter(task => {
     if (filter === 'overdue') {
       return task.progress < 100 && (task.delayFlag || new Date(task.deadline) < new Date());
@@ -250,18 +268,9 @@ export default function Tasks({ filter = 'all' }) {
   });
 
   return (
-    <div className="w-full font-sans">
-      {selectedTask ? (
-        <TaskDetails
-          task={selectedTask}
-          onBack={() => setSelectedTask(null)}
-          onUpdateStatus={(newStatus) => handleUpdateTaskStatus(selectedTask.id, newStatus)}
-          onUpdateProgress={(newProgress) => handleUpdateTaskProgress(selectedTask.id, newProgress)}
-          onAddComment={(msg) => handleAddComment(selectedTask.id, msg)}
-          onToggleChecklist={(checklistId) => handleToggleChecklist(selectedTask.id, checklistId)}
-        />
-      ) : viewMode === 'reports' ? (
-        <TaskReports tasks={tasks} onBack={() => setViewMode('kanban')} />
+    <div className="w-full font-sans relative">
+      {viewMode === 'reports' ? (
+        <TaskReports tasks={tasks} onBack={() => setViewMode('cards')} />
       ) : (
         <TaskList
           tasks={displayTasks}
@@ -279,6 +288,21 @@ export default function Tasks({ filter = 'all' }) {
           onSelectTask={(task) => setSelectedTask(task)}
           onCreateTaskClick={() => setIsCreateModalOpen(true)}
           onCreateClick={() => setIsCreateModalOpen(true)}
+          onDeleteTask={handleDeleteTask}
+        />
+      )}
+
+      {/* TASK DETAILS MODAL OVERLAY */}
+      {selectedTask && (
+        <TaskDetails
+          task={selectedTask}
+          onBack={() => setSelectedTask(null)}
+          onClose={() => setSelectedTask(null)}
+          onUpdateStatus={(newStatus) => handleUpdateTaskStatus(selectedTask._id || selectedTask.id, newStatus)}
+          onUpdateProgress={(newProgress) => handleUpdateTaskProgress(selectedTask._id || selectedTask.id, newProgress)}
+          onAddComment={(msg) => handleAddComment(selectedTask._id || selectedTask.id, msg)}
+          onToggleChecklist={(checklistId) => handleToggleChecklist(selectedTask._id || selectedTask.id, checklistId)}
+          onDeleteTask={handleDeleteTask}
         />
       )}
 

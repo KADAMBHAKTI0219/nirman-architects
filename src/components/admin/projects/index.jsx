@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import ProjectList from './ProjectList';
 import ProjectDetails from './ProjectDetails';
 import CreateProjectModal from './CreateProjectModal';
-import { getProjects, createProject } from '../../../service/project';
+import { getProjects, createProject, deleteProject } from '../../../service/project';
 import { useToast } from '../../../context/ToastContext';
 
 export default function Projects({ defaultTab = 'directory' }) {
@@ -166,6 +166,26 @@ export default function Projects({ defaultTab = 'directory' }) {
     showToast(`Drawing ${dwgCode} approved successfully!`, "success");
   };
 
+  const handleDeleteProject = async (projectId) => {
+    const target = projects.find(p => p._id === projectId || p.id === projectId || p.code === projectId);
+    const pName = target?.name || target?.projectName || 'Project';
+    if (!window.confirm(`Are you sure you want to delete project "${pName}"?`)) return;
+    try {
+      await deleteProject(projectId);
+      const updatedList = projects.filter(p => p._id !== projectId && p.id !== projectId && p.code !== projectId);
+      setProjects(updatedList);
+      try {
+        localStorage.setItem('nirman_cached_projects', JSON.stringify(updatedList));
+      } catch (e) {}
+      showToast(`Project "${pName}" deleted successfully!`, "warning", "Project Deleted", true);
+      if (selectedProject && (selectedProject._id === projectId || selectedProject.id === projectId || selectedProject.code === projectId)) {
+        setSelectedProject(null);
+      }
+    } catch (err) {
+      showToast(err.message || "Failed to delete project", "error");
+    }
+  };
+
   return (
     <div className="space-y-6 font-sans">
       
@@ -181,6 +201,7 @@ export default function Projects({ defaultTab = 'directory' }) {
           setPriorityFilter={setPriorityFilter}
           onSelectProject={(p) => setSelectedProject(p)}
           onCreateClick={() => setIsCreateModalOpen(true)}
+          onDeleteProject={handleDeleteProject}
         />
       ) : (
         <ProjectDetails 
@@ -188,6 +209,7 @@ export default function Projects({ defaultTab = 'directory' }) {
           onBack={() => setSelectedProject(null)}
           onUpdateProject={handleUpdateProject}
           onApproveDrawing={handleApproveDrawing}
+          onDeleteProject={handleDeleteProject}
         />
       )}
 

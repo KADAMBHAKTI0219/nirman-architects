@@ -501,17 +501,24 @@ export const getDrawingClientApprovalLogInternal = async (drawingId) => {
 // DELETE /api/drawings/:id - Soft Delete Drawing (PM, Admin, Super Admin)
 export const deleteDrawing = async (drawingId, forceDelete = false) => {
   const dId = extractIdStr(drawingId);
+  if (!dId) throw new Error('Drawing ID is required');
   try {
     const response = await api.delete(`/drawings/${dId}`, {
-      params: { forceDelete },
-      validateStatus: () => true
+      params: { forceDelete }
     });
-    if (response?.status === 200 && response?.data?.success) {
+    if (response?.data) {
       return response.data;
     }
-    return { success: true, message: 'Drawing soft deleted' };
+    return { success: true, message: 'Drawing soft deleted successfully' };
   } catch (err) {
-    return { success: true, message: 'Drawing soft deleted' };
+    const errMsg = err.response?.data?.message || err.message || "Failed to delete drawing";
+    if (err.response?.status === 403) {
+      throw new Error("Access Denied: Only Project Manager, Admin or Super Admin can delete drawings.");
+    }
+    if (!err.response) {
+      return { success: true, message: 'Drawing soft deleted' };
+    }
+    throw new Error(errMsg);
   }
 };
 

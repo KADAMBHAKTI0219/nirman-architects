@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import {
   Search, Lock, Unlock, Eye, CheckCircle, Clock,
   AlertCircle, BarChart2, FolderOpen, ChevronLeft, ChevronRight, ChevronDown, Plus,
-  LayoutGrid, LayoutList, File, Edit3
+  LayoutGrid, LayoutList, File, Edit3, Trash2
 } from 'lucide-react';
-import { getActiveDrawingCategories } from '../../../service/drawing';
+import { getActiveDrawingCategories, deleteDrawing } from '../../../service/drawing';
 import { getProjects } from '../../../service/project';
 
 export const getDrawingStatusBadge = (rawStatus, isGFCLocked = false) => {
@@ -80,6 +80,7 @@ export default function DrawingList({
   onSelectDrawing,
   onUploadClick,
   onLockToggle,
+  onDeleteDrawing,
   setViewReports
 }) {
   const [currentPage, setCurrentPage] = useState(1);
@@ -107,6 +108,21 @@ export default function DrawingList({
       })
       .catch(err => console.warn(err));
   }, []);
+
+  const handleDeleteDrawing = async (e, d) => {
+    e.stopPropagation();
+    const dId = d._id || d.id;
+    const dName = d.drawingName || d.name || d.title || 'Drawing';
+    if (!window.confirm(`Are you sure you want to delete drawing "${dName}"?`)) return;
+    try {
+      await deleteDrawing(dId);
+      if (onDeleteDrawing) {
+        onDeleteDrawing(dId);
+      }
+    } catch (err) {
+      alert("Failed to delete drawing: " + (err.message || 'Error'));
+    }
+  };
 
   // Filtering drawings list safely with null/undefined guards
   const filteredDrawings = (drawings || []).filter(d => {
@@ -554,6 +570,14 @@ export default function DrawingList({
                           title={d.locked ? "Unlock edits" : "Lock GFC Version"}
                         >
                           {d.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+                        </button>
+
+                        <button
+                          onClick={(e) => handleDeleteDrawing(e, d)}
+                          className="w-8 h-8 rounded-full border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition-all shadow-3xs cursor-pointer"
+                          title="Delete Drawing (Soft Delete)"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>

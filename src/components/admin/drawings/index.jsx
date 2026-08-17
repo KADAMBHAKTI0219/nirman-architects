@@ -4,18 +4,21 @@ import DrawingDetails from './DrawingDetails';
 import DrawingCompare from './DrawingCompare';
 import DrawingCreateModal from './DrawingCreateModal';
 import DrawingReports from './DrawingReports';
-import { 
+import {
   getDrawings,
-  getProjectDrawings, 
-  createDrawing, 
-  uploadDrawingVersion, 
+  getProjectDrawings,
+  createDrawing,
+  uploadDrawingVersion,
   getProjectDrawingsBreakdown,
-  cacheDrawingFile, 
-  getCachedDrawingFile 
+  cacheDrawingFile,
+  getCachedDrawingFile,
+  deleteDrawing
 } from '../../../service/drawing';
+import { useToast } from '../../../context/ToastContext';
 import { FileText, CheckCircle, Clock, AlertTriangle, PieChart } from 'lucide-react';
 
 export default function AdminDrawings({ defaultTab = 'vault' }) {
+  const { showToast } = useToast();
   const [drawings, setDrawings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedDrawing, setSelectedDrawing] = useState(null);
@@ -102,7 +105,7 @@ export default function AdminDrawings({ defaultTab = 'vault' }) {
     setLoading(true);
     try {
       const res = await getDrawings({ page: 1, limit: 100 });
-      
+
       let all = [];
       if (res?.drawings && res.drawings.length > 0) all = res.drawings;
       else if (res?.allDrawings && res.allDrawings.length > 0) all = res.allDrawings;
@@ -189,7 +192,7 @@ export default function AdminDrawings({ defaultTab = 'vault' }) {
           fileType: formData.type || 'DWG',
           changeLog: formData.changeLog || 'Initial version release'
         });
-      } catch (e) {}
+      } catch (e) { }
 
       const newLocalDrg = {
         _id: drgId,
@@ -230,7 +233,7 @@ export default function AdminDrawings({ defaultTab = 'vault' }) {
       const newList = prev.map(d => (d._id === updatedDwg._id || d.id === updatedDwg.id || d.drawingNumber === updatedDwg.drawingNumber) ? updatedDwg : d);
       try {
         localStorage.setItem('nirman_drawings', JSON.stringify(newList));
-      } catch (e) {}
+      } catch (e) { }
       return newList;
     });
     if (selectedDrawing && (selectedDrawing._id === updatedDwg._id || selectedDrawing.id === updatedDwg.id || selectedDrawing.drawingNumber === updatedDwg.drawingNumber)) {
@@ -239,7 +242,7 @@ export default function AdminDrawings({ defaultTab = 'vault' }) {
   };
 
   const handleLockToggle = (drawingId) => {
-    setDrawings(prev => prev.map(d => 
+    setDrawings(prev => prev.map(d =>
       d.id === drawingId ? { ...d, locked: !d.locked } : d
     ));
     if (selectedDrawing && selectedDrawing.id === drawingId) {
@@ -247,10 +250,20 @@ export default function AdminDrawings({ defaultTab = 'vault' }) {
     }
   };
 
-  const handleDeleteDrawing = (drawingId) => {
-    if (confirm("Are you sure you want to permanently delete this drawing blueprint from the vault?")) {
-      setDrawings(prev => prev.filter(d => d.id !== drawingId));
-      alert("Drawing blueprint deleted successfully.");
+  const handleDeleteDrawing = async (drawingId) => {
+    const dObj = drawings.find(d => d._id === drawingId || d.id === drawingId);
+    const dName = dObj?.name || dObj?.drawingName || dObj?.title || 'Drawing';
+    if (!window.confirm(`Are you sure you want to delete drawing "${dName}"?`)) return;
+    try {
+      await deleteDrawing(drawingId);
+      setDrawings(prev => prev.filter(d => d.id !== drawingId && d._id !== drawingId));
+      showToast(`Drawing "${dName}" deleted successfully!`, 'warning', 'Drawing Deleted', true);
+      if (selectedDrawing && (selectedDrawing._id === drawingId || selectedDrawing.id === drawingId)) {
+        setViewMode('list');
+        setSelectedDrawing(null);
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to delete drawing', 'error', 'Delete Failed', false);
     }
   };
 
@@ -268,7 +281,7 @@ export default function AdminDrawings({ defaultTab = 'vault' }) {
     <div className="space-y-6">
 
       {/* 25.11 ERP Module 1 & 3 Progress Breakdown Header Bar Removed */}
-      
+
       {viewReports ? (
         <div className="space-y-6">
           <div className="flex justify-between items-center">
@@ -288,7 +301,7 @@ export default function AdminDrawings({ defaultTab = 'vault' }) {
       ) : (
         <>
           {viewMode === 'list' && (
-            <DrawingList 
+            <DrawingList
               drawings={drawings}
               selectedCategory={selectedCategory}
               setSelectedCategory={setSelectedCategory}
@@ -306,7 +319,7 @@ export default function AdminDrawings({ defaultTab = 'vault' }) {
           )}
 
           {viewMode === 'details' && selectedDrawing && (
-            <DrawingDetails 
+            <DrawingDetails
               drawing={selectedDrawing}
               onBack={() => setViewMode('list')}
               onUpdateDrawing={handleUpdateDrawing}
@@ -315,7 +328,7 @@ export default function AdminDrawings({ defaultTab = 'vault' }) {
           )}
 
           {viewMode === 'compare' && selectedDrawing && (
-            <DrawingCompare 
+            <DrawingCompare
               drawing={selectedDrawing}
               onBack={() => setViewMode('list')}
             />
@@ -323,7 +336,7 @@ export default function AdminDrawings({ defaultTab = 'vault' }) {
         </>
       )}
 
-      <DrawingCreateModal 
+      <DrawingCreateModal
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
         onSubmit={handleUploadDrawingSubmit}

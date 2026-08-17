@@ -7,11 +7,12 @@ import {
   promoteToGFC,
   unlockGFC,
   editInPlaceProcessDwg,
-  getClientApprovalLog
+  getClientApprovalLog,
+  deleteDrawing
 } from '../../../service/drawing';
 import {
   ArrowLeft, Lock, Unlock, ZoomIn, ZoomOut, Plus,
-  CheckCircle, PenTool, AlertCircle, FileText, History, ShieldAlert, Upload, Edit3
+  CheckCircle, PenTool, AlertCircle, FileText, History, ShieldAlert, Upload, Edit3, Trash2
 } from 'lucide-react';
 import Card from '../../common/Card';
 import MarkupEditor from '../markup/MarkupEditor';
@@ -268,6 +269,22 @@ export default function DrawingDetails({
     }
   };
 
+  const handleDeleteDrawing = async () => {
+    const dId = liveDrawing?._id || liveDrawing?.id || drawing?._id || drawing?.id;
+    const dName = liveDrawing?.drawingName || liveDrawing?.name || drawing?.drawingName || drawing?.name || 'Drawing';
+    if (!window.confirm(`Are you sure you want to soft-delete drawing "${dName}"?`)) return;
+    setActionLoading(true);
+    try {
+      await deleteDrawing(dId);
+      showToast(`Drawing "${dName}" deleted successfully!`, 'warning', 'Drawing Deleted', true);
+      if (onBack) onBack();
+    } catch (err) {
+      showToast(err.message || 'Failed to delete drawing', 'error', 'Delete Failed', false);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // 25.7 Unlock GFC Handler
   const handleUnlockGFC = async () => {
     if (!unlockReason.trim()) {
@@ -387,6 +404,16 @@ export default function DrawingDetails({
           >
             <Edit3 className="w-4 h-4 text-indigo-300 shrink-0" />
             <span>Edit Details</span>
+          </button>
+
+          <button
+            onClick={handleDeleteDrawing}
+            disabled={actionLoading}
+            className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer border border-rose-200 whitespace-nowrap disabled:opacity-50"
+            title="Delete Drawing (Soft Delete)"
+          >
+            <Trash2 className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>Delete</span>
           </button>
 
           <button

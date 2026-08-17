@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Search, Filter, CheckSquare, Clock, AlertTriangle, CheckCircle,
   Plus, Eye, ListFilter, Kanban, TableProperties, BarChart3, Calendar,
-  User, Building, RefreshCw, ChevronRight, AlertCircle, ArrowUpRight, Sparkles
+  User, Building, RefreshCw, ChevronRight, AlertCircle, ArrowUpRight, Sparkles, Trash2, LayoutGrid
 } from 'lucide-react';
 import Pagination from '../../common/Pagination';
 import { handleKanbanAutoScroll } from '../../../utils/kanbanAutoScroll';
@@ -30,7 +30,8 @@ export default function TaskList({
   setPriorityFilter,
   onSelectTask,
   onStatusChange,
-  onCreateTaskClick
+  onCreateTaskClick,
+  onDeleteTask
 }) {
   const [dragOverCol, setDragOverCol] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -76,13 +77,13 @@ export default function TaskList({
           {/* View switcher */}
           <div className="bg-white p-1 rounded-2xl border border-slate-200 flex items-center gap-1 shadow-3xs">
             <button
-              onClick={() => setViewMode('kanban')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${viewMode === 'kanban' ? 'bg-brand-primary text-slate-900 shadow-3xs' : 'text-slate-500 hover:text-slate-900'
+              onClick={() => setViewMode('cards')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${viewMode === 'cards' || viewMode === 'kanban' ? 'bg-brand-primary text-slate-900 shadow-3xs' : 'text-slate-500 hover:text-slate-900'
                 }`}
-              title="Kanban Board View"
+              title="Cards View"
             >
-              <Kanban className="w-4 h-4" />
-              <span>Kanban</span>
+              <LayoutGrid className="w-4 h-4" />
+              <span>Cards</span>
             </button>
             <button
               onClick={() => setViewMode('table')}
@@ -233,144 +234,99 @@ export default function TaskList({
         </div>
       )}
 
-      {/* 4. KANBAN BOARD VIEW (HORIZONTALLY SCROLLABLE + REAL-TIME DRAG & DROP) */}
-      {viewMode === 'kanban' && (
-        <div className="w-full overflow-x-auto pb-6 pt-1 custom-horizontal-scrollbar">
-          <div className="flex gap-4.5 items-start min-w-max">
-            {STATUS_COLUMNS.map((col) => {
-              const columnTasks = filteredTasks.filter(t => t.status === col.id);
-              const isHoveredOver = dragOverCol === col.id;
+      {/* 4. CARDS GRID VIEW */}
+      {(viewMode === 'cards' || viewMode === 'kanban' || !viewMode) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4.5 pt-1 pb-6">
+          {filteredTasks.length === 0 ? (
+            <div className="col-span-full py-16 text-center bg-white rounded-3xl border border-slate-200 shadow-3xs">
+              <CheckSquare className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <h3 className="text-base font-extrabold text-slate-800">No tasks found</h3>
+              <p className="text-xs text-slate-400 mt-1">Try adjusting your search query or filter parameters.</p>
+            </div>
+          ) : (
+            filteredTasks.map((t) => {
+              const isCritical = t.priority === 'Critical';
+              const isHigh = t.priority === 'High';
+              const isMedium = t.priority === 'Medium';
 
               return (
                 <div
-                  key={col.id}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = 'move';
-                    handleKanbanAutoScroll(e);
-                    if (dragOverCol !== col.id) setDragOverCol(col.id);
-                  }}
-                  onDragLeave={(e) => {
-                    e.preventDefault();
-                    if (dragOverCol === col.id) setDragOverCol(null);
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setDragOverCol(null);
-                    alert("Task status updates are view-only in Admin Panel. Workflow status is updated by assigned team members & PMs.");
-                  }}
-                  className={`w-[300px] min-w-[280px] max-w-[320px] flex-shrink-0 p-4 rounded-3xl flex flex-col min-h-[580px] max-h-[calc(100vh-250px)] border transition-all duration-200 ${
-                    isHoveredOver
-                      ? 'bg-indigo-50/90 border-indigo-400 ring-2 ring-indigo-400/30 scale-[1.01] shadow-md'
-                      : 'bg-slate-50/90 border-slate-200/90 shadow-2xs'
-                  }`}
+                  key={t._id ? `card-${t._id}` : `card-${t.id}`}
+                  onClick={() => onSelectTask(t)}
+                  className={`bg-white p-4.5 rounded-3xl border transition-all duration-200 cursor-pointer flex flex-col justify-between gap-3.5 shadow-2xs hover:shadow-md hover:border-indigo-400 group ${t.delayFlag ? 'border-rose-300 bg-rose-50/30' : 'border-slate-200/90'
+                    }`}
                 >
-
-                  {/* Column Header */}
-                  <div className="flex justify-between items-center mb-3 pb-2.5 border-b border-slate-200/80 px-1">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2.5 h-2.5 rounded-full ${col.dotColor}`}></span>
-                      <span className="font-black text-slate-900 text-xs uppercase tracking-wider">
-                        {col.label}
+                  <div className="space-y-3">
+                    {/* Project Tag & Priority & Status Badge */}
+                    <div className="flex justify-between items-center gap-2">
+                      <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider truncate max-w-[140px] border border-slate-200/80 group-hover:bg-indigo-50 group-hover:text-indigo-700 group-hover:border-indigo-200 transition-colors">
+                        {t.project || t.projectName || 'General'}
                       </span>
-                    </div>
-                    <span className={`text-[10px] font-mono font-black px-2.5 py-0.5 rounded-full border ${col.badgeStyle}`}>
-                      {columnTasks.length}
-                    </span>
-                  </div>
-
-                  {/* Column Task Cards Scroll Container */}
-                  <div className="flex-1 overflow-y-auto pt-1 pb-2 px-0.5 space-y-3 custom-scrollbar">
-                    {columnTasks.map((t) => {
-                      const isCritical = t.priority === 'Critical';
-                      const isHigh = t.priority === 'High';
-                      const isMedium = t.priority === 'Medium';
-
-                      return (
-                        <div
-                          key={t._id ? `col-${col.id}-${t._id}` : `col-${col.id}-${t.id}-${Math.random()}`}
-                          draggable={true}
-                          onDragStart={(e) => {
-                            e.dataTransfer.setData('text/plain', t.id);
-                            e.dataTransfer.effectAllowed = 'move';
-                          }}
-                          onClick={() => onSelectTask(t)}
-                          className={`bg-white p-4 rounded-2xl border transition-all duration-200 cursor-grab active:cursor-grabbing flex flex-col justify-between gap-3 shadow-2xs hover:shadow-md hover:border-indigo-400 group ${
-                            t.delayFlag ? 'border-rose-300 bg-rose-50/30' : 'border-slate-200/90'
-                          }`}
-                        >
-                          <div className="space-y-2.5">
-                            {/* Project Tag & Priority Badge */}
-                            <div className="flex justify-between items-center gap-2">
-                              <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-[9px] font-black uppercase tracking-wider truncate max-w-[150px] border border-slate-200/80 group-hover:bg-indigo-50 group-hover:text-indigo-700 group-hover:border-indigo-200 transition-colors">
-                                {t.project}
-                              </span>
-                              <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg border flex-shrink-0 ${
-                                isCritical ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                                isHigh ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                isMedium ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
-                                'bg-slate-100 text-slate-700 border-slate-200'
-                              }`}>
-                                {t.priority}
-                              </span>
-                            </div>
-
-                            {/* Task Title */}
-                            <h4 className="text-xs sm:text-sm font-extrabold text-slate-900 leading-snug line-clamp-2 group-hover:text-indigo-600 transition-colors">
-                              {t.title}
-                            </h4>
-
-                            {/* Task ID */}
-                            <span className="text-[10px] font-mono font-extrabold text-slate-400 block tracking-wider">
-                              {t.id}
-                            </span>
-
-                            {/* Mini Progress Bar */}
-                            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden my-1">
-                              <div
-                                className={`h-full rounded-full transition-all duration-300 ${
-                                  t.progress === 100 ? 'bg-emerald-500' : 'bg-indigo-600'
-                                }`}
-                                style={{ width: `${t.progress || 0}%` }}
-                              ></div>
-                            </div>
-                          </div>
-
-                          {/* Assignee & Time Footer */}
-                          <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2 text-xs font-semibold">
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                              <div className="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center text-[9px] font-black uppercase shadow-3xs flex-shrink-0">
-                                {(t.assignee || 'User').split(' ').map(n => n[0]).join('')}
-                              </div>
-                              <span className="font-bold text-slate-700 truncate min-w-0 flex-1 text-xs">{t.assignee}</span>
-                            </div>
-
-                            <div className="flex items-center gap-1 font-mono font-extrabold text-slate-600 bg-slate-50 border border-slate-200/80 px-2 py-1 rounded-lg flex-shrink-0 text-[11px]">
-                              <Clock className="w-3 h-3 text-slate-400" />
-                              <span>{t.estTime || '8'}h</span>
-                              {t.delayFlag && (
-                                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping ml-0.5" title="Overdue Alert"></span>
-                              )}
-                            </div>
-                          </div>
-
-                        </div>
-                      );
-                    })}
-
-                    {columnTasks.length === 0 && (
-                      <div className="py-14 text-center bg-white/70 border border-dashed border-slate-200/90 rounded-2xl flex flex-col items-center justify-center space-y-1">
-                        <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block">
-                          {isHoveredOver ? 'Drop Task Here' : 'No tasks in stage'}
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg border ${isCritical ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                          isHigh ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                            isMedium ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                              'bg-slate-100 text-slate-700 border-slate-200'
+                          }`}>
+                          {t.priority || 'Medium'}
+                        </span>
+                        <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-lg text-[9px] font-bold uppercase">
+                          {t.status || 'Pending'}
                         </span>
                       </div>
-                    )}
+                    </div>
+
+                    {/* Task Title */}
+                    <h4 className="text-sm font-extrabold text-slate-900 leading-snug line-clamp-2 group-hover:text-indigo-600 transition-colors">
+                      {t.title || t.taskName}
+                    </h4>
+
+                    {/* Task ID */}
+                    <span className="text-[10px] font-mono font-extrabold text-slate-400 block tracking-wider">
+                      {t.id || t._id}
+                    </span>
+
+                    {/* Mini Progress Bar */}
+                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden my-1">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${t.progress === 100 ? 'bg-emerald-500' : 'bg-indigo-600'
+                          }`}
+                        style={{ width: `${t.progress || 0}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  {/* Assignee & Actions Footer */}
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs font-semibold">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <div className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-black uppercase shadow-3xs flex-shrink-0">
+                        {(t.assignee || t.assignedEmployee?.name || 'User').split(' ').map(n => n[0]).join('')}
+                      </div>
+                      <span className="font-bold text-slate-700 truncate min-w-0 flex-1 text-xs">{t.assignee || t.assignedEmployee?.name || 'Assigned Staff'}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onDeleteTask) onDeleteTask(t._id || t.id);
+                        }}
+                        className="p-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 rounded-xl transition-all shadow-3xs cursor-pointer"
+                        title="Delete Task"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                      <div className="flex items-center gap-1 font-mono font-extrabold text-slate-600 bg-slate-50 border border-slate-200/80 px-2 py-1 rounded-lg text-[11px]">
+                        <Clock className="w-3 h-3 text-slate-400" />
+                        <span>{t.estTime || '8'}h</span>
+                      </div>
+                    </div>
                   </div>
 
                 </div>
               );
-            })}
-          </div>
+            })
+          )}
         </div>
       )}
 
@@ -427,13 +383,24 @@ export default function TaskList({
                     </td>
                     <td className="px-5 py-4 font-mono text-slate-600">{t.estTime || '8'} hrs</td>
                     <td className="px-5 py-4 text-right">
-                      <button
-                        onClick={() => onSelectTask(t)}
-                        className="px-3.5 py-1.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 text-xs font-extrabold rounded-xl transition-all shadow-3xs cursor-pointer flex items-center gap-1 ml-auto"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>Inspect</span>
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => onSelectTask(t)}
+                          className=" p-1.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 text-xs font-extrabold rounded-xl transition-all shadow-3xs cursor-pointer "
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onDeleteTask) onDeleteTask(t._id || t.id);
+                          }}
+                          className="p-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 rounded-xl transition-all shadow-3xs cursor-pointer"
+                          title="Delete Task"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
