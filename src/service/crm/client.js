@@ -5,14 +5,21 @@ import api from '../auth';
 // ==========================================
 
 export const createClient = async (payload) => {
+  const emailToUse = payload.email || payload.primaryContactEmail || '';
+  const contactEmailToUse = payload.primaryContactEmail || payload.email || '';
+  const nameToUse = payload.name || payload.clientName || payload.primaryContactName || '';
+  const contactNameToUse = payload.primaryContactName || payload.name || payload.clientName || '';
+  const phoneToUse = payload.phone || payload.primaryContactPhone || '';
+  const contactPhoneToUse = payload.primaryContactPhone || payload.phone || '';
+
   const formattedPayload = {
-    name: payload.name || payload.clientName,
-    companyName: payload.companyName || payload.name,
-    email: payload.email || payload.primaryContactEmail,
-    phone: payload.phone || payload.primaryContactPhone,
-    primaryContactName: payload.primaryContactName || payload.name,
-    primaryContactEmail: payload.primaryContactEmail || payload.email,
-    primaryContactPhone: payload.primaryContactPhone || payload.phone,
+    name: nameToUse,
+    companyName: payload.companyName || nameToUse,
+    email: emailToUse,
+    phone: phoneToUse,
+    primaryContactName: contactNameToUse,
+    primaryContactEmail: contactEmailToUse,
+    primaryContactPhone: contactPhoneToUse,
     billingAddress: payload.billingAddress || payload.address || '',
     siteAddresses: payload.siteAddresses || (payload.siteAddress ? [payload.siteAddress] : [])
   };
@@ -33,8 +40,8 @@ export const createClient = async (payload) => {
 
 export const getClients = async (params = {}) => {
   try {
-    const response = await api.get('/clients', { params });
-    if (response.data) {
+    const response = await api.get('/clients', { params, validateStatus: () => true });
+    if (response?.status === 200 && response.data) {
       if (Array.isArray(response.data)) {
         return { success: true, clients: response.data };
       }
@@ -49,10 +56,9 @@ export const getClients = async (params = {}) => {
       }
       return { success: true, clients: response.data.clients || [] };
     }
-    return { success: true, clients: [] };
+    return { success: false, clients: [] };
   } catch (err) {
-    console.warn("getClients API error:", err);
-    return { success: false, clients: [], message: err.response?.data?.message || err.message };
+    return { success: false, clients: [], message: err.message };
   }
 };
 

@@ -38,17 +38,32 @@ export default function ClientChat() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const projRes = await getProjects().catch(() => null);
-      const projList = projRes?.projects || (Array.isArray(projRes) ? projRes : []);
+      let clientChannels = [];
 
-      const clientChannels = projList.map((p, idx) => ({
-        id: p._id || p.id || `proj-client-${idx + 1}`,
-        name: p.projectName || p.name || `Client Project #${idx + 1}`,
-        clientName: p.client || p.clientName || 'Client Representative',
-        subtitle: `Client Scope: ${p.client || p.clientName || 'Authorized Account'}`,
-        lastMessage: p.status ? `Project Status: ${p.status}` : 'Client communication workspace',
-        time: 'Active'
-      }));
+      if (isClientUser) {
+        const { getClientDashboard } = await import('../../../service/crm/clientPortal');
+        const dashRes = await getClientDashboard().catch(() => null);
+        const projs = dashRes?.activeProjects || [];
+        clientChannels = projs.map(p => ({
+          id: p.projectId || p._id || p.id,
+          name: p.projectCategory ? `${p.projectCategory} / ${p.projectName || p.name}` : (p.code ? `${p.code} / ${p.projectName || p.name}` : (p.projectName || p.name || 'Client Project Workspace')),
+          clientName: p.clientName || 'Client Account',
+          subtitle: `Project Code: ${p.code || 'PRJ'}`,
+          lastMessage: `Status: ${p.status || 'Active'}`,
+          time: 'Active'
+        }));
+      } else {
+        const projRes = await getProjects().catch(() => null);
+        const projList = projRes?.projects || (Array.isArray(projRes) ? projRes : []);
+        clientChannels = projList.map((p, idx) => ({
+          id: p._id || p.id || `proj-client-${idx + 1}`,
+          name: p.projectCategory ? `${p.projectCategory} / ${p.projectName || p.name}` : (p.code ? `${p.code} / ${p.projectName || p.name}` : (p.projectName || p.name || `Client Project #${idx + 1}`)),
+          clientName: p.client || p.clientName || 'Client Representative',
+          subtitle: `Client Scope: ${p.client || p.clientName || 'Authorized Account'}`,
+          lastMessage: p.status ? `Project Status: ${p.status}` : 'Client communication workspace',
+          time: 'Active'
+        }));
+      }
 
       if (clientChannels.length === 0) {
         clientChannels.push({
@@ -64,17 +79,19 @@ export default function ClientChat() {
       setConversations(clientChannels);
       if (clientChannels.length > 0) setActiveProjectId(clientChannels[0].id);
 
-      // Dynamic Client Participants list from CRM API
-      const clientRes = await getClients().catch(() => null);
-      if (clientRes && (clientRes.clients || Array.isArray(clientRes.data) || Array.isArray(clientRes))) {
-        const cList = clientRes.clients || clientRes.data || (Array.isArray(clientRes) ? clientRes : []);
-        const pList = cList.map(c => ({
-          id: c._id || c.id,
-          name: c.name || c.contactPerson || c.clientName || c.email,
-          role: c.companyName || 'Client Representative',
-          email: c.email
-        }));
-        setClientParticipants(pList);
+      // Dynamic Client Participants list from CRM API (Internal Staff Only)
+      if (!isClientUser) {
+        const clientRes = await getClients().catch(() => null);
+        if (clientRes && (clientRes.clients || Array.isArray(clientRes.data) || Array.isArray(clientRes))) {
+          const cList = clientRes.clients || clientRes.data || (Array.isArray(clientRes) ? clientRes : []);
+          const pList = cList.map(c => ({
+            id: c._id || c.id,
+            name: c.name || c.contactPerson || c.clientName || c.email,
+            role: c.companyName || 'Client Representative',
+            email: c.email
+          }));
+          setClientParticipants(pList);
+        }
       }
     } catch (e) {
       console.warn("Error loading dynamic client chat channels:", e);

@@ -193,10 +193,10 @@ export const getClientDashboard = async () => {
 };
 
 export const getClientProjectDetail = async (projectId) => {
-  if (!projectId) return { success: false, project: null };
+  if (!projectId || !isValidMongoId(projectId)) return { success: false, project: null, message: 'Invalid project ID format' };
 
   try {
-    const response = await api.get(`/client/projects/${projectId}`, { validateStatus: status => status === 200 });
+    const response = await api.get(`/client/projects/${projectId}`, { validateStatus: () => true });
     if (response?.status === 200 && response.data && (response.data.success || response.data.project)) {
       const data = response.data;
       if (data.project) {
@@ -239,10 +239,10 @@ export const getClientProjectDetail = async (projectId) => {
 };
 
 export const getClientProjectMilestones = async (projectId) => {
-  if (!projectId) return { success: false, milestones: [] };
+  if (!projectId || !isValidMongoId(projectId)) return { success: true, milestones: [] };
 
   try {
-    const response = await api.get(`/client/projects/${projectId}/milestones`, { validateStatus: status => status === 200 });
+    const response = await api.get(`/client/projects/${projectId}/milestones`, { validateStatus: () => true });
     if (response?.status === 200 && response.data && Array.isArray(response.data.milestones)) {
       return response.data;
     }
@@ -259,10 +259,10 @@ export const getClientProjectMilestones = async (projectId) => {
 };
 
 export const getClientProjectTimeline = async (projectId) => {
-  if (!projectId) return { success: false, timeline: [] };
+  if (!projectId || !isValidMongoId(projectId)) return { success: true, timeline: [] };
 
   try {
-    const response = await api.get(`/client/projects/${projectId}/timeline`, { validateStatus: status => status === 200 });
+    const response = await api.get(`/client/projects/${projectId}/timeline`, { validateStatus: () => true });
     if (response?.status === 200 && response.data && Array.isArray(response.data.timeline)) {
       return response.data;
     }

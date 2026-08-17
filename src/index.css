@@ -444,3 +444,41 @@ select:-webkit-autofill {
   caret-color: #0F172A !important;
   transition: background-color 50000s ease-in-out 0s !important;
 }
+
+/* ==========================================================================
+   GLOBAL INTERACTIVE CURSOR POINTER (HAND CURSOR 👆) RULE
+   Applies pointer cursor to all buttons, submits, links, tabs, and clickables
+   ========================================================================== */
+button,
+[type='button'],
+[type='reset'],
+[type='submit'],
+[role='button'],
+summary,
+a,
+select,
+label,
+input[type='checkbox'],
+input[type='radio'],
+input[type='file'],
+input[type='submit'],
+input[type='button'],
+.cursor-pointer,
+[onClick],
+[onclick] {
+  cursor: pointer !important;
+}
+
+/* Ensure disabled interactive elements maintain standard disabled state */
+button:disabled,
+[type='button']:disabled,
+[type='reset']:disabled,
+[type='submit']:disabled,
+[role='button'][aria-disabled='true'],
+input:disabled,
+select:disabled,
+textarea:disabled,
+.disabled,
+.cursor-not-allowed {
+  cursor: not-allowed !important;
+}

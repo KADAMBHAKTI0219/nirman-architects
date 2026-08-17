@@ -1,30 +1,31 @@
-import React, { lazy, Suspense } from 'react';
+import React, { Suspense } from 'react';
 import { Route } from 'react-router-dom';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 import BrandLoader from '../components/common/BrandLoader';
+import lazyWithRetry from '../utils/lazyWithRetry';
 
 // Lazy-loaded route components for high performance and minimal initial bundle size
-const AdminDashboard = lazy(() => import('../components/admin/dashboard/index'));
-const AdminProjects = lazy(() => import('../components/admin/projects/index'));
-const AdminTasks = lazy(() => import('../components/admin/tasks/index'));
-const AdminDrawings = lazy(() => import('../components/admin/drawings/index'));
-const AdminEmployees = lazy(() => import('../components/admin/employees/index'));
-const AdminDepartments = lazy(() => import('../components/admin/departments/index'));
-const AdminDesignations = lazy(() => import('../components/admin/designations/index'));
-const AdminWorkLocations = lazy(() => import('../components/admin/work-locations/index'));
-const AdminRoles = lazy(() => import('../components/admin/roles/index'));
-const AdminAttendance = lazy(() => import('../components/admin/workforce/WorkforceCommandCenter'));
-const AdminHRPayroll = lazy(() => import('../components/admin/hr-payroll/index'));
-const AdminOfferLetters = lazy(() => import('../components/hr/offer-letters/index'));
-const AdminCRM = lazy(() => import('../components/admin/crm/index'));
-const AdminSupportQueries = lazy(() => import('../components/admin/crm/SupportQueryCenter'));
-const AdminFeedbackCenter = lazy(() => import('../components/admin/crm/FeedbackCenter'));
-const AdminDocs = lazy(() => import('../components/admin/documents/index'));
-const AdminAnalytics = lazy(() => import('../components/admin/analytics/index'));
-const AdminNotifications = lazy(() => import('../components/admin/notifications/index'));
-const AdminSettings = lazy(() => import('../components/admin/settings/index'));
-const AdminBI = lazy(() => import('../components/admin/bi/index'));
-const AppUsageTracking = lazy(() => import('../components/admin/app-usage/AppUsageTracking'));
+const AdminDashboard = lazyWithRetry(() => import('../components/admin/dashboard/index'));
+const AdminProjects = lazyWithRetry(() => import('../components/admin/projects/index'));
+const AdminTasks = lazyWithRetry(() => import('../components/admin/tasks/index'));
+const AdminDrawings = lazyWithRetry(() => import('../components/admin/drawings/index'));
+const AdminEmployees = lazyWithRetry(() => import('../components/admin/employees/index'));
+const AdminDepartments = lazyWithRetry(() => import('../components/admin/departments/index'));
+const AdminDesignations = lazyWithRetry(() => import('../components/admin/designations/index'));
+const AdminWorkLocations = lazyWithRetry(() => import('../components/admin/work-locations/index'));
+const AdminRoles = lazyWithRetry(() => import('../components/admin/roles/index'));
+const AdminAttendance = lazyWithRetry(() => import('../components/admin/workforce/WorkforceCommandCenter'));
+const AdminHRPayroll = lazyWithRetry(() => import('../components/admin/hr-payroll/index'));
+const AdminOfferLetters = lazyWithRetry(() => import('../components/hr/offer-letters/index'));
+const AdminCRM = lazyWithRetry(() => import('../components/admin/crm/index'));
+const AdminSupportQueries = lazyWithRetry(() => import('../components/admin/crm/SupportQueryCenter'));
+const AdminFeedbackCenter = lazyWithRetry(() => import('../components/admin/crm/FeedbackCenter'));
+const AdminDocs = lazyWithRetry(() => import('../components/admin/documents/index'));
+const AdminAnalytics = lazyWithRetry(() => import('../components/admin/analytics/index'));
+const AdminNotifications = lazyWithRetry(() => import('../components/admin/notifications/index'));
+const AdminSettings = lazyWithRetry(() => import('../components/admin/settings/index'));
+const AdminBI = lazyWithRetry(() => import('../components/admin/bi/index'));
+const AppUsageTracking = lazyWithRetry(() => import('../components/admin/app-usage/AppUsageTracking'));
 
 const LazyWrap = ({ children }) => (
   <Suspense fallback={<BrandLoader message="Loading Admin Workspace..." />}>

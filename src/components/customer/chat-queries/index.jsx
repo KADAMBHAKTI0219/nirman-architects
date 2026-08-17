@@ -54,25 +54,23 @@ export default function CustomerChatQueries({ userPermissionLevel = 'OWNER' }) {
       const dashRes = await getClientDashboard().catch(() => null);
       if (dashRes?.success && Array.isArray(dashRes.activeProjects) && dashRes.activeProjects.length > 0) {
         projectsList = dashRes.activeProjects;
-      } else {
-        const prjRes = await getProjects().catch(() => null);
-        if (prjRes?.projects && Array.isArray(prjRes.projects) && prjRes.projects.length > 0) {
-          projectsList = prjRes.projects;
-        } else if (prjRes?.data && Array.isArray(prjRes.data)) {
-          projectsList = prjRes.data;
-        }
       }
 
       if (projectsList.length > 0) {
         const channels = projectsList.map((p, idx) => ({
           id: p._id || p.id || p.projectId || `proj-${idx + 1}`,
-          name: p.projectName || p.name || 'Architectural Project Workspace',
+          name: p.projectCategory ? `${p.projectCategory} / ${p.projectName || p.name}` : (p.code ? `${p.code} / ${p.projectName || p.name}` : (p.projectName || p.name || 'Architectural Workspace')),
+          projectName: p.projectName || p.name,
+          projectCategory: p.projectCategory || 'Residential Architecture',
           code: p.code || `PROJ-00${idx + 1}`,
           pm: 'Project Manager & Lead Architect',
           avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80'
         }));
         setProjectChannels(channels);
         if (channels[0]) setProjectId(channels[0].id);
+      } else {
+        setProjectChannels([]);
+        setProjectId('');
       }
     } catch (e) {
       console.warn("Notice project channels:", e);
@@ -119,80 +117,73 @@ export default function CustomerChatQueries({ userPermissionLevel = 'OWNER' }) {
     try {
       const stored = localStorage.getItem(`nirman_client_chat_${projectId}`);
       if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          setMessages(parsed);
-          setLoading(false);
-          return;
-        }
+        setMessages(JSON.parse(stored));
+      } else {
+        setMessages([]);
       }
-    } catch (e) {}
-
-    setMessages([]);
-    setLoading(false);
+    } catch (e) {
+      setMessages([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    fetchChatData();
+    if (projectId) fetchChatData();
   }, [projectId]);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    if (!newMsgText.trim()) return;
+  const activePermission = currentUser?.permissionLevel || userPermissionLevel || 'OWNER';
+  const isViewOnly = String(activePermission).toUpperCase() === 'VIEW_ONLY';
 
-    if (userPermissionLevel === 'VIEW_ONLY') {
-      alert("HTTP 403 Forbidden: VIEW_ONLY contact level cannot post chat messages.");
-      return;
-    }
+  const handleSendMessage = async (e) => {
+    if (e) e.preventDefault();
+    if (!newMsgText.trim() || isViewOnly) return;
 
     const payload = {
+      projectId,
       messageText: newMsgText.trim(),
-      replyToMessageId: replyToMsg?._id || replyToMsg?.id || null,
-      mentionedIds: []
+      replyToMessageId: replyToMsg ? replyToMsg._id : null
     };
 
-    // Endpoint 19.4: Batch sync messages composed while offline
     if (!navigator.onLine) {
-      const offlineItem = {
+      const offlineMsg = {
+        _id: 'offline-' + Date.now(),
+        authorType: 'CLIENT_CONTACT',
+        authorId: { name: currentUser?.name || 'You', permissionLevel: activePermission },
+        formattedAuthorName: `${currentUser?.name || 'You'} (${activePermission})`,
         messageText: newMsgText.trim(),
+        sentAt: new Date().toISOString(),
         localComposedAt: new Date().toISOString(),
-        replyToMessageId: replyToMsg?._id || replyToMsg?.id || null
+        isPendingSync: true
       };
-      setOfflineQueue(prev => [...prev, offlineItem]);
-      setMessages(prev => {
-        const updated = [...prev, {
-          _id: 'off_' + Date.now(),
-          projectId,
-          formattedAuthorName: 'You (Offline Draft)',
-          messageText: newMsgText.trim(),
-          sentAt: new Date().toISOString(),
-          isOfflineSync: true,
-          isSelf: true
-        }];
-        try { localStorage.setItem(`nirman_client_chat_${projectId}`, JSON.stringify(updated)); } catch (e) {}
-        return updated;
-      });
+
+      setOfflineQueue(prev => [...prev, payload]);
+      setMessages(prev => [...prev, offlineMsg]);
       setNewMsgText('');
       setReplyToMsg(null);
       return;
     }
 
+    try {
+      const res = await sendClientChatMessage(projectId, payload);
+      if (res && (res.message || res.data?.message || res.success)) {
+        fetchChatData();
+      }
+    } catch (err) {}
+
     const newMsgObj = {
-      _id: 'msg-cust-' + Date.now(),
-      projectId,
-      formattedAuthorName: currentUser?.name || 'Client Contact',
-      senderName: currentUser?.name || 'Client Contact',
+      _id: 'msg-' + Date.now(),
+      authorType: 'CLIENT_CONTACT',
+      authorId: { name: currentUser?.name || 'You', permissionLevel: activePermission },
+      formattedAuthorName: `${currentUser?.name || 'You'} (${activePermission})`,
       messageText: newMsgText.trim(),
       sentAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      isSelf: true
+      replyToMessageId: replyToMsg
     };
-
-    sendClientChatMessage(projectId, payload).catch(() => null);
 
     setMessages(prev => {
       const updated = [...prev, newMsgObj];
@@ -221,14 +212,7 @@ export default function CustomerChatQueries({ userPermissionLevel = 'OWNER' }) {
     }
   };
 
-  const displayChannels = projectChannels.length > 0
-    ? projectChannels
-    : (isMockSession()
-        ? [
-            { id: 'proj-1', name: 'Architectural Project Workspace', code: 'PROJ-001', pm: 'Project Manager & Lead Architect', avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80' }
-          ]
-        : []
-      );
+  const displayChannels = projectChannels;
 
   const currentChannel = displayChannels.find(p => p.id === projectId) || displayChannels[0];
 

@@ -211,7 +211,13 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
 
   const handleClientFormSubmit = async (e) => {
     e.preventDefault();
-    if (!clientFormData.name.trim() || !clientFormData.primaryContactName.trim() || !clientFormData.primaryContactEmail.trim() || !clientFormData.phone.trim()) {
+    const cName = clientFormData.name.trim();
+    const cPhone = clientFormData.phone.trim();
+    const cEmail = clientFormData.email.trim() || clientFormData.primaryContactEmail.trim();
+    const pEmail = clientFormData.primaryContactEmail.trim() || cEmail;
+    const pName = clientFormData.primaryContactName.trim() || cName;
+
+    if (!cName || !cPhone || !pName || !pEmail) {
       setClientFormError("Please fill out all required fields marked with an asterisk (*).");
       return;
     }
@@ -219,15 +225,15 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
     setClientFormError('');
     try {
       const res = await createClient({
-        name: clientFormData.name.trim(),
-        companyName: clientFormData.companyName.trim() || clientFormData.name.trim(),
-        phone: clientFormData.phone.trim(),
-        email: clientFormData.email.trim() || clientFormData.primaryContactEmail.trim(),
+        name: cName,
+        companyName: clientFormData.companyName.trim() || cName,
+        phone: cPhone,
+        email: cEmail,
         billingAddress: clientFormData.billingAddress.trim(),
         siteAddress: clientFormData.siteAddress.trim(),
-        primaryContactName: clientFormData.primaryContactName.trim(),
-        primaryContactEmail: clientFormData.primaryContactEmail.trim(),
-        primaryContactPhone: clientFormData.primaryContactPhone.trim() || clientFormData.phone.trim()
+        primaryContactName: pName,
+        primaryContactEmail: pEmail,
+        primaryContactPhone: clientFormData.primaryContactPhone.trim() || cPhone
       });
 
       if (res?.success) {

@@ -134,22 +134,38 @@ export default function CRMClientList({
     const { name, value } = e.target;
     if (name === 'phone' || name === 'primaryContactPhone') {
       const digits = value.replace(/\D/g, '').slice(0, 10);
-      setFormData(prev => ({ ...prev, [name]: digits }));
+      setFormData(prev => ({
+        ...prev,
+        [name]: digits,
+        ...(name === 'phone' && (!prev.primaryContactPhone || prev.primaryContactPhone === prev.phone) ? { primaryContactPhone: digits } : {})
+      }));
       return;
     }
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+      ...(name === 'email' && (!prev.primaryContactEmail || prev.primaryContactEmail === prev.email) ? { primaryContactEmail: value } : {}),
+      ...(name === 'primaryContactEmail' && (!prev.email || prev.email === prev.primaryContactEmail) ? { email: value } : {}),
+      ...(name === 'name' && (!prev.primaryContactName || prev.primaryContactName === prev.name) ? { primaryContactName: value } : {})
+    }));
   };
 
   const handleCreateClientSubmit = async (e) => {
     e.preventDefault();
     setModalError('');
 
-    if (!formData.name.trim() || !formData.phone.trim() || !formData.primaryContactName.trim() || !formData.primaryContactEmail.trim()) {
+    const clientName = formData.name.trim();
+    const companyPhone = formData.phone.trim();
+    const contactName = formData.primaryContactName.trim() || clientName;
+    const clientEmail = formData.email.trim() || formData.primaryContactEmail.trim();
+    const contactEmail = formData.primaryContactEmail.trim() || clientEmail;
+
+    if (!clientName || !companyPhone || !contactName || !contactEmail) {
       setModalError('Client name, phone, primary contact name, and primary contact email are required.');
       return;
     }
 
-    if (formData.phone.trim().length !== 10) {
+    if (companyPhone.length !== 10) {
       setModalError('Company Phone number must be exactly 10 digits.');
       return;
     }
@@ -157,15 +173,15 @@ export default function CRMClientList({
     setSubmitting(true);
     try {
       const res = await createClient({
-        name: formData.name.trim(),
-        companyName: formData.companyName.trim() || null,
-        phone: formData.phone.trim(),
-        email: formData.email.trim() || formData.primaryContactEmail.trim(),
+        name: clientName,
+        companyName: formData.companyName.trim() || clientName,
+        phone: companyPhone,
+        email: clientEmail,
         billingAddress: formData.billingAddress.trim() || null,
         siteAddresses: formData.siteAddress.trim() ? [formData.siteAddress.trim()] : [],
-        primaryContactName: formData.primaryContactName.trim(),
-        primaryContactEmail: formData.primaryContactEmail.trim(),
-        primaryContactPhone: formData.primaryContactPhone.trim() || formData.phone.trim()
+        primaryContactName: contactName,
+        primaryContactEmail: contactEmail,
+        primaryContactPhone: formData.primaryContactPhone.trim() || companyPhone
       });
 
       if (res?.success) {

@@ -16,10 +16,11 @@ import getCustomerRoutes from './CustomerRoutes';
 // Site Engineer explicit routes from PRD
 import DashboardLayout from '../components/layouts/DashboardLayout';
 import BrandLoader from '../components/common/BrandLoader';
+import lazyWithRetry from '../utils/lazyWithRetry';
 
-const SiteAttendance = React.lazy(() => import('../components/site-engineer/attendance/index'));
-const InternalChat = React.lazy(() => import('../features/chat/internal/InternalChat'));
-const ClientChat = React.lazy(() => import('../features/chat/client/ClientChat'));
+const SiteAttendance = lazyWithRetry(() => import('../components/site-engineer/attendance/index'));
+const InternalChat = lazyWithRetry(() => import('../features/chat/internal/InternalChat'));
+const ClientChat = lazyWithRetry(() => import('../features/chat/client/ClientChat'));
 
 export default function AppRoutes({ role, setRole, isAuthenticated, setIsAuthenticated }) {
   const navigate = useNavigate();

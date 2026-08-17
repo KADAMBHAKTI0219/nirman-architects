@@ -1,17 +1,18 @@
-import React, { lazy, Suspense } from 'react';
+import React, { Suspense } from 'react';
 import { Route } from 'react-router-dom';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 import BrandLoader from '../components/common/BrandLoader';
+import lazyWithRetry from '../utils/lazyWithRetry';
 
-const CustomerDashboard = lazy(() => import('../components/customer/dashboard/index'));
-const CustomerTimeline = lazy(() => import('../components/customer/timeline/index'));
-const CustomerDrawings = lazy(() => import('../components/customer/drawings/index'));
-const CustomerPhotos3D = lazy(() => import('../components/customer/photos-3d/index'));
-const CustomerSupportQueries = lazy(() => import('../components/customer/support-queries/index'));
-const CustomerFeedback = lazy(() => import('../components/customer/feedback/index'));
-const CustomerChat = lazy(() => import('../components/customer/chat-queries/index'));
-const CustomerNotifications = lazy(() => import('../components/customer/notifications/index'));
-const CustomerHistory = lazy(() => import('../components/customer/history/index'));
+const CustomerDashboard = lazyWithRetry(() => import('../components/customer/dashboard/index'));
+const CustomerTimeline = lazyWithRetry(() => import('../components/customer/timeline/index'));
+const CustomerDrawings = lazyWithRetry(() => import('../components/customer/drawings/index'));
+const CustomerPhotos3D = lazyWithRetry(() => import('../components/customer/photos-3d/index'));
+const CustomerSupportQueries = lazyWithRetry(() => import('../components/customer/support-queries/index'));
+const CustomerFeedback = lazyWithRetry(() => import('../components/customer/feedback/index'));
+const CustomerChat = lazyWithRetry(() => import('../components/customer/chat-queries/index'));
+const CustomerNotifications = lazyWithRetry(() => import('../components/customer/notifications/index'));
+const CustomerHistory = lazyWithRetry(() => import('../components/customer/history/index'));
 
 const LazyWrap = ({ children }) => (
   <Suspense fallback={<BrandLoader message="Loading Client Portal..." />}>
