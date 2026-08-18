@@ -3,6 +3,8 @@ import { X, Upload, AlertCircle, FileText, CheckCircle2 } from 'lucide-react';
 import { uploadDrawingVersion } from '../../../service/drawing';
 import { useToast } from '../../../context/ToastContext';
 
+import CustomSelect from '../../common/CustomSelect';
+
 export default function DrawingVersionModal({
   isOpen,
   onClose,
@@ -150,19 +152,18 @@ export default function DrawingVersionModal({
           </div>
 
           <div>
-            <label className="block text-[11px] font-extrabold text-slate-600 uppercase tracking-wider mb-1">
-              FILE TYPE FORMAT <span className="text-red-500 font-bold ml-0.5">*</span>
-            </label>
-            <select
+            <CustomSelect
+              label="FILE TYPE FORMAT"
+              required
               value={fileTypeFormat}
-              onChange={(e) => setFileTypeFormat(e.target.value)}
-              className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-            >
-              <option value="JPEG">JPEG (.jpeg, .jpg)</option>
-              <option value="PNG">PNG (.png)</option>
-              <option value="PDF">PDF (.pdf)</option>
-              <option value="DWG">DWG (.dwg)</option>
-            </select>
+              onChange={(val) => setFileTypeFormat(val)}
+              options={[
+                { value: 'JPEG', label: 'JPEG (.jpeg, .jpg)' },
+                { value: 'PNG', label: 'PNG (.png)' },
+                { value: 'PDF', label: 'PDF (.pdf)' },
+                { value: 'DWG', label: 'DWG (.dwg)' }
+              ]}
+            />
           </div>
 
           <div>

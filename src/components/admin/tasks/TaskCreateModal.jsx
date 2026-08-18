@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, RefreshCw, Plus, Trash2, Link, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, RefreshCw, Plus, Trash2, Link, FileText, CheckCircle2, AlertCircle, Upload } from 'lucide-react';
 import { getProjects } from '../../../service/project';
 import { getUsersList } from '../../../service/auth';
 import { getTasks } from '../../../service/task';
@@ -7,6 +7,7 @@ import { getDepartments, parseDepartments, getCleanDepartmentName } from '../../
 import { useToast } from '../../../context/ToastContext';
 import { FieldError } from '../../../utils/validation';
 import CalendarDatePicker from '../../common/CalendarDatePicker';
+import CustomSelect from '../../common/CustomSelect';
 
 export default function TaskCreateModal({
   isOpen,
@@ -415,43 +416,30 @@ export default function TaskCreateModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                Select Project <span className="text-rose-500 font-bold ml-0.5">*</span>
-              </label>
-              <select 
+              <CustomSelect
+                label="Select Project"
+                required
                 value={formData.projectId}
-                onChange={(e) => handleChange('projectId', e.target.value)}
-                className={`w-full px-3.5 py-2.5 text-xs border rounded-xl focus:outline-none focus:ring-2 text-slate-900 bg-white font-semibold cursor-pointer ${
-                  fieldErrors.projectId ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200 focus:ring-brand-primary/30'
-                }`}
-              >
-                <option value="" disabled>Select project...</option>
-                {projectsList.map(p => (
-                  <option key={p._id || p.id} value={p._id || p.id}>
-                    {p.projectName || p.name || 'Project'}
-                  </option>
-                ))}
-              </select>
-              {fieldErrors.projectId && (
-                <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" /> {fieldErrors.projectId}
-                </p>
-              )}
+                onChange={(val) => handleChange('projectId', val)}
+                placeholder="Select project..."
+                error={fieldErrors.projectId}
+                options={projectsList.map(p => ({
+                  value: p._id || p.id,
+                  label: p.projectName || p.name || 'Project'
+                }))}
+              />
             </div>
 
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                Assign Employee <span className="text-rose-500 font-bold ml-0.5">*</span>
-              </label>
-              <select 
+              <CustomSelect
+                label="Assign Employee"
+                required
+                searchable
                 value={formData.assignedEmployee}
-                onChange={(e) => handleUserSelectChange(e.target.value)}
-                className={`w-full px-3.5 py-2.5 text-xs border rounded-xl focus:outline-none focus:ring-2 text-slate-900 bg-white font-semibold cursor-pointer ${
-                  fieldErrors.assignedEmployee ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200 focus:ring-brand-primary/30'
-                }`}
-              >
-                <option value="" disabled>Select assigned employee...</option>
-                {usersList
+                onChange={(val) => handleUserSelectChange(val)}
+                placeholder="Select assigned employee..."
+                error={fieldErrors.assignedEmployee}
+                options={usersList
                   .filter(u => {
                     if (!u) return false;
                     const roleStr = String(
@@ -460,7 +448,6 @@ export default function TaskCreateModal({
                         : (u.role?.roleName || u.roleCode || u.userType || '')
                     ).toLowerCase().trim();
 
-                    // Include Site Engineer, HR, PM, Architect, Employee, Designer, etc. (Exclude only Super Admin)
                     if (
                       roleStr.includes('super admin') ||
                       roleStr.includes('super_admin') ||
@@ -474,49 +461,39 @@ export default function TaskCreateModal({
                   .map(u => {
                     const nameStr = typeof u.name === 'string' ? u.name : (typeof u.fullName === 'string' ? u.fullName : (typeof u.email === 'string' ? u.email : 'Employee'));
                     const roleStr = typeof u.role === 'string' ? u.role : (u.role?.roleName || u.roleCode || 'Staff');
-                    return (
-                      <option key={u._id || u.id} value={u._id || u.id}>
-                        {nameStr} ({roleStr})
-                      </option>
-                    );
+                    return {
+                      value: u._id || u.id,
+                      label: nameStr,
+                      subtext: roleStr
+                    };
                   })}
-              </select>
-              {fieldErrors.assignedEmployee && (
-                <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" /> {fieldErrors.assignedEmployee}
-                </p>
-              )}
+              />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                Department (Auto-selected)
-              </label>
-              <select 
+              <CustomSelect
+                label="Department (Auto-selected)"
                 value={formData.dept}
-                onChange={(e) => handleChange('dept', e.target.value)}
-                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/30 text-slate-900 bg-white font-semibold cursor-pointer"
-              >
-                {departmentsList.map(dept => (
-                  <option key={dept} value={dept}>
-                    {dept}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => handleChange('dept', val)}
+                options={departmentsList.map(dept => ({
+                  value: dept,
+                  label: dept
+                }))}
+              />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Priority</label>
-              <select 
+              <CustomSelect
+                label="Priority"
                 value={formData.priority}
-                onChange={(e) => handleChange('priority', e.target.value)}
-                className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/30 text-slate-900 bg-white font-semibold cursor-pointer"
-              >
-                <option value="High">High</option>
-                <option value="Medium">Medium</option>
-                <option value="Low">Low</option>
-              </select>
+                onChange={(val) => handleChange('priority', val)}
+                options={[
+                  { value: 'High', label: 'High' },
+                  { value: 'Medium', label: 'Medium' },
+                  { value: 'Low', label: 'Low' }
+                ]}
+              />
             </div>
           </div>
 
@@ -638,19 +615,22 @@ export default function TaskCreateModal({
             </div>
           </div>
 
-          {/* Attachments URLs builder */}
+          {/* Attachments URLs & File Upload builder */}
           <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Attachments (Urls / Labels)</label>
-            <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/50 space-y-2">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Attachments (Files / URLs)</label>
+            <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/50 space-y-2.5">
               {attachments.length > 0 && (
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 max-h-36 overflow-y-auto">
                   {attachments.map((url, idx) => (
-                    <div key={idx} className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-[10px] font-semibold text-slate-650">
-                      <span className="truncate flex items-center gap-1"><Link className="w-3 h-3 text-indigo-500" /> {url}</span>
+                    <div key={idx} className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-[10px] font-semibold text-slate-700">
+                      <span className="truncate flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                        <span className="truncate">{url}</span>
+                      </span>
                       <button 
                         type="button" 
                         onClick={() => handleRemoveAttachment(idx)}
-                        className="text-slate-405 hover:text-rose-600 transition-colors cursor-pointer"
+                        className="text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -658,27 +638,56 @@ export default function TaskCreateModal({
                   ))}
                 </div>
               )}
-              <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  value={newAttachmentUrl}
-                  onChange={(e) => {
-                    setNewAttachmentUrl(e.target.value);
-                    if (attachmentError) setAttachmentError('');
-                  }}
-                  placeholder="e.g. https://domain.com/blueprint.pdf"
-                  className={`flex-1 px-3 py-1.5 border rounded-lg text-[11px] font-semibold bg-white text-slate-900 ${
-                    attachmentError ? 'border-rose-400 focus:ring-2 focus:ring-rose-400/20 bg-rose-50/20' : 'border-slate-250'
-                  }`}
-                />
-                <button 
-                  type="button" 
-                  onClick={handleAddAttachment}
-                  className="px-3 bg-indigo-650 hover:bg-indigo-750 text-white rounded-lg text-[10px] font-bold shadow-xs cursor-pointer flex items-center gap-1"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Add
-                </button>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="flex-1 flex gap-2">
+                  <input 
+                    type="text" 
+                    value={newAttachmentUrl}
+                    onChange={(e) => {
+                      setNewAttachmentUrl(e.target.value);
+                      if (attachmentError) setAttachmentError('');
+                    }}
+                    placeholder="e.g. https://domain.com/blueprint.pdf"
+                    className={`flex-1 px-3 py-1.5 border rounded-lg text-[11px] font-semibold bg-white text-slate-900 ${
+                      attachmentError ? 'border-rose-400 focus:ring-2 focus:ring-rose-400/20 bg-rose-50/20' : 'border-slate-250'
+                    }`}
+                  />
+                  <button 
+                    type="button" 
+                    onClick={handleAddAttachment}
+                    className="px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold shadow-xs cursor-pointer flex items-center gap-1 shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add URL
+                  </button>
+                </div>
+
+                {/* File Upload Attachment Trigger */}
+                <div className="shrink-0">
+                  <input
+                    type="file"
+                    id="task-attachment-upload"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        const file = e.target.files[0];
+                        const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+                        const fileLabel = `${file.name} (${sizeMB} MB)`;
+                        setAttachments(prev => [...prev, fileLabel]);
+                        showToast(`File "${file.name}" attached successfully!`, 'success', 'File Attached', true);
+                      }
+                    }}
+                  />
+                  <label
+                    htmlFor="task-attachment-upload"
+                    className="px-3 py-1.5 bg-[#BDE0FE] hover:bg-[#8FC9FF] text-slate-900 border border-[#8FC9FF] rounded-lg text-[10px] font-extrabold shadow-xs cursor-pointer flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload File</span>
+                  </label>
+                </div>
               </div>
+
               {attachmentError && (
                 <p className="text-[10px] text-rose-500 font-bold mt-1.5 flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" /> {attachmentError}
@@ -686,8 +695,6 @@ export default function TaskCreateModal({
               )}
             </div>
           </div>
-
-
 
           <div>
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Task Description</label>
@@ -712,9 +719,16 @@ export default function TaskCreateModal({
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 bg-brand-primary hover:bg-brand-secondary text-slate-900 rounded-xl text-xs font-semibold shadow-2xs border border-brand-secondary/40 transition-all cursor-pointer"
+              className="px-5 py-2 bg-gradient-to-r from-[#BDE0FE] to-[#8FC9FF] text-slate-900 rounded-xl text-xs font-extrabold shadow-2xs border border-[#8FC9FF]/60 transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2"
             >
-              {submitting ? 'Registering Task...' : 'Register Task'}
+              {submitting ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-900" />
+                  <span>Registering Task...</span>
+                </>
+              ) : (
+                <span>Register Task</span>
+              )}
             </button>
           </div>
 

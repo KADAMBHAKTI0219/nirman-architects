@@ -482,3 +482,56 @@ textarea:disabled,
 .cursor-not-allowed {
   cursor: not-allowed !important;
 }
+
+/* ==========================================================================
+   CUSTOM BRAND SELECTION BOX & DROPDOWN STYLING (Image 2 Specification)
+   Brand Primary: #BDE0FE | Brand Secondary: #8FC9FF
+   ========================================================================== */
+:root {
+  --brand-primary: #BDE0FE;
+  --brand-secondary: #8FC9FF;
+  --color-brand-primary: #BDE0FE;
+  --color-brand-secondary: #8FC9FF;
+  --color-brand-selection: #8FC9FF;
+  --brand-selection: #8FC9FF;
+}
+
+.bg-brand-selection {
+  background-color: #8FC9FF !important;
+}
+
+.text-brand-selection {
+  color: #0F172A !important;
+}
+
+.border-brand-selection {
+  border-color: #8FC9FF !important;
+}
+
+/* Enhanced Native Select Dropdown Fallback Styling */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%230F172A' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  background-size: 1rem;
+  padding-right: 2.5rem !important;
+  border-radius: 0.75rem;
+}
+
+select option {
+  background-color: #ffffff;
+  color: #1e293b;
+  padding: 8px 12px;
+  font-weight: 600;
+}
+
+select option:hover,
+select option:focus,
+select option:active,
+select option:checked {
+  background-color: #8FC9FF !important;
+  color: #0F172A !important;
+}

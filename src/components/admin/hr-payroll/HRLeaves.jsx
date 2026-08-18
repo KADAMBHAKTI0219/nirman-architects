@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Check, X, Calendar, FileClock, ShieldAlert, AlertCircle, PlusCircle, Search, Edit3 } from 'lucide-react';
 import Card from '../../common/Card';
+import CalendarDatePicker from '../../common/CalendarDatePicker';
+import CustomSelect from '../../common/CustomSelect';
 
 export default function HRLeaves({
   leaveRequests,
@@ -256,38 +258,34 @@ export default function HRLeaves({
 
             <form onSubmit={handleAdjustSubmit} className="space-y-4 text-xs font-bold text-slate-550">
               <div>
-                <label className="text-[9px] font-black text-slate-400 block mb-1 uppercase tracking-wider">Select Employee</label>
-                <select
+                <CustomSelect
+                  label="Select Employee"
                   required
+                  searchable
                   value={adjustForm.targetUserId}
-                  onChange={(e) => setAdjustForm({ ...adjustForm, targetUserId: e.target.value })}
-                  className="w-full px-3.5 py-2 border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-805 font-semibold"
-                >
-                  <option value="">Choose Staff Account</option>
-                  {usersList.map(u => (
-                    <option key={u.id || u._id} value={u.id || u._id}>
-                      {u.name || u.firstName || u.email} ({typeof u.role === 'object' ? (u.role?.roleName || u.role?.roleCode || u.role?.name || 'Employee') : (u.role || 'Employee')})
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setAdjustForm({ ...adjustForm, targetUserId: val })}
+                  placeholder="Choose Staff Account"
+                  options={usersList.map(u => ({
+                    value: u.id || u._id,
+                    label: u.name || u.firstName || u.email,
+                    subtext: typeof u.role === 'object' ? (u.role?.roleName || u.role?.roleCode || u.role?.name || 'Employee') : (u.role || 'Employee')
+                  }))}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[9px] font-black text-slate-400 block mb-1 uppercase tracking-wider">Leave Type</label>
-                  <select
+                  <CustomSelect
+                    label="Leave Type"
                     required
                     value={adjustForm.leaveTypeId}
-                    onChange={(e) => setAdjustForm({ ...adjustForm, leaveTypeId: e.target.value })}
-                    className="w-full px-3.5 py-2 border border-slate-205 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-805 font-semibold"
-                  >
-                    <option value="">Select Category</option>
-                    {leaveTypes.map(lt => (
-                      <option key={lt._id} value={lt._id}>
-                        {lt.name} ({lt.code})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => setAdjustForm({ ...adjustForm, leaveTypeId: val })}
+                    placeholder="Select Category"
+                    options={leaveTypes.map(lt => ({
+                      value: lt._id,
+                      label: `${lt.name} (${lt.code})`
+                    }))}
+                  />
                 </div>
                 <div>
                   <label className="text-[9px] font-black text-slate-400 block mb-1 uppercase tracking-wider">New Quota (Days)</label>

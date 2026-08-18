@@ -32,12 +32,15 @@ export default function StatsKpiCard({
         onClick ? 'cursor-pointer hover:border-slate-300' : ''
       } ${className}`}
     >
-      <div className="flex justify-between items-start">
-        <div className="space-y-1 min-w-0 pr-2">
+      <div className="flex justify-between items-start min-w-0 gap-2">
+        <div className="space-y-1 min-w-0 pr-1 flex-1 overflow-hidden">
           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block truncate">
             {title}
           </span>
-          <h3 className="text-2xl font-black text-slate-900 tracking-tight truncate">
+          <h3 
+            className="text-lg sm:text-xl font-black text-slate-900 tracking-tight truncate max-w-full block"
+            title={typeof value === 'string' || typeof value === 'number' ? String(value) : undefined}
+          >
             {value}
           </h3>
         </div>

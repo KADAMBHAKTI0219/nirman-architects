@@ -4,6 +4,7 @@ import DrawingDetails from './DrawingDetails';
 import DrawingCompare from './DrawingCompare';
 import DrawingCreateModal from './DrawingCreateModal';
 import DrawingReports from './DrawingReports';
+import BrandLoader from '../../common/BrandLoader';
 import {
   getDrawings,
   getProjectDrawings,
@@ -278,11 +279,13 @@ export default function AdminDrawings({ defaultTab = 'vault' }) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-sans">
 
-      {/* 25.11 ERP Module 1 & 3 Progress Breakdown Header Bar Removed */}
-
-      {viewReports ? (
+      {loading ? (
+        <div className="py-20 text-center bg-white rounded-3xl border border-slate-100 shadow-2xs my-4">
+          <BrandLoader text="Loading Design Blueprints & Drawings..." />
+        </div>
+      ) : viewReports ? (
         <div className="space-y-6">
           <div className="flex justify-between items-center">
             <div>

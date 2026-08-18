@@ -1,5 +1,6 @@
 import React from 'react';
 import { Search, Filter, X } from 'lucide-react';
+import CustomSelect from '../../common/CustomSelect';
 
 export default function PayrollToolbar({
   searchQuery,
@@ -37,30 +38,33 @@ export default function PayrollToolbar({
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2.5">
         {/* Department Filter */}
-        <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-2xl border border-slate-200">
-          <Filter className="w-3.5 h-3.5 text-slate-400" />
-          <select
+        <div className="min-w-[170px]">
+          <CustomSelect
             value={selectedDepartment}
-            onChange={(e) => onDepartmentChange(e.target.value)}
-            className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
-          >
-            <option value="">All Departments</option>
-            {departmentsList.map(dept => (
-              <option key={dept} value={dept}>{dept}</option>
-            ))}
-          </select>
+            onChange={(val) => onDepartmentChange(val)}
+            placeholder="All Departments"
+            variant="filter"
+            options={[
+              { value: '', label: 'All Departments' },
+              ...departmentsList.map(dept => ({ value: dept, label: dept }))
+            ]}
+          />
         </div>
 
         {/* Status Filter */}
-        <select
-          value={selectedStatus}
-          onChange={(e) => onStatusChange(e.target.value)}
-          className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
-        >
-          <option value="">All Statuses</option>
-          <option value="GENERATED">Generated</option>
-          <option value="NOT_GENERATED">Not Generated</option>
-        </select>
+        <div className="min-w-[150px]">
+          <CustomSelect
+            value={selectedStatus}
+            onChange={(val) => onStatusChange(val)}
+            placeholder="All Statuses"
+            variant="filter"
+            options={[
+              { value: '', label: 'All Statuses' },
+              { value: 'GENERATED', label: 'Generated' },
+              { value: 'NOT_GENERATED', label: 'Not Generated' }
+            ]}
+          />
+        </div>
 
         {/* Reset */}
         {hasActiveFilters && (

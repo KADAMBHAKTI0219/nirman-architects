@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getUsersList } from '../../service/auth';
-import { Users, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
+import CustomSelect from './CustomSelect';
 
 export default function EmployeeSelect({ 
   value, 
@@ -11,7 +12,9 @@ export default function EmployeeSelect({
   required = false, 
   className = '', 
   disabled = false,
-  placeholder = "Select Employee *"
+  placeholder = "Select Employee *",
+  label = "",
+  variant = "default"
 }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -71,30 +74,36 @@ export default function EmployeeSelect({
     );
   }
 
+  const selectOptions = filteredUsers.map((emp) => {
+    const empId = emp._id || emp.id;
+    const empName = emp.name || emp.fullName || emp.email;
+    const roleName = emp.roleId?.roleName || emp.role || emp.roleCode || '';
+    const deptName = emp.department || '';
+    const designation = emp.designation || '';
+    const metaInfo = [deptName, designation || roleName, emp.email].filter(Boolean).join(' • ');
+
+    return {
+      value: empId,
+      label: empName,
+      subtext: metaInfo,
+      raw: emp
+    };
+  });
+
   return (
     <div className="relative w-full">
-      <select
+      <CustomSelect
         value={value || ''}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(val, rawEmp) => onChange && onChange(val, rawEmp)}
+        options={selectOptions}
+        placeholder={placeholder}
+        label={label}
         required={required}
         disabled={disabled}
-        className={`w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#3B82F6]/30 focus:border-[#3B82F6] bg-white font-semibold text-xs text-slate-900 ${className}`}
-      >
-        <option value="">{placeholder}</option>
-        {filteredUsers.map((emp) => {
-          const empId = emp._id || emp.id;
-          const roleName = emp.roleId?.roleName || emp.role || emp.roleCode || '';
-          const deptName = emp.department || '';
-          const designation = emp.designation || '';
-          const metaInfo = [deptName, designation || roleName].filter(Boolean).join(' · ');
-
-          return (
-            <option key={empId} value={empId}>
-              {emp.name || emp.email} {metaInfo ? `(${metaInfo})` : ''}
-            </option>
-          );
-        })}
-      </select>
+        searchable={true}
+        variant={variant}
+        className={className}
+      />
 
       {error && (
         <div className="flex items-center justify-between text-[10px] text-amber-600 font-bold mt-1">

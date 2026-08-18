@@ -1,8 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { getRoles } from '../../service/auth';
-import { Shield, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
+import CustomSelect from './CustomSelect';
 
-export default function RoleSelect({ value, onChange, required = false, className = '', disabled = false }) {
+export default function RoleSelect({
+  value,
+  onChange,
+  required = false,
+  className = '',
+  disabled = false,
+  placeholder = "Select Role *",
+  label = "",
+  variant = "default"
+}) {
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -38,22 +48,25 @@ export default function RoleSelect({ value, onChange, required = false, classNam
     );
   }
 
+  const selectOptions = roles.map((role) => ({
+    value: role._id || role.id,
+    label: role.roleName || role.roleCode || role.name,
+    raw: role
+  }));
+
   return (
     <div className="relative w-full">
-      <select
+      <CustomSelect
         value={value || ''}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(val) => onChange && onChange(val)}
+        options={selectOptions}
+        placeholder={placeholder}
+        label={label}
         required={required}
         disabled={disabled}
-        className={`w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#3B82F6]/30 focus:border-[#3B82F6] bg-white font-semibold text-xs text-slate-900 ${className}`}
-      >
-        <option value="">Select Role *</option>
-        {roles.map((role) => (
-          <option key={role._id || role.id || role.roleCode} value={role._id || role.id}>
-            {role.roleName || role.roleCode || role.name}
-          </option>
-        ))}
-      </select>
+        variant={variant}
+        className={className}
+      />
 
       {error && (
         <div className="flex items-center justify-between text-[10px] text-amber-600 font-bold mt-1">

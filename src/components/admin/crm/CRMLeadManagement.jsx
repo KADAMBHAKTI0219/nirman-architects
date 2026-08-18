@@ -25,6 +25,7 @@ import { handleKanbanAutoScroll } from '../../../utils/kanbanAutoScroll';
 import useSEO from '../../../hooks/useSEO';
 import StatusBadge from '../../common/StatusBadge';
 import CalendarDatePicker from '../../common/CalendarDatePicker';
+import BrandLoader from '../../common/BrandLoader';
 
 // Order of all lifecycle statuses matching backend schema
 const ALL_STATUSES = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL_SENT', 'NEGOTIATION', 'WON', 'LOST'];
@@ -1214,8 +1215,14 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
         </div>
       )}
 
-      {/* 4. VIEW 1: KANBAN PIPELINE BOARD (HORIZONTAL SCROLLABLE - ALL COLUMNS VISIBLE) */}
-      {viewMode === 'pipeline' && (
+      {loading ? (
+        <div className="py-20 text-center bg-white rounded-3xl border border-slate-100 shadow-2xs my-4">
+          <BrandLoader text="Loading CRM Leads & Pipeline..." />
+        </div>
+      ) : (
+        <>
+          {/* 4. VIEW 1: KANBAN PIPELINE BOARD (HORIZONTAL SCROLLABLE - ALL COLUMNS VISIBLE) */}
+          {viewMode === 'pipeline' && (
         <div className="w-full flex gap-4 items-start overflow-x-auto p-1 pb-6 min-h-[580px] font-sans scrollbar-thin">
           {ALL_STATUSES.map(statusKey => {
             const rawLeads = pipelineData[statusKey] || [];
@@ -1709,6 +1716,8 @@ export default function CRMLeadManagement({ userRole = 'Admin', onClientCreated 
             )}
           </div>
         </div>
+      )}
+      </>
       )}
 
 

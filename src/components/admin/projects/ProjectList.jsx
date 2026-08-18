@@ -4,7 +4,7 @@ import {
   Building2, AlertTriangle, FileText, IndianRupee, ChevronRight, MoreHorizontal,
   LayoutGrid, LayoutList, X, CheckCircle2, UserCheck, Trash2
 } from 'lucide-react';
-import { PageHeader, StatsKpiCard, SearchFilterBar, StatusBadge } from '../../common';
+import { PageHeader, StatsKpiCard, SearchFilterBar, StatusBadge, BrandLoader } from '../../common';
 import { formatCurrency } from '../../../utils/formatters';
 
 export default function ProjectList({
@@ -160,23 +160,28 @@ export default function ProjectList({
         {/* Card 4: Total Portfolio Valuation */}
         <div 
           onClick={() => setActiveKpiModal('valuation')}
-          className="bg-white p-5 rounded-3xl border border-slate-100 shadow-2xs hover:border-emerald-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-3 group"
+          className="bg-white p-5 rounded-3xl border border-slate-100 shadow-2xs hover:border-emerald-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-3 group min-w-0 overflow-hidden"
           title="Click to view portfolio valuation breakdown"
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center font-medium group-hover:bg-emerald-100 transition-colors">
+          <div className="flex items-center justify-between min-w-0 gap-2">
+            <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center font-medium group-hover:bg-emerald-100 transition-colors shrink-0">
                 <IndianRupee className="w-5 h-5 text-emerald-600" />
               </div>
-              <div>
-                <span className="text-xs font-normal text-slate-400 block group-hover:text-slate-600 transition-colors">Portfolio Valuation</span>
-                <span className="text-2xl font-semibold text-slate-900 block mt-0.5">{formatValuation(totalValuation)}</span>
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <span className="text-xs font-normal text-slate-400 block group-hover:text-slate-600 transition-colors truncate">Portfolio Valuation</span>
+                <span 
+                  className="text-lg sm:text-xl font-black text-slate-900 block mt-0.5 truncate max-w-full tracking-tight"
+                  title={formatValuation(totalValuation)}
+                >
+                  {formatValuation(totalValuation)}
+                </span>
               </div>
             </div>
-            <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 transition-colors" />
+            <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 transition-colors shrink-0" />
           </div>
-          <div className="pt-1">
-            <span className="text-[11px] font-semibold text-emerald-600 block">Total Budget Allocation</span>
+          <div className="pt-1 min-w-0">
+            <span className="text-[11px] font-semibold text-emerald-600 block truncate">Total Budget Allocation</span>
           </div>
         </div>
 
@@ -250,9 +255,8 @@ export default function ProjectList({
 
       {/* 3. PROJECT CARDS GRID */}
       {loading ? (
-        <div className="py-16 text-center bg-white border border-slate-100 rounded-3xl space-y-3">
-          <div className="w-10 h-10 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-xs font-normal text-slate-500">Loading project directory from backend server...</p>
+        <div className="py-16 text-center bg-white border border-slate-100 rounded-3xl">
+          <BrandLoader text="Loading Project Directory..." />
         </div>
       ) : viewMode === 'table' ? (
         <div className="bg-white rounded-3xl border border-slate-100 shadow-2xs overflow-hidden">

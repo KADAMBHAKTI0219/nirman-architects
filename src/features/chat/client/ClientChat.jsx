@@ -40,11 +40,37 @@ export default function ClientChat() {
       setLoading(true);
       let clientChannels = [];
 
+      // 1. Fetch real CRM Clients from backend
+      const clientRes = await getClients().catch(() => null);
+      if (clientRes && (clientRes.clients || Array.isArray(clientRes.data) || Array.isArray(clientRes))) {
+        const cList = clientRes.clients || clientRes.data || (Array.isArray(clientRes) ? clientRes : []);
+        const directClientChannels = cList.map((c, idx) => ({
+          id: c._id || c.id || `client-${idx + 1}`,
+          name: `${c.name || c.contactPerson || c.clientName || 'Client'} (Client Account)`,
+          clientName: c.companyName || c.name || 'Client Contact',
+          subtitle: `Client • ${c.email || c.phone || 'Authorized Client'}`,
+          lastMessage: 'Client portal & project communications',
+          time: 'Active'
+        }));
+        clientChannels = [...directClientChannels];
+
+        if (!isClientUser) {
+          const pList = cList.map(c => ({
+            id: c._id || c.id,
+            name: c.name || c.contactPerson || c.clientName || c.email,
+            role: c.companyName || 'Client Representative',
+            email: c.email
+          }));
+          setClientParticipants(pList);
+        }
+      }
+
+      // 2. Fetch Client Projects
       if (isClientUser) {
         const { getClientDashboard } = await import('../../../service/crm/clientPortal');
         const dashRes = await getClientDashboard().catch(() => null);
         const projs = dashRes?.activeProjects || [];
-        clientChannels = projs.map(p => ({
+        const projChannels = projs.map(p => ({
           id: p.projectId || p._id || p.id,
           name: p.projectCategory ? `${p.projectCategory} / ${p.projectName || p.name}` : (p.code ? `${p.code} / ${p.projectName || p.name}` : (p.projectName || p.name || 'Client Project Workspace')),
           clientName: p.clientName || 'Client Account',
@@ -52,10 +78,11 @@ export default function ClientChat() {
           lastMessage: `Status: ${p.status || 'Active'}`,
           time: 'Active'
         }));
+        clientChannels = [...projChannels, ...clientChannels];
       } else {
         const projRes = await getProjects().catch(() => null);
         const projList = projRes?.projects || (Array.isArray(projRes) ? projRes : []);
-        clientChannels = projList.map((p, idx) => ({
+        const projChannels = projList.map((p, idx) => ({
           id: p._id || p.id || `proj-client-${idx + 1}`,
           name: p.projectCategory ? `${p.projectCategory} / ${p.projectName || p.name}` : (p.code ? `${p.code} / ${p.projectName || p.name}` : (p.projectName || p.name || `Client Project #${idx + 1}`)),
           clientName: p.client || p.clientName || 'Client Representative',
@@ -63,6 +90,7 @@ export default function ClientChat() {
           lastMessage: p.status ? `Project Status: ${p.status}` : 'Client communication workspace',
           time: 'Active'
         }));
+        clientChannels = [...clientChannels, ...projChannels];
       }
 
       if (clientChannels.length === 0) {
@@ -78,21 +106,6 @@ export default function ClientChat() {
 
       setConversations(clientChannels);
       if (clientChannels.length > 0) setActiveProjectId(clientChannels[0].id);
-
-      // Dynamic Client Participants list from CRM API (Internal Staff Only)
-      if (!isClientUser) {
-        const clientRes = await getClients().catch(() => null);
-        if (clientRes && (clientRes.clients || Array.isArray(clientRes.data) || Array.isArray(clientRes))) {
-          const cList = clientRes.clients || clientRes.data || (Array.isArray(clientRes) ? clientRes : []);
-          const pList = cList.map(c => ({
-            id: c._id || c.id,
-            name: c.name || c.contactPerson || c.clientName || c.email,
-            role: c.companyName || 'Client Representative',
-            email: c.email
-          }));
-          setClientParticipants(pList);
-        }
-      }
     } catch (e) {
       console.warn("Error loading dynamic client chat channels:", e);
     } finally {

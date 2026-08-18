@@ -4,6 +4,7 @@ import { getActiveDrawingCategories, createDrawingCategory } from '../../../serv
 import { getProjects } from '../../../service/project';
 import { useToast } from '../../../context/ToastContext';
 import { FieldError } from '../../../utils/validation';
+import CustomSelect from '../../common/CustomSelect';
 
 export default function DrawingCreateModal({
   isOpen,
@@ -270,13 +271,12 @@ export default function DrawingCreateModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                Project Reference <span className="text-red-500 font-bold ml-0.5">*</span>
-              </label>
-              <select 
+              <CustomSelect
+                label="Project Reference"
+                required
+                searchable
                 value={formData.project}
-                onChange={(e) => {
-                  const val = e.target.value;
+                onChange={(val) => {
                   const found = projectsList.find(p => (p.name || p.projectName || p.title) === val || String(p._id || p.id) === String(val));
                   if (found) {
                     handleChange('project', found.name || found.projectName || found.title);
@@ -285,25 +285,17 @@ export default function DrawingCreateModal({
                     handleChange('project', val);
                   }
                 }}
-                className={`w-full px-3.5 py-2.5 text-xs border rounded-xl focus:outline-none focus:ring-2 text-slate-800 bg-white font-semibold cursor-pointer ${
-                  fieldErrors.project ? 'border-red-500 focus:ring-red-500/20' : 'border-slate-200 focus:ring-indigo-500'
-                }`}
-              >
-                {projectsList.length > 0 ? (
-                  projectsList.map(p => {
-                    const pName = p.name || p.projectName || p.title || 'Untitled Project';
-                    const pId = p._id || p.id;
-                    return (
-                      <option key={pId || pName} value={pName}>
-                        {pName}
-                      </option>
-                    );
-                  })
-                ) : (
-                  <option value="">No Projects Available</option>
-                )}
-              </select>
-              <FieldError error={fieldErrors.project} id="dwg-project" />
+                placeholder="Select Project..."
+                error={fieldErrors.project}
+                options={projectsList.map(p => {
+                  const pName = p.name || p.projectName || p.title || 'Untitled Project';
+                  const pId = p._id || p.id;
+                  return {
+                    value: pName,
+                    label: pName
+                  };
+                })}
+              />
             </div>
 
             <div>
@@ -322,20 +314,16 @@ export default function DrawingCreateModal({
               </div>
 
               {!isCreatingNewCategory ? (
-                <>
-                  <select 
-                    value={formData.category}
-                    onChange={(e) => handleCategorySelect(e.target.value)}
-                    className={`w-full px-3.5 py-2.5 text-xs border rounded-xl focus:outline-none focus:ring-2 text-slate-800 bg-white font-semibold cursor-pointer ${
-                      fieldErrors.category ? 'border-red-500 focus:ring-red-500/20' : 'border-slate-200 focus:ring-indigo-500'
-                    }`}
-                  >
-                    {categories.map(cat => (
-                      <option key={cat._id || cat.name} value={cat.name}>{cat.name}</option>
-                    ))}
-                  </select>
-                  <FieldError error={fieldErrors.category} id="dwg-cat" />
-                </>
+                <CustomSelect
+                  value={formData.category}
+                  onChange={(val) => handleCategorySelect(val)}
+                  placeholder="Select Category..."
+                  error={fieldErrors.category}
+                  options={categories.map(cat => ({
+                    value: cat.name,
+                    label: cat.name
+                  }))}
+                />
               ) : (
                 <div className="p-2.5 border border-indigo-200 bg-indigo-50/50 rounded-xl space-y-2">
                   <input
@@ -369,19 +357,18 @@ export default function DrawingCreateModal({
 
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                FILE TYPE FORMAT <span className="text-red-500 font-bold ml-0.5">*</span>
-              </label>
-              <select 
+              <CustomSelect
+                label="FILE TYPE FORMAT"
+                required
                 value={fileTypeFormat}
-                onChange={(e) => handleFormatChange(e.target.value)}
-                className="w-full px-3 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 bg-white font-bold cursor-pointer"
-              >
-                <option value="JPEG">JPEG</option>
-                <option value="PNG">PNG</option>
-                <option value="PDF">PDF</option>
-                <option value="DWG">DWG</option>
-              </select>
+                onChange={(val) => handleFormatChange(val)}
+                options={[
+                  { value: 'JPEG', label: 'JPEG' },
+                  { value: 'PNG', label: 'PNG' },
+                  { value: 'PDF', label: 'PDF' },
+                  { value: 'DWG', label: 'DWG' }
+                ]}
+              />
             </div>
             <div>
               <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Initial Version</label>
@@ -394,15 +381,15 @@ export default function DrawingCreateModal({
               />
             </div>
             <div>
-              <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Access Level</label>
-              <select 
+              <CustomSelect
+                label="Access Level"
                 value={formData.accessLevel}
-                onChange={(e) => handleChange('accessLevel', e.target.value)}
-                className="w-full px-3 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 bg-white font-semibold cursor-pointer"
-              >
-                <option value="Admin & Staff Only">Internal</option>
-                <option value="Public & Client Visible">Public</option>
-              </select>
+                onChange={(val) => handleChange('accessLevel', val)}
+                options={[
+                  { value: 'Admin & Staff Only', label: 'Internal' },
+                  { value: 'Public & Client Visible', label: 'Public' }
+                ]}
+              />
             </div>
           </div>
 

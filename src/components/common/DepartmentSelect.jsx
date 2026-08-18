@@ -1,8 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { getActiveDepartments, parseDepartments, DEFAULT_ARCHITECTURAL_DEPARTMENTS } from '../../service/departments';
-import { Building, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
+import CustomSelect from './CustomSelect';
 
-export default function DepartmentSelect({ value, onChange, required = false, className = '', disabled = false }) {
+export default function DepartmentSelect({
+  value,
+  onChange,
+  required = false,
+  className = '',
+  disabled = false,
+  placeholder = "Select Department...",
+  label = "",
+  variant = "default"
+}) {
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -36,23 +46,24 @@ export default function DepartmentSelect({ value, onChange, required = false, cl
     );
   }
 
+  const selectOptions = departments.map(deptName => ({
+    value: deptName,
+    label: deptName
+  }));
+
   return (
     <div className="relative w-full text-left">
-      <select
+      <CustomSelect
         value={value || ''}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(val) => onChange && onChange(val)}
+        options={selectOptions}
+        placeholder={placeholder}
+        label={label}
         required={required}
         disabled={disabled}
-        className={`w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 bg-white font-semibold text-xs text-slate-800 cursor-pointer ${className}`}
-      >
-        <option value="">Select Department...</option>
-        {departments.map((deptName, idx) => (
-          <option key={idx} value={deptName}>
-            {deptName}
-          </option>
-        ))}
-      </select>
-
+        variant={variant}
+        className={className}
+      />
 
       {error && (
         <div className="flex items-center justify-between text-[10px] text-amber-600 font-bold mt-1">

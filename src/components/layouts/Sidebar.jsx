@@ -48,7 +48,7 @@ const SIDEBAR_ITEMS = {
       ]
     },
     { category: "COMMUNICATION" },
-    { label: "Internal Chat", path: "/internal-chat", icon: "MessageSquare" },
+    { label: "Team Chat", path: "/internal-chat", icon: "MessageSquare" },
     { label: "Client Chat", path: "/client-chat", icon: "Building2" },
     { category: "ANALYTICS & SYSTEM" },
     {
@@ -84,7 +84,7 @@ const SIDEBAR_ITEMS = {
     { label: "Offer Letters", path: "/hr/offer-letters", icon: "FileText" },
     { label: "Performance", path: "/hr/reviews", icon: "Award" },
     { category: "COMMUNICATION" },
-    { label: "Internal Chat", path: "/internal-chat", icon: "MessageSquare" },
+    { label: "Team Chat", path: "/internal-chat", icon: "MessageSquare" },
     { label: "Client Chat", path: "/client-chat", icon: "Building2" },
     { label: "Notifications", path: "/hr/notifications", icon: "Bell" }
   ],
@@ -100,7 +100,7 @@ const SIDEBAR_ITEMS = {
     { label: "Work Locations", path: "/project-manager/work-locations", icon: "MapPin" },
     { label: "Leaves Approvals", path: "/project-manager/leaves", icon: "Calendar" },
     { category: "COMMUNICATION" },
-    { label: "Internal Chat", path: "/internal-chat", icon: "MessageSquare" },
+    { label: "Team Chat", path: "/internal-chat", icon: "MessageSquare" },
     { label: "Client Chat", path: "/client-chat", icon: "Building2" },
     { label: "Reports & Audits", path: "/project-manager/reports", icon: "BarChart3" }
   ],
@@ -115,7 +115,7 @@ const SIDEBAR_ITEMS = {
     { label: "Leaves Portal", path: "/architect/leaves", icon: "Calendar" },
     { label: "Documents", path: "/architect/docs", icon: "FolderOpen" },
     { category: "COMMUNICATION" },
-    { label: "Internal Chat", path: "/internal-chat", icon: "MessageSquare" },
+    { label: "Team Chat", path: "/internal-chat", icon: "MessageSquare" },
     { label: "Client Chat", path: "/client-chat", icon: "Building2" },
     { label: "Notifications", path: "/architect/notifications", icon: "Bell" }
   ],
@@ -131,7 +131,7 @@ const SIDEBAR_ITEMS = {
     { label: "Project Documents", path: "/site-engineer/docs", icon: "FolderOpen" },
     { label: "Leaves Portal", path: "/site-engineer/leaves", icon: "Calendar" },
     { category: "COMMUNICATION" },
-    { label: "Internal Chat", path: "/internal-chat", icon: "MessageSquare" },
+    { label: "Team Chat", path: "/internal-chat", icon: "MessageSquare" },
     { label: "Client Chat", path: "/client-chat", icon: "Building2" },
     { label: "Notifications", path: "/site-engineer/notifications", icon: "Bell" }
   ],
@@ -145,7 +145,7 @@ const SIDEBAR_ITEMS = {
     { label: "Shift Attendance", path: "/employee/attendance", icon: "Fingerprint" },
     { label: "Leaves Portal", path: "/employee/leaves", icon: "Calendar" },
     { category: "COMMUNICATION" },
-    { label: "Internal Chat", path: "/internal-chat", icon: "MessageSquare" },
+    { label: "Team Chat", path: "/internal-chat", icon: "MessageSquare" },
     { label: "Client Chat", path: "/client-chat", icon: "Building2" },
     { label: "Notifications", path: "/employee/notifications", icon: "Bell" }
   ],

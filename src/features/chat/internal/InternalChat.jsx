@@ -37,48 +37,57 @@ export default function InternalChat() {
   const loadData = async () => {
     try {
       setLoading(true);
-      // Fetch dynamic user list for staff mentions
+      // Dynamic Internal Team Channels & Staff Members
       const userRes = await getUsersList().catch(() => null);
+      let staffChannels = [];
       if (userRes && (userRes.users || Array.isArray(userRes.data))) {
         const uList = userRes.users || userRes.data || [];
         const empList = uList.filter(u => {
           const r = String(u.role || u.designation || '').toLowerCase();
           return !r.includes('client') && !r.includes('customer');
-        }).map(u => ({
+        });
+
+        staffChannels = empList.map(u => ({
+          id: u._id || u.id || `emp-${u.email}`,
+          name: u.name || u.fullName || u.email,
+          subtitle: `${u.designation || u.role || 'Team Staff'} • ${u.department || 'Internal Studio'}`,
+          lastMessage: 'Direct internal team discussion',
+          time: 'Active'
+        }));
+
+        setEmployees(empList.map(u => ({
           id: u._id || u.id,
-          name: u.name || u.employeeName || `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email,
+          name: u.name || u.fullName || u.email,
           role: u.role || u.designation || 'Staff',
           email: u.email
-        }));
-        setEmployees(empList);
+        })));
       }
 
       // Fetch dynamic projects list from backend
       const projRes = await getProjects().catch(() => null);
       const projList = projRes?.projects || (Array.isArray(projRes) ? projRes : []);
 
-      const channelList = projList.map((p, idx) => ({
+      const projChannels = projList.map((p, idx) => ({
         id: p._id || p.id || `proj-int-${idx + 1}`,
-        name: `${p.projectName || p.name || `Project #${idx+1}`} (Internal Team)`,
-        subtitle: p.projectCode || p.clientName || `PROJ-${idx + 1}`,
+        name: `${p.projectName || p.name || `Project #${idx+1}`} (Team Discussion)`,
+        subtitle: `Internal Project • ${p.code || 'PRJ'}`,
         lastMessage: p.status ? `Status: ${p.status}` : 'Internal project discussion channel',
         time: 'Active'
       }));
 
-      if (channelList.length === 0) {
-        channelList.push({
-          id: 'internal-general',
-          name: 'Nirman Internal Studio Workspace',
-          subtitle: 'All Staff & Management',
-          lastMessage: 'Internal staff chat channel',
-          time: 'Active'
-        });
-      }
+      // Department Channels
+      const deptChannels = [
+        { id: 'dept-arch', name: 'Architecture & Design Team', subtitle: 'Design Studio Channel', lastMessage: 'Blueprint revision discussion', time: 'Active' },
+        { id: 'dept-eng', name: 'Structural & Site Engineering', subtitle: 'Engineers Channel', lastMessage: 'Foundation concrete testing notes', time: 'Active' },
+        { id: 'dept-pmo', name: 'Project Management Office', subtitle: 'PMO Workspace', lastMessage: 'Milestone timeline reviews', time: 'Active' }
+      ];
 
-      setConversations(channelList);
-      if (channelList.length > 0) setActiveId(channelList[0].id);
+      const allTeamChannels = [...deptChannels, ...staffChannels, ...projChannels];
+
+      setConversations(allTeamChannels);
+      if (allTeamChannels.length > 0) setActiveId(allTeamChannels[0].id);
     } catch (e) {
-      console.warn("Error loading dynamic internal chat channels:", e);
+      console.warn("Error loading dynamic internal team chat channels:", e);
     } finally {
       setLoading(false);
     }
@@ -161,10 +170,10 @@ export default function InternalChat() {
   return (
     <div className="flex h-[calc(100vh-130px)] border border-slate-200 rounded-3xl overflow-hidden bg-white shadow-md font-sans text-slate-800 animate-in fade-in duration-200">
       
-      {/* 1. LEFT SIDEBAR: INTERNAL CONVERSATIONS */}
+      {/* 1. LEFT SIDEBAR: INTERNAL TEAM CONVERSATIONS */}
       <ChatSidebar
-        title="Internal Chat"
-        badge="STAFF ONLY"
+        title="Team Chat"
+        badge="INTERNAL TEAM"
         conversations={conversations}
         activeId={activeId}
         onSelectConversation={(c) => setActiveId(c.id)}

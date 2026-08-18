@@ -8,6 +8,7 @@ import AttendanceOps from './AttendanceOps';
 import EmployeesHR from './EmployeesHR';
 import DeviceBindingApprovals from './DeviceBindingApprovals';
 import AppUsageTracking from '../app-usage/AppUsageTracking';
+import BrandLoader from '../../common/BrandLoader';
 import { getAllAttendanceList } from '../../../service/hrm/attendance';
 import { getRoles, registerUser, getUsersList, getUserById, updateUser, getPendingDeviceRequests, approveDevice } from '../../../service/auth';
 import { getDepartments, parseDepartments } from '../../../service/departments';
@@ -565,32 +566,40 @@ export default function WorkforceCommandCenter({ defaultTab = 'attendance' }) {
 
       {/* Render Active View */}
       <div>
-        {activeTab === 'attendance' && (
-          <AttendanceOps 
-            attendanceLogs={attendanceLogs}
-            liveAlerts={liveAlerts}
-            onSelectEmployee={setSelectedLog}
-            selectedEmployee={selectedLog}
-          />
-        )}
+        {loading ? (
+          <div className="py-20 text-center bg-white rounded-3xl border border-slate-100 shadow-2xs my-4">
+            <BrandLoader text="Loading Workforce Roster & Data..." />
+          </div>
+        ) : (
+          <>
+            {activeTab === 'attendance' && (
+              <AttendanceOps 
+                attendanceLogs={attendanceLogs}
+                liveAlerts={liveAlerts}
+                onSelectEmployee={setSelectedLog}
+                selectedEmployee={selectedLog}
+              />
+            )}
 
-        {activeTab === 'app-usage' && (
-          <AppUsageTracking userRole="Admin" />
-        )}
+            {activeTab === 'app-usage' && (
+              <AppUsageTracking userRole="Admin" />
+            )}
 
-        {activeTab === 'employees' && (
-          <EmployeesHR 
-            employees={employees}
-            selectedEmployee={selectedEmployee}
-            onSelectEmployee={setSelectedEmployee}
-            onAddEmployeeClick={handleAddEmployee}
-            onEditEmployeeClick={handleEditEmployee}
-            onRefresh={loadData}
-          />
-        )}
+            {activeTab === 'employees' && (
+              <EmployeesHR 
+                employees={employees}
+                selectedEmployee={selectedEmployee}
+                onSelectEmployee={setSelectedEmployee}
+                onAddEmployeeClick={handleAddEmployee}
+                onEditEmployeeClick={handleEditEmployee}
+                onRefresh={loadData}
+              />
+            )}
 
-        {activeTab === 'devices' && (
-          <DeviceBindingApprovals employees={employees} onRefresh={loadData} />
+            {activeTab === 'devices' && (
+              <DeviceBindingApprovals employees={employees} onRefresh={loadData} />
+            )}
+          </>
         )}
       {/* Add Employee Modal overlay */}
       {showAddModal && (

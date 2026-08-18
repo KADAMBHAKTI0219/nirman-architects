@@ -1,5 +1,6 @@
 import React from 'react';
 import { Search, Filter, RefreshCw, List, LayoutGrid, Kanban } from 'lucide-react';
+import CustomSelect from './CustomSelect';
 
 /**
  * Common Reusable SearchFilterBar Component
@@ -51,21 +52,17 @@ export default function SearchFilterBar({
       <div className="flex items-center gap-3 flex-wrap">
         {/* Dropdown Filter */}
         {filterOptions.length > 0 && (
-          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
-            <Filter className="w-3.5 h-3.5 text-slate-500" />
-            <select
+          <div className="min-w-[150px]">
+            <CustomSelect
               value={selectedFilter}
-              onChange={(e) => onFilterChange && onFilterChange(e.target.value)}
-              className="bg-transparent border-none text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
-            >
-              {filterOptions.map(opt => {
-                const val = typeof opt === 'object' ? opt.value : opt;
-                const label = typeof opt === 'object' ? opt.label : opt;
-                return (
-                  <option key={val} value={val}>{label}</option>
-                );
-              })}
-            </select>
+              onChange={(val) => onFilterChange && onFilterChange(val)}
+              options={filterOptions.map(opt => ({
+                value: typeof opt === 'object' ? opt.value : opt,
+                label: typeof opt === 'object' ? opt.label : opt
+              }))}
+              variant="filter"
+              placeholder="Filter..."
+            />
           </div>
         )}
 

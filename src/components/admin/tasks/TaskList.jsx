@@ -5,6 +5,8 @@ import {
   User, Building, RefreshCw, ChevronRight, AlertCircle, ArrowUpRight, Sparkles, Trash2, LayoutGrid
 } from 'lucide-react';
 import Pagination from '../../common/Pagination';
+import BrandLoader from '../../common/BrandLoader';
+import CustomSelect from '../../common/CustomSelect';
 import { handleKanbanAutoScroll } from '../../../utils/kanbanAutoScroll';
 
 const STATUS_COLUMNS = [
@@ -18,6 +20,7 @@ const STATUS_COLUMNS = [
 
 export default function TaskList({
   tasks,
+  loading = false,
   viewMode,
   setViewMode,
   searchQuery,
@@ -196,47 +199,61 @@ export default function TaskList({
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap">
-            <select
-              value={projectFilter}
-              onChange={(e) => setProjectFilter(e.target.value)}
-              className="px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl bg-white font-semibold text-slate-700 cursor-pointer"
-            >
-              <option value="All">All Projects</option>
-              {Array.from(new Set((tasks || []).map(t => t.project || t.projectName).filter(Boolean))).map(pName => (
-                <option key={pName} value={pName}>{pName}</option>
-              ))}
-            </select>
+            <div className="min-w-[150px]">
+              <CustomSelect
+                value={projectFilter}
+                onChange={(val) => setProjectFilter(val)}
+                variant="filter"
+                placeholder="All Projects"
+                options={[
+                  { value: 'All', label: 'All Projects' },
+                  ...Array.from(new Set((tasks || []).map(t => t.project || t.projectName).filter(Boolean))).map(pName => ({ value: pName, label: pName }))
+                ]}
+              />
+            </div>
 
-            <select
-              value={deptFilter}
-              onChange={(e) => setDeptFilter(e.target.value)}
-              className="px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl bg-white font-semibold text-slate-700 cursor-pointer"
-            >
-              <option value="All">All Departments</option>
-              {Array.from(new Set((tasks || []).map(t => t.dept || t.departmentName).filter(Boolean))).map(dName => (
-                <option key={dName} value={dName}>{dName}</option>
-              ))}
-            </select>
+            <div className="min-w-[160px]">
+              <CustomSelect
+                value={deptFilter}
+                onChange={(val) => setDeptFilter(val)}
+                variant="filter"
+                placeholder="All Departments"
+                options={[
+                  { value: 'All', label: 'All Departments' },
+                  ...Array.from(new Set((tasks || []).map(t => t.dept || t.departmentName).filter(Boolean))).map(dName => ({ value: dName, label: dName }))
+                ]}
+              />
+            </div>
 
-            <select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-              className="px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl bg-white font-semibold text-slate-700 cursor-pointer"
-            >
-              <option value="All">All Priorities</option>
-              <option value="Critical">Critical</option>
-              <option value="High">High</option>
-              <option value="Medium">Medium</option>
-              <option value="Low">Low</option>
-            </select>
+            <div className="min-w-[140px]">
+              <CustomSelect
+                value={priorityFilter}
+                onChange={(val) => setPriorityFilter(val)}
+                variant="filter"
+                placeholder="All Priorities"
+                options={[
+                  { value: 'All', label: 'All Priorities' },
+                  { value: 'Critical', label: 'Critical' },
+                  { value: 'High', label: 'High' },
+                  { value: 'Medium', label: 'Medium' },
+                  { value: 'Low', label: 'Low' }
+                ]}
+              />
+            </div>
           </div>
 
         </div>
       )}
 
       {/* 4. CARDS GRID VIEW */}
-      {(viewMode === 'cards' || viewMode === 'kanban' || !viewMode) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4.5 pt-1 pb-6">
+      {loading ? (
+        <div className="py-16 text-center bg-white rounded-3xl border border-slate-200 shadow-3xs my-4">
+          <BrandLoader text="Loading Project Tasks..." />
+        </div>
+      ) : (
+        <>
+          {(viewMode === 'cards' || viewMode === 'kanban' || !viewMode) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4.5 pt-1 pb-6">
           {filteredTasks.length === 0 ? (
             <div className="col-span-full py-16 text-center bg-white rounded-3xl border border-slate-200 shadow-3xs">
               <CheckSquare className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -461,6 +478,8 @@ export default function TaskList({
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
 
     </div>

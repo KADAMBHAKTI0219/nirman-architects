@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Building } from 'lucide-react';
+import { X, Plus, Building, RefreshCw } from 'lucide-react';
 import { getActiveProjectCategories, createProjectCategory } from '../../../service/project';
 import { getUsersList } from '../../../service/auth';
 import { getClients } from '../../../service/crm/client';
@@ -7,6 +7,7 @@ import { getDepartments, getCleanDepartmentName, parseDepartments } from '../../
 import { useToast } from '../../../context/ToastContext';
 import { FieldError } from '../../../utils/validation';
 import CalendarDatePicker from '../../common/CalendarDatePicker';
+import CustomSelect from '../../common/CustomSelect';
 
 
 const DEFAULT_DEPTS = [
@@ -96,7 +97,9 @@ export default function CreateProjectModal({
     }
   };
 
-  const handleFormSubmit = (e) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
     const newErrs = {};
     if (!newProject.code?.trim()) newErrs.code = 'Project code is required.';
@@ -110,7 +113,12 @@ export default function CreateProjectModal({
     }
 
     setErrors({});
-    if (onSubmit) onSubmit(e);
+    setSubmitting(true);
+    try {
+      if (onSubmit) await onSubmit(e);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -177,13 +185,12 @@ export default function CreateProjectModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
-                Client <span className="text-red-500 font-bold ml-0.5">*</span>
-              </label>
-              <select 
+              <CustomSelect
+                label="Client"
+                required
+                searchable
                 value={newProject.clientId || ''}
-                onChange={(e) => {
-                  const selectedId = e.target.value;
+                onChange={(selectedId) => {
                   const cObj = clients.find(c => String(c._id || c.id || c.clientId) === String(selectedId));
                   const clientName = cObj ? cObj.name : '';
                   let addressVal = '';
@@ -211,35 +218,32 @@ export default function CreateProjectModal({
                     address: addressVal
                   });
                 }}
-                className={`w-full px-3.5 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-800 bg-white font-medium cursor-pointer ${
-                  errors.clientId ? 'border-rose-400 focus:border-rose-500' : 'border-slate-200 focus:border-brand-primary'
-                }`}
-              >
-                <option value="" disabled hidden>Select Client *</option>
-                {clients.map((c, idx) => {
+                placeholder="Select Client *"
+                error={errors.clientId}
+                options={clients.map((c) => {
                   const cId = c._id || c.id || c.clientId;
-                  return (
-                    <option key={cId || idx} value={cId}>
-                      {c.name || 'Client'} {c.companyName ? `(${c.companyName})` : ''} {c.email ? `• ${c.email}` : ''} {c.status ? `[${c.status}]` : ''}
-                    </option>
-                  );
+                  const title = c.name || 'Client';
+                  const meta = [c.companyName ? `(${c.companyName})` : '', c.email || ''].filter(Boolean).join(' • ');
+                  return {
+                    value: cId,
+                    label: title,
+                    subtext: meta
+                  };
                 })}
-              </select>
-              <FieldError error={errors.clientId} id="prj-client" />
+              />
             </div>
 
             <div>
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Department</label>
-              <select
+              <CustomSelect
+                label="Department"
                 value={newProject.department || ''}
-                onChange={(e) => setNewProject({ ...newProject, department: e.target.value })}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium cursor-pointer"
-              >
-                <option value="">Select Department...</option>
-                {departments.map(dept => (
-                  <option key={dept} value={dept}>{dept}</option>
-                ))}
-              </select>
+                onChange={(val) => setNewProject({ ...newProject, department: val })}
+                placeholder="Select Department..."
+                options={departments.map(dept => ({
+                  value: dept,
+                  label: dept
+                }))}
+              />
             </div>
           </div>
 
@@ -287,27 +291,25 @@ export default function CreateProjectModal({
                   </button>
                 </div>
               ) : (
-                <select 
+                <CustomSelect
                   value={newProject.category || ''}
-                  onChange={(e) => {
-                    const sel = categories.find(c => c.name === e.target.value);
+                  onChange={(val) => {
+                    const sel = categories.find(c => c.name === val);
                     setNewProject({
                       ...newProject, 
-                      category: e.target.value,
+                      category: val,
                       projectCategoryId: sel ? sel._id : null
                     });
                   }}
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium"
-                >
-                  <option value="" disabled hidden>Select Category...</option>
-                  {categories.map(cat => (
-                    <option key={cat._id} value={cat.name}>{cat.name}</option>
-                  ))}
-                  <option value="Commercial">Commercial</option>
-                  <option value="Residential">Residential</option>
-                  <option value="Industrial">Industrial</option>
-                  <option value="Institutional">Institutional</option>
-                </select>
+                  placeholder="Select Category..."
+                  options={[
+                    ...categories.map(cat => ({ value: cat.name, label: cat.name })),
+                    { value: 'Commercial', label: 'Commercial' },
+                    { value: 'Residential', label: 'Residential' },
+                    { value: 'Industrial', label: 'Industrial' },
+                    { value: 'Institutional', label: 'Institutional' }
+                  ]}
+                />
               )}
             </div>
           </div>
@@ -326,13 +328,12 @@ export default function CreateProjectModal({
             </div>
 
             <div>
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
-                Project Manager <span className="text-red-500 font-bold ml-0.5">*</span>
-              </label>
-              <select
+              <CustomSelect
+                label="Project Manager"
+                required
+                searchable
                 value={newProject.projectManagerId || newProject.manager || ''}
-                onChange={(e) => {
-                  const uId = e.target.value;
+                onChange={(uId) => {
                   const uObj = usersList.find(u => String(u._id || u.id) === String(uId));
                   const uName = uObj ? (uObj.name || uObj.email) : uId;
                   setNewProject({
@@ -341,20 +342,18 @@ export default function CreateProjectModal({
                     manager: uName
                   });
                 }}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-slate-800 bg-white font-medium cursor-pointer"
-              >
-                <option value="" disabled hidden>Select Project Manager...</option>
-                {usersList.map((u, idx) => {
+                placeholder="Select Project Manager..."
+                options={usersList.map((u) => {
                   const uId = u._id || u.id;
                   const name = u.name || u.email || 'Staff';
                   const rawRole = typeof u.role === 'object' ? (u.role?.roleName || u.role?.name) : (u.role || u.designation || 'Staff');
-                  return (
-                    <option key={uId || idx} value={uId}>
-                      {name} ({rawRole})
-                    </option>
-                  );
+                  return {
+                    value: uId,
+                    label: name,
+                    subtext: rawRole
+                  };
                 })}
-              </select>
+              />
             </div>
           </div>
 
@@ -387,9 +386,17 @@ export default function CreateProjectModal({
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-gradient-to-r from-[#BDE0FE] to-[#8FC9FF] text-slate-900 rounded-xl text-xs font-black shadow-2xs transition-all border border-[#8FC9FF]/60 cursor-pointer"
+              disabled={submitting}
+              className="px-5 py-2 bg-gradient-to-r from-[#BDE0FE] to-[#8FC9FF] text-slate-900 rounded-xl text-xs font-black shadow-2xs transition-all border border-[#8FC9FF]/60 cursor-pointer disabled:opacity-50 flex items-center gap-2"
             >
-              Register Contract
+              {submitting ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-900" />
+                  <span>Registering Contract...</span>
+                </>
+              ) : (
+                <span>Register Contract</span>
+              )}
             </button>
           </div>
 

@@ -16,6 +16,7 @@ import { getEmployeeScreenshots, downloadAllScreenshots } from '../../../service
 import { deleteUser, changeUserPassword, getUserById } from '../../../service/auth';
 import { getDepartments, getCleanDepartmentName } from '../../../service/departments';
 import CalendarDatePicker from '../../common/CalendarDatePicker';
+import CustomSelect from '../../common/CustomSelect';
 
 export default function EmployeesHR({
   employees,
@@ -514,15 +515,17 @@ export default function EmployeesHR({
             </div>
 
             <div className="flex gap-2 flex-wrap items-center">
-              <select
-                value={selectedDept}
-                onChange={(e) => setSelectedDept(e.target.value)}
-                className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-brand-secondary text-slate-700 bg-white font-semibold cursor-pointer"
-              >
-                {departments.map(dept => (
-                  <option key={dept} value={dept}>{dept === 'All' ? 'All Departments' : dept}</option>
-                ))}
-              </select>
+              <div className="min-w-[170px]">
+                <CustomSelect
+                  value={selectedDept}
+                  onChange={(val) => setSelectedDept(val)}
+                  variant="filter"
+                  options={departments.map(dept => ({
+                    value: dept,
+                    label: dept === 'All' ? 'All Departments' : dept
+                  }))}
+                />
+              </div>
 
               <button
                 onClick={onAddEmployeeClick}
