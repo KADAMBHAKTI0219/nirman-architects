@@ -21,14 +21,9 @@ export const getProjects = async (params = {}) => {
           const cached = localStorage.getItem('nirman_cached_projects');
           if (cached) {
             const parsed = JSON.parse(cached);
-            if (Array.isArray(parsed) && parsed.length > 0) return { success: true, projects: parsed };
+            if (Array.isArray(parsed)) return { success: true, projects: parsed };
           }
-          return {
-            success: true,
-            projects: [
-              { _id: 'proj-1', id: 'proj-1', name: 'Apex Villa Architectural Execution', projectName: 'Apex Villa Architectural Execution', clientName: 'Urban Corp', status: 'In Progress', code: 'PRJ-101', priority: 'High', progressPercentage: 68 }
-            ]
-          };
+          return { success: true, projects: [] };
         }
       } catch (e) {}
     }
@@ -50,40 +45,31 @@ export const getProjects = async (params = {}) => {
             projectsArray.push(response.data[key]);
           }
         });
-        if (projectsArray.length > 0) {
-          fetchedProjects = projectsArray;
-        }
+        fetchedProjects = projectsArray;
       }
-    }
 
-    if (fetchedProjects.length > 0) {
       try {
         localStorage.setItem('nirman_cached_projects', JSON.stringify(fetchedProjects));
       } catch (e) {}
       return { success: true, projects: fetchedProjects };
     }
-  } catch (err) {}
+  } catch (err) {
+    console.error("Error fetching projects from backend:", err);
+  }
 
   // Fallback 1: Try reading cached projects from localStorage
   try {
     const cached = localStorage.getItem('nirman_cached_projects');
     if (cached) {
       const parsed = JSON.parse(cached);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return { success: true, projects: parsed };
       }
     }
   } catch (e) {}
 
-  // Fallback 2: Default projects list for PM, Site Engineers, Architects & Employees
-  const DEFAULT_PROJECTS = [
-    { _id: 'proj-1', id: 'proj-1', name: 'Smart City Commercial Mall', projectName: 'Smart City Commercial Mall', clientName: 'Urban Corp', status: 'In Progress', code: 'PRJ-101', priority: 'High', progressPercentage: 68 },
-    { _id: 'proj-2', id: 'proj-2', name: 'Luxury Villa Heights', projectName: 'Luxury Villa Heights', clientName: 'Skyline Builders', status: 'In Progress', code: 'PRJ-102', priority: 'High', progressPercentage: 45 },
-    { _id: 'proj-3', id: 'proj-3', name: 'Apex Tech Park Phase 2', projectName: 'Apex Tech Park Phase 2', clientName: 'Apex Infrastructures', status: 'In Progress', code: 'PRJ-103', priority: 'Medium', progressPercentage: 82 },
-    { _id: 'proj-4', id: 'proj-4', name: 'Greenfield Eco Apartments', projectName: 'Greenfield Eco Apartments', clientName: 'Eco Homes Pvt Ltd', status: 'Planning', code: 'PRJ-104', priority: 'Medium', progressPercentage: 20 }
-  ];
-
-  return { success: true, projects: DEFAULT_PROJECTS };
+  // If no projects exist in database/cache, return empty list (No static mock data)
+  return { success: true, projects: [] };
 };
 
 

@@ -18,6 +18,21 @@ const STATUS_COLUMNS = [
   { id: 'Completed', label: 'Completed', dotColor: 'bg-emerald-500', badgeStyle: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
 ];
 
+const getTaskProductivityScore = (t) => {
+  if (t.productivityScore !== undefined && t.productivityScore !== null && t.productivityScore !== '' && !isNaN(t.productivityScore)) {
+    return Math.min(100, Math.max(0, Number(t.productivityScore)));
+  }
+  if (Array.isArray(t.checklist) && t.checklist.length > 0) {
+    const completed = t.checklist.filter(c => c.isCompleted || c.checked).length;
+    return Math.round((completed / t.checklist.length) * 100);
+  }
+  if (t.status === 'Completed' || t.status === 'Approved') return 100;
+  if (t.progress !== undefined && t.progress !== null && !isNaN(t.progress)) {
+    return Math.min(100, Math.max(0, Number(t.progress)));
+  }
+  return 0;
+};
+
 export default function TaskList({
   tasks,
   loading = false,
@@ -265,6 +280,7 @@ export default function TaskList({
               const isCritical = t.priority === 'Critical';
               const isHigh = t.priority === 'High';
               const isMedium = t.priority === 'Medium';
+              const prodScore = getTaskProductivityScore(t);
 
               return (
                 <div
@@ -273,7 +289,7 @@ export default function TaskList({
                   className={`bg-white p-4.5 rounded-3xl border transition-all duration-200 cursor-pointer flex flex-col justify-between gap-3.5 shadow-2xs hover:shadow-md hover:border-indigo-400 group ${t.delayFlag ? 'border-rose-300 bg-rose-50/30' : 'border-slate-200/90'
                     }`}
                 >
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     {/* Project Tag & Priority & Status Badge */}
                     <div className="flex justify-between items-center gap-2">
                       <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider truncate max-w-[140px] border border-slate-200/80 group-hover:bg-indigo-50 group-hover:text-indigo-700 group-hover:border-indigo-200 transition-colors">
@@ -298,17 +314,23 @@ export default function TaskList({
                       {t.title || t.taskName}
                     </h4>
 
-                    {/* Task ID */}
-                    <span className="text-[10px] font-mono font-extrabold text-slate-400 block tracking-wider">
-                      {t.id || t._id}
-                    </span>
+                    {/* Task ID & Productivity Score Header */}
+                    <div className="flex items-center justify-between mt-1 mb-0.5">
+                      <span className="text-[10px] font-mono font-extrabold text-slate-400 tracking-wider">
+                        {t.id || t._id}
+                      </span>
+                      <span className="text-[10px] font-black text-indigo-600 font-mono">
+                        Productivity: {prodScore}%
+                      </span>
+                    </div>
 
-                    {/* Mini Progress Bar */}
-                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden my-1">
+                    {/* Productivity Score Progress Line Bar */}
+                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden my-1 shadow-inner" title={`Productivity Score: ${prodScore}%`}>
                       <div
-                        className={`h-full rounded-full transition-all duration-300 ${t.progress === 100 ? 'bg-emerald-500' : 'bg-indigo-600'
-                          }`}
-                        style={{ width: `${t.progress || 0}%` }}
+                        className={`h-full rounded-full transition-all duration-300 ${
+                          prodScore >= 80 ? 'bg-emerald-500' : prodScore >= 50 ? 'bg-indigo-600' : 'bg-amber-500'
+                        }`}
+                        style={{ width: `${prodScore}%` }}
                       ></div>
                     </div>
                   </div>
@@ -362,65 +384,85 @@ export default function TaskList({
                   <th className="px-5 py-3.5">Department</th>
                   <th className="px-5 py-3.5">Priority</th>
                   <th className="px-5 py-3.5">Workflow Stage</th>
+                  <th className="px-5 py-3.5">Productivity Score</th>
                   <th className="px-5 py-3.5">Est. Hours</th>
                   <th className="px-5 py-3.5 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                {filteredTasks.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((t, idx) => (
-                  <tr key={t._id ? `tbl-${t._id}` : `tbl-${t.id}-${idx}`} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-5 py-4 font-mono font-extrabold text-slate-500">{t.id}</td>
-                    <td className="px-5 py-4">
-                      <div>
-                        <span className="font-extrabold text-slate-900 block hover:text-indigo-600 cursor-pointer" onClick={() => onSelectTask(t)}>
-                          {t.title}
-                        </span>
-                        {t.delayFlag && (
-                          <span className="text-[9px] font-bold text-rose-600 block mt-0.5 uppercase tracking-wider">
-                            ⚠️ Overdue Risk Alert
+                {filteredTasks.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((t, idx) => {
+                  const prodScore = getTaskProductivityScore(t);
+                  return (
+                    <tr key={t._id ? `tbl-${t._id}` : `tbl-${t.id}-${idx}`} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="px-5 py-4 font-mono font-extrabold text-slate-500">{t.id}</td>
+                      <td className="px-5 py-4">
+                        <div>
+                          <span className="font-extrabold text-slate-900 block hover:text-indigo-600 cursor-pointer" onClick={() => onSelectTask(t)}>
+                            {t.title}
                           </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-5 py-4 font-bold text-slate-800">{t.project}</td>
-                    <td className="px-5 py-4 font-bold text-slate-700">{t.assignee}</td>
-                    <td className="px-5 py-4 text-slate-500">{t.dept || 'Engineering'}</td>
-                    <td className="px-5 py-4">
-                      <span className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${t.priority === 'Critical' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                        t.priority === 'High' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                          'bg-slate-100 text-slate-700 border-slate-200'
-                        }`}>
-                        {t.priority}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 bg-brand-primary text-slate-900 rounded-full shadow-3xs">
-                        {t.status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 font-mono text-slate-600">{t.estTime || '8'} hrs</td>
-                    <td className="px-5 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => onSelectTask(t)}
-                          className=" p-1.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 text-xs font-extrabold rounded-xl transition-all shadow-3xs cursor-pointer "
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (onDeleteTask) onDeleteTask(t._id || t.id);
-                          }}
-                          className="p-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 rounded-xl transition-all shadow-3xs cursor-pointer"
-                          title="Delete Task"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          {t.delayFlag && (
+                            <span className="text-[9px] font-bold text-rose-600 block mt-0.5 uppercase tracking-wider">
+                              ⚠️ Overdue Risk Alert
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 font-bold text-slate-800">{t.project}</td>
+                      <td className="px-5 py-4 font-bold text-slate-700">{t.assignee}</td>
+                      <td className="px-5 py-4 text-slate-500">{t.dept || 'Engineering'}</td>
+                      <td className="px-5 py-4">
+                        <span className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${t.priority === 'Critical' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                          t.priority === 'High' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                            'bg-slate-100 text-slate-700 border-slate-200'
+                          }`}>
+                          {t.priority}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 bg-brand-primary text-slate-900 rounded-full shadow-3xs">
+                          {t.status}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="w-28 space-y-1">
+                          <div className="flex justify-between text-[10px] font-bold font-mono">
+                            <span className="text-slate-400">Score</span>
+                            <span className="text-indigo-600 font-black">{prodScore}%</span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${
+                                prodScore >= 80 ? 'bg-emerald-500' : prodScore >= 50 ? 'bg-indigo-600' : 'bg-amber-500'
+                              }`}
+                              style={{ width: `${prodScore}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 font-mono text-slate-600">{t.estTime || '8'} hrs</td>
+                      <td className="px-5 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => onSelectTask(t)}
+                            className=" p-1.5 bg-brand-primary hover:bg-brand-secondary text-slate-900 text-xs font-extrabold rounded-xl transition-all shadow-3xs cursor-pointer "
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onDeleteTask) onDeleteTask(t._id || t.id);
+                            }}
+                            className="p-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 rounded-xl transition-all shadow-3xs cursor-pointer"
+                            title="Delete Task"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

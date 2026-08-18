@@ -20,27 +20,7 @@ const getLocalChatMessages = (projectId) => {
       const stored = localStorage.getItem(`chat_msgs_${projectId}`);
       let msgs = stored ? JSON.parse(stored) : null;
 
-      if (shouldBypassNetwork() && (!msgs || msgs.length === 0)) {
-        msgs = [
-          {
-            _id: `msg-init-1-${projectId}`,
-            projectId,
-            messageText: "Hello team! Welcome to the project workspace. Let's use this channel to discuss design and structural blueprints.",
-            authorType: "EMPLOYEE",
-            senderName: "Project Manager",
-            createdAt: new Date(Date.now() - 86400000).toISOString()
-          },
-          {
-            _id: `msg-init-2-${projectId}`,
-            projectId,
-            messageText: "Understood. I am currently working on the revisions for the front elevation drawings.",
-            authorType: "EMPLOYEE",
-            senderName: "Staff Architect",
-            createdAt: new Date(Date.now() - 3600000).toISOString()
-          }
-        ];
-        localStorage.setItem(`chat_msgs_${projectId}`, JSON.stringify(msgs));
-      } else if (!msgs) {
+      if (!msgs) {
         msgs = [];
         localStorage.setItem(`chat_msgs_${projectId}`, JSON.stringify(msgs));
       }

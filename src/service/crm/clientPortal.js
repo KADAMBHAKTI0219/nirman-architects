@@ -15,30 +15,6 @@ const isClientUser = () => {
   }
 };
 
-const getMockClientProject = (projId = 'proj-1') => ({
-  _id: projId,
-  id: projId,
-  projectName: 'Apex Villa Architectural Execution',
-  name: 'Apex Villa Architectural Execution',
-  address: 'Plot 42, Green Valley Estate, Mumbai',
-  status: 'Active',
-  progress: 65,
-  projectCategory: 'Residential Architecture',
-  budget: 15000000,
-  startDate: '2026-01-15',
-  estimatedCompletion: '2026-11-30',
-  milestones: [
-    { _id: 'm-1', name: 'Concept Design & 3D Renderings', isCompleted: true, targetDate: '2026-02-28' },
-    { _id: 'm-2', name: 'GFC Structural Drawings Approval', isCompleted: true, targetDate: '2026-04-15' },
-    { _id: 'm-3', name: 'Foundation & Plinth Execution', isCompleted: false, targetDate: '2026-07-30' },
-    { _id: 'm-4', name: 'Superstructure & Interior Finishing', isCompleted: false, targetDate: '2026-11-30' }
-  ],
-  team: [
-    { name: 'Sarah Connor', role: 'Project Manager' },
-    { name: 'Alice Smith', role: 'Lead Architect' },
-    { name: 'Bob Johnson', role: 'Site Engineer' }
-  ]
-});
 
 export const getClientDashboard = async () => {
   let userObj = null;

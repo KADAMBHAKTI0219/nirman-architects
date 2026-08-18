@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft, Calendar, MapPin, Users, FileText, CheckCircle2,
-  Clock, Send, HelpCircle, Building, Eye, EyeOff, Plus, Trash2, Link as LinkIcon, RefreshCw, UserCheck, Check, X
+  Clock, Send, HelpCircle, Building, Eye, EyeOff, Plus, Trash2, Link as LinkIcon, RefreshCw, UserCheck, Check, X, Pencil
 } from 'lucide-react';
 import Card from '../../common/Card';
 import ClientCommunication from '../../project-manager/client-communication/index';
@@ -41,6 +41,7 @@ import TaskCreateModal from '../tasks/TaskCreateModal';
 import DrawingDetails from '../drawings/DrawingDetails';
 import DrawingCompare from '../drawings/DrawingCompare';
 import DocumentDetails from '../documents/DocumentDetails';
+import EditProjectModal from './EditProjectModal';
 
 export default function ProjectDetails({
   project,
@@ -85,6 +86,7 @@ export default function ProjectDetails({
 
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState(defaultTab);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [teamLeaves, setTeamLeaves] = useState([]);
   const [loadingTeamLeaves, setLoadingTeamLeaves] = useState(false);
@@ -321,16 +323,7 @@ export default function ProjectDetails({
     setLoadingSystemUsers(true);
     try {
       const res = await getUsersList();
-      let users = (res && res.success && Array.isArray(res.users)) ? res.users : [];
-      if (users.length === 0) {
-        users = [
-          { _id: 'usr-se-1', name: 'Bob Johnson', role: 'Site Engineer', department: 'Engineering' },
-          { _id: 'usr-hr-1', name: 'HR Personnel', role: 'HR Manager', department: 'Human Resources' },
-          { _id: 'usr-ar-1', name: 'Alice Smith', role: 'Architect', department: 'Architecture' },
-          { _id: 'usr-pm-1', name: 'Sarah Connor', role: 'Project Manager', department: 'Management' },
-          { _id: 'usr-em-1', name: 'Charlie Brown', role: 'Employee', department: 'Architecture' }
-        ];
-      }
+      let users = (res && res.success && Array.isArray(res.users)) ? res.users : (Array.isArray(res) ? res : []);
       setSystemUsers(users);
       if (users.length > 0) {
         const first = users[0];
@@ -341,21 +334,20 @@ export default function ProjectDetails({
           memberName: firstName,
           projectRole: firstRole
         });
+      } else {
+        setAssignForm({
+          userId: '',
+          memberName: '',
+          projectRole: ''
+        });
       }
     } catch (err) {
       console.warn("Failed to fetch system users for team assignment:", err);
-      const fallbackUsers = [
-        { _id: 'usr-se-1', name: 'Bob Johnson', role: 'Site Engineer', department: 'Engineering' },
-        { _id: 'usr-hr-1', name: 'HR Personnel', role: 'HR Manager', department: 'Human Resources' },
-        { _id: 'usr-ar-1', name: 'Alice Smith', role: 'Architect', department: 'Architecture' },
-        { _id: 'usr-pm-1', name: 'Sarah Connor', role: 'Project Manager', department: 'Management' },
-        { _id: 'usr-em-1', name: 'Charlie Brown', role: 'Employee', department: 'Architecture' }
-      ];
-      setSystemUsers(fallbackUsers);
+      setSystemUsers([]);
       setAssignForm({
-        userId: 'usr-se-1',
-        memberName: 'Bob Johnson',
-        projectRole: 'Site Engineer'
+        userId: '',
+        memberName: '',
+        projectRole: ''
       });
     } finally {
       setLoadingSystemUsers(false);
@@ -431,6 +423,16 @@ export default function ProjectDetails({
     }
   };
 
+  const calculateProgressFromMilestones = (milestones, defaultProgress = 0) => {
+    if (!Array.isArray(milestones) || milestones.length === 0) return defaultProgress;
+    const total = milestones.reduce((sum, m) => {
+      const isDone = m.isCompleted || m.status === 'COMPLETED' || m.progressPercentage === 100;
+      const val = isDone ? 100 : (m.progressPercentage !== undefined && m.progressPercentage !== null ? Number(m.progressPercentage) : 0);
+      return sum + val;
+    }, 0);
+    return Math.round(total / milestones.length);
+  };
+
   const handleAddMilestoneSubmit = async (e) => {
     e.preventDefault();
     if (!milestoneForm.name || !milestoneForm.targetDate) return;
@@ -443,16 +445,20 @@ export default function ProjectDetails({
     };
 
     try {
+      let updated;
       const res = await addMilestone(projectId, payload);
       if (res?.success && Array.isArray(res.milestones)) {
-        setMilestonesList(res.milestones);
-        onUpdateProject({ ...project, milestones: res.milestones, progressPercentage: res.progressPercentage || project.progressPercentage });
+        updated = res.milestones;
       } else {
         const newMs = { _id: `m-${Date.now()}`, ...payload, isCompleted: false, status: 'IN_PROGRESS' };
-        const updated = [...milestonesList, newMs];
-        setMilestonesList(updated);
-        onUpdateProject({ ...project, milestones: updated });
+        updated = [...milestonesList, newMs];
       }
+
+      const calcProgress = calculateProgressFromMilestones(updated, project.progressPercentage);
+      setMilestonesList(updated);
+      onUpdateProject({ ...project, milestones: updated, progressPercentage: calcProgress, progressPercent: calcProgress });
+      updateProjectProgress(projectId, { progressPercentage: calcProgress }).catch(() => {});
+
       setMilestoneForm({ name: '', targetDate: '', progressPercentage: 50, description: '' });
       setShowAddMilestone(false);
       showToast(`Milestone "${milestoneForm.name.trim()}" created successfully!`, 'success', 'Project Milestone Added', true);
@@ -460,8 +466,11 @@ export default function ProjectDetails({
       console.warn("Notice adding milestone via backend:", err);
       const newMs = { _id: `m-${Date.now()}`, ...payload, isCompleted: false, status: 'IN_PROGRESS' };
       const updated = [...milestonesList, newMs];
+      const calcProgress = calculateProgressFromMilestones(updated, project.progressPercentage);
       setMilestonesList(updated);
-      onUpdateProject({ ...project, milestones: updated });
+      onUpdateProject({ ...project, milestones: updated, progressPercentage: calcProgress, progressPercent: calcProgress });
+      updateProjectProgress(projectId, { progressPercentage: calcProgress }).catch(() => {});
+
       setMilestoneForm({ name: '', targetDate: '', progressPercentage: 50, description: '' });
       setShowAddMilestone(false);
       showToast(`Milestone "${milestoneForm.name.trim()}" added to project timeline!`, 'success', 'Milestone Added', true);
@@ -499,8 +508,10 @@ export default function ProjectDetails({
         });
       }
 
+      const calcProgress = calculateProgressFromMilestones(updatedMs, project.progressPercentage);
       setMilestonesList(updatedMs);
-      onUpdateProject({ ...project, milestones: updatedMs });
+      onUpdateProject({ ...project, milestones: updatedMs, progressPercentage: calcProgress, progressPercent: calcProgress });
+      updateProjectProgress(projectId, { progressPercentage: calcProgress }).catch(() => {});
       showToast(`Milestone "${m.name}" marked as ${nextCompleted ? 'COMPLETED' : 'IN PROGRESS'}!`, 'success', 'Milestone Updated', true);
     } catch (err) {
       console.warn("Notice toggling milestone status:", err);
@@ -516,8 +527,10 @@ export default function ProjectDetails({
         }
         return item;
       });
+      const calcProgress = calculateProgressFromMilestones(updatedMs, project.progressPercentage);
       setMilestonesList(updatedMs);
-      onUpdateProject({ ...project, milestones: updatedMs });
+      onUpdateProject({ ...project, milestones: updatedMs, progressPercentage: calcProgress, progressPercent: calcProgress });
+      updateProjectProgress(projectId, { progressPercentage: calcProgress }).catch(() => {});
       showToast(`Milestone "${m.name}" status updated!`, 'info', 'Milestone Updated', false);
     }
   };
@@ -536,8 +549,10 @@ export default function ProjectDetails({
       if (mId) return item._id !== mId && item.id !== mId;
       return item.name !== m.name || item.targetDate !== m.targetDate;
     });
+    const calcProgress = calculateProgressFromMilestones(updatedMs, project.progressPercentage);
     setMilestonesList(updatedMs);
-    onUpdateProject({ ...project, milestones: updatedMs });
+    onUpdateProject({ ...project, milestones: updatedMs, progressPercentage: calcProgress, progressPercent: calcProgress });
+    updateProjectProgress(projectId, { progressPercentage: calcProgress }).catch(() => {});
     showToast(`Milestone "${m.name}" removed from project.`, 'warning', 'Milestone Deleted', false);
   };
 
@@ -791,6 +806,15 @@ export default function ProjectDetails({
               <span className={`w-2 h-2 rounded-full ${project.delayFlag ? 'bg-rose-500 animate-ping' : 'bg-emerald-500'}`}></span>
               {project.delayFlag ? 'At Risk / Delayed' : 'Active / On Schedule'}
             </span>
+
+            <button
+              onClick={() => setIsEditModalOpen(true)}
+              className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-bold text-[11px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-3xs cursor-pointer"
+              title="Edit Project Details by ID"
+            >
+              <Pencil className="w-3.5 h-3.5 text-white" />
+              <span>Edit Project</span>
+            </button>
 
             <button
               onClick={() => {
@@ -1198,6 +1222,44 @@ export default function ProjectDetails({
                 >
                   <Plus className="w-4 h-4 text-slate-900" /> Add Milestone
                 </button>
+              </div>
+
+              {/* Project Schedule & Contract Duration Summary */}
+              <div className="bg-indigo-50/70 border border-indigo-200/80 p-4.5 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-indigo-600 text-white rounded-2xl shadow-2xs">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-extrabold text-indigo-700 uppercase tracking-wider block">Contract Duration & Schedule</span>
+                    <h4 className="text-sm font-black text-slate-900 mt-0.5">
+                      {(() => {
+                        const s = project.startDate ? new Date(project.startDate) : null;
+                        const e = (project.estimatedCompletion || project.estCompletion) ? new Date(project.estimatedCompletion || project.estCompletion) : null;
+                        if (!s || !e || isNaN(s.getTime()) || isNaN(e.getTime())) return 'Schedule Dates Pending';
+                        const diff = Math.ceil((e - s) / (1000 * 60 * 60 * 24));
+                        if (diff < 0) return 'Invalid Date Range';
+                        if (diff === 0) return '1 Day (Same Day)';
+                        if (diff < 30) return `${diff} Days Contract Period`;
+                        const m = Math.floor(diff / 30);
+                        const r = diff % 30;
+                        return r === 0 ? `${m} ${m === 1 ? 'Month' : 'Months'} (${diff} Days)` : `${m} ${m === 1 ? 'Month' : 'Months'}, ${r} Days (${diff} Days)`;
+                      })()}
+                    </h4>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 text-xs font-semibold text-slate-700 bg-white/90 px-4 py-2 rounded-xl border border-indigo-100/90 shadow-3xs">
+                  <div>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase block">Start Date</span>
+                    <span className="font-mono font-bold text-slate-900">{project.startDate ? formatDate(project.startDate) : 'Not Set'}</span>
+                  </div>
+                  <span className="text-slate-300">→</span>
+                  <div>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase block">Est. Completion</span>
+                    <span className="font-mono font-bold text-slate-900">{(project.estimatedCompletion || project.estCompletion) ? formatDate(project.estimatedCompletion || project.estCompletion) : 'Not Set'}</span>
+                  </div>
+                </div>
               </div>
 
               {milestonesList.length > 0 ? (
@@ -2011,8 +2073,14 @@ export default function ProjectDetails({
                   value={milestoneForm.targetDate}
                   onChange={(val) => setMilestoneForm({ ...milestoneForm, targetDate: val })}
                   placeholder="dd-mm-yyyy"
-                  disablePast={true}
+                  minDate={project.startDate ? new Date(project.startDate).toISOString().split('T')[0] : ''}
+                  maxDate={(project.estimatedCompletion || project.estCompletion) ? new Date(project.estimatedCompletion || project.estCompletion).toISOString().split('T')[0] : ''}
                 />
+                {(project.startDate || project.estimatedCompletion || project.estCompletion) && (
+                  <p className="text-[10px] font-semibold text-indigo-600 mt-1">
+                    Target date allowed between: {project.startDate ? formatDate(project.startDate) : 'Start'} to {(project.estimatedCompletion || project.estCompletion) ? formatDate(project.estimatedCompletion || project.estCompletion) : 'Completion'}
+                  </p>
+                )}
               </div>
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
                 <button type="button" onClick={() => setShowAddMilestone(false)} className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl">
@@ -2173,6 +2241,14 @@ export default function ProjectDetails({
         isOpen={isTaskCreateModalOpen}
         onClose={() => setIsTaskCreateModalOpen(false)}
         onSubmit={handleCreateTaskSubmit}
+      />
+
+      {/* EDIT PROJECT MODAL BY PROJECT ID */}
+      <EditProjectModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        project={project}
+        onUpdateProject={onUpdateProject}
       />
 
     </div>

@@ -357,6 +357,40 @@ export default function CreateProjectModal({
             </div>
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <CustomSelect
+                label="Status"
+                value={newProject.status || 'Planning'}
+                onChange={(val) => setNewProject({ ...newProject, status: val })}
+                placeholder="Select Status..."
+                options={[
+                  { value: 'New', label: 'New' },
+                  { value: 'Planning', label: 'Planning' },
+                  { value: 'In Progress', label: 'In Progress' },
+                  { value: 'On Hold', label: 'On Hold' },
+                  { value: 'Approval Pending', label: 'Approval Pending' },
+                  { value: 'Site Work', label: 'Site Work' },
+                  { value: 'Completed', label: 'Completed' },
+                  { value: 'Archived', label: 'Archived' }
+                ]}
+              />
+            </div>
+
+            <div>
+              <CustomSelect
+                label="Priority"
+                value={newProject.priority || 'Medium'}
+                onChange={(val) => setNewProject({ ...newProject, priority: val })}
+                placeholder="Select Priority..."
+                options={[
+                  { value: 'Low', label: 'Low' },
+                  { value: 'Medium', label: 'Medium' },
+                  { value: 'High', label: 'High' }
+                ]}
+              />
+            </div>
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <CalendarDatePicker
@@ -374,6 +408,30 @@ export default function CreateProjectModal({
               disablePast={true}
             />
           </div>
+
+          {/* Project Time Period Duration Banner */}
+          {newProject.startDate && (newProject.estCompletion || newProject.estimatedCompletion) && (
+            <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-2xl flex items-center justify-between text-xs animate-in fade-in shadow-2xs">
+              <div className="flex items-center gap-2 text-indigo-900 font-extrabold">
+                <Clock className="w-4 h-4 text-indigo-600 shrink-0" />
+                <span>Estimated Contract Time Period:</span>
+              </div>
+              <span className="px-3 py-1 bg-white border border-indigo-200 rounded-xl text-indigo-700 font-black font-mono shadow-3xs">
+                {(() => {
+                  const s = new Date(newProject.startDate);
+                  const e = new Date(newProject.estCompletion || newProject.estimatedCompletion);
+                  if (isNaN(s.getTime()) || isNaN(e.getTime())) return '';
+                  const diff = Math.ceil((e - s) / (1000 * 60 * 60 * 24));
+                  if (diff < 0) return 'Invalid Range';
+                  if (diff === 0) return '1 Day (Same Day)';
+                  if (diff < 30) return `${diff} Days`;
+                  const m = Math.floor(diff / 30);
+                  const r = diff % 30;
+                  return r === 0 ? `${m} ${m === 1 ? 'Month' : 'Months'} (${diff} Days)` : `${m} ${m === 1 ? 'Month' : 'Months'}, ${r} Days (${diff} Days)`;
+                })()}
+              </span>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50/20">

@@ -253,8 +253,8 @@ export default function TaskDetails({
 
   // Toggle checklist checkbox
   const handleToggleCheck = async (itemId) => {
-    if (!isAssignedEmployee) {
-      setActionError("Checklist completion is restricted to the assigned employee.");
+    if (!isAssignedEmployee && !canManageTasks) {
+      setActionError("Checklist completion is restricted to the assigned employee or manager.");
       return;
     }
     try {
@@ -267,8 +267,8 @@ export default function TaskDetails({
   // Add checklist item
   const handleAddCheckItem = async (e) => {
     e.preventDefault();
-    if (!isAssignedEmployee) {
-      setActionError("Adding checklist items is restricted to the assigned employee.");
+    if (!isAssignedEmployee && !canManageTasks) {
+      setActionError("Adding checklist items is restricted to the assigned employee or manager.");
       return;
     }
     if (!newCheckItem.trim()) return;
@@ -543,7 +543,7 @@ export default function TaskDetails({
                 <span className="text-xs font-bold text-indigo-600">{checklistData.filter(c => c.isCompleted || c.checked).length} of {checklistData.length} completed</span>
               </div>
 
-              {!isAssignedEmployee && (
+              {!isAssignedEmployee && !canManageTasks && (
                 <div className="px-3.5 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs font-semibold text-amber-800 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Lock className="w-4 h-4 text-amber-600 shrink-0" />
@@ -553,39 +553,45 @@ export default function TaskDetails({
                 </div>
               )}
 
-              <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                {checklistData.map((item, idx) => (
-                  <label key={item._id || item.id || idx} className={`flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200/60 text-xs text-slate-700 font-semibold transition-all ${
-                    isAssignedEmployee ? 'cursor-pointer hover:bg-slate-100/60' : 'cursor-not-allowed opacity-80'
-                  }`}>
-                    <input 
-                      type="checkbox"
-                      disabled={!isAssignedEmployee}
-                      checked={item.checked || item.isCompleted || false}
-                      onChange={() => handleToggleCheck(item._id || item.id || idx)}
-                      className={`w-4 h-4 text-emerald-600 rounded border-slate-300 ${isAssignedEmployee ? 'cursor-pointer' : 'cursor-not-allowed'}`}
-                    />
-                    <span className={(item.checked || item.isCompleted) ? 'line-through text-slate-400' : 'text-slate-800'}>
-                      {item.text}
-                    </span>
-                  </label>
-                ))}
-              </div>
+              {checklistData.length === 0 ? (
+                <div className="py-6 text-center text-slate-400 text-xs italic font-medium bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                  No quality checklist items registered yet for this task.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                  {checklistData.map((item, idx) => (
+                    <label key={item._id || item.id || idx} className={`flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200/60 text-xs text-slate-700 font-semibold transition-all ${
+                      (isAssignedEmployee || canManageTasks) ? 'cursor-pointer hover:bg-slate-100/60' : 'cursor-not-allowed opacity-80'
+                    }`}>
+                      <input 
+                        type="checkbox"
+                        disabled={!isAssignedEmployee && !canManageTasks}
+                        checked={item.checked || item.isCompleted || false}
+                        onChange={() => handleToggleCheck(item._id || item.id || idx)}
+                        className={`w-4 h-4 text-emerald-600 rounded border-slate-300 ${(isAssignedEmployee || canManageTasks) ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                      />
+                      <span className={(item.checked || item.isCompleted) ? 'line-through text-slate-400' : 'text-slate-800'}>
+                        {item.text}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
 
-              {isAssignedEmployee && (
+              {(isAssignedEmployee || canManageTasks) && (
                 <form onSubmit={handleAddCheckItem} className="flex gap-2 pt-2 border-t border-slate-100">
                   <input 
                     type="text" 
                     placeholder="Add new checklist item..."
                     value={newCheckItem}
                     onChange={(e) => setNewCheckItem(e.target.value)}
-                    className="flex-1 px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 text-xs font-semibold bg-white text-slate-900"
+                    className="flex-1 px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/30 text-xs font-semibold bg-white text-slate-900"
                   />
                   <button 
                     type="submit"
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1 cursor-pointer transition-all"
+                    className="px-4 py-2 bg-gradient-to-r from-[#BDE0FE] to-[#8FC9FF] text-slate-900 border border-[#8FC9FF]/70 rounded-xl text-xs font-black shadow-2xs flex items-center gap-1.5 cursor-pointer transition-all hover:brightness-95"
                   >
-                    <Plus className="w-4 h-4" /> Add Item
+                    <Plus className="w-4 h-4 stroke-[2.5]" /> Add Item
                   </button>
                 </form>
               )}

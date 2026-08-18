@@ -99,8 +99,8 @@ export const getDepartments = async () => {
     }
   }
 
-  console.warn("getDepartments API error:", lastErr?.message);
-  return { success: true, departments: DEFAULT_ARCHITECTURAL_DEPARTMENTS };
+  console.warn("getDepartments API notice:", lastErr?.message);
+  return { success: true, departments: [] };
 };
 
 /**

@@ -68,6 +68,21 @@ export default function CalendarDatePicker({
     };
   }, [isOpen]);
 
+  const popoverRef = useRef(null);
+
+  // Auto scroll popover into view smoothly when opened downwards
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => {
+        if (popoverRef.current) {
+          popoverRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        } else if (containerRef.current) {
+          containerRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+      }, 60);
+    }
+  }, [isOpen]);
+
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
@@ -100,6 +115,11 @@ export default function CalendarDatePicker({
       onChange(selectedDateStr);
     }
     setIsOpen(false);
+    if (containerRef.current) {
+      setTimeout(() => {
+        containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 50);
+    }
   };
 
   const handleSelectToday = () => {
@@ -115,6 +135,11 @@ export default function CalendarDatePicker({
       onChange(selectedDateStr);
     }
     setIsOpen(false);
+    if (containerRef.current) {
+      setTimeout(() => {
+        containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 50);
+    }
   };
 
   const handleClear = () => {
@@ -224,7 +249,6 @@ export default function CalendarDatePicker({
         <div className="flex items-center gap-2 overflow-hidden my-auto">
           <CalendarIcon className="w-4 h-4 text-brand-primary shrink-0" />
           <span className="truncate text-xs leading-none">
-            <span className="text-slate-500 font-semibold">Date: </span>
             <span className={displayFormatted ? 'text-slate-900 font-bold' : 'text-slate-400 font-normal'}>
               {displayFormatted || placeholder}
             </span>
@@ -245,13 +269,13 @@ export default function CalendarDatePicker({
               <X className="w-3.5 h-3.5" />
             </button>
           )}
-          <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+          <CalendarIcon className="w-4 h-4 text-slate-400 shrink-0" />
         </div>
       </div>
 
       {/* Calendar Popover */}
       {isOpen && (
-        <div className={`absolute left-0 ${positionUp ? 'bottom-full mb-2' : 'top-full mt-2'} z-[9999] w-72 max-w-[calc(100vw-2.5rem)] bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 animate-in fade-in zoom-in-95 duration-150`}>
+        <div ref={popoverRef} className={`absolute left-0 ${positionUp ? 'bottom-full mb-2' : 'top-full mt-2'} z-[9999] w-72 max-w-[calc(100vw-2.5rem)] bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 animate-in fade-in zoom-in-95 duration-150`}>
           {/* Header Month / Year Selector */}
           <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
             <div className="flex items-center gap-1">

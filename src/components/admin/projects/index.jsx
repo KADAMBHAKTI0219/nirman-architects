@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import ProjectList from './ProjectList';
 import ProjectDetails from './ProjectDetails';
 import CreateProjectModal from './CreateProjectModal';
+import EditProjectModal from './EditProjectModal';
 import { getProjects, createProject, deleteProject } from '../../../service/project';
 import { useToast } from '../../../context/ToastContext';
 
@@ -11,6 +12,7 @@ export default function Projects({ defaultTab = 'directory' }) {
   const location = useLocation();
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
+  const [editingProject, setEditingProject] = useState(null);
   const [loading, setLoading] = useState(false);
 
   // Filtering list states
@@ -73,9 +75,7 @@ export default function Projects({ defaultTab = 'directory' }) {
                   (member.name && userObj.name && member.name.toLowerCase() === userObj.name.toLowerCase())
                 ) || String(p.projectManagerId) === String(loggedInUid) || String(p.manager) === String(loggedInUid);
               });
-              if (userProjects.length > 0) {
-                list = userProjects;
-              }
+              list = userProjects;
             }
           } catch (e) {
             console.error("Failed to parse user in ProjectsMaster:", e);
@@ -201,6 +201,7 @@ export default function Projects({ defaultTab = 'directory' }) {
           setPriorityFilter={setPriorityFilter}
           onSelectProject={(p) => setSelectedProject(p)}
           onCreateClick={() => setIsCreateModalOpen(true)}
+          onEditProject={(p) => setEditingProject(p)}
           onDeleteProject={handleDeleteProject}
         />
       ) : (
@@ -219,6 +220,13 @@ export default function Projects({ defaultTab = 'directory' }) {
         onSubmit={handleCreateProjectSubmit}
         newProject={newProject}
         setNewProject={setNewProject}
+      />
+
+      <EditProjectModal
+        isOpen={Boolean(editingProject)}
+        onClose={() => setEditingProject(null)}
+        project={editingProject}
+        onUpdateProject={handleUpdateProject}
       />
 
     </div>

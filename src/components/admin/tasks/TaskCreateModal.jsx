@@ -607,9 +607,10 @@ export default function TaskCreateModal({
                 <button 
                   type="button" 
                   onClick={handleAddChecklistItem}
-                  className="px-3 bg-indigo-650 hover:bg-indigo-750 text-white rounded-lg text-[10px] font-bold shadow-xs cursor-pointer flex items-center gap-1"
+                  className="px-3.5 py-1.5 bg-gradient-to-r from-[#BDE0FE] to-[#8FC9FF] text-slate-900 border border-[#8FC9FF]/70 rounded-lg text-xs font-black shadow-2xs cursor-pointer flex items-center gap-1.5 shrink-0 transition-all hover:brightness-95"
                 >
-                  <Plus className="w-3.5 h-3.5" /> Add
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>Add Checklist Item</span>
                 </button>
               </div>
             </div>

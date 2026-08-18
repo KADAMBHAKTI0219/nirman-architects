@@ -33,6 +33,7 @@ export default function CustomSelect({
   
   const containerRef = useRef(null);
   const listRef = useRef(null);
+  const dropdownRef = useRef(null);
   const searchInputRef = useRef(null);
   const selectId = useId();
 
@@ -89,7 +90,7 @@ export default function CustomSelect({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Reset search and active index when menu opens/closes
+  // Reset search, active index, and auto-scroll into view when menu opens
   useEffect(() => {
     if (isOpen) {
       setSearchQuery('');
@@ -101,6 +102,15 @@ export default function CustomSelect({
       if (isSearchEnabled) {
         setTimeout(() => searchInputRef.current?.focus(), 50);
       }
+
+      // Smooth scroll dropdown into view at modal bottom
+      setTimeout(() => {
+        if (dropdownRef.current) {
+          dropdownRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        } else if (containerRef.current) {
+          containerRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+      }, 60);
     } else {
       setActiveIndex(-1);
     }
@@ -167,6 +177,12 @@ export default function CustomSelect({
       onChange(opt.value, opt.raw || opt);
     }
     setIsOpen(false);
+
+    if (containerRef.current) {
+      setTimeout(() => {
+        containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 50);
+    }
   };
 
   // Variant Styles
@@ -251,6 +267,7 @@ export default function CustomSelect({
       {/* Dropdown Options Container (Matching Image 2 rounded layout & brand #8FC9FF / #BDE0FE selection) */}
       {isOpen && (
         <div
+          ref={dropdownRef}
           className={`absolute left-0 right-0 z-50 bg-white border border-[#8FC9FF]/60 shadow-2xl overflow-hidden transition-all duration-150 animate-in fade-in-50 zoom-in-95 ${
             variant === 'brand' ? 'top-full rounded-b-2xl border-t-0 -mt-0.5' : 'top-full mt-1.5 rounded-2xl'
           } ${dropdownClassName}`}
